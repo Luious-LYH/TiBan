@@ -44,11 +44,7 @@ class DashboardService:
             },
             "favorite_count": len(favorite_set),
             "wrong_count": len(wrong_set),
-            "recent_tutor_summary": [
-                "Agent 提醒：先描述可观察事实，再判断题干前提是否成立。",
-                "报告训练建议：避免把单帧图像所见写成最终诊断。",
-                "下一题推荐：公开复杂问答样例，训练多事实组合表达。",
-            ],
+            "recent_tutor_summary": self._recent_tutor_summary(profile, admission_state),
             "growth_trend": profile.growth_trend,
             "active_model": active_model.model_dump(),
             "model_admission_state": admission_state,
@@ -61,6 +57,29 @@ class DashboardService:
                 "Kvasir/EndoBench: 公开内镜样例用于教学原型素材",
             ],
         }
+
+    def _recent_tutor_summary(self, profile, admission_state: dict[str, object]) -> list[str]:
+        summaries: list[str] = []
+        for record in profile.training_records[:4]:
+            result = str(record.get("result", ""))
+            question_id = str(record.get("question_id", ""))
+            score = record.get("score", 0)
+            if result == "Agent辅导":
+                summaries.append(f"Agent 追问已回灌：{question_id}，本次只记录训练标签和模式。")
+            elif result == "报告修改训练":
+                summaries.append(f"报告修改训练完成：{question_id}，得分 {score}，已更新报告表达画像。")
+            elif result == "待复盘":
+                summaries.append(f"错题待复盘：{question_id}，建议先核对证据边界再看标准解释。")
+            elif result:
+                summaries.append(f"训练记录：{question_id} · {result} · {score} 分。")
+        summaries.append(
+            "模型准入状态："
+            f"{admission_state.get('provider_name', '未命名 Provider')} · "
+            f"Grade {admission_state.get('grade', 'NA')} · "
+            f"{'provider called' if admission_state.get('provider_called') else 'rule draft'}。"
+        )
+        summaries.append("下一步推荐：公开复杂问答样例，训练多事实组合表达。")
+        return summaries[:5]
 
 
 dashboard_service = DashboardService()
