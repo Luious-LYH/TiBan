@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ActivitySquare, ClipboardCheck, FileImage, FileText, Gauge, ListChecks, ShieldAlert, ShieldCheck, WandSparkles } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import type { KnowledgeBase, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
 
 export function ReportDraft() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [findingText, setFindingText] = useState('请结合图像与公开样例标注，生成医生审核前结构化报告训练草稿。')
   const [examType, setExamType] = useState('gastroscopy')
   const [templateName, setTemplateName] = useState('胃镜结构化训练模板')
@@ -21,6 +23,11 @@ export function ReportDraft() {
   const [revisedReport, setRevisedReport] = useState('胃窦局部黏膜异常表现，建议医生结合完整检查、病史及必要病理结果复核。')
   const [judge, setJudge] = useState<ReportJudge | null>(null)
   const [loading, setLoading] = useState(false)
+  const activeTab = searchParams.get('tab') === 'judge' ? 'judge' : 'draft'
+
+  const switchTab = (tab: 'draft' | 'judge') => {
+    setSearchParams(tab === 'judge' ? { tab: 'judge' } : {})
+  }
 
   function applySample(sample: Question) {
     setSelectedSampleId(sample.id)
@@ -88,89 +95,100 @@ export function ReportDraft() {
       <Card className="focus-band report-focus">
         <div>
           <span className="eyebrow">Report training center</span>
-          <h2>诊断报告中心</h2>
-          <p>面向内镜医师训练结构化所见、诊断边界和审核前表达。当前流程参考“视觉观察、报告草稿、字段约束、幻觉审查、医师复核”的可信报告流水线。</p>
+          <h2>{activeTab === 'judge' ? '报告修改训练' : '诊断报告中心'}</h2>
+          <p>{activeTab === 'judge' ? '聚焦训练医师改写越界诊断、补充不确定性表达，并把评分结果回灌到个人画像。' : '面向内镜医师训练结构化所见、诊断边界和审核前表达。当前流程参考“视觉观察、报告草稿、字段约束、幻觉审查、医师复核”的可信报告流水线。'}</p>
         </div>
         <FileText size={42} />
       </Card>
 
-      <div className="grid two report-layout">
-        <Card>
-          <SectionTitle eyebrow="Image + findings" title="图像与所见输入" />
-          {realSamples.length ? (
-            <div className="real-sample-picker">
-              {realSamples.slice(0, 6).map((sample) => (
-                <button
-                  className={selectedSampleId === sample.id ? 'active' : ''}
-                  key={sample.id}
-                  type="button"
-                  onClick={() => applySample(sample)}
-                  title={`${sample.source_dataset} · ${sample.body_part}`}
-                >
-                  <img src={sample.image_url || '/assets/synthetic-endoscopy-training.svg'} alt={sample.title} />
-                  <span>{sample.source_dataset}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-          <label className="upload-zone">
-            <input type="file" accept="image/*" onChange={onImage} />
-            {imagePreview ? <img src={imagePreview} alt="上传的内镜图片预览" /> : <FileImage size={34} />}
-            <span>{selectedSampleId ? '已载入本地真实公开图文样例，可切换或上传自定义图片' : imageName || '上传内镜图片到后端受控目录'}</span>
-          </label>
-          {uploadStatus ? <div className="source-note">{uploadStatus}</div> : null}
-          {selectedSample ? (
-            <div className="sample-annotation-card">
-              <div>
-                <span>公开样例标注</span>
-                <strong>{selectedSample.source_dataset} · {selectedSample.body_part}</strong>
-              </div>
-              <p>{selectedSample.question}</p>
-              <em>参考标注：{selectedSample.answer}</em>
-            </div>
-          ) : null}
-          <div className="form-row">
-            <label>
-              <span>检查类型</span>
-              <select value={examType} onChange={(event) => setExamType(event.target.value)}>
-                <option value="gastroscopy">胃镜</option>
-                <option value="colonoscopy">肠镜</option>
-              </select>
-            </label>
-            <label>
-              <span>报告模板</span>
-              <select value={templateName} onChange={(event) => setTemplateName(event.target.value)}>
-                {knowledge?.templates?.filter((item) => item.name).map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
-                {!knowledge ? <option value="胃镜结构化训练模板">胃镜结构化训练模板</option> : null}
-              </select>
-            </label>
-          </div>
-          <textarea value={findingText} onChange={(event) => setFindingText(event.target.value)} rows={7} />
-          <button className="button primary" type="button" onClick={generate} disabled={loading}>
-            <WandSparkles size={17} /> 生成结构化报告
-          </button>
-        </Card>
+      <Card className="report-mode-tabs">
+        <button className={activeTab === 'draft' ? 'active' : ''} type="button" onClick={() => switchTab('draft')}>
+          <FileText size={17} /> 报告生成
+        </button>
+        <button className={activeTab === 'judge' ? 'active' : ''} type="button" onClick={() => switchTab('judge')}>
+          <Gauge size={17} /> 修改训练
+        </button>
+      </Card>
 
-        <Card>
-          <SectionTitle eyebrow="Template KB" title="报告模板知识库" action={<Tag tone="blue">公开样例 + demo 模板</Tag>} />
-          <div className="knowledge-list">
-            {knowledge?.templates?.map((template) => (
-              <div key={template.name}>
-                <strong>{template.name}</strong>
-                <p>{template.sections?.join(' / ') || template.criteria?.join(' / ') || template.tone || '医生审核前训练模板'}</p>
-              </div>
-            ))}
-          </div>
-          <div className="notice-card">
-            <ClipboardCheck size={20} />
-            <p>报告中心只输出医生审核前训练模板，不独立生成最终诊断，不给治疗承诺；单帧图像不得生成完整检查范围或未观察区域阴性结论。</p>
-          </div>
-        </Card>
-      </div>
-
-      {draft ? (
+      {activeTab === 'draft' ? (
         <div className="page-stack">
-          <Card>
+          <div className="grid two report-layout">
+            <Card>
+              <SectionTitle eyebrow="Image + findings" title="图像与所见输入" />
+              {realSamples.length ? (
+                <div className="real-sample-picker">
+                  {realSamples.slice(0, 6).map((sample) => (
+                    <button
+                      className={selectedSampleId === sample.id ? 'active' : ''}
+                      key={sample.id}
+                      type="button"
+                      onClick={() => applySample(sample)}
+                      title={`${sample.source_dataset} · ${sample.body_part}`}
+                    >
+                      <img src={sample.image_url || '/assets/synthetic-endoscopy-training.svg'} alt={sample.title} />
+                      <span>{sample.source_dataset}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <label className="upload-zone">
+                <input type="file" accept="image/*" onChange={onImage} />
+                {imagePreview ? <img src={imagePreview} alt="上传的内镜图片预览" /> : <FileImage size={34} />}
+                <span>{selectedSampleId ? '已载入本地真实公开图文样例，可切换或上传自定义图片' : imageName || '上传内镜图片到后端受控目录'}</span>
+              </label>
+              {uploadStatus ? <div className="source-note">{uploadStatus}</div> : null}
+              {selectedSample ? (
+                <div className="sample-annotation-card">
+                  <div>
+                    <span>公开样例标注</span>
+                    <strong>{selectedSample.source_dataset} · {selectedSample.body_part}</strong>
+                  </div>
+                  <p>{selectedSample.question}</p>
+                  <em>参考标注：{selectedSample.answer}</em>
+                </div>
+              ) : null}
+              <div className="form-row">
+                <label>
+                  <span>检查类型</span>
+                  <select value={examType} onChange={(event) => setExamType(event.target.value)}>
+                    <option value="gastroscopy">胃镜</option>
+                    <option value="colonoscopy">肠镜</option>
+                  </select>
+                </label>
+                <label>
+                  <span>报告模板</span>
+                  <select value={templateName} onChange={(event) => setTemplateName(event.target.value)}>
+                    {knowledge?.templates?.filter((item) => item.name).map((item) => <option key={item.name} value={item.name}>{item.name}</option>)}
+                    {!knowledge ? <option value="胃镜结构化训练模板">胃镜结构化训练模板</option> : null}
+                  </select>
+                </label>
+              </div>
+              <textarea value={findingText} onChange={(event) => setFindingText(event.target.value)} rows={7} />
+              <button className="button primary" type="button" onClick={generate} disabled={loading}>
+                <WandSparkles size={17} /> 生成结构化报告
+              </button>
+            </Card>
+
+            <Card>
+              <SectionTitle eyebrow="Template KB" title="报告模板知识库" action={<Tag tone="blue">公开样例 + demo 模板</Tag>} />
+              <div className="knowledge-list">
+                {knowledge?.templates?.map((template) => (
+                  <div key={template.name}>
+                    <strong>{template.name}</strong>
+                    <p>{template.sections?.join(' / ') || template.criteria?.join(' / ') || template.tone || '医生审核前训练模板'}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="notice-card">
+                <ClipboardCheck size={20} />
+                <p>报告中心只输出医生审核前训练模板，不独立生成最终诊断，不给治疗承诺；单帧图像不得生成完整检查范围或未观察区域阴性结论。</p>
+              </div>
+            </Card>
+          </div>
+
+          {draft ? (
+            <>
+              <Card>
             <SectionTitle
               eyebrow={draft.template_name}
               title="结构化报告输出"
@@ -241,10 +259,13 @@ export function ReportDraft() {
               <DraftList title="医师复核任务" items={draft.review_tasks} />
             </Card>
           </div>
+            </>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="grid two">
+      {activeTab === 'judge' ? (
+      <div className="grid two report-layout">
         <Card>
           <SectionTitle eyebrow="AI judge" title="报告修改训练" action={<Gauge size={20} />} />
           <label className="text-field">
@@ -289,6 +310,7 @@ export function ReportDraft() {
           )}
         </Card>
       </div>
+      ) : null}
     </div>
   )
 }
