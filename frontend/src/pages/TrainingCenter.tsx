@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ActivitySquare, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Target, Trophy } from 'lucide-react'
+import { ActivitySquare, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, DatabaseZap, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Target, Trophy } from 'lucide-react'
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
@@ -50,6 +50,7 @@ const emptyFilters: Filters = {
 const EXAM_DURATION_SECONDS = 12 * 60
 const emptyChallengeStats: ChallengeStats = { rounds: 0, doctor: 0, benchmark: 0, ties: 0 }
 const createExamSessionId = () => `exam_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
 
 export function TrainingCenter({ onSubmission }: { onSubmission: (submission: SubmissionResponse, question: Question) => void }) {
   const [searchParams] = useSearchParams()
@@ -157,6 +158,18 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const challengeLeader = challengeStats.doctor === challengeStats.benchmark
     ? '暂时平手'
     : challengeStats.doctor > challengeStats.benchmark ? '医生领先' : '标注基准领先'
+  const isPublicSample = publicDatasets.has(question.source_dataset)
+  const canUseTutorChat = mode !== 'exam' && (!isChallenge || Boolean(submission))
+  const imageSourceLabel = isPublicSample ? '真实公开样例' : '教学合成图'
+  const tutorAvailability = mode === 'exam' && !submission
+    ? '考试纪律'
+    : mode === 'exam' ? '考后证据复盘' : isChallenge && !submission ? '独立作答锁定' : submission ? '复盘追问' : '证据式辅导'
+  const tutorWriteback = mode === 'exam'
+    ? examSessionSaved ? '已同步画像' : '交卷后同步'
+    : submission ? '提交已回灌' : '追问仅记标签'
+  const quickAgentPrompts = submission
+    ? ['用一句话总结错因', '给我下一题复盘策略', '帮我改写成报告表达']
+    : ['按部位-形态-边界追问我', '这题最容易越界的判断是什么？', '给我一个不泄题提示']
 
   const updateFilter = (key: keyof Filters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -245,8 +258,11 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   }
 
   const askAgent = async () => {
-    if (!chatInput.trim() || mode === 'exam' || (isChallenge && !submission)) return
-    const message = chatInput.trim()
+    await sendAgentMessage(chatInput.trim())
+  }
+
+  const sendAgentMessage = async (message: string) => {
+    if (!message || loading || !canUseTutorChat) return
     setChatInput('')
     setChat((items) => [...items, { role: 'doctor', text: message }])
     try {
@@ -427,8 +443,19 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
         <div className="training-grid qbank-grid">
           <Card className="image-panel">
             <SectionTitle eyebrow="Case image" title="内镜图像与病例摘要" />
-            <img className="endo-image" src={question.image_url || '/assets/synthetic-endoscopy-training.svg'} alt="内镜教学图像" />
+            <div className={`image-frame ${isPublicSample ? 'real-sample' : 'synthetic-sample'}`}>
+              <img className="endo-image" src={question.image_url || '/assets/synthetic-endoscopy-training.svg'} alt="内镜教学图像" />
+              <div className={`image-source-ribbon ${isPublicSample ? 'real' : 'synthetic'}`}>
+                <DatabaseZap size={14} />
+                <span>{imageSourceLabel}</span>
+              </div>
+            </div>
             <p className="muted">{question.image_placeholder}</p>
+            <div className="case-integrity-strip">
+              <div><span>来源</span><strong>{question.source_dataset}</strong></div>
+              <div><span>题型</span><strong>{question.question_type}</strong></div>
+              <div><span>复核</span><strong>{question.doctor_review_required ? '医生审核' : '教学练习'}</strong></div>
+            </div>
             <div className="case-box">{question.case_summary}</div>
             <div className="tag-row">
               <Tag tone="blue">{question.body_part}</Tag>
@@ -491,6 +518,11 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               title={mode === 'exam' ? '考后复盘面板' : '边刷边问 Agent'}
               action={<Tag tone={agentMode === 'provider' ? 'green' : agentMode === 'fallback' ? 'amber' : 'blue'}>{agentMode}</Tag>}
             />
+            <div className="tutor-command-strip">
+              <div><span>当前开放</span><strong>{tutorAvailability}</strong></div>
+              <div><span>范围</span><strong>{isPublicSample ? '公开样例' : '教学题'}</strong></div>
+              <div><span>画像</span><strong>{tutorWriteback}</strong></div>
+            </div>
             {reviewUnlocked ? (
               <div className="tutor-tabs">
                 <button className={tutorTab === 'agent' ? 'active' : ''} type="button" onClick={() => setTutorTab('agent')}>辅导</button>
@@ -523,6 +555,15 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                   <Bot size={18} />
                   <p>{hint}</p>
                 </div>
+                {canUseTutorChat ? (
+                  <div className="agent-quick-prompts">
+                    {quickAgentPrompts.map((prompt) => (
+                      <button key={prompt} type="button" onClick={() => sendAgentMessage(prompt)} disabled={loading}>
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="chat-thread">
                   {chat.map((message, itemIndex) => (
                     <div className={`chat-line ${message.role}`} key={`${message.role}_${itemIndex}`}>
@@ -532,8 +573,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                   ))}
                 </div>
                 <div className="chat-input-row">
-                  <input value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder={isChallenge && !submission ? '比拼模式提交后开放追问复盘...' : '追问当前病例、证据或报告表达...'} disabled={isChallenge && !submission} />
-                  <button className="icon-button" type="button" onClick={askAgent} title="发送追问" disabled={isChallenge && !submission}>
+                  <input value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder={!canUseTutorChat ? '当前模式锁定自由追问...' : '追问当前病例、证据或报告表达...'} disabled={!canUseTutorChat} />
+                  <button className="icon-button" type="button" onClick={askAgent} title="发送追问" disabled={!canUseTutorChat || loading}>
                     <MessageSquare size={17} />
                   </button>
                 </div>
