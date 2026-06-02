@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ActivitySquare, ClipboardCheck, Database, FileImage, FileText, Gauge, ListChecks, ShieldAlert, ShieldCheck, WandSparkles } from 'lucide-react'
+import { ActivitySquare, ClipboardCheck, Database, FileImage, FileText, Gauge, KeyRound, ListChecks, PlugZap, ShieldAlert, ShieldCheck, WandSparkles } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import type { KnowledgeBase, ProviderStatus, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
@@ -20,6 +20,10 @@ export function ReportDraft() {
   const [draft, setDraft] = useState<ReportDraftType | null>(null)
   const [knowledge, setKnowledge] = useState<KnowledgeBase | null>(null)
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
+  const [providerName, setProviderName] = useState('请求级 OpenAI-compatible Provider')
+  const [apiBase, setApiBase] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [providerModel, setProviderModel] = useState('')
   const [originalReport, setOriginalReport] = useState('本图明确证明患者患胃癌，建议立即治疗。')
   const [revisedReport, setRevisedReport] = useState('胃窦局部黏膜异常表现，建议医生结合完整检查、病史及必要病理结果复核。')
   const [judge, setJudge] = useState<ReportJudge | null>(null)
@@ -46,7 +50,10 @@ export function ReportDraft() {
       const firstTemplate = payload.templates?.[0]?.name
       if (firstTemplate) setTemplateName(firstTemplate)
     }).catch(() => undefined)
-    api.providerStatus().then(setProviderStatus).catch(() => undefined)
+    api.providerStatus().then((status) => {
+      setProviderStatus(status)
+      if (status.model) setProviderModel((current) => current || status.model)
+    }).catch(() => undefined)
     api.realSamples().then((items) => {
       setRealSamples(items)
       const first = items[0]
@@ -77,7 +84,7 @@ export function ReportDraft() {
   const generate = async () => {
     setLoading(true)
     try {
-      setDraft(await api.reportDraft(findingText, { examType, imageName, templateName }))
+      setDraft(await api.reportDraft(findingText, { examType, imageName, templateName, ...providerOptions() }))
     } finally {
       setLoading(false)
     }
@@ -86,15 +93,23 @@ export function ReportDraft() {
   const runJudge = async () => {
     setLoading(true)
     try {
-      setJudge(await api.reportJudge(originalReport, revisedReport))
+      setJudge(await api.reportJudge(originalReport, revisedReport, providerOptions()))
     } finally {
       setLoading(false)
     }
   }
 
   const providerReady = Boolean(providerStatus?.configured || providerStatus?.ok)
+  const requestProviderActive = Boolean(apiKey.trim())
+  const requestKeyMode = apiKey.trim() ? '页面临时 key' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'
   const providerMode = providerReady ? 'provider' : providerStatus?.mode || 'rule'
   const dataMode = selectedSample ? `${selectedSample.source_dataset} · public sample` : imageName.startsWith('uploads/') ? 'uploaded image' : 'local preview'
+  const providerOptions = () => ({
+    providerName: requestProviderActive ? providerName.trim() || undefined : undefined,
+    apiBase: apiBase.trim() || undefined,
+    apiKey: apiKey.trim() || undefined,
+    model: providerModel.trim() || undefined,
+  })
 
   return (
     <div className="page-stack">
@@ -114,6 +129,58 @@ export function ReportDraft() {
         <button className={activeTab === 'judge' ? 'active' : ''} type="button" onClick={() => switchTab('judge')}>
           <Gauge size={17} /> 修改训练
         </button>
+      </Card>
+
+      <Card className="report-provider-console">
+        <SectionTitle
+          eyebrow="Request-level provider"
+          title="真实推理控制"
+          action={<Tag tone={requestProviderActive || providerReady ? 'green' : 'amber'}>{requestProviderActive ? '本次请求覆盖' : providerReady ? '使用后端 .env' : '规则模式'}</Tag>}
+        />
+        <div className="report-provider-grid">
+          <div>
+            <PlugZap size={18} />
+            <span>后端 Provider</span>
+            <strong>{providerReady ? `${providerStatus?.provider} · ${providerStatus?.model}` : `${providerMode} 模式`}</strong>
+            <p>{providerReady ? '后端默认真实推理通道可用。' : '未配置时仍可使用规则、模板和公开知识库。'}</p>
+          </div>
+          <div>
+            <KeyRound size={18} />
+            <span>凭据来源</span>
+            <strong>{requestKeyMode}</strong>
+            <p>页面临时 key 只随报告生成/评分请求发送，不写入日志、状态文件或 git。</p>
+          </div>
+          <div>
+            <Gauge size={18} />
+            <span>结果标识</span>
+            <strong>{draft?.generation_mode || judge?.generation_mode || providerMode}</strong>
+            <p>生成结果会显示 provider/rule/fallback、延迟和来源台账。</p>
+          </div>
+        </div>
+        <details className="provider-credential-drawer">
+          <summary>
+            <span>配置本次请求 Provider</span>
+            <strong>{requestProviderActive ? '已启用请求级覆盖' : '可选，不配置则走后端 .env 或规则模式'}</strong>
+          </summary>
+          <div className="form-row report-provider-form">
+            <label>
+              <span>Provider 名称</span>
+              <input value={providerName} onChange={(event) => setProviderName(event.target.value)} />
+            </label>
+            <label>
+              <span>API Base URL</span>
+              <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="例如 https://your-provider.example/v1" />
+            </label>
+            <label>
+              <span>模型名称</span>
+              <input value={providerModel} onChange={(event) => setProviderModel(event.target.value)} placeholder="留空则使用后端默认模型" />
+            </label>
+            <label>
+              <span>API Key（仅本次请求）</span>
+              <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="留空则使用后端 .env；不会保存" type="password" />
+            </label>
+          </div>
+        </details>
       </Card>
 
       {activeTab === 'draft' ? (
@@ -198,7 +265,7 @@ export function ReportDraft() {
               </div>
               <textarea value={findingText} onChange={(event) => setFindingText(event.target.value)} rows={7} />
               <button className="button primary" type="button" onClick={generate} disabled={loading}>
-                <WandSparkles size={17} /> 生成结构化报告
+                <WandSparkles size={17} /> {requestProviderActive || providerReady ? '生成并尝试 Provider 推理' : '生成结构化报告'}
               </button>
             </Card>
 
@@ -310,18 +377,43 @@ export function ReportDraft() {
             <textarea value={revisedReport} onChange={(event) => setRevisedReport(event.target.value)} rows={5} />
           </label>
           <button className="button primary" type="button" onClick={runJudge} disabled={loading}>
-            <ShieldCheck size={17} /> AI judge 评分
+            <ShieldCheck size={17} /> {requestProviderActive || providerReady ? '评分并尝试 Provider 评阅' : 'AI judge 评分'}
           </button>
         </Card>
 
         <Card>
-          <SectionTitle eyebrow="Feedback" title="评分与建议" />
+          <SectionTitle
+            eyebrow="Feedback"
+            title="评分与建议"
+            action={judge ? <Tag tone={judge.generation_mode === 'provider' ? 'green' : judge.generation_mode === 'fallback' ? 'amber' : 'blue'}>{judge.generation_mode}</Tag> : null}
+          />
           {judge ? (
             <>
               <div className="score-ring">
                 <strong>{judge.score}</strong>
                 <span>报告修改得分</span>
               </div>
+              <div className="report-status-grid">
+                <div><span>评分来源</span><strong>{judge.generation_mode}</strong></div>
+                <div><span>Provider</span><strong>{judge.provider_status.ok ? judge.provider_status.model : judge.provider_status.error || 'rule'}</strong></div>
+                <div><span>医生画像</span><strong>{judge.profile_updated ? '已回灌' : '未写入'}</strong></div>
+                <div><span>审核边界</span><strong>{judge.doctor_review_required ? '医生审核必需' : '未标记'}</strong></div>
+              </div>
+              <div className="source-trace-grid compact">
+                {judge.source_trace.map((item) => (
+                  <div className={item.used ? 'used' : ''} key={`${item.source_type}_${item.label}`}>
+                    <span>{item.label}</span>
+                    <strong>{item.used ? '已使用' : '未使用'}</strong>
+                    <p>{item.detail}{item.latency_ms ? ` · ${item.latency_ms}ms` : ''}</p>
+                  </div>
+                ))}
+              </div>
+              {judge.provider_feedback ? (
+                <div className="provider-observation">
+                  <strong>Provider 评阅摘要</strong>
+                  <p>{judge.provider_feedback}</p>
+                </div>
+              ) : null}
               <div className="rubric-grid">
                 {Object.entries(judge.rubric_scores).map(([name, score]) => (
                   <div key={name}><span>{name}</span><strong>{score}</strong></div>

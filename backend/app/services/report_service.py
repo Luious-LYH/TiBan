@@ -111,7 +111,8 @@ class ReportService:
 
     def judge_report_revision(self, request: ReportJudgeRequest) -> ReportJudgeResponse:
         revised = safety_service.redact_sensitive_text(request.revised_report.strip())
-        original = request.original_report.strip()
+        original = safety_service.redact_sensitive_text(request.original_report.strip())
+        provider_result = self._provider_report_judge(request, original, revised)
         rubric_scores = {
             "部位描述": 25 if any(token in revised for token in ["胃", "肠", "食管", "胃窦", "结肠"]) else 12,
             "所见与诊断区分": 25 if any(token in revised for token in ["所见", "表现", "考虑", "建议复核"]) else 10,
@@ -130,6 +131,11 @@ class ReportService:
             "已尝试保留内镜所见。",
             "修改稿可作为医生审核前训练文本。",
         ]
+        if provider_result.ok:
+            strengths.append("已完成一次请求级 Provider 评阅，建议仅作为医生训练反馈参考。")
+        elif provider_result.error and provider_result.error != "provider_not_configured":
+            issues.append(f"Provider 评阅调用失败，已降级为规则 rubric：{provider_result.error}")
+        generation_mode = "provider" if provider_result.ok else "fallback" if provider_result.error and provider_result.error != "provider_not_configured" else "rule"
         response = ReportJudgeResponse(
             id=f"judge_{uuid4().hex[:12]}",
             score=score,
@@ -137,6 +143,24 @@ class ReportService:
             issues=issues or ["未发现明显越界表达，仍需医生最终审核。"],
             suggested_revision=self._suggest_revision(revised),
             rubric_scores=rubric_scores,
+            generation_mode=generation_mode,
+            provider_status=provider_result.public_status(),
+            provider_feedback=provider_result.text if provider_result.ok else None,
+            source_trace=[
+                {
+                    "source_type": "rule_rubric",
+                    "label": "规则 rubric",
+                    "used": True,
+                    "detail": "部位描述 / 所见与诊断区分 / 不确定性表达 / 安全边界",
+                },
+                {
+                    "source_type": "provider",
+                    "label": "Provider 评阅",
+                    "used": provider_result.ok,
+                    "detail": provider_result.error or f"{provider_result.provider}:{provider_result.model}",
+                    "latency_ms": provider_result.latency_ms,
+                },
+            ],
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
@@ -149,7 +173,7 @@ class ReportService:
             "report_judge",
             user_id=request.learner_id,
             entity_id=response.id,
-            summary=f"报告修改训练评分：{score} 分；已回灌医师画像；医生审核必需。",
+            summary=f"报告修改训练评分：{score} 分；模式 {generation_mode}；已回灌医师画像；医生审核必需。",
             risk_level="high",
         )
         return response
@@ -369,7 +393,34 @@ class ReportService:
             image_path=image_path,
             temperature=0.1,
             max_tokens=520,
+            **self._provider_kwargs(request),
         )
+
+    def _provider_report_judge(self, request: ReportJudgeRequest, original: str, revised: str):
+        return llm_provider.chat(
+            system_prompt=(
+                "你是消化内镜医师培训平台中的报告修改评阅 Agent。"
+                "只评价训练文本的表达质量、安全边界和证据充分性，不给最终诊断或治疗建议。"
+                "请用中文输出：1) 2条优点；2) 2-3条风险或遗漏；3) 一句建议改写。"
+            ),
+            user_prompt=(
+                f"原报告：{original or '未提供'}\n"
+                f"医师修改稿：{revised or '未提供'}\n"
+                "请严格围绕所见与诊断区分、不确定性表达、单帧证据边界和医生审核要求进行评阅。"
+            ),
+            temperature=0.1,
+            max_tokens=520,
+            **self._provider_kwargs(request),
+        )
+
+    def _provider_kwargs(self, request: ReportDraftRequest | ReportJudgeRequest) -> dict[str, object]:
+        use_request_provider = bool(request.api_key)
+        return {
+            "base_url": request.api_base if use_request_provider else None,
+            "api_key": request.api_key if use_request_provider else None,
+            "model": request.model if use_request_provider else None,
+            "provider": (request.provider_name or "openai_compatible") if use_request_provider else None,
+        }
 
     def _hallucination_audit(self, statements: list[str], *, single_frame: bool) -> dict[str, object]:
         text = "；".join(statements)

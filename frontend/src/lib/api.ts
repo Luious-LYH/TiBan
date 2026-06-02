@@ -540,6 +540,10 @@ function normalizeReportJudge(value: unknown, fallback: ReportJudge): ReportJudg
     issues: asStringArray(record.issues, fallback.issues),
     suggested_revision: asString(record.suggested_revision, fallback.suggested_revision),
     rubric_scores: asNumberRecord(record.rubric_scores, fallback.rubric_scores),
+    generation_mode: asString(record.generation_mode, fallback.generation_mode),
+    provider_status: normalizeProviderStatus(record.provider_status, fallback.provider_status),
+    provider_feedback: typeof record.provider_feedback === 'string' ? record.provider_feedback : fallback.provider_feedback,
+    source_trace: normalizeSourceTrace(record.source_trace, fallback.source_trace),
     profile_updated: asBoolean(record.profile_updated, fallback.profile_updated),
     memory_summary: typeof record.memory_summary === 'string' ? record.memory_summary : fallback.memory_summary,
     doctor_review_required: true,
@@ -833,7 +837,7 @@ export const api = {
     )
   },
 
-  async reportDraft(findingText: string, options: { examType?: string; imageName?: string; templateName?: string } = {}): Promise<ReportDraft> {
+  async reportDraft(findingText: string, options: { examType?: string; imageName?: string; templateName?: string; providerName?: string; apiBase?: string; apiKey?: string; model?: string } = {}): Promise<ReportDraft> {
     const fallback = localReportDraft(findingText, options)
     const response = await request<ReportDraft>(
       '/api/report-draft',
@@ -844,6 +848,10 @@ export const api = {
           exam_type: options.examType || 'gastroscopy',
           image_name: options.imageName,
           template_name: options.templateName,
+          provider_name: options.providerName,
+          api_base: options.apiBase,
+          api_key: options.apiKey || undefined,
+          model: options.model || undefined,
         }),
       },
       fallback,
@@ -866,7 +874,7 @@ export const api = {
     )
   },
 
-  async reportJudge(originalReport: string, revisedReport: string): Promise<ReportJudge> {
+  async reportJudge(originalReport: string, revisedReport: string, options: { providerName?: string; apiBase?: string; apiKey?: string; model?: string } = {}): Promise<ReportJudge> {
     const fallback: ReportJudge = {
       id: `judge_local_${Date.now()}`,
       score: revisedReport.includes('复核') ? 88 : 62,
@@ -874,6 +882,29 @@ export const api = {
       issues: revisedReport.includes('确诊') ? ['仍含过强诊断语气。'] : ['建议继续补充不确定性说明。'],
       suggested_revision: `${revisedReport} 建议医生结合完整检查复核。`,
       rubric_scores: { 部位描述: 20, 所见与诊断区分: 22, 不确定性表达: 20, 安全边界: 20 },
+      generation_mode: 'fallback',
+      provider_status: {
+        provider: 'frontend_fallback',
+        model: 'none',
+        mode: 'fallback',
+        ok: false,
+        error: 'backend_unavailable',
+      },
+      provider_feedback: null,
+      source_trace: [
+        {
+          source_type: 'rule_rubric',
+          label: '规则 rubric',
+          used: true,
+          detail: '前端 fallback 评分。',
+        },
+        {
+          source_type: 'provider',
+          label: 'Provider 评阅',
+          used: false,
+          detail: 'backend_unavailable',
+        },
+      ],
       profile_updated: false,
       memory_summary: '当前为前端 fallback 评分，未写入后端医师画像。',
       doctor_review_required: true,
@@ -882,7 +913,18 @@ export const api = {
     }
     const response = await request<ReportJudge>(
       '/api/report/judge',
-      { method: 'POST', body: JSON.stringify({ original_report: originalReport, revised_report: revisedReport, learner_id: 'demo_learner' }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          original_report: originalReport,
+          revised_report: revisedReport,
+          learner_id: 'demo_learner',
+          provider_name: options.providerName,
+          api_base: options.apiBase,
+          api_key: options.apiKey || undefined,
+          model: options.model || undefined,
+        }),
+      },
       fallback,
     )
     return normalizeReportJudge(response, fallback)

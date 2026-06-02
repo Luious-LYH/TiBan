@@ -201,6 +201,10 @@ export type ReportJudge = {
   issues: string[]
   suggested_revision: string
   rubric_scores: Record<string, number>
+  generation_mode: GenerationMode | string
+  provider_status: ProviderStatus
+  provider_feedback?: string | null
+  source_trace: SourceTraceItem[]
   profile_updated: boolean
   memory_summary?: string | null
   doctor_review_required: true

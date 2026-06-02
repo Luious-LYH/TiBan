@@ -66,7 +66,11 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
   "finding_text": "胃窦黏膜充血，可见散在糜烂。",
   "exam_type": "gastroscopy",
   "image_name": "public_real_x1_0",
-  "template_name": "胃镜结构化训练模板"
+  "template_name": "胃镜结构化训练模板",
+  "provider_name": "可选，仅本次请求",
+  "api_base": "可选，例如 https://api.example.com/v1",
+  "api_key": "可选，仅本次请求，禁止写入仓库",
+  "model": "可选模型名"
 }
 ```
 
@@ -107,6 +111,18 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
 ```json
 {
   "score": 88,
+  "generation_mode": "provider | rule | fallback",
+  "provider_status": {
+    "provider": "mock | openai_compatible | request-provider",
+    "model": "model-name",
+    "ok": false,
+    "error": "provider_not_configured"
+  },
+  "provider_feedback": "真实 Provider 成功调用时返回训练评阅摘要，否则为 null",
+  "source_trace": [
+    { "source_type": "rule_rubric", "label": "规则 rubric", "used": true },
+    { "source_type": "provider", "label": "Provider 评阅", "used": false }
+  ],
   "rubric_scores": {
     "部位描述": 25,
     "所见与诊断区分": 25,

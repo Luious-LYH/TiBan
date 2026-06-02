@@ -162,6 +162,10 @@ class ReportDraftRequest(BaseModel):
     exam_type: str = "gastroscopy"
     image_name: str | None = None
     template_name: str | None = None
+    provider_name: str | None = None
+    api_base: str | None = None
+    api_key: str | None = None
+    model: str | None = None
 
 
 class ImageUploadRequest(BaseModel):
@@ -208,6 +212,10 @@ class ReportJudgeRequest(BaseModel):
     original_report: str
     revised_report: str
     learner_id: str = "demo_learner"
+    provider_name: str | None = None
+    api_base: str | None = None
+    api_key: str | None = None
+    model: str | None = None
 
 
 class ReportJudgeResponse(BaseModel):
@@ -217,6 +225,10 @@ class ReportJudgeResponse(BaseModel):
     issues: list[str]
     suggested_revision: str
     rubric_scores: dict[str, int]
+    generation_mode: str = "rule"
+    provider_status: dict[str, Any] = Field(default_factory=dict)
+    provider_feedback: str | None = None
+    source_trace: list[dict[str, Any]] = Field(default_factory=list)
     profile_updated: bool = False
     memory_summary: str | None = None
     doctor_review_required: bool = True
