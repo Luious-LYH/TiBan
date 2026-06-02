@@ -111,6 +111,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const aiAnswer = question.ai_benchmark_answer || question.answer
   const aiCorrect = aiAnswer === question.answer
   const canRevealBenchmark = Boolean(submission)
+  const evidenceLocked = isChallenge && !submission
   const examExpired = mode === 'exam' && examSeconds <= 0 && !submission
   const formattedExamTime = `${String(Math.floor(examSeconds / 60)).padStart(2, '0')}:${String(examSeconds % 60).padStart(2, '0')}`
   const challengeDelta = canRevealBenchmark
@@ -341,7 +342,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
             />
             <div className="tutor-tabs">
               <button className={tutorTab === 'agent' ? 'active' : ''} type="button" onClick={() => setTutorTab('agent')}>辅导</button>
-              <button className={tutorTab === 'evidence' ? 'active' : ''} type="button" onClick={() => setTutorTab('evidence')}>证据</button>
+              <button className={tutorTab === 'evidence' ? 'active' : ''} type="button" onClick={() => setTutorTab('evidence')} disabled={evidenceLocked}>证据</button>
               <button className={tutorTab === 'compare' ? 'active' : ''} type="button" onClick={() => setTutorTab('compare')}>对照</button>
             </div>
             {mode === 'exam' && !submission ? (
