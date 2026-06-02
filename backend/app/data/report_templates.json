@@ -1,0 +1,6 @@
+[
+  {"id": "gastroscopy_basic", "name": "胃镜基础模板", "exam_type": "gastroscopy", "sections": ["检查所见", "草稿印象", "复核点", "不确定性说明"]},
+  {"id": "colonoscopy_basic", "name": "肠镜基础模板", "exam_type": "colonoscopy", "sections": ["检查所见", "草稿印象", "复核点", "不确定性说明"]},
+  {"id": "safety_rewrite", "name": "安全改写模板", "exam_type": "generic", "sections": ["过强表述", "稳健改写", "医生审核"]}
+]
+

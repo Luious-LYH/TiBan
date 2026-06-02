@@ -1,0 +1,6 @@
+[
+  {"id": "gastritis_plain", "name": "胃黏膜炎症样改变科普", "tone": "患者友好", "sections": ["这是什么意思", "需要关注什么", "复诊提醒"]},
+  {"id": "polyp_review", "name": "息肉复核科普", "tone": "谨慎解释", "sections": ["图像发现", "医生审核", "后续沟通"]},
+  {"id": "uncertainty_card", "name": "证据不足说明卡", "tone": "安全沟通", "sections": ["为什么不能下结论", "还需要哪些信息", "何时咨询医生"]}
+]
+

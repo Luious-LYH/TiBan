@@ -1,0 +1,332 @@
+[
+  {
+    "id": "audit_6d118ab06a3d",
+    "event_type": "skill_run",
+    "user_id": "demo_learner",
+    "entity_id": "patient_card",
+    "summary": "运行 skill：科普卡片",
+    "risk_level": "high",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:36:10.092880Z"
+  },
+  {
+    "id": "audit_9d2b9460688c",
+    "event_type": "patient_card",
+    "user_id": "doctor_demo",
+    "entity_id": "card_f091bd0809ef",
+    "summary": "生成患者科普卡片草稿并附医生审核提示。",
+    "risk_level": "high",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:36:10.080911Z"
+  },
+  {
+    "id": "audit_f4cb2f8fd30c",
+    "event_type": "skill_run",
+    "user_id": "demo_learner",
+    "entity_id": "audit_log",
+    "summary": "运行 skill：审计记录",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:36:06.623003Z"
+  },
+  {
+    "id": "audit_c443487809c1",
+    "event_type": "skill_run",
+    "user_id": "demo_learner",
+    "entity_id": "audit_log",
+    "summary": "手动记录 skill 调用。",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:36:06.609040Z"
+  },
+  {
+    "id": "audit_e647aa43e660",
+    "event_type": "skill_run",
+    "user_id": "demo_learner",
+    "entity_id": "answer_explain",
+    "summary": "运行 skill：答案讲解",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:35:59.525262Z"
+  },
+  {
+    "id": "audit_642aefa71e66",
+    "event_type": "tutor_reply",
+    "user_id": "demo_learner",
+    "entity_id": "q005",
+    "summary": "智能辅导生成答案讲解和 atomic feedback。",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:35:59.517284Z"
+  },
+  {
+    "id": "audit_ab28b9a4dd64",
+    "event_type": "answer_submit",
+    "user_id": "demo_learner",
+    "entity_id": "q005",
+    "summary": "提交答案：正确；错因：无",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:35:59.504319Z"
+  },
+  {
+    "id": "audit_ff39582b5385",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q005",
+    "summary": "查看题目：错误前提：图中是否一定有息肉",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:35:59.489360Z"
+  },
+  {
+    "id": "audit_8879c038dcf9",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q005",
+    "summary": "查看题目：错误前提：图中是否一定有息肉",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:35:59.484419Z"
+  },
+  {
+    "id": "audit_f7bc86c500fe",
+    "event_type": "answer_submit",
+    "user_id": "demo_learner",
+    "entity_id": "q004",
+    "summary": "提交答案：需要反馈；错因：证据不足",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:23.053319Z"
+  },
+  {
+    "id": "audit_080496ebf3c7",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q004",
+    "summary": "查看题目：复杂组合：观察事实与安全边界",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:23.034937Z"
+  },
+  {
+    "id": "audit_dc336fb15d51",
+    "event_type": "answer_submit",
+    "user_id": "demo_learner",
+    "entity_id": "q004",
+    "summary": "提交答案：需要反馈；错因：证据不足",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:22.244017Z"
+  },
+  {
+    "id": "audit_ebc340b33b0e",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q004",
+    "summary": "查看题目：复杂组合：观察事实与安全边界",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:22.218788Z"
+  },
+  {
+    "id": "audit_6a4f347b2a7a",
+    "event_type": "answer_submit",
+    "user_id": "demo_learner",
+    "entity_id": "q003",
+    "summary": "提交答案：需要反馈；错因：证据不足",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:10.159205Z"
+  },
+  {
+    "id": "audit_c3763a3c3f72",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q003",
+    "summary": "查看题目：病变属性：糜烂与隆起",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:10.137265Z"
+  },
+  {
+    "id": "audit_5450ab661e12",
+    "event_type": "answer_submit",
+    "user_id": "demo_learner",
+    "entity_id": "q002",
+    "summary": "提交答案：需要反馈；错因：证据不足",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:07.502611Z"
+  },
+  {
+    "id": "audit_3fda7e348c4a",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q002",
+    "summary": "查看题目：部位定位：胃窦与胃体区分",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:07.477676Z"
+  },
+  {
+    "id": "audit_6951557e8583",
+    "event_type": "answer_submit",
+    "user_id": "demo_learner",
+    "entity_id": "q001",
+    "summary": "提交答案：需要反馈；错因：证据不足",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:02.081840Z"
+  },
+  {
+    "id": "audit_97d60d092a4f",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q001",
+    "summary": "查看题目：胃窦黏膜基础识别",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:34:02.067579Z"
+  },
+  {
+    "id": "audit_151a80c9709a",
+    "event_type": "patient_card",
+    "user_id": "doctor_demo",
+    "entity_id": "card_58cf3a8edc41",
+    "summary": "生成患者科普卡片草稿并附医生审核提示。",
+    "risk_level": "high",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:33:33.506393Z"
+  },
+  {
+    "id": "audit_bc449f12ab7f",
+    "event_type": "report_draft",
+    "user_id": "doctor_demo",
+    "entity_id": "report_32a4b814597e",
+    "summary": "生成结构化报告草稿；医生审核必需。",
+    "risk_level": "high",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:33:24.022704Z"
+  },
+  {
+    "id": "audit_b3e9c4da70f4",
+    "event_type": "answer_submit",
+    "user_id": "demo_learner",
+    "entity_id": "q001",
+    "summary": "提交答案：需要反馈；错因：黏膜观察",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:31:11.146566Z"
+  },
+  {
+    "id": "audit_aaf571338647",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q001",
+    "summary": "查看题目：胃窦黏膜基础识别",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T12:31:11.141580Z"
+  },
+  {
+    "id": "audit_seed_001",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q001",
+    "summary": "查看胃窦黏膜基础识别题。",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:01:00Z"
+  },
+  {
+    "id": "audit_seed_002",
+    "event_type": "tutor_reply",
+    "user_id": "demo_learner",
+    "entity_id": "q001",
+    "summary": "智能辅导给出不泄露答案的观察提示。",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:02:00Z"
+  },
+  {
+    "id": "audit_seed_003",
+    "event_type": "answer_submit",
+    "user_id": "demo_learner",
+    "entity_id": "q005",
+    "summary": "提交错误前提题答案并触发证据不足反馈。",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:04:00Z"
+  },
+  {
+    "id": "audit_seed_004",
+    "event_type": "safety_warning",
+    "user_id": "demo_learner",
+    "entity_id": "q006",
+    "summary": "检测到报告中存在最终诊断式表述。",
+    "risk_level": "high",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:06:00Z"
+  },
+  {
+    "id": "audit_seed_005",
+    "event_type": "report_draft",
+    "user_id": "doctor_demo",
+    "entity_id": "report_seed",
+    "summary": "生成胃镜所见结构化草稿，标记医生审核。",
+    "risk_level": "high",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:08:00Z"
+  },
+  {
+    "id": "audit_seed_006",
+    "event_type": "patient_card",
+    "user_id": "doctor_demo",
+    "entity_id": "card_seed",
+    "summary": "生成患者科普卡片草稿并附免责声明。",
+    "risk_level": "high",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:10:00Z"
+  },
+  {
+    "id": "audit_seed_007",
+    "event_type": "skill_run",
+    "user_id": "demo_learner",
+    "entity_id": "atomic_feedback",
+    "summary": "运行原子事实反馈 skill。",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:12:00Z"
+  },
+  {
+    "id": "audit_seed_008",
+    "event_type": "model_select",
+    "user_id": "admin_demo",
+    "entity_id": "m_mock_tutor",
+    "summary": "选择 mock tutor 编排器为当前默认辅导模型。",
+    "risk_level": "medium",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:14:00Z"
+  },
+  {
+    "id": "audit_seed_009",
+    "event_type": "question_view",
+    "user_id": "demo_learner",
+    "entity_id": "q013",
+    "summary": "查看图像质量与病理边界训练题。",
+    "risk_level": "low",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:16:00Z"
+  },
+  {
+    "id": "audit_seed_010",
+    "event_type": "skill_run",
+    "user_id": "demo_learner",
+    "entity_id": "false_premise_guard",
+    "summary": "运行错误前提识别 skill。",
+    "risk_level": "high",
+    "doctor_review_required": true,
+    "created_at": "2026-06-02T09:18:00Z"
+  }
+]

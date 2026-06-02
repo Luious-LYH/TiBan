@@ -1,0 +1,12 @@
+[
+  {"id": "question_hint", "name": "问题提示", "description": "根据题目和教学标签给出不泄露答案的提示。", "category": "training", "enabled": true, "risk_level": "low", "input_schema": {"question_id": "string"}, "output_schema": {"hint": "string", "leak_answer": "boolean"}},
+  {"id": "answer_explain", "name": "答案讲解", "description": "解释参考答案、关键依据和下一步训练建议。", "category": "training", "enabled": true, "risk_level": "medium", "input_schema": {"question_id": "string", "selected_answer": "string"}, "output_schema": {"explanation": "string", "error_tags": "array"}},
+  {"id": "atomic_feedback", "name": "原子事实反馈", "description": "将作答错误映射到 atomic facts 和能力维度。", "category": "feedback", "enabled": true, "risk_level": "medium", "input_schema": {"question_id": "string", "selected_answer": "string"}, "output_schema": {"atomic_feedback": "array"}},
+  {"id": "false_premise_guard", "name": "错误前提识别", "description": "识别证据不足、不适用或题干假设不成立的问题。", "category": "safety", "enabled": true, "risk_level": "high", "input_schema": {"question_id": "string"}, "output_schema": {"false_premise": "boolean", "message": "string"}},
+  {"id": "next_question", "name": "下一题推荐", "description": "基于错因和学员画像推荐下一类题。", "category": "training", "enabled": true, "risk_level": "low", "input_schema": {"learner_id": "string"}, "output_schema": {"recommendations": "array"}},
+  {"id": "report_structure", "name": "报告结构化", "description": "将医生输入的内镜所见文本转为审核前报告草稿。", "category": "report", "enabled": true, "risk_level": "high", "input_schema": {"finding_text": "string"}, "output_schema": {"draft": "object", "doctor_review_required": "boolean"}},
+  {"id": "patient_card", "name": "科普卡片", "description": "将医生审核后的结论转为患者友好解释卡片草稿。", "category": "card", "enabled": true, "risk_level": "high", "input_schema": {"diagnosis_summary": "string"}, "output_schema": {"card": "object", "doctor_review_required": "boolean"}},
+  {"id": "safety_review", "name": "医疗安全审查", "description": "检查输出是否包含越权诊断、治疗建议或隐私风险。", "category": "safety", "enabled": true, "risk_level": "high", "input_schema": {"text": "string"}, "output_schema": {"passed": "boolean", "warnings": "array"}},
+  {"id": "audit_log", "name": "审计记录", "description": "记录关键输出、模型选择、skills 调用和医生审核状态。", "category": "audit", "enabled": true, "risk_level": "medium", "input_schema": {"event_type": "string"}, "output_schema": {"log_id": "string"}}
+]
+

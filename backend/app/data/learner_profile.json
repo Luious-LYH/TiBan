@@ -1,0 +1,35 @@
+{
+  "learner_id": "demo_learner",
+  "name": "Demo 学员",
+  "total_questions": 25,
+  "accuracy": 0.56,
+  "skill_scores": {
+    "病灶识别": 78,
+    "部位定位": 76,
+    "属性判断": 64,
+    "数量判断": 67,
+    "事实组合": 68,
+    "证据不足识别": 47
+  },
+  "weakness_tags": [
+    "黏膜观察",
+    "证据不足",
+    "错误前提",
+    "报告安全"
+  ],
+  "recent_errors": [
+    "q004",
+    "q003",
+    "q002",
+    "q001",
+    "q005",
+    "q008",
+    "q013"
+  ],
+  "recommended_question_classes": [
+    "错误前提",
+    "复杂组合",
+    "报告纠错"
+  ],
+  "updated_at": "2026-06-02T12:35:59.503322Z"
+}
