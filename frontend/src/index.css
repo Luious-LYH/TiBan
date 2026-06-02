@@ -1391,6 +1391,36 @@ input {
   gap: 12px;
 }
 
+.feedback-source-card {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  align-items: flex-start;
+  color: var(--blue);
+  background: linear-gradient(135deg, #ffffff, #eff6ff);
+  border-color: #bfdbfe;
+}
+
+.feedback-source-card svg {
+  margin-top: 2px;
+}
+
+.feedback-source-card strong,
+.feedback-source-card p {
+  display: block;
+}
+
+.feedback-source-card strong {
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.feedback-source-card p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .answer-compare div {
   padding: 12px;
   background: var(--panel-soft);
