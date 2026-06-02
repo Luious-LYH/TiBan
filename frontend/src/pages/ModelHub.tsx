@@ -4,7 +4,7 @@ import { KeyRound, PlugZap, ShieldAlert, TestTube2 } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
-import type { ModelAdmissionResult, ModelProfile, Question } from '../lib/types'
+import type { ModelAdmissionResult, ModelProfile, ProviderStatus, Question } from '../lib/types'
 
 const scoreLabels: Record<string, string> = {
   basic_recognition: '基础识别',
@@ -21,13 +21,19 @@ export function ModelHub() {
   const [samples, setSamples] = useState<Question[]>([])
   const [providerName, setProviderName] = useState('自定义多模态 API')
   const [apiBase, setApiBase] = useState('https://api.example.com/v1')
-  const [apiKey, setApiKey] = useState('sk-demo-****')
+  const [apiKey, setApiKey] = useState('')
+  const [model, setModel] = useState('')
+  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
   const [focus, setFocus] = useState<string[]>(['基础识别', '错误前提', '报告安全'])
   const [selectedSamples, setSelectedSamples] = useState<string[]>([])
   const [result, setResult] = useState<ModelAdmissionResult | null>(null)
 
   useEffect(() => {
     api.models().then((items) => setModels(items))
+    api.providerStatus().then((status) => {
+      setProviderStatus(status)
+      if (status.model) setModel((current) => current || status.model)
+    }).catch(() => undefined)
     api.qbank({ sourceDataset: 'Kvasir-VQA-x1' }).then((items) => {
       const publicItems = items.filter((item) => ['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'].includes(item.source_dataset)).slice(0, 6)
       setSamples(publicItems)
@@ -39,7 +45,8 @@ export function ModelHub() {
     setResult(await api.modelAdmissionTest({
       providerName,
       apiBase,
-      apiKeyMasked: apiKey.replace(/(.{4}).+(.{2})/, '$1****$2'),
+      apiKey: apiKey.trim() || undefined,
+      model: model.trim() || undefined,
       sampleIds: selectedSamples,
       focus,
     }))
@@ -60,9 +67,23 @@ export function ModelHub() {
         <div>
           <span className="eyebrow">Model admission center</span>
           <h2>模型准入与测试中心</h2>
-          <p>模型能力服务于医师训练，而不是首页主角。这里允许用户接入自己的 API 和 key，通过公开内镜样例、错误前提与报告安全维度做 mock 准入评分。</p>
+          <p>模型能力服务于医师训练，而不是首页主角。这里用公开内镜样例做一次 OpenAI-compatible Provider 探测；未配置密钥时明确降级为规则准入草案。</p>
         </div>
         <ShieldAlert size={42} />
+      </Card>
+
+      <Card className="provider-status-card">
+        <SectionTitle
+          eyebrow="Provider status"
+          title="当前推理通道"
+          action={<Tag tone={providerStatus?.configured ? 'green' : 'amber'}>{providerStatus?.configured ? 'backend .env 已配置' : '未配置 / 临时输入'}</Tag>}
+        />
+        <div className="status-grid">
+          <div><span>模式</span><strong>{providerStatus?.mode || 'fallback'}</strong></div>
+          <div><span>Provider</span><strong>{providerStatus?.provider || 'mock'}</strong></div>
+          <div><span>默认模型</span><strong>{providerStatus?.model || '未设置'}</strong></div>
+          <div><span>密钥状态</span><strong>{providerStatus?.api_key_configured ? '后端已配置' : '页面临时输入或未配置'}</strong></div>
+        </div>
       </Card>
 
       <div className="grid two">
@@ -78,13 +99,17 @@ export function ModelHub() {
               <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} />
             </label>
             <label>
-              <span>API Key</span>
-              <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} type="password" />
+              <span>模型名称</span>
+              <input value={model} onChange={(event) => setModel(event.target.value)} placeholder="例如 gpt-4o-mini 或服务商模型名" />
+            </label>
+            <label>
+              <span>API Key（仅本次请求）</span>
+              <input value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="留空则使用后端 .env；不会保存或写入日志" type="password" />
             </label>
           </div>
           <div className="notice-card">
             <KeyRound size={20} />
-            <p>演示中不会提交真实密钥；仓库内不得写入真实 API key、服务器 IP 或患者数据。</p>
+            <p>临时密钥只随本次准入请求发送到后端，不会写入仓库、文档或审计日志。正式演示建议使用后端 .env 配置。</p>
           </div>
         </Card>
 
@@ -110,18 +135,22 @@ export function ModelHub() {
             })}
           </div>
           <button className="button primary" type="button" onClick={runAdmission}>
-            <ShieldAlert size={17} /> 运行 mock 准入测试
+            <ShieldAlert size={17} /> 运行真实/规则准入探测
           </button>
         </Card>
       </div>
 
       {result ? (
         <Card className="admission-result">
-          <SectionTitle eyebrow={result.provider_name} title="准入评分结果" action={<Tag tone={result.grade === 'A' || result.grade === 'S' ? 'green' : 'amber'}>Grade {result.grade}</Tag>} />
+          <SectionTitle
+            eyebrow={result.provider_name}
+            title="准入评分结果"
+            action={<Tag tone={result.provider_called ? 'green' : result.is_mock ? 'amber' : 'blue'}>{result.provider_called ? 'provider called' : 'rule draft'}</Tag>}
+          />
           <div className="admission-grid">
             <div className="score-ring large">
               <strong>{result.total_score}</strong>
-              <span>总分</span>
+              <span>Grade {result.grade}</span>
             </div>
             <div className="rubric-grid">
               {Object.entries(result.dimension_scores).map(([name, score]) => (
@@ -135,6 +164,15 @@ export function ModelHub() {
           </div>
           <div className="tag-row">
             {result.tested_samples.map((sample) => <Tag key={sample} tone="blue">{sample}</Tag>)}
+          </div>
+          <div className="provider-evidence-list">
+            {result.evidence.map((item, itemIndex) => (
+              <div key={`${item.sample_id || 'sample'}_${itemIndex}`}>
+                <span>{item.source_dataset || '公开样例'} · {item.provider_mode || result.provider_status.mode}</span>
+                <strong>{item.provider_called ? `已调用 Provider${item.latency_ms ? ` · ${item.latency_ms}ms` : ''}` : '未完成 Provider 调用'}</strong>
+                <p>{item.observation_excerpt || item.error || item.question || '暂无样例级证据。'}</p>
+              </div>
+            ))}
           </div>
         </Card>
       ) : null}

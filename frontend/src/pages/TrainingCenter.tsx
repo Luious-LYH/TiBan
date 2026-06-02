@@ -9,7 +9,10 @@ import type { Question, SubmissionResponse } from '../lib/types'
 type ChatMessage = {
   role: 'agent' | 'doctor'
   text: string
+  mode?: string
 }
+
+type TutorTab = 'agent' | 'evidence' | 'compare'
 
 type Filters = {
   bodyPart: string
@@ -37,8 +40,10 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [hint, setHint] = useState('练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
   const [loading, setLoading] = useState(false)
   const [chatInput, setChatInput] = useState('')
+  const [tutorTab, setTutorTab] = useState<TutorTab>('agent')
+  const [agentMode, setAgentMode] = useState('rule')
   const [chat, setChat] = useState<ChatMessage[]>([
-    { role: 'agent', text: '林知远医师，先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。' },
+    { role: 'agent', text: '林知远医师，先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。', mode: 'rule' },
   ])
 
   const mode = searchParams.get('mode') === 'exam' ? 'exam' : 'practice'
@@ -85,7 +90,10 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const question = filteredQuestions[index % Math.max(filteredQuestions.length, 1)] || mockQuestions[0]
   const evidence = useMemo(() => question.atomic_trace.map((fact) => fact.evidence).join(' / '), [question])
   const aiAnswer = question.ai_benchmark_answer || question.answer
-  const challengeDelta = selected ? (selected === aiAnswer ? '你与 AI 结论一致' : '你与 AI 结论不同，适合展开证据讨论') : '提交后对比医生作答与 AI 基准答案'
+  const canRevealBenchmark = Boolean(submission)
+  const challengeDelta = canRevealBenchmark
+    ? (selected === aiAnswer ? '你与 AI/公开标注结论一致' : '你与 AI/公开标注结论不同，适合展开证据讨论')
+    : '提交答案后解锁医生作答与公开标注/AI 基准对照'
 
   const updateFilter = (key: keyof Filters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -96,6 +104,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setIndex(0)
     setSelected('')
     setSubmission(null)
+    setTutorTab('agent')
+    setAgentMode('rule')
     setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
   }
 
@@ -109,8 +119,9 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setChat((items) => [
         ...items,
         { role: 'doctor', text: `我选择：${selected}` },
-        { role: 'agent', text: `${result.is_correct ? '回答正确。' : '这题需要复盘。'}${result.explanation} 下一步：${result.next_recommendation}` },
+        { role: 'agent', text: `${result.is_correct ? '回答正确。' : '这题需要复盘。'}${result.explanation} 下一步：${result.next_recommendation}`, mode: 'rule' },
       ])
+      setTutorTab('compare')
     } finally {
       setLoading(false)
     }
@@ -124,7 +135,9 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       const sourceNotice = result.api_source === 'fallback' ? '（当前为本地 fallback 提示）' : ''
       const text = `${result.hint} ${result.follow_up_question}${sourceNotice}`
       setHint(text)
-      setChat((items) => [...items, { role: 'agent', text }])
+      setChat((items) => [...items, { role: 'agent', text, mode: result.api_source === 'fallback' ? 'fallback' : 'rule' }])
+      setAgentMode(result.api_source === 'fallback' ? 'fallback' : 'rule')
+      setTutorTab('agent')
     } finally {
       setLoading(false)
     }
@@ -137,9 +150,11 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setChat((items) => [...items, { role: 'doctor', text: message }])
     try {
       const result = await api.chat(question, message)
-      setChat((items) => [...items, { role: 'agent', text: result.reply }])
+      setAgentMode(result.generation_mode || 'rule')
+      setChat((items) => [...items, { role: 'agent', text: result.reply, mode: result.generation_mode }])
     } catch {
-      setChat((items) => [...items, { role: 'agent', text: '当前辅导接口暂不可用，请先按证据链完成本题，稍后再追问 Agent。' }])
+      setAgentMode('fallback')
+      setChat((items) => [...items, { role: 'agent', text: '当前辅导接口暂不可用，请先按证据链完成本题，稍后再追问 Agent。', mode: 'fallback' }])
     }
   }
 
@@ -157,6 +172,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setIndex((value) => (value + 1) % Math.max(filteredQuestions.length, 1))
     setSelected('')
     setSubmission(null)
+    setTutorTab('agent')
+    setAgentMode('rule')
     setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
   }
 
@@ -249,13 +266,22 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
           </Card>
 
           <Card className="tutor-panel">
-            <SectionTitle eyebrow="Tutor agent" title={mode === 'exam' ? '考后复盘面板' : '边刷边问 Agent'} />
+            <SectionTitle
+              eyebrow="Tutor agent"
+              title={mode === 'exam' ? '考后复盘面板' : '边刷边问 Agent'}
+              action={<Tag tone={agentMode === 'provider' ? 'green' : agentMode === 'fallback' ? 'amber' : 'blue'}>{agentMode}</Tag>}
+            />
+            <div className="tutor-tabs">
+              <button className={tutorTab === 'agent' ? 'active' : ''} type="button" onClick={() => setTutorTab('agent')}>辅导</button>
+              <button className={tutorTab === 'evidence' ? 'active' : ''} type="button" onClick={() => setTutorTab('evidence')}>证据</button>
+              <button className={tutorTab === 'compare' ? 'active' : ''} type="button" onClick={() => setTutorTab('compare')}>对照</button>
+            </div>
             {mode === 'exam' ? (
               <div className="exam-lock">
                 <GraduationCap size={20} />
                 <p>考试模式隐藏提示和自由追问，提交后用于统一复盘与画像更新。</p>
               </div>
-            ) : (
+            ) : tutorTab === 'agent' ? (
               <>
                 <div className="chat-bubble agent">
                   <Bot size={18} />
@@ -264,7 +290,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                 <div className="chat-thread">
                   {chat.map((message, itemIndex) => (
                     <div className={`chat-line ${message.role}`} key={`${message.role}_${itemIndex}`}>
-                      <span>{message.role === 'agent' ? 'Agent' : '林医师'}</span>
+                      <span>{message.role === 'agent' ? `Agent${message.mode ? ` · ${message.mode}` : ''}` : '林医师'}</span>
                       <p>{message.text}</p>
                     </div>
                   ))}
@@ -275,31 +301,38 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                     <MessageSquare size={17} />
                   </button>
                 </div>
+                <div className="agent-mini-actions">
+                  <button className="button secondary" type="button" onClick={askHint} disabled={loading}>
+                    <Lightbulb size={16} /> 追问提示
+                  </button>
+                  <a className="button secondary" href="/feedback">
+                    <ShieldAlert size={16} /> 错因复盘
+                  </a>
+                </div>
               </>
+            ) : tutorTab === 'evidence' ? (
+              <div className="evidence-box">
+                <div>
+                  <Eye size={17} />
+                  <strong>可审计依据</strong>
+                </div>
+                <p>{evidence}</p>
+                <div className="mini-fact-list">
+                  {question.atomic_trace.map((fact) => (
+                    <span key={fact.id}>{fact.skill_dimension} · {fact.supported ? '支持' : '证据不足'} · {fact.evidence}</span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="challenge-box">
+                <div>
+                  <Trophy size={17} />
+                  <strong>医生 vs AI/公开标注</strong>
+                </div>
+                <p>{challengeDelta}</p>
+                {canRevealBenchmark ? <span>公开标注/AI 基准：{aiAnswer}</span> : <span>未提交前隐藏基准答案，避免破坏练习闭环。</span>}
+              </div>
             )}
-            <div className="evidence-box">
-              <div>
-                <Eye size={17} />
-                <strong>查看依据</strong>
-              </div>
-              <p>{evidence}</p>
-            </div>
-            <div className="challenge-box">
-              <div>
-                <Trophy size={17} />
-                <strong>医生 vs AI</strong>
-              </div>
-              <p>{challengeDelta}</p>
-              <span>AI 基准：{aiAnswer}</span>
-            </div>
-            <div className="agent-actions">
-              <button className="button secondary" type="button" onClick={askHint} disabled={mode === 'exam'}>
-                <Lightbulb size={16} /> 苏格拉底式追问
-              </button>
-              <a className="button secondary" href="/feedback">
-                <ShieldAlert size={16} /> 错因分析
-              </a>
-            </div>
             <div className="safety-mini">{safetyNotice}</div>
           </Card>
         </div>

@@ -10,17 +10,21 @@ import type {
   AtomicFact,
   AuditLog,
   DashboardPayload,
+  ImageUploadResponse,
   KnowledgeBase,
   LearnerProfile,
   ModelAdmissionResult,
   ModelProfile,
   PatientCard,
+  ProviderStatus,
   Question,
   ReportJudge,
   ReportDraft,
   SkillDefinition,
   SubmissionResponse,
+  SourceTraceItem,
   TrainingState,
+  TutorChatResponse,
 } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
@@ -79,6 +83,44 @@ function asNumberRecord(value: unknown, fallback: Record<string, number> = {}): 
     if (Number.isFinite(numberValue)) merged[key] = numberValue
   })
   return merged
+}
+
+function normalizeProviderStatus(value: unknown, fallback: ProviderStatus = {
+  provider: 'mock',
+  model: 'unconfigured',
+  mode: 'rule',
+  ok: false,
+  error: 'provider_not_configured',
+}): ProviderStatus {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    provider: asString(record.provider, fallback.provider),
+    model: asString(record.model, fallback.model),
+    mode: asString(record.mode, fallback.mode),
+    ok: typeof record.ok === 'boolean' ? record.ok : fallback.ok,
+    error: typeof record.error === 'string' || record.error === null ? record.error : fallback.error,
+    latency_ms: record.latency_ms === null ? null : asNumber(record.latency_ms, fallback.latency_ms ?? 0),
+    configured: typeof record.configured === 'boolean' ? record.configured : fallback.configured,
+    base_url_configured: typeof record.base_url_configured === 'boolean' ? record.base_url_configured : fallback.base_url_configured,
+    api_key_configured: typeof record.api_key_configured === 'boolean' ? record.api_key_configured : fallback.api_key_configured,
+    safety_notice: asString(record.safety_notice, fallback.safety_notice || ''),
+  }
+}
+
+function normalizeSourceTrace(value: unknown, fallback: SourceTraceItem[] = []): SourceTraceItem[] {
+  if (!Array.isArray(value)) return fallback
+  return value.map((item, index) => {
+    const record = asRecord(item)
+    return {
+      source_type: asString(record.source_type, `source_${index}`),
+      label: asString(record.label, '来源'),
+      used: asBoolean(record.used, false),
+      detail: asString(record.detail, ''),
+      latency_ms: record.latency_ms === null ? null : asNumber(record.latency_ms, 0),
+    }
+  })
 }
 
 function normalizeAtomicFact(value: unknown, fallback: AtomicFact, index: number): AtomicFact {
@@ -286,7 +328,7 @@ function localReportDraft(findingText: string, options: { examType?: string; ima
     review_points: ['确认部位、范围、数量和图片证据是否一致。', '检查是否存在过强诊断表述。'],
     uncertainty_notes: ['草稿不自动补充未提供的信息。'],
     template_name: options.templateName || '胃镜结构化训练模板',
-    evidence_source: [findingText ? '医生输入所见' : '报告知识库模板', options.imageName ? '图片上传占位' : '未上传图片'],
+    evidence_source: [findingText ? '医生输入所见' : '报告知识库模板', options.imageName ? '图片输入待复核' : '未上传图片'],
     draft_status: 'needs_human_review',
     exam_context: {
       exam_type: options.examType || 'gastroscopy',
@@ -302,11 +344,17 @@ function localReportDraft(findingText: string, options: { examType?: string; ima
     },
     evidence_ledger: [
       {
-        evidence_id: options.imageName ? 'img_001' : 'kb_001',
-        source_type: options.imageName ? 'image' : 'procedure_context',
+        evidence_id: findingText ? 'doctor_input_001' : 'kb_001',
+        source_type: findingText ? 'doctor_input' : 'template_kb',
         source_ref: options.imageName || 'report_knowledge_base.json',
         supports: ['结构化所见', '草稿印象', '医师复核任务'],
       },
+      ...(options.imageName ? [{
+        evidence_id: 'image_preview_001',
+        source_type: 'image_preview_only',
+        source_ref: options.imageName,
+        supports: ['本地 fallback 未执行真实视觉推理，仅作为图片预览或人工复核入口。'],
+      }] : []),
     ],
     hallucination_audit: {
       audit_passed: true,
@@ -319,6 +367,29 @@ function localReportDraft(findingText: string, options: { examType?: string; ima
       '确认检查类型、病灶解剖部位和完整检查范围。',
       '确认病灶数量、大小、形态分型和是否存在多视角证据。',
       '签发前逐条核对证据台账与报告声明。',
+    ],
+    generation_mode: 'fallback',
+    provider_status: {
+      provider: 'frontend_fallback',
+      model: 'none',
+      mode: 'fallback',
+      ok: false,
+      error: 'backend_unavailable',
+    },
+    model_observation: null,
+    source_trace: [
+      {
+        source_type: findingText ? 'doctor_input' : 'template_kb',
+        label: findingText ? '医生输入所见' : '报告知识库模板',
+        used: true,
+        detail: findingText ? '前端 fallback 仅做文本结构化。' : '未输入所见，使用本地模板。',
+      },
+      {
+        source_type: 'provider',
+        label: '视觉/语言 Provider',
+        used: false,
+        detail: 'backend_unavailable',
+      },
     ],
     doctor_review_required: true,
     safety_notice: safetyNotice,
@@ -368,10 +439,61 @@ function normalizeReportDraft(value: unknown, fallback: ReportDraft): ReportDraf
       required_rewrites: asStringArray(hallucinationAudit.required_rewrites, fallback.hallucination_audit.required_rewrites),
     },
     review_tasks: asStringArray(record.review_tasks, fallback.review_tasks),
+    generation_mode: asString(record.generation_mode, fallback.generation_mode),
+    provider_status: normalizeProviderStatus(record.provider_status, fallback.provider_status),
+    model_observation: typeof record.model_observation === 'string' ? record.model_observation : fallback.model_observation,
+    source_trace: normalizeSourceTrace(record.source_trace, fallback.source_trace),
     doctor_review_required: true,
     safety_notice: asString(record.safety_notice, safetyNotice),
     created_at: asString(record.created_at, fallback.created_at),
   }
+}
+
+function normalizeModelAdmission(value: unknown, fallback: ModelAdmissionResult): ModelAdmissionResult {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id),
+    provider_name: asString(record.provider_name, fallback.provider_name),
+    grade: asString(record.grade, fallback.grade) as ModelAdmissionResult['grade'],
+    total_score: asNumber(record.total_score, fallback.total_score),
+    dimension_scores: asNumberRecord(record.dimension_scores, fallback.dimension_scores),
+    risk_items: asStringArray(record.risk_items, fallback.risk_items),
+    tested_samples: asStringArray(record.tested_samples, fallback.tested_samples),
+    provider_called: asBoolean(record.provider_called, fallback.provider_called),
+    is_mock: asBoolean(record.is_mock, fallback.is_mock),
+    evidence: Array.isArray(record.evidence)
+      ? record.evidence.map((item) => {
+          const evidence = asRecord(item)
+          return {
+            sample_id: asString(evidence.sample_id, ''),
+            source_dataset: asString(evidence.source_dataset, ''),
+            question: asString(evidence.question, ''),
+            reference_annotation: asString(evidence.reference_annotation, ''),
+            provider_called: asBoolean(evidence.provider_called, false),
+            provider_mode: asString(evidence.provider_mode, ''),
+            latency_ms: evidence.latency_ms === null ? null : asNumber(evidence.latency_ms, 0),
+            observation_excerpt: asString(evidence.observation_excerpt, ''),
+            error: typeof evidence.error === 'string' || evidence.error === null ? evidence.error : null,
+          }
+        })
+      : fallback.evidence,
+    provider_status: normalizeProviderStatus(record.provider_status, fallback.provider_status),
+    recommendation: asString(record.recommendation, fallback.recommendation),
+    doctor_review_required: true,
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    created_at: asString(record.created_at, fallback.created_at),
+  }
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result || ''))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
 }
 
 const localSubmission = (question: Question, selectedAnswer: string): SubmissionResponse => {
@@ -515,6 +637,19 @@ export const api = {
     return normalizeProfile(response)
   },
 
+  async providerStatus(): Promise<ProviderStatus> {
+    const response = await request<ProviderStatus>('/api/provider/status', undefined, {
+      provider: 'mock',
+      model: 'unconfigured',
+      mode: 'fallback',
+      configured: false,
+      ok: false,
+      error: 'backend_unavailable',
+      safety_notice: safetyNotice,
+    })
+    return normalizeProviderStatus(response)
+  },
+
   async hint(question: Question): Promise<{
     hint: string
     follow_up_question: string
@@ -538,23 +673,36 @@ export const api = {
     )
   },
 
-  async chat(question: Question, message: string): Promise<{
-    reply: string
-    scope: string
-    doctor_review_required: boolean
-    safety_notice: string
-    api_source?: 'backend' | 'fallback'
-  }> {
-    return request(
+  async chat(question: Question, message: string): Promise<TutorChatResponse> {
+    const fallback: TutorChatResponse = {
+      reply: `围绕“${question.title}”，请先拆出可观察事实，再判断它是否足以支持题干结论。`,
+      scope: 'current_question_only',
+      generation_mode: 'fallback',
+      provider_status: {
+        provider: 'frontend_fallback',
+        model: 'none',
+        mode: 'fallback',
+        ok: false,
+        error: 'backend_unavailable',
+      },
+      doctor_review_required: true,
+      safety_notice: safetyNotice,
+    }
+    const response = await request<TutorChatResponse>(
       '/api/tutor/chat',
       { method: 'POST', body: JSON.stringify({ question_id: question.id, learner_id: 'demo_learner', message }) },
-      {
-        reply: `围绕“${question.title}”，请先拆出可观察事实，再判断它是否足以支持题干结论。`,
-        scope: 'current_question_only',
-        doctor_review_required: true,
-        safety_notice: safetyNotice,
-      },
+      fallback,
     )
+    return {
+      ...fallback,
+      ...response,
+      reply: asString(response.reply, fallback.reply),
+      scope: asString(response.scope, fallback.scope),
+      generation_mode: asString(response.generation_mode, fallback.generation_mode),
+      provider_status: normalizeProviderStatus(response.provider_status, fallback.provider_status),
+      doctor_review_required: true,
+      safety_notice: asString(response.safety_notice, safetyNotice),
+    }
   },
 
   async explain(question: Question, selectedAnswer: string) {
@@ -589,6 +737,21 @@ export const api = {
       fallback,
     )
     return normalizeReportDraft(response, fallback)
+  },
+
+  async uploadReportImage(file: File): Promise<ImageUploadResponse> {
+    const dataUrl = await readFileAsDataUrl(file)
+    return request<ImageUploadResponse>(
+      '/api/report/image-upload',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          filename: file.name,
+          data_url: dataUrl,
+          learner_id: 'demo_learner',
+        }),
+      },
+    )
   },
 
   async reportJudge(originalReport: string, revisedReport: string): Promise<ReportJudge> {
@@ -650,33 +813,47 @@ export const api = {
     return response.items
   },
 
-  async modelAdmissionTest(payload: { providerName: string; apiBase: string; apiKeyMasked: string; sampleIds: string[]; focus: string[] }): Promise<ModelAdmissionResult> {
-    return request<ModelAdmissionResult>(
+  async modelAdmissionTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string; sampleIds: string[]; focus: string[] }): Promise<ModelAdmissionResult> {
+    const fallback: ModelAdmissionResult = {
+      id: `admission_local_${Date.now()}`,
+      provider_name: payload.providerName,
+      grade: 'B',
+      total_score: 69,
+      dimension_scores: { 基础识别: 78, 复杂推理: 70, 错误前提: 66, 报告安全: 72, 接口稳定: 35 },
+      risk_items: ['本地 fallback 仅演示评分格式，未完成真实 Provider 准入。'],
+      tested_samples: payload.sampleIds,
+      provider_called: false,
+      is_mock: true,
+      evidence: [],
+      provider_status: {
+        provider: 'frontend_fallback',
+        model: payload.model || 'none',
+        mode: 'fallback',
+        ok: false,
+        error: 'backend_unavailable',
+      },
+      recommendation: '请先连通后端并配置 Provider，再运行真实准入探测。',
+      doctor_review_required: true,
+      safety_notice: safetyNotice,
+      created_at: new Date().toISOString(),
+    }
+    const response = await request<ModelAdmissionResult>(
       '/api/models/admission-test',
       {
         method: 'POST',
         body: JSON.stringify({
           provider_name: payload.providerName,
           api_base: payload.apiBase,
-          api_key_masked: payload.apiKeyMasked,
+          api_key_masked: payload.apiKey ? payload.apiKey.replace(/(.{4}).+(.{2})/, '$1****$2') : '',
+          api_key: payload.apiKey || undefined,
+          model: payload.model || undefined,
           selected_sample_ids: payload.sampleIds,
           test_focus: payload.focus,
         }),
       },
-      {
-        id: `admission_local_${Date.now()}`,
-        provider_name: payload.providerName,
-        grade: 'A',
-        total_score: 82,
-        dimension_scores: { 基础识别: 86, 复杂推理: 78, 错误前提: 74, 报告安全: 82, 接口稳定: 88 },
-        risk_items: ['本地 fallback 仅演示评分格式，不代表真实准入。'],
-        tested_samples: payload.sampleIds,
-        recommendation: '可作为训练 Agent 候选模型进入人工复核阶段。',
-        doctor_review_required: true,
-        safety_notice: safetyNotice,
-        created_at: new Date().toISOString(),
-      },
+      fallback,
     )
+    return normalizeModelAdmission(response, fallback)
   },
 
   async reportKnowledge(): Promise<KnowledgeBase> {

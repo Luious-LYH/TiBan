@@ -12,6 +12,7 @@ from app.schemas import (
 )
 from app.services.audit_service import audit_service, now_iso
 from app.services.data_store import read_json
+from app.services.llm_provider import llm_provider
 from app.services.safety_service import safety_service
 
 
@@ -33,14 +34,28 @@ class ReportService:
         raw_text = request.finding_text.strip()
         kb = self.report_knowledge_base()
         text = safety_service.redact_sensitive_text(raw_text)
+        sample = self._sample_from_image_name(request.image_name)
+        image_path = self._provider_image_path(request.image_name, sample)
+        provider_result = self._provider_observation(request, text, sample, image_path)
+        model_observation = provider_result.text if provider_result.ok else None
         findings = self._split_findings(text or self._default_finding(kb))
+        if model_observation:
+            findings.append(f"模型视觉观察摘要（需医师复核）：{model_observation[:180]}")
         review = safety_service.review_text(raw_text)
         uncertainty_notes = [
             "草稿优先整理医生输入；未上传图片时，仅基于模板知识库生成训练样例。",
             "如需形成正式报告，应由内镜医生结合完整图像、病史和必要检查复核。",
         ]
-        if request.image_name:
-            uncertainty_notes.insert(0, f"已接收图片占位：{request.image_name}；当前 demo 不执行真实图像诊断。")
+        if sample:
+            uncertainty_notes.insert(0, f"已载入公开样例标注：{sample.get('source_dataset')}；标注仅作为教学参考。")
+        elif request.image_name and request.image_name.startswith("uploads/"):
+            note = "已接收上传图片；"
+            note += "已尝试调用视觉 Provider 生成观察摘要。" if provider_result.ok else "Provider 未配置或调用失败，当前不执行真实视觉推理。"
+            uncertainty_notes.insert(0, note)
+        elif request.image_name:
+            uncertainty_notes.insert(0, f"已接收图片引用：{request.image_name}；若非公开样例或受控上传，后端不会进行视觉推理。")
+        if provider_result.error and provider_result.error != "provider_not_configured":
+            uncertainty_notes.insert(0, f"Provider 调用失败，已降级为规则/知识库草稿：{provider_result.error}")
         if not review["passed"]:
             uncertainty_notes.insert(0, "输入中可能包含敏感或越界表述，已在草稿回显中脱敏或提示复核。")
         review_points = [
@@ -53,8 +68,10 @@ class ReportService:
         exam_context = self._exam_context(request.exam_type, request.image_name)
         draft_impression = self._draft_impression(findings)
         audit = self._hallucination_audit([*findings, *draft_impression], single_frame=single_frame)
-        evidence_ledger = self._evidence_ledger(request, findings, draft_impression)
+        evidence_ledger = self._evidence_ledger(request, findings, draft_impression, sample, provider_result.ok)
         review_tasks = self._review_tasks(audit, request.image_name)
+        generation_mode = "provider" if provider_result.ok else "fallback" if provider_result.error and provider_result.error != "provider_not_configured" else "rule"
+        source_trace = self._source_trace(request, sample, provider_result)
         draft = ReportDraft(
             id=f"report_{uuid4().hex[:12]}",
             input_finding_text=text,
@@ -75,6 +92,10 @@ class ReportService:
             evidence_ledger=evidence_ledger,
             hallucination_audit=audit,
             review_tasks=review_tasks,
+            generation_mode=generation_mode,
+            provider_status=provider_result.public_status(),
+            model_observation=model_observation,
+            source_trace=source_trace,
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
@@ -83,7 +104,7 @@ class ReportService:
             "report_draft",
             user_id="doctor_demo",
             entity_id=draft.id,
-            summary="生成结构化报告草稿；医生审核必需。" if review["passed"] else "报告草稿触发安全审查提醒。",
+            summary=f"生成结构化报告草稿；模式 {generation_mode}；医生审核必需。" if review["passed"] else "报告草稿触发安全审查提醒。",
             risk_level="high",
         )
         return draft
@@ -223,16 +244,128 @@ class ReportService:
             "single_frame_limitation": bool(image_name),
         }
 
-    def _evidence_ledger(self, request: ReportDraftRequest, findings: list[str], impressions: list[str]) -> list[dict[str, object]]:
-        source_ref = request.image_name or "report_knowledge_base.json"
-        return [
+    def _evidence_ledger(
+        self,
+        request: ReportDraftRequest,
+        findings: list[str],
+        impressions: list[str],
+        sample: dict | None,
+        provider_called: bool,
+    ) -> list[dict[str, object]]:
+        ledger = [
             {
-                "evidence_id": "img_001" if request.image_name else "kb_001",
-                "source_type": "image" if request.image_name else "procedure_context",
-                "source_ref": source_ref,
+                "evidence_id": "doctor_input_001" if request.finding_text.strip() else "kb_001",
+                "source_type": "doctor_input" if request.finding_text.strip() else "template_kb",
+                "source_ref": "finding_text" if request.finding_text.strip() else "report_knowledge_base.json",
                 "supports": [*findings[:3], *impressions[:2]] or ["结构化报告模板训练样例"],
             }
         ]
+        if sample:
+            ledger.append(
+                {
+                    "evidence_id": "public_sample_001",
+                    "source_type": "public_sample_annotation",
+                    "source_ref": sample.get("id", "public_sample"),
+                    "supports": [str(sample.get("question", "")), str(sample.get("answer", ""))],
+                }
+            )
+        elif request.image_name and request.image_name.startswith("uploads/"):
+            ledger.append(
+                {
+                    "evidence_id": "upload_001",
+                    "source_type": "provider_image_observation" if provider_called else "image_preview_only",
+                    "source_ref": request.image_name,
+                    "supports": ["Provider 已生成视觉观察摘要"] if provider_called else ["仅保存上传图片供预览/后续人工复核；未作为图像诊断证据"],
+                }
+            )
+        return ledger
+
+    def _source_trace(self, request: ReportDraftRequest, sample: dict | None, provider_result) -> list[dict[str, object]]:
+        trace = [
+            {
+                "source_type": "doctor_input" if request.finding_text.strip() else "template_kb",
+                "label": "医生输入所见" if request.finding_text.strip() else "报告知识库模板",
+                "used": True,
+                "detail": "已脱敏后进入结构化草稿。" if request.finding_text.strip() else "未输入所见，使用模板样例。",
+            },
+            {
+                "source_type": "template_kb",
+                "label": "报告模板知识库",
+                "used": True,
+                "detail": "report_knowledge_base.json",
+            },
+            {
+                "source_type": "provider",
+                "label": "视觉/语言 Provider",
+                "used": bool(provider_result.ok),
+                "detail": provider_result.error or f"{provider_result.provider}:{provider_result.model}",
+                "latency_ms": provider_result.latency_ms,
+            },
+        ]
+        if sample:
+            trace.insert(
+                1,
+                {
+                    "source_type": "public_sample_annotation",
+                    "label": "公开样例标注",
+                    "used": True,
+                    "detail": f"{sample.get('source_dataset')} / {sample.get('id')}",
+                },
+            )
+        elif request.image_name:
+            trace.insert(
+                1,
+                {
+                    "source_type": "uploaded_image" if request.image_name.startswith("uploads/") else "image_reference",
+                    "label": "图片输入",
+                    "used": bool(provider_result.ok),
+                    "detail": request.image_name,
+                },
+            )
+        return trace
+
+    def _sample_from_image_name(self, image_name: str | None) -> dict | None:
+        if not image_name:
+            return None
+        sample_id = image_name.removeprefix("public_")
+        for sample in read_json("real_sample_knowledge.json"):
+            if sample.get("id") == sample_id:
+                return sample
+        return None
+
+    def _provider_image_path(self, image_name: str | None, sample: dict | None) -> str | None:
+        if sample:
+            return str(sample.get("image_url") or "")
+        if image_name and image_name.startswith("uploads/"):
+            return image_name
+        if image_name and image_name.startswith("/assets/real_samples/"):
+            return image_name
+        return None
+
+    def _provider_observation(self, request: ReportDraftRequest, finding_text: str, sample: dict | None, image_path: str | None):
+        sample_text = ""
+        if sample:
+            sample_text = (
+                f"\n公开样例问题：{sample.get('question', '')}"
+                f"\n公开样例参考标注：{sample.get('answer', '')}"
+                "\n这些标注只能作为教学上下文，不可直接当作临床诊断。"
+            )
+        return llm_provider.chat(
+            system_prompt=(
+                "你是消化内镜医师培训平台中的报告辅助 Agent。"
+                "只输出医生审核前的教学观察摘要，不给最终诊断、不建议治疗、不编造病史、病理或完整检查范围。"
+                "若证据不足，请明确写出缺失上下文。"
+            ),
+            user_prompt=(
+                f"检查类型：{request.exam_type}\n"
+                f"医生输入所见：{finding_text or '未提供'}"
+                f"{sample_text}\n"
+                "请用中文输出 3-5 条谨慎的视觉/文本观察线索，供结构化报告草稿参考。"
+            ),
+            image_path=image_path,
+            temperature=0.1,
+            max_tokens=520,
+        )
 
     def _hallucination_audit(self, statements: list[str], *, single_frame: bool) -> dict[str, object]:
         text = "；".join(statements)

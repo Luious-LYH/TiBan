@@ -1,8 +1,14 @@
+import base64
+import re
+from uuid import uuid4
+
 from fastapi import APIRouter, HTTPException, Query
 
-from app.core.config import APP_NAME, SAFETY_NOTICE
+from app.core.config import APP_NAME, SAFETY_NOTICE, UPLOAD_DIR
 from app.schemas import (
     FavoriteRequest,
+    ImageUploadRequest,
+    ImageUploadResponse,
     ModelAdmissionTestRequest,
     ModelSelectRequest,
     PatientCardRequest,
@@ -17,6 +23,7 @@ from app.schemas import (
 from app.services.audit_service import audit_service
 from app.services.dashboard_service import dashboard_service
 from app.services.grading_service import grading_service
+from app.services.llm_provider import llm_provider
 from app.services.memory_service import memory_service
 from app.services.model_service import model_service
 from app.services.question_service import question_service
@@ -30,6 +37,11 @@ router = APIRouter(prefix="/api")
 @router.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": APP_NAME}
+
+
+@router.get("/provider/status")
+def provider_status() -> dict[str, object]:
+    return llm_provider.status()
 
 
 @router.get("/dashboard")
@@ -137,6 +149,42 @@ def favorite_question(request: FavoriteRequest) -> dict[str, object]:
 @router.post("/report-draft")
 def report_draft(request: ReportDraftRequest) -> dict[str, object]:
     return report_service.generate_report_draft(request).model_dump()
+
+
+@router.post("/report/image-upload")
+def upload_report_image(request: ImageUploadRequest) -> dict[str, object]:
+    match = re.match(r"^data:(image/(?:png|jpeg|jpg|webp));base64,(.+)$", request.data_url, re.DOTALL)
+    if not match:
+        raise HTTPException(status_code=400, detail="Only image data URLs are supported.")
+    mime, encoded = match.groups()
+    try:
+        payload = base64.b64decode(encoded, validate=True)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid base64 image payload.") from exc
+    if not payload or len(payload) > 2_500_000:
+        raise HTTPException(status_code=400, detail="Image must be between 1 byte and 2.5 MB.")
+    suffix = { "image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp" }[mime]
+    safe_stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", request.filename.rsplit(".", 1)[0])[:40] or "endoscopy_upload"
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    output_name = f"{uuid4().hex[:12]}_{safe_stem}{suffix}"
+    output_path = UPLOAD_DIR / output_name
+    output_path.write_bytes(payload)
+    response = ImageUploadResponse(
+        image_name=f"uploads/{output_name}",
+        original_filename=request.filename,
+        bytes=len(payload),
+        source_type="uploaded_image",
+        doctor_review_required=True,
+        safety_notice=SAFETY_NOTICE,
+    )
+    audit_service.log(
+        "image_upload",
+        user_id=request.learner_id,
+        entity_id=response.image_name,
+        summary="上传内镜教学图片至后端受控目录；未包含真实身份字段。",
+        risk_level="medium",
+    )
+    return response.model_dump()
 
 
 @router.post("/report/judge")

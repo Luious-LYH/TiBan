@@ -11,13 +11,20 @@ Base URL: `http://127.0.0.1:8000/api`
 }
 ```
 
-当前 `/submit`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/report-draft`、`/patient-card` 和高风险 `/skills/run` 输出均遵循该契约。
+当前 `/submit`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/report-draft`、`/report/judge`、`/patient-card`、`/models/admission-test` 和高风险 `/skills/run` 输出均遵循该契约。
+
+v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mode` / `provider_status` / `provider_called`：
+
+- `provider`: 已调用本地 `.env` 或本次请求提供的 OpenAI-compatible Provider。
+- `rule`: 未配置 Provider，使用后端规则/模板生成。
+- `fallback`: Provider 调用失败或前端后端断连后的降级结果。
 
 ## Core
 
 | Method | Path | 说明 |
 |---|---|---|
 | GET | `/health` | 服务健康检查 |
+| GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
 | GET | `/questions` | 题库列表，支持 `question_class`、`difficulty`、`false_premise` |
 | GET | `/questions/{id}` | 单题详情 |
@@ -28,9 +35,12 @@ Base URL: `http://127.0.0.1:8000/api`
 | GET | `/learner/profile` | 学员画像 |
 | GET | `/learner/recommendations` | 推荐训练 |
 | POST | `/report-draft` | 结构化报告草稿 |
+| POST | `/report/image-upload` | 上传教学图片到后端受控目录，返回 `uploads/...` 引用 |
+| POST | `/report/judge` | 报告修改训练评分 |
 | POST | `/patient-card` | 科普卡片草稿 |
 | GET | `/models` | 模型库 mock 看板 |
 | POST | `/models/select` | 选择默认 mock 模型 |
+| POST | `/models/admission-test` | 使用公开样例做 Provider/规则准入探测 |
 | GET | `/skills` | Skills 列表 |
 | POST | `/skills/run` | 运行受控 skill |
 | GET | `/audit` | 审计日志 |
@@ -52,7 +62,42 @@ Base URL: `http://127.0.0.1:8000/api`
 ```json
 {
   "finding_text": "胃窦黏膜充血，可见散在糜烂。",
-  "exam_type": "gastroscopy"
+  "exam_type": "gastroscopy",
+  "image_name": "public_real_x1_0",
+  "template_name": "胃镜结构化训练模板"
+}
+```
+
+报告输出核心字段：
+
+```json
+{
+  "generation_mode": "provider | rule | fallback",
+  "provider_status": {
+    "provider": "mock | openai_compatible",
+    "model": "model-name",
+    "ok": false,
+    "error": "provider_not_configured"
+  },
+  "source_trace": [
+    { "source_type": "doctor_input", "label": "医生输入所见", "used": true },
+    { "source_type": "public_sample_annotation", "label": "公开样例标注", "used": true },
+    { "source_type": "template_kb", "label": "报告模板知识库", "used": true },
+    { "source_type": "provider", "label": "视觉/语言 Provider", "used": false }
+  ]
+}
+```
+
+模型准入：
+
+```json
+{
+  "provider_name": "自定义多模态 API",
+  "api_base": "https://api.example.com/v1",
+  "api_key": "仅本次请求可选，禁止写入仓库",
+  "model": "your-model-name",
+  "selected_sample_ids": ["real_x1_0"],
+  "test_focus": ["基础识别", "错误前提", "报告安全"]
 }
 ```
 

@@ -6,13 +6,15 @@ import { api } from '../lib/api'
 import type { KnowledgeBase, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
 
 export function ReportDraft() {
-  const [findingText, setFindingText] = useState('胃窦黏膜充血，可见散在糜烂。未见明确活动性出血。')
+  const [findingText, setFindingText] = useState('请结合图像与公开样例标注，生成医生审核前结构化报告训练草稿。')
   const [examType, setExamType] = useState('gastroscopy')
   const [templateName, setTemplateName] = useState('胃镜结构化训练模板')
   const [imageName, setImageName] = useState('public_real_x1_0')
   const [imagePreview, setImagePreview] = useState('/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg')
   const [realSamples, setRealSamples] = useState<Question[]>([])
   const [selectedSampleId, setSelectedSampleId] = useState('public_real_x1_0')
+  const [selectedSample, setSelectedSample] = useState<Question | null>(null)
+  const [uploadStatus, setUploadStatus] = useState('')
   const [draft, setDraft] = useState<ReportDraftType | null>(null)
   const [knowledge, setKnowledge] = useState<KnowledgeBase | null>(null)
   const [originalReport, setOriginalReport] = useState('本图明确证明患者患胃癌，建议立即治疗。')
@@ -22,14 +24,11 @@ export function ReportDraft() {
 
   function applySample(sample: Question) {
     setSelectedSampleId(sample.id)
+    setSelectedSample(sample)
     setImageName(sample.id)
     setImagePreview(sample.image_url || '')
-    setFindingText([
-      `公开样例来源：${sample.source_dataset}。`,
-      `训练问题：${sample.question}`,
-      `参考标注：${sample.answer}`,
-      '请基于单帧公开样例生成医生审核前结构化报告训练草稿，不补充未提供的病史、病理或完整检查范围。',
-    ].join('\n'))
+    setUploadStatus('已载入公开样例标注；标注会进入来源追踪，不会伪装成医生输入所见。')
+    setFindingText('请基于单帧公开样例与模板知识库生成医生审核前结构化报告训练草稿，不补充未提供的病史、病理或完整检查范围。')
     setExamType(sample.body_part === '结直肠' ? 'colonoscopy' : 'gastroscopy')
   }
 
@@ -46,12 +45,24 @@ export function ReportDraft() {
     }).catch(() => undefined)
   }, [])
 
-  const onImage = (event: ChangeEvent<HTMLInputElement>) => {
+  const onImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-    setImageName(file.name)
+    setLoading(true)
+    setUploadStatus('正在上传图片到后端受控目录...')
     setImagePreview(URL.createObjectURL(file))
     setSelectedSampleId('')
+    setSelectedSample(null)
+    try {
+      const uploaded = await api.uploadReportImage(file)
+      setImageName(uploaded.image_name)
+      setUploadStatus(`已上传至后端：${uploaded.original_filename}，${Math.round(uploaded.bytes / 1024)} KB。Provider 配置后可用于视觉观察摘要。`)
+    } catch {
+      setImageName(file.name)
+      setUploadStatus('后端上传失败；当前仅保留前端预览，生成报告时不会把图片当作视觉证据。')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const generate = async () => {
@@ -105,8 +116,19 @@ export function ReportDraft() {
           <label className="upload-zone">
             <input type="file" accept="image/*" onChange={onImage} />
             {imagePreview ? <img src={imagePreview} alt="上传的内镜图片预览" /> : <FileImage size={34} />}
-            <span>{selectedSampleId ? '已载入本地真实公开图文样例，可切换或上传自定义图片' : imageName || '上传内镜图片，当前 demo 仅做预览占位'}</span>
+            <span>{selectedSampleId ? '已载入本地真实公开图文样例，可切换或上传自定义图片' : imageName || '上传内镜图片到后端受控目录'}</span>
           </label>
+          {uploadStatus ? <div className="source-note">{uploadStatus}</div> : null}
+          {selectedSample ? (
+            <div className="sample-annotation-card">
+              <div>
+                <span>公开样例标注</span>
+                <strong>{selectedSample.source_dataset} · {selectedSample.body_part}</strong>
+              </div>
+              <p>{selectedSample.question}</p>
+              <em>参考标注：{selectedSample.answer}</em>
+            </div>
+          ) : null}
           <div className="form-row">
             <label>
               <span>检查类型</span>
@@ -149,13 +171,32 @@ export function ReportDraft() {
       {draft ? (
         <div className="page-stack">
           <Card>
-            <SectionTitle eyebrow={draft.template_name} title="结构化报告输出" action={<Tag tone="red">需医生审核</Tag>} />
+            <SectionTitle
+              eyebrow={draft.template_name}
+              title="结构化报告输出"
+              action={<Tag tone={draft.generation_mode === 'provider' ? 'green' : draft.generation_mode === 'fallback' ? 'amber' : 'blue'}>{draft.generation_mode}</Tag>}
+            />
             <div className="report-status-grid">
               <div><span>草稿状态</span><strong>{draft.draft_status}</strong></div>
               <div><span>检查类型</span><strong>{String(draft.exam_context.exam_type || draft.exam_type)}</strong></div>
               <div><span>图像质量</span><strong>{draft.image_quality.clarity || 'unknown'}</strong></div>
-              <div><span>单帧限制</span><strong>{draft.image_quality.single_frame_limitation ? '是' : '否'}</strong></div>
+              <div><span>Provider</span><strong>{draft.provider_status.ok ? `${draft.provider_status.model}` : draft.provider_status.error || 'rule'}</strong></div>
             </div>
+            <div className="source-trace-grid">
+              {draft.source_trace.map((item) => (
+                <div className={item.used ? 'used' : ''} key={`${item.source_type}_${item.label}`}>
+                  <span>{item.label}</span>
+                  <strong>{item.used ? '已使用' : '未使用'}</strong>
+                  <p>{item.detail}{item.latency_ms ? ` · ${item.latency_ms}ms` : ''}</p>
+                </div>
+              ))}
+            </div>
+            {draft.model_observation ? (
+              <div className="provider-observation">
+                <strong>Provider 观察摘要</strong>
+                <p>{draft.model_observation}</p>
+              </div>
+            ) : null}
             <div className="draft-grid">
               <DraftList icon={<FileText size={18} />} title="结构化所见" items={draft.structured_findings} />
               <DraftList icon={<ClipboardCheck size={18} />} title="草稿印象" items={draft.draft_impression} />

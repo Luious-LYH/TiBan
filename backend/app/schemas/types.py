@@ -152,6 +152,21 @@ class ReportDraftRequest(BaseModel):
     template_name: str | None = None
 
 
+class ImageUploadRequest(BaseModel):
+    filename: str
+    data_url: str
+    learner_id: str = "demo_learner"
+
+
+class ImageUploadResponse(BaseModel):
+    image_name: str
+    original_filename: str
+    bytes: int
+    source_type: Literal["uploaded_image"]
+    doctor_review_required: bool = True
+    safety_notice: str
+
+
 class ReportDraft(BaseModel):
     id: str
     input_finding_text: str
@@ -168,6 +183,10 @@ class ReportDraft(BaseModel):
     evidence_ledger: list[dict[str, Any]] = Field(default_factory=list)
     hallucination_audit: dict[str, Any] = Field(default_factory=dict)
     review_tasks: list[str] = Field(default_factory=list)
+    generation_mode: str = "rule"
+    provider_status: dict[str, Any] = Field(default_factory=dict)
+    model_observation: str | None = None
+    source_trace: list[dict[str, Any]] = Field(default_factory=list)
     doctor_review_required: bool = True
     safety_notice: str
     created_at: str
@@ -236,6 +255,8 @@ class ModelAdmissionTestRequest(BaseModel):
     provider_name: str = "自定义模型"
     api_base: str = "https://api.example.com/v1"
     api_key_masked: str = "sk-****"
+    api_key: str | None = None
+    model: str | None = None
     selected_sample_ids: list[str] = Field(default_factory=list)
     test_focus: list[str] = Field(default_factory=lambda: ["基础识别", "错误前提", "报告安全"])
 
@@ -248,6 +269,10 @@ class ModelAdmissionTestResponse(BaseModel):
     dimension_scores: dict[str, int]
     risk_items: list[str]
     tested_samples: list[str]
+    provider_called: bool = False
+    is_mock: bool = True
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    provider_status: dict[str, Any] = Field(default_factory=dict)
     recommendation: str
     doctor_review_required: bool = True
     safety_notice: str
@@ -272,6 +297,7 @@ class AuditLog(BaseModel):
         "skill_run",
         "model_select",
         "favorite_update",
+        "image_upload",
         "safety_warning",
     ]
     user_id: str

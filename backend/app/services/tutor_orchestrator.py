@@ -2,6 +2,7 @@ from app.core.config import SAFETY_NOTICE
 from app.schemas import SubmissionRequest, TutorChatRequest, TutorExplainRequest, TutorHintRequest
 from app.services.audit_service import audit_service
 from app.services.grading_service import grading_service
+from app.services.llm_provider import llm_provider
 from app.services.question_service import question_service
 from app.services.safety_service import safety_service
 
@@ -58,15 +59,47 @@ class TutorOrchestrator:
         if not review["passed"]:
             reply = "这个问题可能涉及真实诊疗或敏感信息。我只能围绕当前教学题的图像证据、答案依据和复核点进行解释。"
             risk = "high"
+            provider_result = None
         else:
-            reply = (
-                f"围绕当前题“{question.title}”，建议你先拆成两步："
-                f"1. 找到可观察事实；2. 判断这些事实是否足以支持题干结论。"
-                f"本题的关键训练标签是：{', '.join(question.teaching_tags)}。"
+            provider_result = llm_provider.chat(
+                system_prompt=(
+                    "你是消化内镜医师训练平台的右侧辅导 Agent。"
+                    "只围绕当前公开教学题进行苏格拉底式辅导，不泄露最终答案，"
+                    "不输出诊断结论、治疗建议或真实患者判断。"
+                ),
+                user_prompt=(
+                    f"题目标题：{question.title}\n"
+                    f"病例摘要：{question.case_summary}\n"
+                    f"题干：{question.question}\n"
+                    f"教学标签：{', '.join(question.teaching_tags)}\n"
+                    f"可审计原子事实：{'; '.join(f'{fact.fact} -> {fact.evidence}' for fact in question.atomic_trace)}\n"
+                    f"医师追问：{request.message}\n"
+                    "请给出 2-4 句中文辅导：先追问证据，再提示下一步观察，不直接说出正确选项。"
+                ),
+                image_path=question.image_url,
+                temperature=0.2,
+                max_tokens=360,
             )
+            if provider_result.ok:
+                reply = provider_result.text
+            else:
+                reply = (
+                    f"围绕当前题“{question.title}”，建议你先拆成两步："
+                    f"1. 找到可观察事实；2. 判断这些事实是否足以支持题干结论。"
+                    f"本题的关键训练标签是：{', '.join(question.teaching_tags)}。"
+                )
             risk = "low"
         audit_service.log("tutor_reply", request.learner_id, reply, risk, question.id)
-        return {"reply": reply, "scope": "current_question_only", "doctor_review_required": True, "safety_notice": SAFETY_NOTICE}
+        provider_status = provider_result.public_status() if provider_result else llm_provider.status()
+        generation_mode = "provider" if provider_result and provider_result.ok else "fallback" if provider_result and provider_result.error != "provider_not_configured" else "rule"
+        return {
+            "reply": reply,
+            "scope": "current_question_only",
+            "generation_mode": generation_mode,
+            "provider_status": provider_status,
+            "doctor_review_required": True,
+            "safety_notice": SAFETY_NOTICE,
+        }
 
 
 tutor_orchestrator = TutorOrchestrator()

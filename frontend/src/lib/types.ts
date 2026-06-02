@@ -1,6 +1,28 @@
 export type RiskLevel = 'low' | 'medium' | 'high'
 export type QuestionType = '单选' | '多选' | '判断' | '问答评分' | '报告修改'
 export type ReviewStatus = '未开始' | '待复盘' | '已掌握' | '收藏中'
+export type GenerationMode = 'provider' | 'rule' | 'fallback'
+
+export type ProviderStatus = {
+  configured?: boolean
+  provider: string
+  model: string
+  mode: GenerationMode | string
+  ok?: boolean
+  error?: string | null
+  latency_ms?: number | null
+  base_url_configured?: boolean
+  api_key_configured?: boolean
+  safety_notice?: string
+}
+
+export type SourceTraceItem = {
+  source_type: string
+  label: string
+  used: boolean
+  detail: string
+  latency_ms?: number | null
+}
 
 export type AtomicFact = {
   id: string
@@ -114,8 +136,11 @@ export type AuditLog = {
     | 'tutor_reply'
     | 'report_draft'
     | 'patient_card'
+    | 'report_judge'
     | 'skill_run'
     | 'model_select'
+    | 'favorite_update'
+    | 'image_upload'
     | 'safety_warning'
   user_id: string
   entity_id?: string | null
@@ -158,9 +183,14 @@ export type ReportDraft = {
     [key: string]: unknown
   }
   review_tasks: string[]
+  generation_mode: GenerationMode | string
+  provider_status: ProviderStatus
+  model_observation?: string | null
+  source_trace: SourceTraceItem[]
   doctor_review_required: true
   safety_notice: string
   created_at: string
+  api_source?: 'backend' | 'fallback'
 }
 
 export type ReportJudge = {
@@ -243,9 +273,43 @@ export type ModelAdmissionResult = {
   dimension_scores: Record<string, number>
   risk_items: string[]
   tested_samples: string[]
+  provider_called: boolean
+  is_mock: boolean
+  evidence: {
+    sample_id?: string
+    source_dataset?: string
+    question?: string
+    reference_annotation?: string
+    provider_called?: boolean
+    provider_mode?: string
+    latency_ms?: number | null
+    observation_excerpt?: string
+    error?: string | null
+  }[]
+  provider_status: ProviderStatus
   recommendation: string
   doctor_review_required: true
   safety_notice: string
   created_at: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type TutorChatResponse = {
+  reply: string
+  scope: string
+  generation_mode: GenerationMode | string
+  provider_status: ProviderStatus
+  doctor_review_required: boolean
+  safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type ImageUploadResponse = {
+  image_name: string
+  original_filename: string
+  bytes: number
+  source_type: 'uploaded_image'
+  doctor_review_required: boolean
+  safety_notice: string
   api_source?: 'backend' | 'fallback'
 }
