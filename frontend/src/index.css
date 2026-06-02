@@ -2057,7 +2057,8 @@ textarea {
   margin-bottom: 12px;
 }
 
-.image-strip button {
+.image-strip button,
+.image-strip .image-placeholder {
   width: 70px;
   height: 54px;
   padding: 0;
@@ -2083,6 +2084,33 @@ textarea {
   place-items: center;
   color: var(--muted);
   border: 1px dashed var(--line-strong) !important;
+  cursor: pointer;
+}
+
+.image-placeholder input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.image-placeholder.active-upload {
+  color: var(--teal);
+  border-color: #5eead4 !important;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
+.card-status-line {
+  margin-top: 12px;
+  padding: 10px 12px;
+  color: var(--blue);
+  background: var(--blue-soft);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  line-height: 1.5;
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .visual-rules {
@@ -2199,6 +2227,34 @@ textarea {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+@media print {
+  .sidebar,
+  .topbar,
+  .card-focus,
+  .card-builder,
+  .stage-aura,
+  .card-actions {
+    display: none !important;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  .main-area,
+  .floating-stage {
+    padding: 0;
+    background: #ffffff;
+    border: 0;
+  }
+
+  .floating-patient-card {
+    width: 100%;
+    box-shadow: none;
+    animation: none;
+  }
 }
 
 @keyframes cardFloat {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ChangeEvent } from 'react'
 import { ImagePlus, MessageCircleHeart, Printer, Share2, Sparkles, WandSparkles } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
@@ -16,13 +17,51 @@ export function PatientCard() {
   const [imageUrl, setImageUrl] = useState(sampleImages[0])
   const [card, setCard] = useState<PatientCardType | null>(null)
   const [knowledge, setKnowledge] = useState<KnowledgeBase | null>(null)
+  const [cardStatus, setCardStatus] = useState('选择模板和图像后，可生成医生审核前科普卡片草稿。')
+  const [uploadedImageName, setUploadedImageName] = useState('')
 
   useEffect(() => {
     api.cardKnowledge().then(setKnowledge)
   }, [])
 
   const generate = async () => {
-    setCard(await api.patientCard(summary, { templateId, imageUrl }))
+    setCardStatus('正在生成医生审核前科普卡片...')
+    try {
+      const generated = await api.patientCard(summary, { templateId, imageUrl })
+      setCard(generated)
+      setCardStatus(`已生成 ${generated.review_status === 'doctor_review_pending' ? '医生待审核' : '医生已审核'} 卡片草稿。`)
+    } catch {
+      setCardStatus('卡片接口暂不可用，请稍后重试；当前仍保留本地预览草稿。')
+    }
+  }
+
+  const onUploadImage = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const objectUrl = URL.createObjectURL(file)
+    setImageUrl(objectUrl)
+    setUploadedImageName(file.name)
+    setCardStatus(`已载入本地图片：${file.name}。仅用于本机预览，不会自动上传或写入后端。`)
+  }
+
+  const printPreview = () => {
+    window.print()
+    setCardStatus('已打开浏览器打印预览；正式发放前仍需医生审核卡片内容。')
+  }
+
+  const shareCard = async () => {
+    const text = `${card?.card_title || '内镜检查结果说明卡'}：${card?.plain_language_explanation || summary}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: card?.card_title || '内镜科普卡片', text })
+        setCardStatus('已调用系统分享面板。请确认只分享医生审核后的卡片。')
+      } else {
+        await navigator.clipboard.writeText(text)
+        setCardStatus('已复制分享文案到剪贴板。请只在医生审核后用于患者沟通。')
+      }
+    } catch {
+      setCardStatus('分享动作已取消或浏览器不支持；卡片仍保留在当前页面预览。')
+    }
   }
 
   const activeTemplate = knowledge?.templates?.find((item) => item.id === templateId)
@@ -58,17 +97,30 @@ export function PatientCard() {
           </div>
           <div className="image-strip">
             {sampleImages.map((item) => (
-              <button key={item} className={item === imageUrl ? 'active' : ''} type="button" onClick={() => setImageUrl(item)} title="选择卡片图像">
+              <button
+                key={item}
+                className={item === imageUrl ? 'active' : ''}
+                type="button"
+                onClick={() => {
+                  setImageUrl(item)
+                  setUploadedImageName('')
+                  setCardStatus('已切换为公开样例图片，卡片仍需医生审核后才能分享。')
+                }}
+                title="选择卡片图像"
+              >
                 <img src={item} alt="公开内镜样例缩略图" />
               </button>
             ))}
-            <button type="button" className="image-placeholder" title="上传图片占位">
+            <label className={`image-placeholder ${uploadedImageName ? 'active-upload' : ''}`} title="上传本地卡片图像">
+              <input type="file" accept="image/*" onChange={onUploadImage} />
               <ImagePlus size={18} />
-            </button>
+            </label>
           </div>
+          {uploadedImageName ? <div className="source-note">本地上传预览：{uploadedImageName}</div> : null}
           <button className="button primary" type="button" onClick={generate}>
             <WandSparkles size={17} /> 生成浮动科普卡片
           </button>
+          <div className="card-status-line">{cardStatus}</div>
         </Card>
 
         <Card>
@@ -113,8 +165,8 @@ export function PatientCard() {
             <div className="next-card">{card?.follow_up_reminder || '请按照医生给出的复诊或检查安排执行。'}</div>
             <p className="disclaimer">{card?.disclaimer || '本卡片为医生审核前沟通草稿，不能替代医生解释。'}</p>
             <div className="card-actions">
-              <button className="button secondary" type="button"><Printer size={16} /> 打印预览</button>
-              <button className="button secondary" type="button"><Share2 size={16} /> 分享样式</button>
+              <button className="button secondary" type="button" onClick={printPreview}><Printer size={16} /> 打印预览</button>
+              <button className="button secondary" type="button" onClick={shareCard}><Share2 size={16} /> 分享文案</button>
             </div>
           </div>
         </article>
