@@ -7,6 +7,7 @@ import { ErrorFeedback } from './pages/ErrorFeedback'
 import { FalsePremiseTraining } from './pages/FalsePremiseTraining'
 import { ModelHub } from './pages/ModelHub'
 import { PatientCard } from './pages/PatientCard'
+import { PhysicianProfile } from './pages/PhysicianProfile'
 import { ReportDraft } from './pages/ReportDraft'
 import { SkillsCenter } from './pages/SkillsCenter'
 import { TrainingCenter } from './pages/TrainingCenter'
@@ -35,6 +36,7 @@ function App() {
           <Route path="/feedback" element={<ErrorFeedback submission={lastSubmission} question={lastQuestion} />} />
           <Route path="/false-premise" element={<FalsePremiseTraining />} />
           <Route path="/report" element={<ReportDraft />} />
+          <Route path="/profile" element={<PhysicianProfile />} />
           <Route path="/card" element={<PatientCard />} />
           <Route path="/models" element={<ModelHub />} />
           <Route path="/skills" element={<SkillsCenter />} />
@@ -46,4 +48,3 @@ function App() {
 }
 
 export default App
-

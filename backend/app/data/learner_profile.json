@@ -1,8 +1,27 @@
 {
   "learner_id": "demo_learner",
-  "name": "Demo 学员",
+  "name": "林知远 医师",
+  "title": "消化内镜进修医师",
+  "department": "消化内镜中心",
+  "hospital": "示范教学医院",
+  "training_stage": "进阶规范化训练第 3 周",
+  "training_goal": "在 4 周内提升证据边界、病灶属性判断和结构化报告表达能力",
   "total_questions": 25,
   "accuracy": 0.56,
+  "completed_today": 6,
+  "daily_target": 12,
+  "streak_days": 5,
+  "favorite_questions": [
+    "q004",
+    "public_real_x1_0",
+    "q020"
+  ],
+  "wrong_questions": [
+    "q004",
+    "q005",
+    "q008",
+    "q013"
+  ],
   "skill_scores": {
     "病灶识别": 78,
     "部位定位": 76,
@@ -31,5 +50,64 @@
     "复杂组合",
     "报告纠错"
   ],
+  "growth_trend": [
+    {
+      "date": "05-27",
+      "accuracy": 48,
+      "evidence": 41,
+      "report": 58
+    },
+    {
+      "date": "05-28",
+      "accuracy": 51,
+      "evidence": 43,
+      "report": 61
+    },
+    {
+      "date": "05-29",
+      "accuracy": 54,
+      "evidence": 45,
+      "report": 63
+    },
+    {
+      "date": "05-30",
+      "accuracy": 55,
+      "evidence": 46,
+      "report": 65
+    },
+    {
+      "date": "06-01",
+      "accuracy": 56,
+      "evidence": 47,
+      "report": 68
+    }
+  ],
+  "training_records": [
+    {
+      "date": "2026-06-02",
+      "question_id": "q004",
+      "score": 35,
+      "result": "待复盘"
+    },
+    {
+      "date": "2026-06-02",
+      "question_id": "public_real_x1_0",
+      "score": 80,
+      "result": "公开样例完成"
+    },
+    {
+      "date": "2026-06-01",
+      "question_id": "q020",
+      "score": 92,
+      "result": "正确"
+    }
+  ],
+  "question_type_coverage": {
+    "单选": 16,
+    "多选": 4,
+    "判断": 3,
+    "问答评分": 1,
+    "报告修改": 1
+  },
   "updated_at": "2026-06-02T12:35:59.503322Z"
 }

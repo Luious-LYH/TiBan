@@ -1,0 +1,26 @@
+{
+  "id": "card_template_kb_v1_1",
+  "templates": [
+    {
+      "id": "calm_blue",
+      "name": "清爽蓝-门诊沟通",
+      "tone": "稳健、清楚、适合打印"
+    },
+    {
+      "id": "warm_green",
+      "name": "暖绿-术后提醒",
+      "tone": "温和、鼓励、适合分享"
+    },
+    {
+      "id": "contrast_orange",
+      "name": "橙色风险提示",
+      "tone": "强调复核与注意事项"
+    }
+  ],
+  "visual_rules": [
+    "必须包含图像区域",
+    "必须包含医生审核标识",
+    "必须包含免责声明",
+    "避免治疗承诺"
+  ]
+}

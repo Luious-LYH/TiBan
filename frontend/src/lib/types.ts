@@ -1,4 +1,6 @@
 export type RiskLevel = 'low' | 'medium' | 'high'
+export type QuestionType = '单选' | '多选' | '判断' | '问答评分' | '报告修改'
+export type ReviewStatus = '未开始' | '待复盘' | '已掌握' | '收藏中'
 
 export type AtomicFact = {
   id: string
@@ -28,6 +30,15 @@ export type Question = {
   difficulty: '入门' | '进阶' | '挑战'
   doctor_review_required: boolean
   safety_notice: string
+  body_part: string
+  task: string
+  question_type: QuestionType
+  source_dataset: string
+  citation_note: string
+  is_favorited: boolean
+  review_status: ReviewStatus
+  ai_benchmark_answer?: string | null
+  expected_keywords: string[]
 }
 
 export type SubmissionResponse = {
@@ -50,12 +61,25 @@ export type SubmissionResponse = {
 export type LearnerProfile = {
   learner_id: string
   name: string
+  title: string
+  department: string
+  hospital: string
+  training_stage: string
+  training_goal: string
   total_questions: number
   accuracy: number
+  completed_today: number
+  daily_target: number
+  streak_days: number
+  favorite_questions: string[]
+  wrong_questions: string[]
   skill_scores: Record<string, number>
   weakness_tags: string[]
   recent_errors: string[]
   recommended_question_classes: string[]
+  growth_trend: { date: string; accuracy: number; evidence: number; report: number }[]
+  training_records: { date: string; question_id: string; score: number; result: string }[]
+  question_type_coverage: Record<string, number>
   updated_at: string
 }
 
@@ -109,9 +133,24 @@ export type ReportDraft = {
   draft_impression: string[]
   review_points: string[]
   uncertainty_notes: string[]
+  template_name: string
+  evidence_source: string[]
   doctor_review_required: true
   safety_notice: string
   created_at: string
+}
+
+export type ReportJudge = {
+  id: string
+  score: number
+  strengths: string[]
+  issues: string[]
+  suggested_revision: string
+  rubric_scores: Record<string, number>
+  doctor_review_required: true
+  safety_notice: string
+  created_at: string
+  api_source?: 'backend' | 'fallback'
 }
 
 export type PatientCard = {
@@ -122,6 +161,9 @@ export type PatientCard = {
   what_to_watch: string[]
   follow_up_reminder: string
   disclaimer: string
+  template_id: string
+  visual_tone: string
+  image_url?: string | null
   review_status: 'doctor_reviewed_input' | 'doctor_review_pending'
   doctor_review_required: true
   safety_notice: string
@@ -139,9 +181,48 @@ export type DashboardPayload = {
   learner_profile: LearnerProfile
   ability_radar: { dimension: string; score: number }[]
   recommended_training: { label: string; count: number }[]
+  today_plan: { label: string; target: number; status: string; href: string }[]
+  continue_training: { question_id: string; title: string; source_dataset: string; reason: string }
+  favorite_count: number
+  wrong_count: number
+  recent_tutor_summary: string[]
+  growth_trend: { date: string; accuracy: number; evidence: number; report: number }[]
   active_model: ModelProfile
   safety_notice: string
   mock_evaluation_notice: string
   reference_inspirations: string[]
+  api_source?: 'backend' | 'fallback'
+}
+
+export type TrainingState = {
+  profile: LearnerProfile
+  wrong_questions: string[]
+  favorite_questions: string[]
+  review_queue: number
+  next_plan: { label: string; count: number; reason: string }[]
+  safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type KnowledgeBase = {
+  id: string
+  source?: string
+  templates?: { id?: string; name: string; tone?: string; sections?: string[]; criteria?: string[]; max_score?: number; review_required?: boolean }[]
+  sample_findings?: string[]
+  visual_rules?: string[]
+}
+
+export type ModelAdmissionResult = {
+  id: string
+  provider_name: string
+  grade: 'S' | 'A' | 'B' | 'C'
+  total_score: number
+  dimension_scores: Record<string, number>
+  risk_items: string[]
+  tested_samples: string[]
+  recommendation: string
+  doctor_review_required: true
+  safety_notice: string
+  created_at: string
   api_source?: 'backend' | 'fallback'
 }

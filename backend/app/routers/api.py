@@ -2,9 +2,12 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.core.config import APP_NAME, SAFETY_NOTICE
 from app.schemas import (
+    FavoriteRequest,
+    ModelAdmissionTestRequest,
     ModelSelectRequest,
     PatientCardRequest,
     ReportDraftRequest,
+    ReportJudgeRequest,
     SkillRunRequest,
     SubmissionRequest,
     TutorChatRequest,
@@ -39,8 +42,24 @@ def list_questions(
     question_class: str | None = None,
     difficulty: str | None = None,
     false_premise: bool | None = Query(default=None),
+    body_part: str | None = None,
+    task: str | None = None,
+    question_type: str | None = None,
+    source_dataset: str | None = None,
+    only_favorites: bool = False,
+    only_wrong: bool = False,
 ) -> dict[str, object]:
-    items = question_service.list_questions(question_class, difficulty, false_premise)
+    items = question_service.list_questions(
+        question_class=question_class,
+        difficulty=difficulty,
+        false_premise=false_premise,
+        body_part=body_part,
+        task=task,
+        question_type=question_type,
+        source_dataset=source_dataset,
+        only_favorites=only_favorites,
+        only_wrong=only_wrong,
+    )
     return {"items": [item.model_dump() for item in items], "total": len(items)}
 
 
@@ -95,9 +114,55 @@ def learner_recommendations() -> dict[str, object]:
     return {"items": memory_service.get_recommendations(), "safety_notice": SAFETY_NOTICE}
 
 
+@router.get("/learner/training-state")
+def learner_training_state() -> dict[str, object]:
+    state = memory_service.training_state()
+    state["safety_notice"] = SAFETY_NOTICE
+    return state
+
+
+@router.post("/learner/favorite")
+def favorite_question(request: FavoriteRequest) -> dict[str, object]:
+    profile = memory_service.set_favorite(request.question_id, request.favorited)
+    audit_service.log(
+        "favorite_update",
+        user_id=request.learner_id,
+        entity_id=request.question_id,
+        summary="收藏题目" if request.favorited else "取消收藏题目",
+        risk_level="low",
+    )
+    return {"profile": profile.model_dump(), "safety_notice": SAFETY_NOTICE}
+
+
 @router.post("/report-draft")
 def report_draft(request: ReportDraftRequest) -> dict[str, object]:
     return report_service.generate_report_draft(request).model_dump()
+
+
+@router.post("/report/judge")
+def report_judge(request: ReportJudgeRequest) -> dict[str, object]:
+    return report_service.judge_report_revision(request).model_dump()
+
+
+@router.get("/knowledge/report")
+def report_knowledge() -> dict[str, object]:
+    return {"item": report_service.report_knowledge_base(), "safety_notice": SAFETY_NOTICE}
+
+
+@router.get("/knowledge/cards")
+def card_knowledge() -> dict[str, object]:
+    return {"item": report_service.card_template_knowledge_base(), "safety_notice": SAFETY_NOTICE}
+
+
+@router.get("/knowledge/real-samples")
+def real_samples() -> dict[str, object]:
+    items = question_service.list_questions()
+    public_items = [item for item in items if item.source_dataset in {"Kvasir-VQA-x1", "Kvasir-VQA", "EndoBench"}]
+    return {
+        "items": [item.model_dump() for item in public_items],
+        "total": len(public_items),
+        "safety_notice": SAFETY_NOTICE,
+    }
 
 
 @router.post("/patient-card")
@@ -122,6 +187,11 @@ def select_model(request: ModelSelectRequest) -> dict[str, object]:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
+@router.post("/models/admission-test")
+def model_admission_test(request: ModelAdmissionTestRequest) -> dict[str, object]:
+    return model_service.admission_test(request).model_dump()
+
+
 @router.get("/skills")
 def list_skills() -> dict[str, object]:
     skills = skill_registry.list_skills()
@@ -142,4 +212,3 @@ def run_skill(request: SkillRunRequest) -> dict[str, object]:
 def list_audit() -> dict[str, object]:
     logs = audit_service.list_logs()
     return {"items": [log.model_dump() for log in logs], "total": len(logs)}
-

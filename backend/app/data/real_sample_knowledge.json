@@ -1,0 +1,226 @@
+[
+  {
+    "id": "real_x1_0",
+    "source_dataset": "Kvasir-VQA-x1",
+    "use": "complex_qbank",
+    "image_url": "/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg",
+    "question": "Are there any abnormalities, polyps, or anatomical landmarks visible in the image?",
+    "answer": "Evidence of oesophagitis is present with no polyps identified and the z-line is visible.",
+    "complexity": 3,
+    "question_class": [
+      "abnormality_presence",
+      "polyp_type",
+      "landmark_presence"
+    ],
+    "original_atomic": [
+      {
+        "q": "Are there any abnormalities in the image? Check all that are present.",
+        "a": "oesophagitis"
+      },
+      {
+        "q": "What type of polyp is present?",
+        "a": "none"
+      },
+      {
+        "q": "Are there any anatomical landmarks in the image? Check all that are present.",
+        "a": "z-line"
+      }
+    ],
+    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学原型展示。"
+  },
+  {
+    "id": "real_x1_2",
+    "source_dataset": "Kvasir-VQA-x1",
+    "use": "complex_qbank",
+    "image_url": "/assets/real_samples/x1_cl8k2u1qa1ekz08324rek2qcv.jpg",
+    "question": "Have all polyps been removed, is there any text present, and where is the abnormality located in the image?",
+    "answer": "Polyps remain present, text is visible, and the abnormality is located in the central and upper-center regions.",
+    "complexity": 3,
+    "question_class": [
+      "polyp_removal_status",
+      "text_presence",
+      "abnormality_location"
+    ],
+    "original_atomic": [
+      {
+        "q": "Have all polyps been removed?",
+        "a": "no"
+      },
+      {
+        "q": "Is there text?",
+        "a": "yes"
+      },
+      {
+        "q": "Where in the image is the abnormality?",
+        "a": "center; upper-center"
+      }
+    ],
+    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学原型展示。"
+  },
+  {
+    "id": "real_x1_3",
+    "source_dataset": "Kvasir-VQA-x1",
+    "use": "complex_qbank",
+    "image_url": "/assets/real_samples/x1_cla820gmss67b071u3h7o5k3t.jpg",
+    "question": "Are there any surgical instruments, polyps, or abnormal findings visible in the gastrointestinal image?",
+    "answer": "No surgical instruments or polyps are visible, but one abnormal finding is present.",
+    "complexity": 3,
+    "question_class": [
+      "instrument_count",
+      "polyp_count",
+      "finding_count"
+    ],
+    "original_atomic": [
+      {
+        "q": "How many instrumnets are in the image?",
+        "a": "0"
+      },
+      {
+        "q": "How many polyps are in the image?",
+        "a": "0"
+      },
+      {
+        "q": "How many findings are present?",
+        "a": "1"
+      }
+    ],
+    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学原型展示。"
+  },
+  {
+    "id": "real_x1_6",
+    "source_dataset": "Kvasir-VQA-x1",
+    "use": "complex_qbank",
+    "image_url": "/assets/real_samples/x1_clb0lbwzpdpgo086ucmqx7nyu.jpg",
+    "question": "How many instruments are visible, is there any text, and where are the abnormalities located in the image?",
+    "answer": "One instrument is present, no text is visible, and abnormalities are distributed across the central and upper regions.",
+    "complexity": 3,
+    "question_class": [
+      "instrument_count",
+      "text_presence",
+      "abnormality_location"
+    ],
+    "original_atomic": [
+      {
+        "q": "How many instrumnets are in the image?",
+        "a": "1"
+      },
+      {
+        "q": "Is there text?",
+        "a": "no"
+      },
+      {
+        "q": "Where in the image is the abnormality?",
+        "a": "center; center-left; center-right; upper-center; upper-left; upper-right"
+      }
+    ],
+    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学原型展示。"
+  },
+  {
+    "id": "real_kv_0",
+    "source_dataset": "Kvasir-VQA",
+    "use": "atomic_qbank",
+    "image_url": "/assets/real_samples/kv_cla820gl0s3nv071u4fgd7xgq.jpg",
+    "question": "Are there any abnormalities in the image? Check all that are present.",
+    "answer": "ulcerative colitis",
+    "complexity": 1,
+    "question_class": [
+      "Ulcerative Colitis"
+    ],
+    "original_atomic": [],
+    "citation_note": "公开基础内镜 VQA 样例，仅用于教学原型展示。"
+  },
+  {
+    "id": "real_kv_17",
+    "source_dataset": "Kvasir-VQA",
+    "use": "atomic_qbank",
+    "image_url": "/assets/real_samples/kv_cla820gl0s3nz071uch6e0sas.jpg",
+    "question": "Is there text?",
+    "answer": "yes",
+    "complexity": 1,
+    "question_class": [
+      "Ulcerative Colitis"
+    ],
+    "original_atomic": [],
+    "citation_note": "公开基础内镜 VQA 样例，仅用于教学原型展示。"
+  },
+  {
+    "id": "real_kv_34",
+    "source_dataset": "Kvasir-VQA",
+    "use": "atomic_qbank",
+    "image_url": "/assets/real_samples/kv_cla820gl0s3o3071ufxqh1brg.jpg",
+    "question": "Is there text?",
+    "answer": "yes",
+    "complexity": 1,
+    "question_class": [
+      "Ulcerative Colitis"
+    ],
+    "original_atomic": [],
+    "citation_note": "公开基础内镜 VQA 样例，仅用于教学原型展示。"
+  },
+  {
+    "id": "real_endo_0",
+    "source_dataset": "EndoBench",
+    "use": "exam_mode",
+    "image_url": "/assets/real_samples/endo_image_0.jpg",
+    "question": "Can you determine which digestive organ is depicted in this image?",
+    "options": [
+      "esophagus",
+      "small intestine",
+      "large intestine",
+      "stomach"
+    ],
+    "answer": "small intestine",
+    "answer_key": "B",
+    "complexity": 2,
+    "question_class": [
+      "Anatomical Structure Recognition",
+      "Organ Identification"
+    ],
+    "scene": "Capsule Endoscopy",
+    "citation_note": "公开 EndoBench benchmark 样例，仅用于教学原型展示。"
+  },
+  {
+    "id": "real_endo_1",
+    "source_dataset": "EndoBench",
+    "use": "exam_mode",
+    "image_url": "/assets/real_samples/endo_image_1.jpg",
+    "question": "What is the designation of the gastrointestinal organ depicted in this image?",
+    "options": [
+      "small intestine",
+      "large intestine",
+      "esophagus",
+      "stomach"
+    ],
+    "answer": "small intestine",
+    "answer_key": "A",
+    "complexity": 2,
+    "question_class": [
+      "Anatomical Structure Recognition",
+      "Organ Identification"
+    ],
+    "scene": "Capsule Endoscopy",
+    "citation_note": "公开 EndoBench benchmark 样例，仅用于教学原型展示。"
+  },
+  {
+    "id": "real_endo_2",
+    "source_dataset": "EndoBench",
+    "use": "exam_mode",
+    "image_url": "/assets/real_samples/endo_image_2.jpg",
+    "question": "Which segment of the gastrointestinal tract is illustrated in this endoscopic image?",
+    "options": [
+      "esophagus",
+      "stomach",
+      "large intestine",
+      "small intestine"
+    ],
+    "answer": "small intestine",
+    "answer_key": "D",
+    "complexity": 2,
+    "question_class": [
+      "Anatomical Structure Recognition",
+      "Organ Identification"
+    ],
+    "scene": "Capsule Endoscopy",
+    "citation_note": "公开 EndoBench benchmark 样例，仅用于教学原型展示。"
+  }
+]

@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 
 RiskLevel = Literal["low", "medium", "high"]
+QuestionType = Literal["单选", "多选", "判断", "问答评分", "报告修改"]
+ReviewStatus = Literal["未开始", "待复盘", "已掌握", "收藏中"]
 
 
 class AtomicFact(BaseModel):
@@ -34,6 +36,15 @@ class Question(BaseModel):
     difficulty: Literal["入门", "进阶", "挑战"]
     doctor_review_required: bool = True
     safety_notice: str
+    body_part: str = "胃"
+    task: str = "图像观察"
+    question_type: QuestionType = "单选"
+    source_dataset: str = "平台教学样例"
+    citation_note: str = "平台脱敏教学样例。"
+    is_favorited: bool = False
+    review_status: ReviewStatus = "未开始"
+    ai_benchmark_answer: str | None = None
+    expected_keywords: list[str] = Field(default_factory=list)
 
 
 class SubmissionRequest(BaseModel):
@@ -95,12 +106,25 @@ class TutorChatRequest(BaseModel):
 class LearnerProfile(BaseModel):
     learner_id: str
     name: str
+    title: str = "消化内镜进修医师"
+    department: str = "消化内镜中心"
+    hospital: str = "示范教学医院"
+    training_stage: str = "进阶规范化训练"
+    training_goal: str = "提升内镜图像观察、证据边界与报告表达能力"
     total_questions: int
     accuracy: float
+    completed_today: int = 6
+    daily_target: int = 12
+    streak_days: int = 5
+    favorite_questions: list[str] = Field(default_factory=list)
+    wrong_questions: list[str] = Field(default_factory=list)
     skill_scores: dict[str, int]
     weakness_tags: list[str]
     recent_errors: list[str]
     recommended_question_classes: list[str]
+    growth_trend: list[dict[str, int | str]] = Field(default_factory=list)
+    training_records: list[dict[str, int | str]] = Field(default_factory=list)
+    question_type_coverage: dict[str, int] = Field(default_factory=dict)
     updated_at: str
 
 
@@ -124,6 +148,8 @@ class SkillRunRequest(BaseModel):
 class ReportDraftRequest(BaseModel):
     finding_text: str
     exam_type: str = "gastroscopy"
+    image_name: str | None = None
+    template_name: str | None = None
 
 
 class ReportDraft(BaseModel):
@@ -134,6 +160,26 @@ class ReportDraft(BaseModel):
     draft_impression: list[str]
     review_points: list[str]
     uncertainty_notes: list[str]
+    template_name: str = "胃镜结构化训练模板"
+    evidence_source: list[str] = Field(default_factory=list)
+    doctor_review_required: bool = True
+    safety_notice: str
+    created_at: str
+
+
+class ReportJudgeRequest(BaseModel):
+    original_report: str
+    revised_report: str
+    learner_id: str = "demo_learner"
+
+
+class ReportJudgeResponse(BaseModel):
+    id: str
+    score: int
+    strengths: list[str]
+    issues: list[str]
+    suggested_revision: str
+    rubric_scores: dict[str, int]
     doctor_review_required: bool = True
     safety_notice: str
     created_at: str
@@ -143,6 +189,8 @@ class PatientCardRequest(BaseModel):
     diagnosis_summary: str
     audience: str = "patient"
     reviewed_by_doctor: bool = False
+    template_id: str = "calm_blue"
+    image_url: str | None = None
 
 
 class PatientCard(BaseModel):
@@ -153,6 +201,9 @@ class PatientCard(BaseModel):
     what_to_watch: list[str]
     follow_up_reminder: str
     disclaimer: str
+    template_id: str = "calm_blue"
+    visual_tone: str = "稳健、清楚、适合打印"
+    image_url: str | None = None
     review_status: Literal["doctor_reviewed_input", "doctor_review_pending"] = "doctor_review_pending"
     doctor_review_required: bool = True
     safety_notice: str
@@ -175,6 +226,34 @@ class ModelSelectRequest(BaseModel):
     model_id: str
 
 
+class ModelAdmissionTestRequest(BaseModel):
+    provider_name: str = "自定义模型"
+    api_base: str = "https://api.example.com/v1"
+    api_key_masked: str = "sk-****"
+    selected_sample_ids: list[str] = Field(default_factory=list)
+    test_focus: list[str] = Field(default_factory=lambda: ["基础识别", "错误前提", "报告安全"])
+
+
+class ModelAdmissionTestResponse(BaseModel):
+    id: str
+    provider_name: str
+    grade: Literal["S", "A", "B", "C"]
+    total_score: int
+    dimension_scores: dict[str, int]
+    risk_items: list[str]
+    tested_samples: list[str]
+    recommendation: str
+    doctor_review_required: bool = True
+    safety_notice: str
+    created_at: str
+
+
+class FavoriteRequest(BaseModel):
+    question_id: str
+    learner_id: str = "demo_learner"
+    favorited: bool = True
+
+
 class AuditLog(BaseModel):
     id: str
     event_type: Literal[
@@ -182,9 +261,11 @@ class AuditLog(BaseModel):
         "answer_submit",
         "tutor_reply",
         "report_draft",
+        "report_judge",
         "patient_card",
         "skill_run",
         "model_select",
+        "favorite_update",
         "safety_warning",
     ]
     user_id: str

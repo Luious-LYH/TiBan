@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Bar, BarChart, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowRight, DatabaseZap, ShieldCheck } from 'lucide-react'
+import { Area, AreaChart, Bar, BarChart, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { ArrowRight, BookOpenCheck, Bot, ClipboardList, DatabaseZap, ShieldCheck, Star, Target, UserRound } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Card, SafetyNotice, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockDashboard } from '../lib/mock'
@@ -18,18 +19,22 @@ export function Dashboard() {
   }, [])
 
   const completion = Math.round((data.today_training.completed / data.today_training.target) * 100)
+  const profile = data.learner_profile
 
   return (
     <div className="page-stack">
-      <section className="hero-workbench">
+      <section className="hero-workbench physician-hero">
         <div>
-          <span className="eyebrow">Training cockpit</span>
-          <h2>今日训练工作台</h2>
-          <p>围绕题库分层、智能提示、原子事实反馈、错误前提训练和医生审核前辅助，形成一条可演示的 Agent 教学闭环。</p>
+          <span className="eyebrow">Physician training cockpit</span>
+          <h2>{profile.name} 的今日内镜训练驾驶舱</h2>
+          <p>{profile.title} · {profile.department} · {profile.training_stage}。今日目标是把刷题、错题复盘、报告修改训练和 Agent 辅导串成一次完整训练闭环。</p>
           <div className="hero-actions">
-            <a className="primary-link" href="/training">
-              进入训练中心 <ArrowRight size={16} />
-            </a>
+            <Link className="primary-link" to="/training">
+              继续刷题 <ArrowRight size={16} />
+            </Link>
+            <Link className="button secondary" to="/report">
+              进入报告训练
+            </Link>
             <Tag tone={status === '后端在线' ? 'green' : 'amber'}>{status}</Tag>
           </div>
           {status === '本地 fallback' ? <p className="fallback-warning">后端暂不可用，当前页面使用前端 mock 兜底；演示联调时请确认 FastAPI 已启动。</p> : null}
@@ -47,12 +52,57 @@ export function Dashboard() {
             <strong>{data.today_training.review_queue}</strong>
             <span>错题复盘</span>
           </div>
+          <div>
+            <strong>{data.today_training.streak_days}</strong>
+            <span>连续训练</span>
+          </div>
         </div>
       </section>
 
+      <div className="grid four">
+        <Card className="quick-card">
+          <SectionTitle eyebrow="Next" title="继续训练" action={<BookOpenCheck size={20} />} />
+          <strong>{data.continue_training.title}</strong>
+          <p>{data.continue_training.reason}</p>
+          <div className="tag-row">
+            <Tag tone="blue">{data.continue_training.source_dataset}</Tag>
+          </div>
+          <Link className="inline-link" to="/training">进入题目</Link>
+        </Card>
+        <Card className="quick-card">
+          <SectionTitle eyebrow="Review" title="错题本" action={<ClipboardList size={20} />} />
+          <strong>{data.wrong_count} 题待复盘</strong>
+          <p>优先处理证据不足、错误前提和报告安全表达。</p>
+          <Link className="inline-link" to="/training?view=wrong">开始复盘</Link>
+        </Card>
+        <Card className="quick-card">
+          <SectionTitle eyebrow="Saved" title="收藏夹" action={<Star size={20} />} />
+          <strong>{data.favorite_count} 题已收藏</strong>
+          <p>保留高价值公开样例与报告改写题，方便赛前演示。</p>
+          <Link className="inline-link" to="/training?view=favorite">查看收藏</Link>
+        </Card>
+        <Card className="quick-card">
+          <SectionTitle eyebrow="Goal" title="培训目标" action={<Target size={20} />} />
+          <strong>{profile.training_goal}</strong>
+          <p>{profile.hospital}</p>
+          <Link className="inline-link" to="/profile">查看画像</Link>
+        </Card>
+      </div>
+
+      <div className="grid three plan-grid">
+        {data.today_plan.map((item) => (
+          <Card key={item.label} className="plan-card">
+            <div className="plan-status">{item.status}</div>
+            <h3>{item.label}</h3>
+            <strong>{item.target} 个训练单元</strong>
+            <Link to={item.href}>进入 <ArrowRight size={15} /></Link>
+          </Card>
+        ))}
+      </div>
+
       <div className="grid two">
         <Card>
-          <SectionTitle eyebrow="Learner memory" title="能力画像" />
+          <SectionTitle eyebrow="Physician memory" title={`${profile.name} 能力画像`} action={<UserRound size={20} />} />
           <div className="chart-box">
             <ResponsiveContainer width="100%" height={280}>
               <RadarChart data={data.ability_radar}>
@@ -73,7 +123,41 @@ export function Dashboard() {
         </Card>
 
         <Card>
-          <SectionTitle eyebrow="Curriculum mapping" title="推荐训练" />
+          <SectionTitle eyebrow="Growth line" title="最近能力成长线" />
+          <div className="chart-box">
+            <ResponsiveContainer width="100%" height={230}>
+              <AreaChart data={data.growth_trend}>
+                <XAxis dataKey="date" />
+                <YAxis domain={[0, 100]} />
+                <Tooltip />
+                <Area type="monotone" dataKey="accuracy" name="正确率" stroke="#2563eb" fill="#dbeafe" />
+                <Area type="monotone" dataKey="evidence" name="证据边界" stroke="#0f766e" fill="#ccfbf1" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="recommend-list">
+            {data.recommended_training.map((item) => (
+              <div key={item.label}>
+                <span>{item.label}</span>
+                <strong>{item.count} 题可练</strong>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid two">
+        <Card>
+          <SectionTitle eyebrow="Agent coaching" title="最近辅导摘要" action={<Bot size={20} />} />
+          <ul className="timeline-list">
+            {data.recent_tutor_summary.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card>
+          <SectionTitle eyebrow="Curriculum coverage" title="推荐训练分布" />
           <div className="chart-box">
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={data.recommended_training}>
@@ -97,7 +181,7 @@ export function Dashboard() {
 
       <div className="grid three">
         <Card>
-          <SectionTitle eyebrow="Agent stack" title="当前辅导模型" />
+          <SectionTitle eyebrow="Guardrail" title="当前辅导模型" />
           <div className="model-mini">
             <strong>{data.active_model.name}</strong>
             <span>{data.active_model.model_family} · {data.active_model.provider_type}</span>
@@ -111,7 +195,7 @@ export function Dashboard() {
           </div>
         </Card>
         <Card>
-          <SectionTitle eyebrow="References" title="公开项目启发" />
+          <SectionTitle eyebrow="Benchmarks" title="平台对标与素材来源" />
           <ul className="compact-list">
             {data.reference_inspirations.map((item) => (
               <li key={item}>
@@ -122,7 +206,7 @@ export function Dashboard() {
           </ul>
         </Card>
         <Card>
-          <SectionTitle eyebrow="Safety" title="准入说明" />
+          <SectionTitle eyebrow="Safety" title="医疗安全边界" />
           <div className="notice-card">
             <ShieldCheck size={20} />
             <p>{data.mock_evaluation_notice}</p>
