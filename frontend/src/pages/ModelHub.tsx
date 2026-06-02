@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { ActivitySquare, CheckCircle2, KeyRound, PlugZap, ShieldAlert, TestTube2 } from 'lucide-react'
+import { ActivitySquare, CheckCircle2, Database, KeyRound, PlugZap, ShieldAlert, ShieldCheck, TestTube2 } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
@@ -124,6 +124,27 @@ export function ModelHub() {
           <div><span>Provider</span><strong>{providerStatus?.provider || 'mock'}</strong></div>
           <div><span>默认模型</span><strong>{providerStatus?.model || '未设置'}</strong></div>
           <div><span>密钥状态</span><strong>{providerStatus?.api_key_configured ? '后端已配置' : '页面临时输入或未配置'}</strong></div>
+        </div>
+      </Card>
+
+      <Card className="credential-policy-card">
+        <div>
+          <KeyRound size={19} />
+          <span>凭据处理</span>
+          <strong>{apiKey.trim() ? '页面临时 key' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'}</strong>
+          <p>临时 key 只随本次准入请求发送，不写入审计日志、状态文件或 git。</p>
+        </div>
+        <div>
+          <Database size={19} />
+          <span>发送样例</span>
+          <strong>{selectedSamples.length || 0} 个公开教学样例</strong>
+          <p>准入探测只选取公开内镜样例和脱敏题干，不上传真实患者身份信息。</p>
+        </div>
+        <div>
+          <ShieldCheck size={19} />
+          <span>保存内容</span>
+          <strong>只保存准入摘要</strong>
+          <p>平台仅记录 provider 名称、等级、分数、风险项和建议，不保存 API base、key 或完整模型回复。</p>
         </div>
       </Card>
 

@@ -2554,6 +2554,47 @@ textarea {
   margin-bottom: 10px;
 }
 
+.credential-policy-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, #ffffff, #eff6ff 50%, #f0fdfa);
+}
+
+.credential-policy-card div {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: start;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.credential-policy-card svg {
+  grid-row: span 3;
+  color: var(--teal);
+}
+
+.credential-policy-card span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.credential-policy-card strong {
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.credential-policy-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .active-training-agent {
   border-color: #bfdbfe;
 }
@@ -2894,7 +2935,8 @@ textarea {
   .readiness-summary,
   .readiness-grid,
   .report-source-status,
-  .profile-provenance {
+  .profile-provenance,
+  .credential-policy-card {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2952,6 +2994,7 @@ textarea {
   .report-status-grid,
   .report-source-status,
   .profile-provenance,
+  .credential-policy-card,
   .readiness-summary,
   .readiness-grid,
   .form-row,

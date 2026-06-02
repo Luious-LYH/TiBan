@@ -6,3 +6,4 @@ __pycache__/
 .venv/
 backend/app/data/*.tmp
 backend/runtime/
+runtime_logs/
