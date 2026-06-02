@@ -51,7 +51,7 @@ export function AuditPanel() {
         <div>
           <span className="eyebrow">Audit memory</span>
           <h2>安全审计管理</h2>
-          <p>记录题目查看、答题提交、辅导回复、报告草稿、科普卡片、模型选择和 skill 调用。</p>
+          <p>记录题目查看、答题提交、考试交卷、辅导回复、报告草稿、科普卡片、模型选择和 skill 调用。</p>
         </div>
         <ScrollText size={42} />
       </Card>
@@ -116,7 +116,7 @@ function AuditMetric({ icon, label, value, tone = 'green' }: { icon: ReactNode; 
 function auditMatches(log: AuditLog, filter: AuditFilter): boolean {
   if (filter === 'all') return true
   if (filter === 'high') return log.risk_level === 'high'
-  if (filter === 'training') return ['question_view', 'answer_submit', 'tutor_reply', 'favorite_update'].includes(log.event_type)
+  if (filter === 'training') return ['question_view', 'answer_submit', 'exam_session', 'tutor_reply', 'favorite_update'].includes(log.event_type)
   if (filter === 'report') return ['report_draft', 'report_judge', 'patient_card', 'image_upload'].includes(log.event_type)
   if (filter === 'model') return ['model_select', 'model_admission'].includes(log.event_type)
   if (filter === 'skills') return log.event_type === 'skill_run'
@@ -127,6 +127,7 @@ function eventLabel(type: AuditLog['event_type']): string {
   const labels: Record<AuditLog['event_type'], string> = {
     question_view: '查看题目',
     answer_submit: '提交答案',
+    exam_session: '考试交卷',
     tutor_reply: 'Agent辅导',
     report_draft: '报告草稿',
     patient_card: '科普卡片',

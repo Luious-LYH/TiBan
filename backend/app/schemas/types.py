@@ -69,6 +69,42 @@ class SubmissionResponse(BaseModel):
     safety_notice: str
 
 
+class ExamSessionAttempt(BaseModel):
+    question_id: str
+    title: str = ""
+    selected_answer: str
+    correct_answer: str
+    is_correct: bool
+    score: int
+    error_tags: list[str] = Field(default_factory=list)
+
+
+class ExamSessionRequest(BaseModel):
+    session_id: str | None = None
+    learner_id: str = "demo_learner"
+    duration_seconds: int = 720
+    remaining_seconds: int = 0
+    finished_reason: Literal["manual_submit", "completed_all", "time_expired"] = "manual_submit"
+    attempts: list[ExamSessionAttempt]
+
+
+class ExamSessionResponse(BaseModel):
+    id: str
+    learner_id: str
+    answered_count: int
+    correct_count: int
+    accuracy: int
+    average_score: int
+    wrong_questions: list[str]
+    elapsed_seconds: int
+    finished_reason: str
+    profile_updated: bool = True
+    memory_summary: str
+    doctor_review_required: bool = True
+    safety_notice: str
+    created_at: str
+
+
 class TutorHintRequest(BaseModel):
     question_id: str
     learner_id: str = "demo_learner"
@@ -325,6 +361,7 @@ class AuditLog(BaseModel):
         "question_view",
         "answer_submit",
         "tutor_reply",
+        "exam_session",
         "report_draft",
         "report_judge",
         "patient_card",

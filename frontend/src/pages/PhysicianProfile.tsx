@@ -161,9 +161,9 @@ export function PhysicianProfile() {
       {tab === 'records' ? (
         <>
           <div className="grid four">
-            <MetricCard label="答题/考试" value={`${recordStats.answer} 次`} />
+            <MetricCard label="答题提交" value={`${recordStats.answer} 次`} />
+            <MetricCard label="考试Session" value={`${recordStats.exam} 场`} />
             <MetricCard label="Agent 辅导" value={`${recordStats.agent} 次`} />
-            <MetricCard label="报告训练" value={`${recordStats.report} 次`} />
             <MetricCard label="待复盘" value={`${recordStats.review} 项`} />
           </div>
           <div className="grid two">
@@ -187,6 +187,11 @@ export function PhysicianProfile() {
                   <CheckCircle2 size={18} />
                   <strong>提交答案</strong>
                   <span>更新正确率、错题本、弱项标签和相关能力分。</span>
+                </div>
+                <div>
+                  <CheckCircle2 size={18} />
+                  <strong>考试交卷</strong>
+                  <span>写入整场考试的题量、正确率、平均分和错题摘要，不重复增加单题计数。</span>
                 </div>
                 <div>
                   <CheckCircle2 size={18} />
@@ -260,20 +265,21 @@ function formatUpdatedAt(value: string): string {
 
 function recordTone(result: string): 'green' | 'blue' | 'amber' {
   if (result === '正确' || result.includes('完成')) return 'green'
-  if (result === 'Agent辅导') return 'blue'
+  if (result === 'Agent辅导' || result.includes('考试Session')) return 'blue'
   return 'amber'
 }
 
 function summarizeRecords(profile: LearnerProfile) {
   const summary = profile.training_records.reduce(
     (summary, record) => {
-      if (record.result === 'Agent辅导') summary.agent += 1
+      if (record.result.includes('考试Session')) summary.exam += 1
+      else if (record.result === 'Agent辅导') summary.agent += 1
       else if (record.result === '报告修改训练') summary.report += 1
       else summary.answer += 1
       if (record.result === '待复盘') summary.review += 1
       return summary
     },
-    { answer: 0, agent: 0, report: 0, review: 0 },
+    { answer: 0, exam: 0, agent: 0, report: 0, review: 0 },
   )
   return { ...summary, review: Math.max(summary.review, profile.wrong_questions.length) }
 }

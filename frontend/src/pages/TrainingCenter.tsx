@@ -4,7 +4,7 @@ import { ActivitySquare, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, Eye,
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
-import type { ProviderStatus, Question, SubmissionResponse } from '../lib/types'
+import type { ExamSessionAttempt, ProviderStatus, Question, SubmissionResponse } from '../lib/types'
 
 type ChatMessage = {
   role: 'agent' | 'doctor'
@@ -49,6 +49,7 @@ const emptyFilters: Filters = {
 
 const EXAM_DURATION_SECONDS = 12 * 60
 const emptyChallengeStats: ChallengeStats = { rounds: 0, doctor: 0, benchmark: 0, ties: 0 }
+const createExamSessionId = () => `exam_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 
 export function TrainingCenter({ onSubmission }: { onSubmission: (submission: SubmissionResponse, question: Question) => void }) {
   const [searchParams] = useSearchParams()
@@ -65,6 +66,9 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [examSeconds, setExamSeconds] = useState(EXAM_DURATION_SECONDS)
   const [examAttempts, setExamAttempts] = useState<ExamAttempt[]>([])
   const [examFinished, setExamFinished] = useState(false)
+  const [examSessionId, setExamSessionId] = useState(createExamSessionId)
+  const [examSyncing, setExamSyncing] = useState(false)
+  const [examSessionSaved, setExamSessionSaved] = useState(false)
   const [memorySync, setMemorySync] = useState('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
   const [challengeStats, setChallengeStats] = useState<ChallengeStats>(emptyChallengeStats)
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
@@ -96,6 +100,9 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setExamSeconds(EXAM_DURATION_SECONDS)
       setExamAttempts([])
       setExamFinished(false)
+      setExamSessionId(createExamSessionId())
+      setExamSessionSaved(false)
+      setExamSyncing(false)
       setMemorySync(view === 'challenge' ? '比拼模式只记录正式提交结果，不提前泄露公开标注基准。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
       setHint(view === 'challenge' ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
       setChallengeStats(emptyChallengeStats)
@@ -165,6 +172,9 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setExamSeconds(EXAM_DURATION_SECONDS)
     setExamAttempts([])
     setExamFinished(false)
+    setExamSessionId(createExamSessionId())
+    setExamSessionSaved(false)
+    setExamSyncing(false)
     setMemorySync('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
     setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
     setChallengeStats(emptyChallengeStats)
@@ -264,6 +274,9 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const restartExam = () => {
     setExamAttempts([])
     setExamFinished(false)
+    setExamSessionId(createExamSessionId())
+    setExamSessionSaved(false)
+    setExamSyncing(false)
     setExamSeconds(EXAM_DURATION_SECONDS)
     setIndex(0)
     setSelected('')
@@ -274,13 +287,42 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setMemorySync('考试 session 已重置，本场记录将从下一次提交开始累计。')
   }
 
-  const finishExam = () => {
+  const finishExam = async () => {
+    if (!examAttempts.length || examSyncing || examSessionSaved) return
     setExamFinished(true)
     setSelected('')
     setSubmission(null)
     setTutorTab('agent')
-    setHint('本场考试已交卷。请从战报进入错因复盘，或重开本场继续训练。')
-    setMemorySync('本场考试已结束，已提交题目均已写入医师训练记录。')
+    setExamSyncing(true)
+    setHint('本场考试正在交卷，并同步 Session 汇总到医师画像。')
+    const finishedReason = examSeconds <= 0 ? 'time_expired' : examAttempts.length >= filteredQuestions.length ? 'completed_all' : 'manual_submit'
+    const attempts: ExamSessionAttempt[] = examAttempts.map((attempt) => ({
+      question_id: attempt.questionId,
+      title: attempt.title,
+      selected_answer: attempt.selected,
+      correct_answer: attempt.correctAnswer,
+      is_correct: attempt.isCorrect,
+      score: attempt.score,
+      error_tags: attempt.errorTags,
+    }))
+    try {
+      const result = await api.examSession({
+        sessionId: examSessionId,
+        attempts,
+        durationSeconds: EXAM_DURATION_SECONDS,
+        remainingSeconds: examSeconds,
+        finishedReason,
+      })
+      setExamSessionSaved(Boolean(result.profile_updated))
+      setHint(result.profile_updated ? '本场考试已交卷并写入画像。请从战报进入错因复盘，或重开本场继续训练。' : '本场考试已交卷，但后端未写入画像；请确认后端在线后可再次同步。')
+      setMemorySync(result.memory_summary)
+    } catch {
+      setExamSessionSaved(false)
+      setHint('本场考试已交卷，但 Session 汇总同步失败；请稍后重试。')
+      setMemorySync('考试 Session 汇总未写入后端画像。')
+    } finally {
+      setExamSyncing(false)
+    }
   }
 
   const next = () => {
@@ -344,8 +386,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
             <div><span>平均分</span><strong>{examAverageScore}</strong></div>
           </div>
           <div className="exam-session-actions">
-            <button className="button secondary" type="button" onClick={finishExam} disabled={examClosed || examAnsweredCount === 0}>
-              <ClipboardList size={16} /> 交卷复盘
+            <button className="button secondary" type="button" onClick={finishExam} disabled={examAnsweredCount === 0 || examSyncing || examSessionSaved}>
+              <ClipboardList size={16} /> {examSyncing ? '同步中' : examSessionSaved ? '已同步画像' : examClosed ? '同步本场复盘' : '交卷复盘'}
             </button>
             <button className="button secondary" type="button" onClick={restartExam}>
               <RotateCcw size={16} /> 重开本场

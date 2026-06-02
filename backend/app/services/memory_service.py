@@ -1,4 +1,7 @@
-from app.schemas import LearnerProfile, Question, ReportJudgeResponse, SubmissionResponse
+from uuid import uuid4
+
+from app.core.config import SAFETY_NOTICE
+from app.schemas import ExamSessionRequest, ExamSessionResponse, LearnerProfile, Question, ReportJudgeResponse, SubmissionResponse
 from app.services.audit_service import now_iso
 from app.services.data_store import read_json, write_json
 
@@ -55,6 +58,58 @@ class MemoryService:
         profile.updated_at = now_iso()
         write_json("learner_profile.json", profile.model_dump())
         return profile
+
+    def record_exam_session(self, request: ExamSessionRequest) -> ExamSessionResponse:
+        profile = self.get_profile()
+        answered_count = len(request.attempts)
+        correct_count = sum(1 for attempt in request.attempts if attempt.is_correct)
+        average_score = round(sum(attempt.score for attempt in request.attempts) / max(answered_count, 1))
+        accuracy = round((correct_count / max(answered_count, 1)) * 100)
+        wrong_questions = [attempt.question_id for attempt in request.attempts if not attempt.is_correct]
+        elapsed_seconds = max(0, min(request.duration_seconds, request.duration_seconds - request.remaining_seconds))
+        session_id = request.session_id or f"exam_{uuid4().hex[:12]}"
+
+        profile.question_type_coverage["考试Session"] = profile.question_type_coverage.get("考试Session", 0) + 1
+        if wrong_questions and "考试错题复盘" not in profile.weakness_tags:
+            profile.weakness_tags.insert(0, "考试错题复盘")
+        if wrong_questions:
+            profile.recent_errors = list(dict.fromkeys([*wrong_questions, *profile.recent_errors]))[:8]
+            profile.wrong_questions = list(dict.fromkeys([*wrong_questions, *profile.wrong_questions]))[:16]
+
+        record = {
+            "date": now_iso()[:10],
+            "question_id": session_id,
+            "score": average_score,
+            "result": f"考试Session {answered_count}题/{accuracy}%",
+        }
+        profile.training_records = [item for item in profile.training_records if item.get("question_id") != session_id]
+        profile.training_records.insert(0, record)
+        profile.training_records = profile.training_records[:12]
+        profile.growth_trend = self._append_growth(profile)
+        profile.updated_at = now_iso()
+        write_json("learner_profile.json", profile.model_dump())
+
+        response_id = f"exam_session_{uuid4().hex[:12]}"
+        summary = (
+            f"已写入{profile.name}的考试 Session：{answered_count} 题，正确率 {accuracy}%，"
+            f"平均分 {average_score}，错题 {len(wrong_questions)} 题；单题提交已分别记录，本汇总不重复增加题量。"
+        )
+        return ExamSessionResponse(
+            id=response_id,
+            learner_id=request.learner_id,
+            answered_count=answered_count,
+            correct_count=correct_count,
+            accuracy=accuracy,
+            average_score=average_score,
+            wrong_questions=wrong_questions,
+            elapsed_seconds=elapsed_seconds,
+            finished_reason=request.finished_reason,
+            profile_updated=True,
+            memory_summary=summary,
+            doctor_review_required=True,
+            safety_notice=SAFETY_NOTICE,
+            created_at=now_iso(),
+        )
 
     def record_report_judge(self, judge: ReportJudgeResponse) -> str:
         profile = self.get_profile()

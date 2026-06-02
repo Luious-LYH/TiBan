@@ -80,6 +80,34 @@ export type SubmissionResponse = {
   api_source?: 'backend' | 'fallback'
 }
 
+export type ExamSessionAttempt = {
+  question_id: string
+  title: string
+  selected_answer: string
+  correct_answer: string
+  is_correct: boolean
+  score: number
+  error_tags: string[]
+}
+
+export type ExamSessionResponse = {
+  id: string
+  learner_id: string
+  answered_count: number
+  correct_count: number
+  accuracy: number
+  average_score: number
+  wrong_questions: string[]
+  elapsed_seconds: number
+  finished_reason: string
+  profile_updated: boolean
+  memory_summary: string
+  doctor_review_required: boolean
+  safety_notice: string
+  created_at: string
+  api_source?: 'backend' | 'fallback'
+}
+
 export type LearnerProfile = {
   learner_id: string
   name: string
@@ -134,6 +162,7 @@ export type AuditLog = {
     | 'question_view'
     | 'answer_submit'
     | 'tutor_reply'
+    | 'exam_session'
     | 'report_draft'
     | 'patient_card'
     | 'report_judge'

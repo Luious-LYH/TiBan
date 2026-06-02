@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.core.config import APP_NAME, SAFETY_NOTICE, UPLOAD_DIR
 from app.schemas import (
+    ExamSessionRequest,
     FavoriteRequest,
     ImageUploadRequest,
     ImageUploadResponse,
@@ -136,6 +137,21 @@ def learner_training_state() -> dict[str, object]:
     state = memory_service.training_state()
     state["safety_notice"] = SAFETY_NOTICE
     return state
+
+
+@router.post("/learner/exam-session")
+def learner_exam_session(request: ExamSessionRequest) -> dict[str, object]:
+    if not request.attempts:
+        raise HTTPException(status_code=400, detail="Exam session requires at least one attempt.")
+    response = memory_service.record_exam_session(request)
+    audit_service.log(
+        "exam_session",
+        user_id=request.learner_id,
+        entity_id=response.id,
+        summary=response.memory_summary,
+        risk_level="medium" if response.wrong_questions else "low",
+    )
+    return response.model_dump()
 
 
 @router.post("/learner/favorite")

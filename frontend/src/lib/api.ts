@@ -10,6 +10,8 @@ import type {
   AtomicFact,
   AuditLog,
   DashboardPayload,
+  ExamSessionAttempt,
+  ExamSessionResponse,
   ImageUploadResponse,
   KnowledgeBase,
   LearnerProfile,
@@ -708,6 +710,66 @@ export const api = {
       },
       localSubmission(question, selectedAnswer),
     )
+  },
+
+  async examSession(payload: {
+    sessionId: string
+    attempts: ExamSessionAttempt[]
+    durationSeconds: number
+    remainingSeconds: number
+    finishedReason: 'manual_submit' | 'completed_all' | 'time_expired'
+  }): Promise<ExamSessionResponse> {
+    const answeredCount = payload.attempts.length
+    const correctCount = payload.attempts.filter((attempt) => attempt.is_correct).length
+    const averageScore = answeredCount ? Math.round(payload.attempts.reduce((sum, attempt) => sum + attempt.score, 0) / answeredCount) : 0
+    const accuracy = answeredCount ? Math.round((correctCount / answeredCount) * 100) : 0
+    const fallback: ExamSessionResponse = {
+      id: `exam_session_local_${Date.now()}`,
+      learner_id: 'demo_learner',
+      answered_count: answeredCount,
+      correct_count: correctCount,
+      accuracy,
+      average_score: averageScore,
+      wrong_questions: payload.attempts.filter((attempt) => !attempt.is_correct).map((attempt) => attempt.question_id),
+      elapsed_seconds: Math.max(0, payload.durationSeconds - payload.remainingSeconds),
+      finished_reason: payload.finishedReason,
+      profile_updated: false,
+      memory_summary: `本场考试前端 fallback 汇总：${answeredCount} 题，正确率 ${accuracy}%，未写入后端画像。`,
+      doctor_review_required: true,
+      safety_notice: safetyNotice,
+      created_at: new Date().toISOString(),
+    }
+    const response = await request<ExamSessionResponse>(
+      '/api/learner/exam-session',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          session_id: payload.sessionId,
+          learner_id: 'demo_learner',
+          duration_seconds: payload.durationSeconds,
+          remaining_seconds: payload.remainingSeconds,
+          finished_reason: payload.finishedReason,
+          attempts: payload.attempts,
+        }),
+      },
+      fallback,
+    )
+    return {
+      ...fallback,
+      ...response,
+      answered_count: asNumber(response.answered_count, fallback.answered_count),
+      correct_count: asNumber(response.correct_count, fallback.correct_count),
+      accuracy: asNumber(response.accuracy, fallback.accuracy),
+      average_score: asNumber(response.average_score, fallback.average_score),
+      wrong_questions: asStringArray(response.wrong_questions, fallback.wrong_questions),
+      elapsed_seconds: asNumber(response.elapsed_seconds, fallback.elapsed_seconds),
+      finished_reason: asString(response.finished_reason, fallback.finished_reason),
+      profile_updated: asBoolean(response.profile_updated, fallback.profile_updated),
+      memory_summary: asString(response.memory_summary, fallback.memory_summary),
+      doctor_review_required: asBoolean(response.doctor_review_required, fallback.doctor_review_required),
+      safety_notice: asString(response.safety_notice, safetyNotice),
+      created_at: asString(response.created_at, fallback.created_at),
+    }
   },
 
   async favorite(questionId: string, favorited: boolean): Promise<LearnerProfile> {

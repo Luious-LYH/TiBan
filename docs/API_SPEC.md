@@ -11,7 +11,7 @@ Base URL: `http://127.0.0.1:8000/api`
 }
 ```
 
-当前 `/submit`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/report-draft`、`/report/judge`、`/patient-card`、`/models/admission-test` 和高风险 `/skills/run` 输出均遵循该契约。
+当前 `/submit`、`/learner/exam-session`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/report-draft`、`/report/judge`、`/patient-card`、`/models/admission-test` 和高风险 `/skills/run` 输出均遵循该契约。
 
 v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mode` / `provider_status` / `provider_called`：
 
@@ -35,6 +35,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | POST | `/tutor/chat` | 当前题范围内的辅导回复 |
 | GET | `/learner/profile` | 学员画像 |
 | GET | `/learner/recommendations` | 推荐训练 |
+| POST | `/learner/exam-session` | 写入整场考试 Session 摘要、错题摘要和审计事件 |
 | POST | `/report-draft` | 结构化报告草稿 |
 | POST | `/report/image-upload` | 上传教学图片到后端受控目录，返回 `uploads/...` 引用 |
 | POST | `/report/judge` | 报告修改训练评分 |
@@ -83,6 +84,41 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
   "interaction_tags": ["证据不足", "病灶识别", "rule"],
   "profile_updated": true,
   "memory_summary": "已记录 Agent 辅导事件：...；未保存追问原文。"
+}
+```
+
+考试 Session 交卷会写入画像摘要和审计事件；单题提交已经分别记录，因此该接口不会重复增加 `total_questions`：
+
+```json
+{
+  "session_id": "exam_abc123",
+  "learner_id": "demo_learner",
+  "duration_seconds": 720,
+  "remaining_seconds": 512,
+  "finished_reason": "manual_submit",
+  "attempts": [
+    {
+      "question_id": "q005",
+      "title": "错误前提：图中是否一定有息肉",
+      "selected_answer": "指出证据不足：图中未明确显示息肉",
+      "correct_answer": "指出证据不足：图中未明确显示息肉",
+      "is_correct": true,
+      "score": 100,
+      "error_tags": []
+    }
+  ]
+}
+```
+
+核心返回字段：
+
+```json
+{
+  "answered_count": 1,
+  "accuracy": 100,
+  "average_score": 100,
+  "profile_updated": true,
+  "memory_summary": "已写入林知远医师考试 Session..."
 }
 ```
 
