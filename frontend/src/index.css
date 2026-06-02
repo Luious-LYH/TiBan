@@ -1390,6 +1390,101 @@ input {
   border-color: #fde68a;
 }
 
+.premise-hero svg {
+  color: var(--amber);
+}
+
+.premise-scoreboard {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(3, minmax(110px, 0.7fr));
+  gap: 12px;
+  padding: 12px;
+  background:
+    linear-gradient(135deg, rgba(255, 251, 235, 0.94), rgba(239, 246, 255, 0.92)),
+    #ffffff;
+}
+
+.premise-scoreboard div {
+  display: grid;
+  gap: 4px;
+  min-height: 72px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.premise-scoreboard div:first-child {
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+}
+
+.premise-scoreboard svg {
+  color: var(--amber);
+}
+
+.premise-scoreboard span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.premise-scoreboard strong {
+  color: var(--text);
+  font-size: 24px;
+}
+
+.premise-training-grid {
+  display: grid;
+  grid-template-columns: 0.95fr 1.08fr 0.95fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.premise-locked {
+  margin-bottom: 14px;
+}
+
+.option-button.correct-choice {
+  color: #0f5132;
+  background: var(--teal-soft);
+  border-color: #5eead4;
+  opacity: 1;
+}
+
+.option-button.wrong-choice {
+  color: var(--red);
+  background: var(--red-soft);
+  border-color: #fecdd3;
+  opacity: 1;
+}
+
+.premise-guard-card {
+  min-height: 100%;
+}
+
+.evidence-unlocked {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  color: #143d3a;
+  background: var(--teal-soft);
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  line-height: 1.55;
+}
+
+.evidence-unlocked strong,
+.evidence-unlocked span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.evidence-unlocked p {
+  margin: 0;
+  color: var(--text);
+}
+
 textarea {
   width: 100%;
   resize: vertical;
@@ -2462,6 +2557,7 @@ textarea {
 
 @media (max-width: 1180px) {
   .training-grid,
+  .premise-training-grid,
   .grid.three,
   .grid.four,
   .model-grid,
@@ -2481,6 +2577,7 @@ textarea {
   .filter-panel,
   .admission-grid,
   .challenge-scoreboard,
+  .premise-scoreboard,
   .profile-hero,
   .floating-patient-card {
     grid-template-columns: 1fr;

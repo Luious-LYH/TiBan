@@ -38,7 +38,17 @@ function App() {
               }
             />
             <Route path="/feedback" element={<ErrorFeedback submission={lastSubmission} question={lastQuestion} />} />
-            <Route path="/false-premise" element={<FalsePremiseTraining />} />
+            <Route
+              path="/false-premise"
+              element={
+                <FalsePremiseTraining
+                  onSubmission={(submission, question) => {
+                    setLastSubmission(submission)
+                    setLastQuestion(question)
+                  }}
+                />
+              }
+            />
             <Route path="/report" element={<ReportDraft />} />
             <Route path="/profile" element={<PhysicianProfile />} />
             <Route path="/card" element={<PatientCard />} />
