@@ -49,6 +49,11 @@ def dashboard() -> dict[str, object]:
     return dashboard_service.get_dashboard()
 
 
+@router.get("/platform/readiness")
+def platform_readiness() -> dict[str, object]:
+    return dashboard_service.get_readiness()
+
+
 @router.get("/questions")
 def list_questions(
     question_class: str | None = None,

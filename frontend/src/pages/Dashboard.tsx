@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowRight, BookOpenCheck, Bot, ClipboardList, DatabaseZap, Gauge, ShieldCheck, Star, Target, UserRound } from 'lucide-react'
+import { ArrowRight, BookOpenCheck, Bot, CheckCircle2, ClipboardList, DatabaseZap, Gauge, Route, ShieldCheck, Star, Target, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, SafetyNotice, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
@@ -25,6 +25,8 @@ export function Dashboard() {
 
   const completion = Math.round((data.today_training.completed / Math.max(data.today_training.target, 1)) * 100)
   const profile = data.learner_profile
+  const readiness = data.platform_readiness
+  const readinessSource = readiness.api_source || data.api_source || 'backend'
 
   return (
     <div className="page-stack">
@@ -61,8 +63,81 @@ export function Dashboard() {
             <strong>{data.today_training.streak_days}</strong>
             <span>连续训练</span>
           </div>
+          <div className="hero-metric-wide">
+            <strong>{readiness.overall_score}%</strong>
+            <span>平台就绪度</span>
+          </div>
+          <div className="hero-metric-wide">
+            <strong>{readiness.real_sample_count}</strong>
+            <span>公开图文样例</span>
+          </div>
         </div>
       </section>
+
+      <Card className="readiness-board">
+        <SectionTitle
+          eyebrow="Live system map"
+          title="平台真实性与演示路径"
+          action={<Tag tone={readinessSource === 'fallback' ? 'amber' : 'green'}>{readinessSource === 'fallback' ? 'frontend fallback' : 'backend live'}</Tag>}
+        />
+        <div className="readiness-summary">
+          <div>
+            <Gauge size={20} />
+            <span>Provider</span>
+            <strong>{readiness.provider_ready ? '真实推理可用' : `${readiness.provider_mode} 模式`}</strong>
+          </div>
+          <div>
+            <DatabaseZap size={20} />
+            <span>知识库</span>
+            <strong>{readiness.qbank_count} 题 · {readiness.report_template_count} 个模板</strong>
+          </div>
+          <div>
+            <UserRound size={20} />
+            <span>画像回灌</span>
+            <strong>{readiness.training_record_count} 条训练记录</strong>
+          </div>
+          <div>
+            <ShieldCheck size={20} />
+            <span>模型准入</span>
+            <strong>Grade {readiness.admission_grade} · {readiness.admission_provider_called ? 'provider' : 'rule'}</strong>
+          </div>
+        </div>
+        <div className="readiness-grid">
+          {readiness.modules.map((item) => (
+            <Link className="readiness-tile" key={item.id} to={item.href}>
+              <span className={`status-dot tone-${item.tone}`} />
+              <div>
+                <strong>{item.label}</strong>
+                <em>{item.status}</em>
+                <p>{item.detail}</p>
+              </div>
+              <ArrowRight size={15} />
+            </Link>
+          ))}
+        </div>
+        <div className="demo-path">
+          <div className="demo-path-title">
+            <Route size={18} />
+            <strong>建议评委演示路线</strong>
+          </div>
+          {readiness.demo_path.map((step) => (
+            <Link className="demo-step" key={`${step.step}_${step.title}`} to={step.href}>
+              <span>{step.step}</span>
+              <div>
+                <strong>{step.title}</strong>
+                <p>{step.detail}</p>
+                <em>{step.expected_state}</em>
+              </div>
+              <CheckCircle2 size={16} />
+            </Link>
+          ))}
+        </div>
+        {readiness.gaps.length ? (
+          <div className="gap-strip">
+            {readiness.gaps.slice(0, 2).map((gap) => <span key={gap}>{gap}</span>)}
+          </div>
+        ) : null}
+      </Card>
 
       <div className="grid four">
         <Card className="quick-card">

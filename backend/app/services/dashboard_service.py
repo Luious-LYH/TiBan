@@ -1,4 +1,7 @@
 from app.core.config import SAFETY_NOTICE
+from app.services.audit_service import now_iso
+from app.services.data_store import read_json
+from app.services.llm_provider import llm_provider
 from app.services.memory_service import memory_service
 from app.services.model_service import model_service
 from app.services.question_service import question_service
@@ -48,6 +51,7 @@ class DashboardService:
             "growth_trend": profile.growth_trend,
             "active_model": active_model.model_dump(),
             "model_admission_state": admission_state,
+            "platform_readiness": self.get_readiness(),
             "safety_notice": SAFETY_NOTICE,
             "mock_evaluation_notice": "模型能力分为演示 mock 和接口预留，不代表真实临床评测结果。",
             "reference_inspirations": [
@@ -80,6 +84,160 @@ class DashboardService:
         )
         summaries.append("下一步推荐：公开复杂问答样例，训练多事实组合表达。")
         return summaries[:5]
+
+    def get_readiness(self) -> dict[str, object]:
+        profile = memory_service.get_profile()
+        questions = question_service.list_questions()
+        public_questions = [q for q in questions if q.source_dataset in {"Kvasir-VQA-x1", "Kvasir-VQA", "EndoBench"}]
+        admission_state = model_service.admission_state()
+        provider_status = llm_provider.status()
+        report_kb = read_json("report_knowledge_base.json")
+        card_kb = read_json("card_template_knowledge.json")
+        audit_logs = read_json("audit_logs.json")
+        modules = [
+            self._module(
+                "backend_api",
+                "后端 API",
+                "live",
+                "FastAPI 服务在线，前端调用会标注 backend/fallback。",
+                "/",
+                "green",
+            ),
+            self._module(
+                "real_samples",
+                "真实公开样例",
+                "ready" if public_questions else "empty",
+                f"已接入 {len(public_questions)} 条 Kvasir/EndoBench 公开图文样例。",
+                "/training?source=public",
+                "green" if public_questions else "amber",
+            ),
+            self._module(
+                "training_memory",
+                "医师画像回灌",
+                "ready" if profile.training_records else "seed",
+                f"{profile.name} 当前有 {len(profile.training_records)} 条训练/Agent/报告记录。",
+                "/profile",
+                "green" if profile.training_records else "amber",
+            ),
+            self._module(
+                "report_kb",
+                "报告知识库",
+                "ready" if report_kb.get("templates") else "empty",
+                f"报告模板 {len(report_kb.get('templates', []))} 个，科普模板 {len(card_kb.get('templates', []))} 个。",
+                "/report",
+                "green" if report_kb.get("templates") else "amber",
+            ),
+            self._module(
+                "provider",
+                "推理 Provider",
+                "provider" if provider_status.get("configured") else "rule",
+                (
+                    f"{provider_status.get('provider', 'provider')} · {provider_status.get('model', 'model')} 可真实调用。"
+                    if provider_status.get("configured")
+                    else "未配置后端 Provider，平台显式降级为规则/知识库草案。"
+                ),
+                "/models",
+                "green" if provider_status.get("configured") else "amber",
+            ),
+            self._module(
+                "model_admission",
+                "模型准入状态",
+                "provider called" if admission_state.get("provider_called") else "rule draft",
+                f"{admission_state.get('provider_name', 'Provider')} · Grade {admission_state.get('grade', 'NA')} · {admission_state.get('total_score', 0)} 分。",
+                "/models",
+                "green" if admission_state.get("provider_called") else "blue",
+            ),
+            self._module(
+                "audit",
+                "审计日志",
+                "ready" if audit_logs else "empty",
+                f"已记录 {len(audit_logs)} 条训练、报告、准入或上传事件。",
+                "/audit",
+                "green" if audit_logs else "amber",
+            ),
+        ]
+        readiness_score = round(sum(1 for item in modules if item["tone"] == "green") / len(modules) * 100)
+        gaps: list[str] = []
+        if not provider_status.get("configured"):
+            gaps.append("如需展示真实大模型推理，请在后端 .env 配置 OpenAI-compatible Provider，或在模型准入页临时输入 key。")
+        if not admission_state.get("provider_called"):
+            gaps.append("最近模型准入仍是规则草案；可用公开样例运行一次真实 Provider 探测。")
+        if len(public_questions) < 6:
+            gaps.append("真实公开样例数量偏少，后续可继续从本地 VQA 数据集中扩充题库和报告知识库。")
+        return {
+            "generated_at": now_iso(),
+            "overall_score": readiness_score,
+            "backend_ready": True,
+            "provider_ready": bool(provider_status.get("configured")),
+            "provider_mode": provider_status.get("mode", "rule"),
+            "knowledge_ready": bool(public_questions and report_kb.get("templates")),
+            "memory_ready": bool(profile.training_records),
+            "qbank_count": len(questions),
+            "real_sample_count": len(public_questions),
+            "report_template_count": len(report_kb.get("templates", [])),
+            "training_record_count": len(profile.training_records),
+            "audit_log_count": len(audit_logs),
+            "admission_grade": admission_state.get("grade", "NA"),
+            "admission_provider_called": bool(admission_state.get("provider_called")),
+            "modules": modules,
+            "demo_path": [
+                {
+                    "step": 1,
+                    "title": "训练驾驶舱",
+                    "detail": "确认医师身份、今日任务、能力画像和平台真实性状态。",
+                    "href": "/",
+                    "expected_state": "后端在线 + 公开样例已接入",
+                },
+                {
+                    "step": 2,
+                    "title": "公开样例刷题",
+                    "detail": "选择真实内镜图像题，提交后回灌错题/能力画像。",
+                    "href": "/training?source=public",
+                    "expected_state": "真实图文样例 + Agent 可追问",
+                },
+                {
+                    "step": 3,
+                    "title": "边刷边问 Agent",
+                    "detail": "围绕当前题追问证据链，系统记录训练标签但不保存自由文本。",
+                    "href": "/training",
+                    "expected_state": "Tutor chat + memory summary",
+                },
+                {
+                    "step": 4,
+                    "title": "报告生成与修改",
+                    "detail": "用同一批公开样例生成报告草稿，再用 AI judge 评分改写。",
+                    "href": "/report",
+                    "expected_state": "来源追踪 + 幻觉审查 + 画像回灌",
+                },
+                {
+                    "step": 5,
+                    "title": "模型准入探测",
+                    "detail": "用公开样例测试用户自带 Provider，结果同步到首页和模型中心。",
+                    "href": "/models",
+                    "expected_state": "provider called 或 rule draft 明确标注",
+                },
+            ],
+            "gaps": gaps,
+            "safety_notice": SAFETY_NOTICE,
+        }
+
+    def _module(
+        self,
+        module_id: str,
+        label: str,
+        status: str,
+        detail: str,
+        href: str,
+        tone: str,
+    ) -> dict[str, str]:
+        return {
+            "id": module_id,
+            "label": label,
+            "status": status,
+            "detail": detail,
+            "href": href,
+            "tone": tone,
+        }
 
 
 dashboard_service = DashboardService()

@@ -17,6 +17,8 @@ import type {
   ModelAdmissionState,
   ModelProfile,
   PatientCard,
+  PlatformReadiness,
+  PlatformReadinessModule,
   ProviderStatus,
   Question,
   ReportJudge,
@@ -281,6 +283,61 @@ function normalizeAdmissionState(value: unknown, fallback: ModelAdmissionState =
   }
 }
 
+function normalizeReadinessModule(value: unknown, fallback: PlatformReadinessModule, index: number): PlatformReadinessModule {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id || `module_${index}`),
+    label: asString(record.label, fallback.label),
+    status: asString(record.status, fallback.status),
+    detail: asString(record.detail, fallback.detail),
+    href: asString(record.href, fallback.href || '/'),
+    tone: asString(record.tone, fallback.tone) as PlatformReadinessModule['tone'],
+  }
+}
+
+function normalizePlatformReadiness(value: unknown, fallback: PlatformReadiness = mockDashboard.platform_readiness): PlatformReadiness {
+  const record = asRecord(value)
+  const fallbackModules = fallback.modules.length ? fallback.modules : mockDashboard.platform_readiness.modules
+  const modules = Array.isArray(record.modules) ? record.modules : fallbackModules
+  const fallbackPath = fallback.demo_path.length ? fallback.demo_path : mockDashboard.platform_readiness.demo_path
+  const demoPath = Array.isArray(record.demo_path) ? record.demo_path : fallbackPath
+  return {
+    ...fallback,
+    ...record,
+    generated_at: asString(record.generated_at, fallback.generated_at),
+    overall_score: asNumber(record.overall_score, fallback.overall_score),
+    backend_ready: asBoolean(record.backend_ready, fallback.backend_ready),
+    provider_ready: asBoolean(record.provider_ready, fallback.provider_ready),
+    provider_mode: asString(record.provider_mode, fallback.provider_mode),
+    knowledge_ready: asBoolean(record.knowledge_ready, fallback.knowledge_ready),
+    memory_ready: asBoolean(record.memory_ready, fallback.memory_ready),
+    qbank_count: asNumber(record.qbank_count, fallback.qbank_count),
+    real_sample_count: asNumber(record.real_sample_count, fallback.real_sample_count),
+    report_template_count: asNumber(record.report_template_count, fallback.report_template_count),
+    training_record_count: asNumber(record.training_record_count, fallback.training_record_count),
+    audit_log_count: asNumber(record.audit_log_count, fallback.audit_log_count),
+    admission_grade: asString(record.admission_grade, fallback.admission_grade),
+    admission_provider_called: asBoolean(record.admission_provider_called, fallback.admission_provider_called),
+    modules: modules.map((item, index) => normalizeReadinessModule(item, fallbackModules[index] || fallbackModules[0], index)),
+    demo_path: demoPath.map((item, index) => {
+      const step = asRecord(item)
+      const fallbackStep = fallbackPath[index] || fallbackPath[0]
+      return {
+        step: asNumber(step.step, fallbackStep.step || index + 1),
+        title: asString(step.title, fallbackStep.title),
+        detail: asString(step.detail, fallbackStep.detail),
+        href: asString(step.href, fallbackStep.href || '/'),
+        expected_state: asString(step.expected_state, fallbackStep.expected_state),
+      }
+    }),
+    gaps: asStringArray(record.gaps, fallback.gaps),
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    api_source: record.api_source as ApiSource | undefined,
+  }
+}
+
 function normalizeDashboard(value: unknown): DashboardPayload {
   const record = asRecord(value)
   const profile = normalizeProfile(record.learner_profile, mockDashboard.learner_profile)
@@ -333,6 +390,7 @@ function normalizeDashboard(value: unknown): DashboardPayload {
     growth_trend: normalizeTrend(record.growth_trend, profile.growth_trend),
     active_model: normalizeModel(record.active_model, mockDashboard.active_model),
     model_admission_state: normalizeAdmissionState(record.model_admission_state, mockDashboard.model_admission_state),
+    platform_readiness: normalizePlatformReadiness(record.platform_readiness, mockDashboard.platform_readiness),
     safety_notice: asString(record.safety_notice, safetyNotice),
     mock_evaluation_notice: asString(record.mock_evaluation_notice, mockDashboard.mock_evaluation_notice),
     reference_inspirations: asStringArray(record.reference_inspirations, mockDashboard.reference_inspirations),
@@ -565,6 +623,11 @@ export const api = {
   async dashboard(): Promise<DashboardPayload> {
     const response = await request<DashboardPayload>('/api/dashboard', undefined, mockDashboard)
     return normalizeDashboard(response)
+  },
+
+  async platformReadiness(): Promise<PlatformReadiness> {
+    const response = await request<PlatformReadiness>('/api/platform/readiness', undefined, mockDashboard.platform_readiness)
+    return normalizePlatformReadiness(response)
   },
 
   async questions(params: { falsePremise?: boolean } = {}): Promise<Question[]> {

@@ -26,6 +26,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | GET | `/health` | 服务健康检查 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
+| GET | `/platform/readiness` | 平台就绪度、真实性矩阵和建议演示路线 |
 | GET | `/questions` | 题库列表，支持 `question_class`、`difficulty`、`false_premise` |
 | GET | `/questions/{id}` | 单题详情 |
 | POST | `/submit` | 提交答案并生成错因反馈 |
@@ -140,6 +141,34 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
 ```
 
 最近准入摘要只保存 `provider_name`、`grade`、`total_score`、`mode`、`tested_samples`、`risk_items` 和 `recommendation`，不保存 API key、API base 或完整模型回复。
+
+平台就绪度：
+
+```json
+{
+  "overall_score": 71,
+  "provider_mode": "rule",
+  "real_sample_count": 10,
+  "modules": [
+    {
+      "label": "真实公开样例",
+      "status": "ready",
+      "detail": "已接入 Kvasir/EndoBench 公开图文样例。",
+      "href": "/training?source=public",
+      "tone": "green"
+    }
+  ],
+  "demo_path": [
+    {
+      "step": 1,
+      "title": "训练驾驶舱",
+      "href": "/",
+      "expected_state": "后端在线 + 公开样例已接入"
+    }
+  ],
+  "gaps": ["未配置 Provider 时会显式显示 rule/fallback。"]
+}
+```
 
 运行 skill：
 

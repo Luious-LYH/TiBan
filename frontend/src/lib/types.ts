@@ -242,6 +242,47 @@ export type ModelAdmissionState = {
   safe_for_training: boolean
 }
 
+export type ReadinessTone = 'green' | 'amber' | 'blue' | 'red' | 'neutral'
+
+export type PlatformReadinessModule = {
+  id: string
+  label: string
+  status: string
+  detail: string
+  href: string
+  tone: ReadinessTone
+}
+
+export type DemoPathStep = {
+  step: number
+  title: string
+  detail: string
+  href: string
+  expected_state: string
+}
+
+export type PlatformReadiness = {
+  generated_at: string
+  overall_score: number
+  backend_ready: boolean
+  provider_ready: boolean
+  provider_mode: string
+  knowledge_ready: boolean
+  memory_ready: boolean
+  qbank_count: number
+  real_sample_count: number
+  report_template_count: number
+  training_record_count: number
+  audit_log_count: number
+  admission_grade: string
+  admission_provider_called: boolean
+  modules: PlatformReadinessModule[]
+  demo_path: DemoPathStep[]
+  gaps: string[]
+  safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
 export type DashboardPayload = {
   today_training: {
     completed: number
@@ -260,6 +301,7 @@ export type DashboardPayload = {
   growth_trend: { date: string; accuracy: number; evidence: number; report: number }[]
   active_model: ModelProfile
   model_admission_state: ModelAdmissionState
+  platform_readiness: PlatformReadiness
   safety_notice: string
   mock_evaluation_notice: string
   reference_inspirations: string[]
