@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ActivitySquare, Bookmark, Bot, CheckCircle2, Clock, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Trophy } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ActivitySquare, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Target, Trophy } from 'lucide-react'
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
@@ -19,6 +19,16 @@ type ChallengeStats = {
   doctor: number
   benchmark: number
   ties: number
+}
+
+type ExamAttempt = {
+  questionId: string
+  title: string
+  selected: string
+  correctAnswer: string
+  isCorrect: boolean
+  score: number
+  errorTags: string[]
 }
 
 type Filters = {
@@ -53,6 +63,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [tutorTab, setTutorTab] = useState<TutorTab>('agent')
   const [agentMode, setAgentMode] = useState('rule')
   const [examSeconds, setExamSeconds] = useState(EXAM_DURATION_SECONDS)
+  const [examAttempts, setExamAttempts] = useState<ExamAttempt[]>([])
+  const [examFinished, setExamFinished] = useState(false)
   const [memorySync, setMemorySync] = useState('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
   const [challengeStats, setChallengeStats] = useState<ChallengeStats>(emptyChallengeStats)
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
@@ -82,6 +94,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setSubmission(null)
       setTutorTab('agent')
       setExamSeconds(EXAM_DURATION_SECONDS)
+      setExamAttempts([])
+      setExamFinished(false)
       setMemorySync(view === 'challenge' ? '比拼模式只记录正式提交结果，不提前泄露公开标注基准。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
       setHint(view === 'challenge' ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
       setChallengeStats(emptyChallengeStats)
@@ -117,10 +131,18 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const aiCorrect = aiAnswer === question.answer
   const providerConfigured = Boolean(providerStatus?.configured || providerStatus?.ok)
   const benchmarkLabel = providerConfigured ? '公开标注基准（Provider 已配置但本回合未调用）' : '公开标注基准（未调用独立模型）'
+  const examAnsweredCount = examAttempts.length
+  const examCorrectCount = examAttempts.filter((attempt) => attempt.isCorrect).length
+  const examWrongAttempts = examAttempts.filter((attempt) => !attempt.isCorrect)
+  const examAverageScore = examAnsweredCount ? Math.round(examAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / examAnsweredCount) : 0
+  const examAccuracy = examAnsweredCount ? Math.round((examCorrectCount / examAnsweredCount) * 100) : 0
+  const examCompletedByCount = mode === 'exam' && filteredQuestions.length > 0 && examAnsweredCount >= filteredQuestions.length
+  const examClosed = mode === 'exam' && (examFinished || examSeconds <= 0 || examCompletedByCount)
+  const currentQuestionAnswered = mode === 'exam' && examAttempts.some((attempt) => attempt.questionId === question.id)
   const canRevealBenchmark = Boolean(submission)
   const reviewUnlocked = Boolean(submission)
   const evidenceLocked = !reviewUnlocked
-  const examExpired = mode === 'exam' && examSeconds <= 0 && !submission
+  const examExpired = mode === 'exam' && examSeconds <= 0
   const formattedExamTime = `${String(Math.floor(examSeconds / 60)).padStart(2, '0')}:${String(examSeconds % 60).padStart(2, '0')}`
   const challengeDelta = canRevealBenchmark
     ? challengeMessage(Boolean(submission?.is_correct), aiCorrect, selected === aiAnswer)
@@ -141,25 +163,40 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setTutorTab('agent')
     setAgentMode('rule')
     setExamSeconds(EXAM_DURATION_SECONDS)
+    setExamAttempts([])
+    setExamFinished(false)
     setMemorySync('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
     setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
     setChallengeStats(emptyChallengeStats)
   }
 
   useEffect(() => {
-    if (mode !== 'exam' || submission || examSeconds <= 0) return undefined
+    if (mode !== 'exam' || examClosed) return undefined
     const timer = window.setInterval(() => {
       setExamSeconds((seconds) => Math.max(0, seconds - 1))
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [examSeconds, mode, submission])
+  }, [examClosed, mode])
 
   const submit = async () => {
-    if (!selected || examExpired || submission) return
+    if (!selected || examClosed || currentQuestionAnswered || submission) return
     setLoading(true)
     try {
       const result = await api.submit(question, selected)
       setSubmission(result)
+      if (mode === 'exam') {
+        const attempt: ExamAttempt = {
+          questionId: question.id,
+          title: question.title,
+          selected,
+          correctAnswer: question.answer,
+          isCorrect: result.is_correct,
+          score: result.score,
+          errorTags: result.error_tags,
+        }
+        setExamAttempts((current) => current.some((item) => item.questionId === question.id) ? current : [...current, attempt])
+        if (examAttempts.length + 1 >= filteredQuestions.length) setExamFinished(true)
+      }
       if (isChallenge) {
         const benchmarkCorrect = (question.ai_benchmark_answer || question.answer) === question.answer
         setChallengeStats((current) => ({
@@ -224,13 +261,35 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     }
   }
 
-  const next = () => {
-    setIndex((value) => (value + 1) % Math.max(filteredQuestions.length, 1))
+  const restartExam = () => {
+    setExamAttempts([])
+    setExamFinished(false)
+    setExamSeconds(EXAM_DURATION_SECONDS)
+    setIndex(0)
     setSelected('')
     setSubmission(null)
     setTutorTab('agent')
     setAgentMode('rule')
-    setExamSeconds(EXAM_DURATION_SECONDS)
+    setHint('考试模式已重新开始。请独立完成本场训练，交卷后统一复盘。')
+    setMemorySync('考试 session 已重置，本场记录将从下一次提交开始累计。')
+  }
+
+  const finishExam = () => {
+    setExamFinished(true)
+    setSelected('')
+    setSubmission(null)
+    setTutorTab('agent')
+    setHint('本场考试已交卷。请从战报进入错因复盘，或重开本场继续训练。')
+    setMemorySync('本场考试已结束，已提交题目均已写入医师训练记录。')
+  }
+
+  const next = () => {
+    const nextIndex = nextQuestionIndex(index, filteredQuestions, examAttempts, mode === 'exam')
+    setIndex(nextIndex)
+    setSelected('')
+    setSubmission(null)
+    setTutorTab('agent')
+    setAgentMode('rule')
     setMemorySync(isChallenge ? '比拼模式只记录正式提交结果，不提前泄露公开标注基准。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
     setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
   }
@@ -265,6 +324,47 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
             <div><span>标注基准</span><strong>{challengeStats.benchmark}</strong></div>
             <div><span>同判</span><strong>{challengeStats.ties}</strong></div>
           </div>
+        </Card>
+      ) : null}
+
+      {mode === 'exam' ? (
+        <Card className={`exam-session-board ${examClosed ? 'closed' : ''}`}>
+          <div className="exam-session-main">
+            <GraduationCap size={24} />
+            <div>
+              <span className="eyebrow">Exam session</span>
+              <h3>{examClosed ? '本场考试进入复盘' : '本场考试进行中'}</h3>
+              <p>全局 12 分钟倒计时持续运行；提交后可查看本题解析，但不会重置计时。交卷后从错题进入复盘闭环。</p>
+            </div>
+          </div>
+          <div className="exam-session-grid">
+            <div><span>剩余时间</span><strong className={examExpired ? 'timer-expired' : ''}>{formattedExamTime}</strong></div>
+            <div><span>已答题</span><strong>{examAnsweredCount}/{filteredQuestions.length}</strong></div>
+            <div><span>正确率</span><strong>{examAccuracy}%</strong></div>
+            <div><span>平均分</span><strong>{examAverageScore}</strong></div>
+          </div>
+          <div className="exam-session-actions">
+            <button className="button secondary" type="button" onClick={finishExam} disabled={examClosed || examAnsweredCount === 0}>
+              <ClipboardList size={16} /> 交卷复盘
+            </button>
+            <button className="button secondary" type="button" onClick={restartExam}>
+              <RotateCcw size={16} /> 重开本场
+            </button>
+            {examWrongAttempts.length ? (
+              <Link className="button primary" to="/feedback">
+                <Target size={16} /> 进入错因复盘
+              </Link>
+            ) : null}
+          </div>
+          {examWrongAttempts.length ? (
+            <div className="exam-wrong-strip">
+              {examWrongAttempts.slice(-3).map((attempt) => (
+                <span key={attempt.questionId}>{attempt.title} · 选 {attempt.selected} / 答 {attempt.correctAnswer}</span>
+              ))}
+            </div>
+          ) : (
+            <div className="exam-wrong-strip clean"><span>当前未产生错题；继续完成本场后查看完整表现。</span></div>
+          )}
         </Card>
       ) : null}
 
@@ -312,11 +412,12 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               <span>{index + 1}/{filteredQuestions.length}</span>
               <Tag tone={question.review_status === '待复盘' ? 'amber' : question.review_status === '收藏中' ? 'blue' : 'neutral'}>{question.review_status}</Tag>
               {mode === 'exam' ? <span className={examExpired ? 'timer-expired' : ''}><Clock size={15} /> {formattedExamTime}</span> : null}
+              {mode === 'exam' && currentQuestionAnswered ? <Tag tone="green">已作答</Tag> : null}
             </div>
             <p className="question-text">{question.question}</p>
             <div className="option-list">
               {question.options.map((option) => (
-                <button key={option} className={`option-button ${selected === option ? 'selected' : ''}`} type="button" onClick={() => setSelected(option)} disabled={examExpired || Boolean(submission)}>
+                <button key={option} className={`option-button ${selected === option ? 'selected' : ''}`} type="button" onClick={() => setSelected(option)} disabled={examClosed || currentQuestionAnswered || Boolean(submission)}>
                   <span>{option}</span>
                   {selected === option ? <CheckCircle2 size={18} /> : null}
                 </button>
@@ -326,10 +427,10 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               <button className="button secondary" type="button" onClick={askHint} disabled={loading || mode === 'exam' || isChallenge}>
                 <Lightbulb size={17} /> 提示一下
               </button>
-              <button className="button primary" type="button" onClick={submit} disabled={!selected || loading || examExpired || Boolean(submission)}>
+              <button className="button primary" type="button" onClick={submit} disabled={!selected || loading || examClosed || currentQuestionAnswered || Boolean(submission)}>
                 <Send size={17} /> {isChallenge ? '锁定本轮' : '提交答案'}
               </button>
-              <button className="icon-button" type="button" onClick={next} title="下一题">
+              <button className="icon-button" type="button" onClick={next} title="下一题" disabled={mode === 'exam' && examClosed}>
                 <RotateCcw size={17} />
               </button>
             </div>
@@ -363,7 +464,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
             {mode === 'exam' && !submission ? (
               <div className="exam-lock">
                 <GraduationCap size={20} />
-                <p>{examExpired ? '本题考试时间已结束，请进入复盘或切换下一题。' : `考试进行中，剩余 ${formattedExamTime}，提示和自由追问已隐藏。`}</p>
+                <p>{examClosed ? '本场考试已结束。请查看考试战报，并进入错因复盘或重开本场。' : `考试进行中，剩余 ${formattedExamTime}，提示和自由追问已隐藏。`}</p>
               </div>
             ) : isChallenge && !submission ? (
               <div className="challenge-box">
@@ -453,4 +554,15 @@ function challengeMessage(doctorCorrect: boolean, benchmarkCorrect: boolean, sam
   if (doctorCorrect && !benchmarkCorrect) return '本轮医师领先：公开基准需要复核或不适合作为最终判断。'
   if (!doctorCorrect && benchmarkCorrect) return '本轮公开标注基准领先：建议复盘可观察证据和题干边界。'
   return '本轮双方都需复核：请回到证据标签逐条检查。'
+}
+
+function nextQuestionIndex(currentIndex: number, questions: Question[], attempts: ExamAttempt[], examMode: boolean): number {
+  if (!questions.length) return 0
+  if (!examMode) return (currentIndex + 1) % questions.length
+  const answered = new Set(attempts.map((attempt) => attempt.questionId))
+  for (let offset = 1; offset <= questions.length; offset += 1) {
+    const candidate = (currentIndex + offset) % questions.length
+    if (!answered.has(questions[candidate].id)) return candidate
+  }
+  return currentIndex
 }

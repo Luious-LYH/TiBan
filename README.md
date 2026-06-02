@@ -49,7 +49,7 @@ LLM_TIMEOUT_SECONDS=25
 ## v2.0 演示路径
 
 1. 首页总览：先看“平台真实性与演示路径”，确认后端、公开样例、画像、报告知识库、Provider 和模型准入状态。
-2. 训练中心：右侧 Agent 默认只辅导当前题，不提前泄露参考答案；比拼模式提交前锁住证据页，提交后解锁公开标注/Provider 基准对照。
+2. 训练中心：右侧 Agent 默认只辅导当前题，不提前泄露参考答案；考试模式有全局 session 倒计时、累计战报、交卷复盘入口；比拼模式提交前锁住证据页，提交后解锁公开标注/Provider 基准对照。
 3. 错因分析：查看 atomic facts、错因标签和下一题推荐。
 4. 错误前提训练：先让林知远医师独立判断题干是否成立，提交后才解锁证据不足事实、得分和复盘建议。
 5. 报告中心：选择真实公开样例或上传图片，先看数据来源/Provider/模板状态，再生成结构化草稿；可用后端 `.env` 或页面临时 Provider 做一次真实推理，公开 VQA 标注默认收进来源台账，不伪装成医生报告结论。
@@ -63,7 +63,7 @@ LLM_TIMEOUT_SECONDS=25
 
 | 模块 | v2.0 模式 | 数据来源 | 说明 |
 |---|---|---|---|
-| 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` | 公开样例优先展示，支持错题/收藏/筛选；考试模式有倒计时 |
+| 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` | 公开样例优先展示，支持错题/收藏/筛选；考试模式有全局倒计时、累计正确率、平均分和交卷复盘 |
 | 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案；挑战模式提交前锁住证据页；追问会回灌训练事件但不保存原文 |
 | 错误前提训练 | backend rule | false-premise 题库 + atomic facts | 先作答后解锁证据不足事实、得分和复盘建议 |
 | 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 首屏展示真实推理控制；报告生成与修改评分都显示 `source_trace`、Provider 状态和 `evidence_ledger` |

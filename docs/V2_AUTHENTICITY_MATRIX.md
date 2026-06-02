@@ -14,7 +14,7 @@
 
 | 模块 | 当前实现 | 真实来源 | Provider 使用 | 仍需改进 |
 |---|---|---|---|---|
-| 训练题库 | 公开样例优先、支持筛选/收藏/错题，考试模式有 12 分钟倒计时 | `questions.json`, `real_sample_knowledge.json`, `learner_profile.json` | 右侧 chat 可调用 Provider，失败后规则辅导 | 可继续补完整 exam session 保存与成绩单 |
+| 训练题库 | 公开样例优先、支持筛选/收藏/错题；考试模式已升级为全局 session、累计战报、交卷复盘入口 | `questions.json`, `real_sample_knowledge.json`, `learner_profile.json` | 右侧 chat 可调用 Provider，失败后规则辅导；考试中隐藏提示和自由追问 | 可继续补正式 exam session 持久化成绩单 |
 | 右侧 Agent | `辅导/证据/对照` 三段式面板，提交前隐藏参考答案；挑战模式提交前锁住证据页；追问回灌训练事件 | 当前题、atomic facts、公开图片 URL | `tutor_orchestrator.chat` 调用 Provider | 仅保存题号/标签/模式，不保存医师追问原文；后续可做更细的会话摘要 |
 | 错因复盘 | 本轮提交进入时显示真实提交；直接打开时从后端错题本恢复最近复盘题并标注为 review snapshot | `learner_profile.json` wrong/recent errors、`questions` API、atomic facts | 不调用 Provider | 复盘快照不重复写入画像；后续可加正式 submission history 表 |
 | 错误前提训练 | 医师先独立作答，提交后解锁证据不足事实、原子证据、得分和复盘建议 | false-premise 题库、atomic facts、公开图像 | 不直接调用 Provider；可作为模型准入样例 | 后续可加入限时 drill 和更多拒答题型 |

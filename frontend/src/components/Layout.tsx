@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { api } from '../lib/api'
 import { safetyNotice } from '../lib/mock'
 import type { ProviderStatus } from '../lib/types'
@@ -135,10 +135,10 @@ export function Layout({ children }: { children: ReactNode }) {
                 {group.items.map((item) => {
                   const Icon = item.icon
                   return (
-                    <NavLink key={item.path} to={item.path} className={`nav-item ${isNavActive(item.path, location.pathname, location.search) ? 'active' : ''}`}>
+                    <Link key={item.path} to={item.path} className={`nav-item ${isNavActive(item.path, location.pathname, location.search) ? 'active' : ''}`}>
                       <Icon size={17} />
                       <span>{item.label}</span>
-                    </NavLink>
+                    </Link>
                   )
                 })}
               </div>
