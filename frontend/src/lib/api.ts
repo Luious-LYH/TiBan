@@ -930,7 +930,11 @@ export const api = {
     return normalizeReportJudge(response, fallback)
   },
 
-  async patientCard(summary: string, options: { templateId?: string; imageUrl?: string; reviewedByDoctor?: boolean } = {}): Promise<PatientCard> {
+  async patientCard(
+    summary: string,
+    options: { templateId?: string; imageUrl?: string; reviewedByDoctor?: boolean; reviewerName?: string; reviewNotes?: string } = {},
+  ): Promise<PatientCard> {
+    const reviewedByDoctor = Boolean(options.reviewedByDoctor)
     return request<PatientCard>(
       '/api/patient-card',
       {
@@ -938,15 +942,17 @@ export const api = {
         body: JSON.stringify({
           diagnosis_summary: summary,
           audience: 'patient',
-          reviewed_by_doctor: Boolean(options.reviewedByDoctor),
+          reviewed_by_doctor: reviewedByDoctor,
           template_id: options.templateId || 'calm_blue',
           image_url: options.imageUrl,
+          reviewer_name: options.reviewerName || undefined,
+          review_notes: options.reviewNotes || undefined,
         }),
       },
       {
         id: `card_local_${Date.now()}`,
-        card_title: '内镜检查结果说明卡（医生审核前草稿）',
-        plain_language_explanation: `这张卡片把医生待审核输入“${summary}”转写为更容易理解的说明。`,
+        card_title: `内镜检查结果说明卡（${reviewedByDoctor ? '医生已审核' : '医生审核前草稿'}）`,
+        plain_language_explanation: `这张卡片把医生${reviewedByDoctor ? '已审核' : '待审核'}输入“${summary}”转写为更容易理解的说明。`,
         what_it_means: ['内镜描述反映检查中看到的黏膜外观。', '部分表现需要结合病史和病理。'],
         what_to_watch: ['是否有持续或加重不适。', '是否需要按医嘱复诊。'],
         follow_up_reminder: '请按照医生给出的复诊或检查安排执行。',
@@ -954,7 +960,15 @@ export const api = {
         template_id: options.templateId || 'calm_blue',
         visual_tone: '稳健、清楚、适合打印',
         image_url: options.imageUrl,
-        review_status: 'doctor_review_pending',
+        review_status: reviewedByDoctor ? 'doctor_reviewed_input' : 'doctor_review_pending',
+        share_status: reviewedByDoctor ? 'reviewed_ready_to_share' : 'locked_pending_review',
+        reviewer_name: reviewedByDoctor ? options.reviewerName || '林知远医师' : null,
+        review_notes: reviewedByDoctor ? options.reviewNotes || '医生已确认卡片可用于沟通。' : null,
+        review_steps: [
+          { label: '摘要来自医生确认的报告或训练输入', checked: reviewedByDoctor, detail: '未确认前，卡片只能用于教学预览。' },
+          { label: '未加入未提供的病理、治疗或疗效承诺', checked: reviewedByDoctor, detail: '高风险医学表述保持解释性和复核边界。' },
+          { label: '患者沟通前保留免责声明和复诊提醒', checked: true, detail: '卡片始终提示不替代医生面对面解释。' },
+        ],
         doctor_review_required: true,
         safety_notice: safetyNotice,
         created_at: new Date().toISOString(),

@@ -55,7 +55,7 @@ LLM_TIMEOUT_SECONDS=25
 5. 报告中心：选择真实公开样例或上传图片，先看数据来源/Provider/模板状态，再生成结构化草稿；可用后端 `.env` 或页面临时 Provider 做一次真实推理，公开 VQA 标注默认收进来源台账，不伪装成医生报告结论。
 6. 报告修改训练：AI judge 评分后回灌林知远医师画像；可选 Provider 评阅会显示 `provider/rule/fallback`、延迟和来源台账。
 7. 模型准入：使用公开样例做真实/规则准入探测，查看 Provider 调用证据、延迟、风险项和平台最近准入摘要。
-8. 科普卡片、Skills、审计日志：展示患者沟通卡片、受控 skill 运行摘要和关键事件记录。
+8. 科普卡片、Skills、审计日志：展示患者沟通卡片审核闸门、受控 skill 运行摘要和关键事件记录。
 
 详细操作手册见 [docs/V2_USER_GUIDE.md](docs/V2_USER_GUIDE.md)。
 
@@ -69,7 +69,7 @@ LLM_TIMEOUT_SECONDS=25
 | 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 首屏展示真实推理控制；报告生成与修改评分都显示 `source_trace`、Provider 状态和 `evidence_ledger` |
 | Skills 中心 | backend rule | `skills.json` + 当前题/报告/卡片服务 | 页面展示运行摘要、审核状态和工作区跳转；完整 JSON 仅放在开发细节折叠项 |
 | 模型准入 | provider probe / rule draft | 公开样例 + 可选 Provider | 真实调用成功才标记 `provider_called=true`；最近准入摘要会写入平台状态，不保存 key |
-| 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB | 带审核状态和免责声明 |
+| 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB | 默认锁定打印/分享；医生完成审核清单后才解锁，并写入审计日志 |
 | Memory | rule persistence | `learner_profile.json` | 提交题目、报告 judge 和 Agent 追问都会更新训练记录、能力分与弱项标签 |
 | 审计日志 | backend persistence | `audit_logs.json` | 记录题目、辅导、报告、上传、准入等事件 |
 

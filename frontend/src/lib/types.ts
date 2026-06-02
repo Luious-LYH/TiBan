@@ -225,6 +225,10 @@ export type PatientCard = {
   visual_tone: string
   image_url?: string | null
   review_status: 'doctor_reviewed_input' | 'doctor_review_pending'
+  share_status?: 'locked_pending_review' | 'reviewed_ready_to_share'
+  reviewer_name?: string | null
+  review_notes?: string | null
+  review_steps?: { label: string; checked: boolean; detail: string }[]
   doctor_review_required: true
   safety_notice: string
   created_at: string

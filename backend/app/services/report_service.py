@@ -183,9 +183,13 @@ class ReportService:
         template = self._card_template(request.template_id)
         review_status = "doctor_reviewed_input" if request.reviewed_by_doctor else "doctor_review_pending"
         review_phrase = "医生已审核输入" if request.reviewed_by_doctor else "医生待审核输入"
+        share_status = "reviewed_ready_to_share" if request.reviewed_by_doctor else "locked_pending_review"
+        reviewer_name = request.reviewer_name.strip() if request.reviewer_name and request.reviewer_name.strip() else None
+        review_notes = safety_service.redact_sensitive_text(request.review_notes.strip()) if request.review_notes else None
+        reviewed_card = bool(request.reviewed_by_doctor)
         card = PatientCard(
             id=f"card_{uuid4().hex[:12]}",
-            card_title="内镜检查结果说明卡（医生审核前草稿）",
+            card_title=f"内镜检查结果说明卡（{'医生已审核' if reviewed_card else '医生审核前草稿'}）",
             plain_language_explanation=(
                 f"根据{review_phrase}，本卡片将“{summary}”转写为更容易理解的说明。"
                 "它只帮助沟通检查发现，不替代医生面对面解释。"
@@ -206,6 +210,26 @@ class ReportService:
             visual_tone=template.get("tone", "稳健、清楚、适合打印"),
             image_url=request.image_url,
             review_status=review_status,
+            share_status=share_status,
+            reviewer_name=reviewer_name if reviewed_card else None,
+            review_notes=review_notes if reviewed_card else None,
+            review_steps=[
+                {
+                    "label": "摘要来自医生确认的报告或训练输入",
+                    "checked": reviewed_card,
+                    "detail": "未确认前，卡片只能用于教学预览。",
+                },
+                {
+                    "label": "未加入未提供的病理、治疗或疗效承诺",
+                    "checked": reviewed_card,
+                    "detail": "高风险医学表述保持解释性和复核边界。",
+                },
+                {
+                    "label": "患者沟通前保留免责声明和复诊提醒",
+                    "checked": True,
+                    "detail": "卡片始终提示不替代医生面对面解释。",
+                },
+            ],
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
@@ -214,7 +238,11 @@ class ReportService:
             "patient_card",
             user_id="doctor_demo",
             entity_id=card.id,
-            summary="生成患者科普卡片草稿并附医生审核提示。",
+            summary=(
+                f"生成患者科普卡片；分享状态 {share_status}；审核人 {reviewer_name or '未确认'}。"
+                if reviewed_card
+                else "生成患者科普卡片草稿；分享和打印保持锁定，等待医生审核。"
+            ),
             risk_level="high",
         )
         return card

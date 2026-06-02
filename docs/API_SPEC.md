@@ -38,7 +38,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | POST | `/report-draft` | 结构化报告草稿 |
 | POST | `/report/image-upload` | 上传教学图片到后端受控目录，返回 `uploads/...` 引用 |
 | POST | `/report/judge` | 报告修改训练评分 |
-| POST | `/patient-card` | 科普卡片草稿 |
+| POST | `/patient-card` | 科普卡片草稿/医生审核确认 |
 | GET | `/models` | 模型库 mock 看板 |
 | POST | `/models/select` | 选择默认 mock 模型 |
 | POST | `/models/admission-test` | 使用公开样例做 Provider/规则准入探测 |
@@ -131,6 +131,34 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
   },
   "profile_updated": true,
   "memory_summary": "已回灌林知远医师画像：报告修改 88 分，事实组合/证据边界能力已更新。"
+}
+```
+
+科普卡片默认生成待审核草稿，打印/分享保持锁定；医生确认审核后再次提交 `reviewed_by_doctor=true` 才会解锁：
+
+```json
+{
+  "diagnosis_summary": "胃窦黏膜炎症样改变，需结合完整报告和医生复核后用于患者解释。",
+  "audience": "patient",
+  "reviewed_by_doctor": true,
+  "reviewer_name": "林知远医师",
+  "review_notes": "摘要来源已确认，未新增治疗或疗效承诺。",
+  "template_id": "calm_blue",
+  "image_url": "/assets/real_samples/kv_cla820gl0s3nv071u4fgd7xgq.jpg"
+}
+```
+
+核心返回字段：
+
+```json
+{
+  "review_status": "doctor_reviewed_input",
+  "share_status": "reviewed_ready_to_share",
+  "reviewer_name": "林知远医师",
+  "review_steps": [
+    { "label": "摘要来自医生确认的报告或训练输入", "checked": true }
+  ],
+  "doctor_review_required": true
 }
 ```
 

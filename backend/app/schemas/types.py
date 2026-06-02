@@ -242,6 +242,8 @@ class PatientCardRequest(BaseModel):
     reviewed_by_doctor: bool = False
     template_id: str = "calm_blue"
     image_url: str | None = None
+    reviewer_name: str | None = None
+    review_notes: str | None = None
 
 
 class PatientCard(BaseModel):
@@ -256,6 +258,10 @@ class PatientCard(BaseModel):
     visual_tone: str = "稳健、清楚、适合打印"
     image_url: str | None = None
     review_status: Literal["doctor_reviewed_input", "doctor_review_pending"] = "doctor_review_pending"
+    share_status: Literal["locked_pending_review", "reviewed_ready_to_share"] = "locked_pending_review"
+    reviewer_name: str | None = None
+    review_notes: str | None = None
+    review_steps: list[dict[str, Any]] = Field(default_factory=list)
     doctor_review_required: bool = True
     safety_notice: str
     created_at: str
