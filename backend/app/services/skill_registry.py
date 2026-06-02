@@ -48,11 +48,13 @@ class SkillRegistry:
                     question_id=str(payload.get("question_id", "q005")),
                     learner_id=request.learner_id,
                     selected_answer=str(payload.get("selected_answer", "")),
-                )
+                ),
+                record=False,
             )
             result = {
                 "atomic_feedback": [fact.model_dump() for fact in submission.fact_feedback],
                 "error_tags": submission.error_tags,
+                "doctor_review_required": True,
                 "safety_notice": SAFETY_NOTICE,
             }
         elif skill.id == "false_premise_guard":
@@ -104,9 +106,8 @@ class SkillRegistry:
             skill.id,
             doctor_review_required=skill.risk_level != "low",
         )
-        if skill.risk_level == "high":
-            result["doctor_review_required"] = True
-            result["safety_notice"] = SAFETY_NOTICE
+        result.setdefault("doctor_review_required", skill.risk_level != "low")
+        result.setdefault("safety_notice", SAFETY_NOTICE)
         return result
 
     def _get_skill(self, skill_id: str) -> SkillDefinition:

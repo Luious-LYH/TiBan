@@ -8,7 +8,7 @@ from app.services.question_service import question_service
 
 
 class GradingService:
-    def grade(self, request: SubmissionRequest) -> SubmissionResponse:
+    def grade(self, request: SubmissionRequest, *, record: bool = True) -> SubmissionResponse:
         question = question_service.get_question(request.question_id, request.learner_id)
         selected = request.selected_answer.strip()
         is_correct = selected == question.answer
@@ -30,14 +30,15 @@ class GradingService:
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
         )
-        memory_service.record_submission(response)
-        audit_service.log(
-            "answer_submit",
-            user_id=request.learner_id,
-            entity_id=question.id,
-            summary=f"提交答案：{'正确' if is_correct else '需要反馈'}；错因：{','.join(error_tags) or '无'}",
-            risk_level="medium" if error_tags else "low",
-        )
+        if record:
+            memory_service.record_submission(response)
+            audit_service.log(
+                "answer_submit",
+                user_id=request.learner_id,
+                entity_id=question.id,
+                summary=f"提交答案：{'正确' if is_correct else '需要反馈'}；错因：{','.join(error_tags) or '无'}",
+                risk_level="medium" if error_tags else "low",
+            )
         return response
 
     def recommend_next(self, question: Question, error_tags: list[str]) -> str:

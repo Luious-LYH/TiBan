@@ -36,7 +36,8 @@ class TutorOrchestrator:
         question = question_service.get_question(request.question_id, request.learner_id)
         selected = request.selected_answer or question.answer
         grade = grading_service.grade(
-            SubmissionRequest(question_id=question.id, learner_id=request.learner_id, selected_answer=selected)
+            SubmissionRequest(question_id=question.id, learner_id=request.learner_id, selected_answer=selected),
+            record=False,
         )
         audit_service.log(
             "tutor_reply",
