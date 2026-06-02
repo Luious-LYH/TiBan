@@ -372,6 +372,36 @@ a {
   line-height: 1.5;
 }
 
+.route-loading {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  min-height: 180px;
+  max-width: 760px;
+  padding: 24px;
+}
+
+.route-loading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+}
+
+.route-loading p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.loading-pulse {
+  width: 42px;
+  height: 42px;
+  background: radial-gradient(circle at 50% 50%, #14b8a6 0 34%, rgba(20, 184, 166, 0.2) 35% 62%, transparent 63%);
+  border-radius: 999px;
+  animation: pulseLoad 1.25s ease-in-out infinite;
+}
+
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -2500,6 +2530,18 @@ textarea {
   50% {
     opacity: 1;
     transform: scale(1.08);
+  }
+}
+
+@keyframes pulseLoad {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
   }
 }
 
