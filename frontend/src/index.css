@@ -985,6 +985,51 @@ textarea {
   overflow: hidden;
 }
 
+.real-sample-picker {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.real-sample-picker button {
+  position: relative;
+  min-height: 76px;
+  padding: 0;
+  overflow: hidden;
+  background: #101b2d;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.real-sample-picker button.active {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
+}
+
+.real-sample-picker img {
+  width: 100%;
+  height: 76px;
+  object-fit: cover;
+}
+
+.real-sample-picker span {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  overflow: hidden;
+  padding: 3px 5px;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.78);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .upload-zone input {
   display: none;
 }
@@ -1638,7 +1683,8 @@ textarea {
   }
 
   .record-list div,
-  .sample-list label {
+  .sample-list label,
+  .real-sample-picker {
     grid-template-columns: 1fr;
   }
 

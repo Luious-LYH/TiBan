@@ -12,13 +12,18 @@ export function Dashboard() {
   const [status, setStatus] = useState('连接后端中')
 
   useEffect(() => {
-    api.dashboard().then((payload) => {
-      setData(payload)
-      setStatus(payload.api_source === 'fallback' ? '本地 fallback' : '后端在线')
-    })
+    api.dashboard()
+      .then((payload) => {
+        setData(payload)
+        setStatus(payload.api_source === 'fallback' ? '本地 fallback' : '后端在线')
+      })
+      .catch(() => {
+        setData(mockDashboard)
+        setStatus('本地 fallback')
+      })
   }, [])
 
-  const completion = Math.round((data.today_training.completed / data.today_training.target) * 100)
+  const completion = Math.round((data.today_training.completed / Math.max(data.today_training.target, 1)) * 100)
   const profile = data.learner_profile
 
   return (

@@ -39,7 +39,7 @@ class QuestionService:
             items = [q for q in items if q.is_favorited]
         if only_wrong:
             items = [q for q in items if q.review_status == "待复盘"]
-        return items
+        return self._public_first(items)
 
     def get_question(self, question_id: str, user_id: str = "demo_learner") -> Question:
         for question in self.list_questions():
@@ -67,6 +67,10 @@ class QuestionService:
         except FileNotFoundError:
             return []
         return [self._with_training_state(self._sample_to_question(item), profile) for item in samples]
+
+    def _public_first(self, items: list[Question]) -> list[Question]:
+        public_datasets = {"Kvasir-VQA-x1", "Kvasir-VQA", "EndoBench"}
+        return sorted(items, key=lambda question: 0 if question.source_dataset in public_datasets else 1)
 
     def _sample_to_question(self, item: dict) -> Question:
         answer = str(item.get("answer", "证据不足，需医生复核"))

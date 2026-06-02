@@ -49,9 +49,15 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     api.qbank({
       onlyWrong: view === 'wrong',
       onlyFavorites: view === 'favorite',
+      publicOnly: source === 'public',
       mode,
-    }).then((items) => setQuestions(items.length ? items : mockQuestions))
-  }, [mode, view])
+    }).then((items) => {
+      setQuestions(items)
+      setIndex(0)
+      setSelected('')
+      setSubmission(null)
+    }).catch(() => setQuestions(mockQuestions))
+  }, [mode, source, view])
 
   const filterOptions = useMemo(() => {
     const values = (key: keyof Question) => Array.from(new Set(questions.map((q) => String(q[key] || '')).filter(Boolean)))
@@ -96,26 +102,32 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const submit = async () => {
     if (!selected) return
     setLoading(true)
-    const result = await api.submit(question, selected)
-    setSubmission(result)
-    onSubmission(result, question)
-    setChat((items) => [
-      ...items,
-      { role: 'doctor', text: `我选择：${selected}` },
-      { role: 'agent', text: `${result.is_correct ? '回答正确。' : '这题需要复盘。'}${result.explanation} 下一步：${result.next_recommendation}` },
-    ])
-    setLoading(false)
+    try {
+      const result = await api.submit(question, selected)
+      setSubmission(result)
+      onSubmission(result, question)
+      setChat((items) => [
+        ...items,
+        { role: 'doctor', text: `我选择：${selected}` },
+        { role: 'agent', text: `${result.is_correct ? '回答正确。' : '这题需要复盘。'}${result.explanation} 下一步：${result.next_recommendation}` },
+      ])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const askHint = async () => {
     if (mode === 'exam') return
     setLoading(true)
-    const result = await api.hint(question)
-    const sourceNotice = result.api_source === 'fallback' ? '（当前为本地 fallback 提示）' : ''
-    const text = `${result.hint} ${result.follow_up_question}${sourceNotice}`
-    setHint(text)
-    setChat((items) => [...items, { role: 'agent', text }])
-    setLoading(false)
+    try {
+      const result = await api.hint(question)
+      const sourceNotice = result.api_source === 'fallback' ? '（当前为本地 fallback 提示）' : ''
+      const text = `${result.hint} ${result.follow_up_question}${sourceNotice}`
+      setHint(text)
+      setChat((items) => [...items, { role: 'agent', text }])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const askAgent = async () => {
@@ -123,14 +135,22 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     const message = chatInput.trim()
     setChatInput('')
     setChat((items) => [...items, { role: 'doctor', text: message }])
-    const result = await api.chat(question, message)
-    setChat((items) => [...items, { role: 'agent', text: result.reply }])
+    try {
+      const result = await api.chat(question, message)
+      setChat((items) => [...items, { role: 'agent', text: result.reply }])
+    } catch {
+      setChat((items) => [...items, { role: 'agent', text: '当前辅导接口暂不可用，请先按证据链完成本题，稍后再追问 Agent。' }])
+    }
   }
 
   const toggleFavorite = async () => {
     const nextValue = !question.is_favorited
-    await api.favorite(question.id, nextValue)
-    setQuestions((items) => items.map((item) => item.id === question.id ? { ...item, is_favorited: nextValue, review_status: nextValue ? '收藏中' : item.review_status } : item))
+    try {
+      await api.favorite(question.id, nextValue)
+      setQuestions((items) => items.map((item) => item.id === question.id ? { ...item, is_favorited: nextValue, review_status: nextValue ? '收藏中' : item.review_status } : item))
+    } catch {
+      setHint('收藏接口暂不可用，本次状态未写入后端。')
+    }
   }
 
   const next = () => {
@@ -146,7 +166,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
         <div>
           <span className="eyebrow">Endoscopy Qbank</span>
           <h2>{mode === 'exam' ? '考试模式' : view === 'wrong' ? '错题本复盘' : view === 'favorite' ? '收藏题训练' : view === 'challenge' ? '医生 vs AI 比拼' : '题库刷题中心'}</h2>
-          <p>借鉴 Study/Exam Mode、Tutor Mode、错题复盘和性能分析的训练闭环，面向内镜医师重新组织题库。</p>
+          <p>{source === 'public' ? '当前优先加载本地真实公开图文样本：Kvasir-VQA-x1、Kvasir-VQA 与 EndoBench。' : '借鉴 Study/Exam Mode、Tutor Mode、错题复盘和性能分析的训练闭环，默认优先展示真实公开图文样本。'}</p>
         </div>
         <div className="mode-switch">
           <Tag tone={mode === 'exam' ? 'amber' : 'green'}>{mode === 'exam' ? '计时考试' : '练习辅导'}</Tag>

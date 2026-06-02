@@ -10,7 +10,7 @@ export function PhysicianProfile() {
   const [profile, setProfile] = useState<LearnerProfile>(mockDashboard.learner_profile)
 
   useEffect(() => {
-    api.learnerProfile().then(setProfile)
+    api.learnerProfile().then(setProfile).catch(() => setProfile(mockDashboard.learner_profile))
   }, [])
 
   const radarData = Object.entries(profile.skill_scores).map(([dimension, score]) => ({ dimension, score }))

@@ -7,6 +7,7 @@ import {
   safetyNotice,
 } from './mock'
 import type {
+  AtomicFact,
   AuditLog,
   DashboardPayload,
   KnowledgeBase,
@@ -23,8 +24,11 @@ import type {
 } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
 
-function markSource<T extends object>(payload: T, source: 'backend' | 'fallback'): T {
+type ApiSource = 'backend' | 'fallback'
+
+function markSource<T extends object>(payload: T, source: ApiSource): T {
   return { ...payload, api_source: source }
 }
 
@@ -43,6 +47,330 @@ async function request<T extends object>(path: string, init?: RequestInit, fallb
       return markSource(fallback, 'fallback')
     }
     throw error
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' && value.trim() ? value : fallback
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : fallback
+}
+
+function asBoolean(value: unknown, fallback = false): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+function asStringArray(value: unknown, fallback: string[] = []): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item)).filter(Boolean) : fallback
+}
+
+function asNumberRecord(value: unknown, fallback: Record<string, number> = {}): Record<string, number> {
+  const record = asRecord(value)
+  const merged = { ...fallback }
+  Object.entries(record).forEach(([key, item]) => {
+    const numberValue = Number(item)
+    if (Number.isFinite(numberValue)) merged[key] = numberValue
+  })
+  return merged
+}
+
+function normalizeAtomicFact(value: unknown, fallback: AtomicFact, index: number): AtomicFact {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id || `fact_${index}`),
+    fact: asString(record.fact, fallback.fact),
+    expected: asString(record.expected, fallback.expected),
+    supported: asBoolean(record.supported, fallback.supported),
+    evidence: asString(record.evidence, fallback.evidence),
+    skill_dimension: asString(record.skill_dimension, fallback.skill_dimension) as AtomicFact['skill_dimension'],
+  }
+}
+
+function normalizeQuestion(value: unknown, fallback: Question = mockQuestions[0], index = 0): Question {
+  const record = asRecord(value)
+  const fallbackFacts = fallback.atomic_trace.length ? fallback.atomic_trace : mockQuestions[0].atomic_trace
+  const facts = Array.isArray(record.atomic_trace) ? record.atomic_trace : fallbackFacts
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id || `question_${index}`),
+    title: asString(record.title, fallback.title),
+    image_url: typeof record.image_url === 'string' ? record.image_url : fallback.image_url,
+    image_placeholder: asString(record.image_placeholder, fallback.image_placeholder),
+    case_summary: asString(record.case_summary, fallback.case_summary),
+    question: asString(record.question, fallback.question),
+    options: asStringArray(record.options, fallback.options),
+    answer: asString(record.answer, fallback.answer),
+    explanation: asString(record.explanation, fallback.explanation),
+    complexity: asNumber(record.complexity, fallback.complexity) as Question['complexity'],
+    question_class: asString(record.question_class, fallback.question_class) as Question['question_class'],
+    source_type: asString(record.source_type, fallback.source_type) as Question['source_type'],
+    atomic_trace: facts.map((fact, factIndex) => normalizeAtomicFact(fact, fallbackFacts[factIndex] || fallbackFacts[0], factIndex)),
+    false_premise_flag: asBoolean(record.false_premise_flag, fallback.false_premise_flag),
+    teaching_tags: asStringArray(record.teaching_tags, fallback.teaching_tags),
+    difficulty: asString(record.difficulty, fallback.difficulty) as Question['difficulty'],
+    doctor_review_required: asBoolean(record.doctor_review_required, fallback.doctor_review_required),
+    safety_notice: asString(record.safety_notice, fallback.safety_notice || safetyNotice),
+    body_part: asString(record.body_part, fallback.body_part),
+    task: asString(record.task, fallback.task),
+    question_type: asString(record.question_type, fallback.question_type) as Question['question_type'],
+    source_dataset: asString(record.source_dataset, fallback.source_dataset),
+    citation_note: asString(record.citation_note, fallback.citation_note),
+    is_favorited: asBoolean(record.is_favorited, fallback.is_favorited),
+    review_status: asString(record.review_status, fallback.review_status) as Question['review_status'],
+    ai_benchmark_answer: typeof record.ai_benchmark_answer === 'string' ? record.ai_benchmark_answer : fallback.ai_benchmark_answer,
+    expected_keywords: asStringArray(record.expected_keywords, fallback.expected_keywords),
+  }
+}
+
+function publicFirst(items: Question[]): Question[] {
+  return [...items].sort((left, right) => {
+    const leftRank = publicDatasets.has(left.source_dataset) ? 0 : 1
+    const rightRank = publicDatasets.has(right.source_dataset) ? 0 : 1
+    return leftRank - rightRank
+  })
+}
+
+function normalizeQuestions(value: unknown, fallback: Question[] = mockQuestions): Question[] {
+  const source = Array.isArray(value) ? value : fallback
+  return publicFirst(source.map((item, index) => normalizeQuestion(item, fallback[index] || fallback[0], index)))
+}
+
+function normalizeTrend(value: unknown, fallback: LearnerProfile['growth_trend']): LearnerProfile['growth_trend'] {
+  if (!Array.isArray(value)) return fallback
+  return value.map((item) => {
+    const record = asRecord(item)
+    return {
+      date: asString(record.date, 'NA'),
+      accuracy: asNumber(record.accuracy, 0),
+      evidence: asNumber(record.evidence, 0),
+      report: asNumber(record.report, 0),
+    }
+  })
+}
+
+function normalizeTrainingRecords(value: unknown, fallback: LearnerProfile['training_records']): LearnerProfile['training_records'] {
+  if (!Array.isArray(value)) return fallback
+  return value.map((item, index) => {
+    const record = asRecord(item)
+    return {
+      date: asString(record.date, new Date().toISOString().slice(0, 10)),
+      question_id: asString(record.question_id, `record_${index}`),
+      score: asNumber(record.score, 0),
+      result: asString(record.result, '待复盘'),
+    }
+  })
+}
+
+function normalizeProfile(value: unknown, fallback: LearnerProfile = mockDashboard.learner_profile): LearnerProfile {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    learner_id: asString(record.learner_id, fallback.learner_id),
+    name: asString(record.name, fallback.name),
+    title: asString(record.title, fallback.title),
+    department: asString(record.department, fallback.department),
+    hospital: asString(record.hospital, fallback.hospital),
+    training_stage: asString(record.training_stage, fallback.training_stage),
+    training_goal: asString(record.training_goal, fallback.training_goal),
+    total_questions: asNumber(record.total_questions, fallback.total_questions),
+    accuracy: asNumber(record.accuracy, fallback.accuracy),
+    completed_today: asNumber(record.completed_today, fallback.completed_today),
+    daily_target: Math.max(1, asNumber(record.daily_target, fallback.daily_target)),
+    streak_days: asNumber(record.streak_days, fallback.streak_days),
+    favorite_questions: asStringArray(record.favorite_questions, fallback.favorite_questions),
+    wrong_questions: asStringArray(record.wrong_questions, fallback.wrong_questions),
+    skill_scores: asNumberRecord(record.skill_scores, fallback.skill_scores),
+    weakness_tags: asStringArray(record.weakness_tags, fallback.weakness_tags),
+    recent_errors: asStringArray(record.recent_errors, fallback.recent_errors),
+    recommended_question_classes: asStringArray(record.recommended_question_classes, fallback.recommended_question_classes),
+    growth_trend: normalizeTrend(record.growth_trend, fallback.growth_trend),
+    training_records: normalizeTrainingRecords(record.training_records, fallback.training_records),
+    question_type_coverage: asNumberRecord(record.question_type_coverage, fallback.question_type_coverage),
+    updated_at: asString(record.updated_at, fallback.updated_at),
+  }
+}
+
+function normalizeModel(value: unknown, fallback: ModelProfile = mockModels[0]): ModelProfile {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id),
+    name: asString(record.name, fallback.name),
+    provider_type: asString(record.provider_type, fallback.provider_type) as ModelProfile['provider_type'],
+    model_family: asString(record.model_family, fallback.model_family) as ModelProfile['model_family'],
+    recommended_roles: asStringArray(record.recommended_roles, fallback.recommended_roles),
+    risk_tags: asStringArray(record.risk_tags, fallback.risk_tags),
+    ability_scores: asNumberRecord(record.ability_scores, fallback.ability_scores),
+    grade: asString(record.grade, fallback.grade) as ModelProfile['grade'],
+    is_active: asBoolean(record.is_active, fallback.is_active),
+  }
+}
+
+function normalizeDashboard(value: unknown): DashboardPayload {
+  const record = asRecord(value)
+  const profile = normalizeProfile(record.learner_profile, mockDashboard.learner_profile)
+  const today = asRecord(record.today_training)
+  const source = record.api_source as ApiSource | undefined
+  const fallbackContinue = mockDashboard.continue_training
+  const continueTraining = asRecord(record.continue_training)
+  return {
+    ...mockDashboard,
+    ...record,
+    today_training: {
+      completed: asNumber(today.completed, profile.completed_today),
+      target: Math.max(1, asNumber(today.target, profile.daily_target)),
+      streak_days: asNumber(today.streak_days, profile.streak_days),
+      review_queue: asNumber(today.review_queue, profile.wrong_questions.length),
+    },
+    learner_profile: profile,
+    ability_radar: Array.isArray(record.ability_radar)
+      ? record.ability_radar.map((item) => {
+          const radar = asRecord(item)
+          return { dimension: asString(radar.dimension, '能力维度'), score: asNumber(radar.score, 0) }
+        })
+      : Object.entries(profile.skill_scores).map(([dimension, score]) => ({ dimension, score })),
+    recommended_training: Array.isArray(record.recommended_training)
+      ? record.recommended_training.map((item) => {
+          const training = asRecord(item)
+          return { label: asString(training.label, '推荐训练'), count: asNumber(training.count, 0) }
+        })
+      : mockDashboard.recommended_training,
+    today_plan: Array.isArray(record.today_plan)
+      ? record.today_plan.map((item) => {
+          const plan = asRecord(item)
+          return {
+            label: asString(plan.label, '训练任务'),
+            target: asNumber(plan.target, 1),
+            status: asString(plan.status, '待完成'),
+            href: asString(plan.href, '/training'),
+          }
+        })
+      : mockDashboard.today_plan,
+    continue_training: {
+      question_id: asString(continueTraining.question_id, fallbackContinue.question_id),
+      title: asString(continueTraining.title, fallbackContinue.title),
+      source_dataset: asString(continueTraining.source_dataset, fallbackContinue.source_dataset),
+      reason: asString(continueTraining.reason, fallbackContinue.reason),
+    },
+    favorite_count: asNumber(record.favorite_count, profile.favorite_questions.length),
+    wrong_count: asNumber(record.wrong_count, profile.wrong_questions.length),
+    recent_tutor_summary: asStringArray(record.recent_tutor_summary, mockDashboard.recent_tutor_summary),
+    growth_trend: normalizeTrend(record.growth_trend, profile.growth_trend),
+    active_model: normalizeModel(record.active_model, mockDashboard.active_model),
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    mock_evaluation_notice: asString(record.mock_evaluation_notice, mockDashboard.mock_evaluation_notice),
+    reference_inspirations: asStringArray(record.reference_inspirations, mockDashboard.reference_inspirations),
+    api_source: source,
+  }
+}
+
+function localReportDraft(findingText: string, options: { examType?: string; imageName?: string; templateName?: string } = {}): ReportDraft {
+  return {
+    id: `report_local_${Date.now()}`,
+    input_finding_text: findingText,
+    exam_type: options.examType || 'gastroscopy',
+    structured_findings: findingText.split(/[。；;\n]/).map((x) => x.trim()).filter(Boolean),
+    draft_impression: ['胃黏膜炎症样/糜烂样改变，需医生结合完整检查复核。'],
+    review_points: ['确认部位、范围、数量和图片证据是否一致。', '检查是否存在过强诊断表述。'],
+    uncertainty_notes: ['草稿不自动补充未提供的信息。'],
+    template_name: options.templateName || '胃镜结构化训练模板',
+    evidence_source: [findingText ? '医生输入所见' : '报告知识库模板', options.imageName ? '图片上传占位' : '未上传图片'],
+    draft_status: 'needs_human_review',
+    exam_context: {
+      exam_type: options.examType || 'gastroscopy',
+      patient_context_available: false,
+      procedure_context_available: false,
+      missing_context_note: options.imageName ? '仅提供单帧图片占位，完整检查范围与病理未提供。' : '未上传图片，仅基于模板训练。',
+      single_frame: Boolean(options.imageName),
+    },
+    image_quality: {
+      clarity: options.imageName ? 'acceptable' : 'unknown',
+      artifacts: options.imageName ? ['reflection'] : ['unknown'],
+      single_frame_limitation: Boolean(options.imageName),
+    },
+    evidence_ledger: [
+      {
+        evidence_id: options.imageName ? 'img_001' : 'kb_001',
+        source_type: options.imageName ? 'image' : 'procedure_context',
+        source_ref: options.imageName || 'report_knowledge_base.json',
+        supports: ['结构化所见', '草稿印象', '医师复核任务'],
+      },
+    ],
+    hallucination_audit: {
+      audit_passed: true,
+      unsupported_claims: [],
+      high_risk_flags: findingText.includes('癌') ? ['癌'] : [],
+      required_rewrites: findingText.includes('癌') ? ['高风险词需医师确认或降级表达。'] : [],
+      evidence_policy: 'image_supported/context_supported/derived_cautious only',
+    },
+    review_tasks: [
+      '确认检查类型、病灶解剖部位和完整检查范围。',
+      '确认病灶数量、大小、形态分型和是否存在多视角证据。',
+      '签发前逐条核对证据台账与报告声明。',
+    ],
+    doctor_review_required: true,
+    safety_notice: safetyNotice,
+    created_at: new Date().toISOString(),
+  }
+}
+
+function normalizeReportDraft(value: unknown, fallback: ReportDraft): ReportDraft {
+  const record = asRecord(value)
+  const imageQuality = asRecord(record.image_quality)
+  const hallucinationAudit = asRecord(record.hallucination_audit)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id),
+    input_finding_text: asString(record.input_finding_text, fallback.input_finding_text),
+    exam_type: asString(record.exam_type, fallback.exam_type),
+    structured_findings: asStringArray(record.structured_findings, fallback.structured_findings),
+    draft_impression: asStringArray(record.draft_impression, fallback.draft_impression),
+    review_points: asStringArray(record.review_points, fallback.review_points),
+    uncertainty_notes: asStringArray(record.uncertainty_notes, fallback.uncertainty_notes),
+    template_name: asString(record.template_name, fallback.template_name),
+    evidence_source: asStringArray(record.evidence_source, fallback.evidence_source),
+    draft_status: asString(record.draft_status, fallback.draft_status) as ReportDraft['draft_status'],
+    exam_context: { ...fallback.exam_context, ...asRecord(record.exam_context) },
+    image_quality: {
+      ...fallback.image_quality,
+      ...imageQuality,
+      artifacts: asStringArray(imageQuality.artifacts, fallback.image_quality.artifacts),
+    },
+    evidence_ledger: Array.isArray(record.evidence_ledger)
+      ? record.evidence_ledger.map((item, index) => {
+          const ledger = asRecord(item)
+          return {
+            evidence_id: asString(ledger.evidence_id, `ev_${index}`),
+            source_type: asString(ledger.source_type, 'unknown'),
+            source_ref: asString(ledger.source_ref, 'unknown'),
+            supports: asStringArray(ledger.supports, []),
+          }
+        })
+      : fallback.evidence_ledger,
+    hallucination_audit: {
+      ...fallback.hallucination_audit,
+      ...hallucinationAudit,
+      unsupported_claims: asStringArray(hallucinationAudit.unsupported_claims, fallback.hallucination_audit.unsupported_claims),
+      high_risk_flags: asStringArray(hallucinationAudit.high_risk_flags, fallback.hallucination_audit.high_risk_flags),
+      required_rewrites: asStringArray(hallucinationAudit.required_rewrites, fallback.hallucination_audit.required_rewrites),
+    },
+    review_tasks: asStringArray(record.review_tasks, fallback.review_tasks),
+    doctor_review_required: true,
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    created_at: asString(record.created_at, fallback.created_at),
   }
 }
 
@@ -70,7 +398,8 @@ const localSubmission = (question: Question, selectedAnswer: string): Submission
 
 export const api = {
   async dashboard(): Promise<DashboardPayload> {
-    return request<DashboardPayload>('/api/dashboard', undefined, mockDashboard)
+    const response = await request<DashboardPayload>('/api/dashboard', undefined, mockDashboard)
+    return normalizeDashboard(response)
   },
 
   async questions(params: { falsePremise?: boolean } = {}): Promise<Question[]> {
@@ -82,7 +411,7 @@ export const api = {
       items: fallback,
       total: fallback.length,
     })
-    return response.items
+    return normalizeQuestions(response.items, fallback)
   },
 
   async qbank(params: {
@@ -93,8 +422,12 @@ export const api = {
     sourceDataset?: string
     onlyFavorites?: boolean
     onlyWrong?: boolean
+    publicOnly?: boolean
     mode?: 'practice' | 'exam'
   } = {}): Promise<Question[]> {
+    if (params.publicOnly) {
+      return this.realSamples()
+    }
     const search = new URLSearchParams()
     if (params.bodyPart) search.set('body_part', params.bodyPart)
     if (params.task) search.set('task', params.task)
@@ -116,13 +449,22 @@ export const api = {
         total: mockQuestions.length,
       },
     )
-    return response.items
+    return normalizeQuestions(response.items)
+  },
+
+  async realSamples(): Promise<Question[]> {
+    const response = await request<{ items: Question[]; total: number; safety_notice?: string }>('/api/knowledge/real-samples', undefined, {
+      items: mockQuestions.filter((q) => publicDatasets.has(q.source_dataset)),
+      total: 0,
+      safety_notice: safetyNotice,
+    })
+    return normalizeQuestions(response.items, [])
   },
 
   async question(id: string): Promise<Question> {
     const fallback = mockQuestions.find((q) => q.id === id) || mockQuestions[0]
     const response = await request<{ item: Question }>(`/api/questions/${id}`, undefined, { item: fallback })
-    return response.item
+    return normalizeQuestion(response.item, fallback)
   },
 
   async submit(question: Question, selectedAnswer: string): Promise<SubmissionResponse> {
@@ -142,11 +484,11 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ question_id: questionId, learner_id: 'demo_learner', favorited }) },
       { profile: mockDashboard.learner_profile, safety_notice: safetyNotice },
     )
-    return response.profile
+    return normalizeProfile(response.profile)
   },
 
   async trainingState(): Promise<TrainingState> {
-    return request<TrainingState>('/api/learner/training-state', undefined, {
+    const response = await request<TrainingState>('/api/learner/training-state', undefined, {
       profile: mockDashboard.learner_profile,
       wrong_questions: mockDashboard.learner_profile.wrong_questions,
       favorite_questions: mockDashboard.learner_profile.favorite_questions,
@@ -157,10 +499,20 @@ export const api = {
       ],
       safety_notice: safetyNotice,
     })
+    return {
+      ...response,
+      profile: normalizeProfile(response.profile),
+      wrong_questions: asStringArray(response.wrong_questions, mockDashboard.learner_profile.wrong_questions),
+      favorite_questions: asStringArray(response.favorite_questions, mockDashboard.learner_profile.favorite_questions),
+      review_queue: asNumber(response.review_queue, mockDashboard.learner_profile.wrong_questions.length),
+      next_plan: Array.isArray(response.next_plan) ? response.next_plan : [],
+      safety_notice: asString(response.safety_notice, safetyNotice),
+    }
   },
 
   async learnerProfile(): Promise<LearnerProfile> {
-    return request<LearnerProfile>('/api/learner/profile', undefined, mockDashboard.learner_profile)
+    const response = await request<LearnerProfile>('/api/learner/profile', undefined, mockDashboard.learner_profile)
+    return normalizeProfile(response)
   },
 
   async hint(question: Question): Promise<{
@@ -222,7 +574,8 @@ export const api = {
   },
 
   async reportDraft(findingText: string, options: { examType?: string; imageName?: string; templateName?: string } = {}): Promise<ReportDraft> {
-    return request<ReportDraft>(
+    const fallback = localReportDraft(findingText, options)
+    const response = await request<ReportDraft>(
       '/api/report-draft',
       {
         method: 'POST',
@@ -233,54 +586,9 @@ export const api = {
           template_name: options.templateName,
         }),
       },
-      {
-        id: `report_local_${Date.now()}`,
-        input_finding_text: findingText,
-        exam_type: options.examType || 'gastroscopy',
-        structured_findings: findingText.split(/[。；;\n]/).map((x) => x.trim()).filter(Boolean),
-        draft_impression: ['胃黏膜炎症样/糜烂样改变，需医生结合完整检查复核。'],
-        review_points: ['确认部位、范围、数量和图片证据是否一致。', '检查是否存在过强诊断表述。'],
-        uncertainty_notes: ['草稿不自动补充未提供的信息。'],
-        template_name: options.templateName || '胃镜结构化训练模板',
-        evidence_source: [findingText ? '医生输入所见' : '报告知识库模板', options.imageName ? '图片上传占位' : '未上传图片'],
-        draft_status: 'needs_human_review',
-        exam_context: {
-          exam_type: options.examType || 'gastroscopy',
-          patient_context_available: false,
-          procedure_context_available: false,
-          missing_context_note: options.imageName ? '仅提供单帧图片占位，完整检查范围与病理未提供。' : '未上传图片，仅基于模板训练。',
-          single_frame: Boolean(options.imageName),
-        },
-        image_quality: {
-          clarity: options.imageName ? 'acceptable' : 'unknown',
-          artifacts: options.imageName ? ['reflection'] : ['unknown'],
-          single_frame_limitation: Boolean(options.imageName),
-        },
-        evidence_ledger: [
-          {
-            evidence_id: options.imageName ? 'img_001' : 'kb_001',
-            source_type: options.imageName ? 'image' : 'procedure_context',
-            source_ref: options.imageName || 'report_knowledge_base.json',
-            supports: ['结构化所见', '草稿印象', '医师复核任务'],
-          },
-        ],
-        hallucination_audit: {
-          audit_passed: true,
-          unsupported_claims: [],
-          high_risk_flags: findingText.includes('癌') ? ['癌'] : [],
-          required_rewrites: findingText.includes('癌') ? ['高风险词需医师确认或降级表达。'] : [],
-          evidence_policy: 'image_supported/context_supported/derived_cautious only',
-        },
-        review_tasks: [
-          '确认检查类型、病灶解剖部位和完整检查范围。',
-          '确认病灶数量、大小、形态分型和是否存在多视角证据。',
-          '签发前逐条核对证据台账与报告声明。',
-        ],
-        doctor_review_required: true,
-        safety_notice: safetyNotice,
-        created_at: new Date().toISOString(),
-      },
+      fallback,
     )
+    return normalizeReportDraft(response, fallback)
   },
 
   async reportJudge(originalReport: string, revisedReport: string): Promise<ReportJudge> {
