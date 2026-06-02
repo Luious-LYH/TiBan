@@ -2005,6 +2005,47 @@ textarea {
   font-size: 13px;
 }
 
+.profile-provenance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+}
+
+.profile-provenance div {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: start;
+  padding: 12px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.profile-provenance svg {
+  grid-row: span 3;
+  color: var(--blue);
+}
+
+.profile-provenance span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.profile-provenance strong {
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.profile-provenance p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
 .profile-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -2810,7 +2851,8 @@ textarea {
 
   .readiness-summary,
   .readiness-grid,
-  .report-source-status {
+  .report-source-status,
+  .profile-provenance {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2867,6 +2909,7 @@ textarea {
   .draft-grid,
   .report-status-grid,
   .report-source-status,
+  .profile-provenance,
   .readiness-summary,
   .readiness-grid,
   .form-row,

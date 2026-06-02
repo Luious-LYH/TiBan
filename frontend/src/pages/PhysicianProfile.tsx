@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ActivitySquare, ArrowRight, Award, BookOpenCheck, CheckCircle2, ClipboardList, FileText, Flame, Medal, Target, Trophy, UserRound } from 'lucide-react'
+import { ActivitySquare, ArrowRight, Award, BookOpenCheck, CheckCircle2, ClipboardList, Database, FileText, Flame, HardDrive, Medal, Target, Trophy, UserRound } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
@@ -26,6 +26,7 @@ export function PhysicianProfile() {
   const recordStats = useMemo(() => summarizeRecords(profile), [profile])
   const badges = useMemo(() => buildBadges(profile), [profile])
   const earnedBadges = badges.filter((badge) => badge.earned).length
+  const updatedAt = formatUpdatedAt(profile.updated_at)
 
   return (
     <div className="page-stack">
@@ -41,6 +42,7 @@ export function PhysicianProfile() {
             <Tag tone="green">{profile.training_stage}</Tag>
             <Tag tone="blue">连续训练 {profile.streak_days} 天</Tag>
             <Tag tone="amber">错题 {profile.wrong_questions.length} 题</Tag>
+            <Tag tone="neutral">{profile.learner_id}</Tag>
           </div>
         </div>
         <div className="profile-goal">
@@ -56,6 +58,27 @@ export function PhysicianProfile() {
         <Link className={tab === 'overview' ? 'active' : ''} to="/profile"><UserRound size={17} /> 能力概览</Link>
         <Link className={tab === 'records' ? 'active' : ''} to="/profile?tab=records"><ActivitySquare size={17} /> 训练记录</Link>
         <Link className={tab === 'badges' ? 'active' : ''} to="/profile?tab=badges"><Medal size={17} /> 徽章成长</Link>
+      </Card>
+
+      <Card className="profile-provenance">
+        <div>
+          <UserRound size={19} />
+          <span>当前训练对象</span>
+          <strong>{profile.name}</strong>
+          <p>{profile.learner_id} · 单医师 demo learner，后续可扩展为多医师数据库。</p>
+        </div>
+        <div>
+          <HardDrive size={19} />
+          <span>画像存储</span>
+          <strong>本地 Memory 持久化</strong>
+          <p>训练记录、错题、收藏、能力分和弱项标签来自后端 learner profile。</p>
+        </div>
+        <div>
+          <Database size={19} />
+          <span>最近更新</span>
+          <strong>{updatedAt}</strong>
+          <p>答题提交、Agent 辅导标签和报告修改评分会回灌该画像。</p>
+        </div>
       </Card>
 
       <div className="grid four">
@@ -226,6 +249,13 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 function normalizeTab(value: string | null): ProfileTab {
   if (value === 'records' || value === 'badges') return value
   return 'overview'
+}
+
+function formatUpdatedAt(value: string): string {
+  if (!value) return '待同步'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('zh-CN', { hour12: false })
 }
 
 function recordTone(result: string): 'green' | 'blue' | 'amber' {
