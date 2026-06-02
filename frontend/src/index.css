@@ -2152,6 +2152,32 @@ textarea {
   margin-bottom: 10px;
 }
 
+.active-training-agent {
+  border-color: #bfdbfe;
+}
+
+.active-agent-strip {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 13px;
+  background: linear-gradient(135deg, #eff6ff, #f0fdfa);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.active-agent-strip strong,
+.active-agent-strip span {
+  display: block;
+}
+
+.active-agent-strip span {
+  margin-top: 5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2279,6 +2305,13 @@ textarea {
 
 .active-model {
   border-color: #5eead4;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
+.model-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 
 .json-view {

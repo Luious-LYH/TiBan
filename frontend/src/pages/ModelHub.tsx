@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { ActivitySquare, KeyRound, PlugZap, ShieldAlert, TestTube2 } from 'lucide-react'
+import { ActivitySquare, CheckCircle2, KeyRound, PlugZap, ShieldAlert, TestTube2 } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
@@ -28,9 +28,15 @@ export function ModelHub() {
   const [selectedSamples, setSelectedSamples] = useState<string[]>([])
   const [result, setResult] = useState<ModelAdmissionResult | null>(null)
   const [admissionState, setAdmissionState] = useState<ModelAdmissionState | null>(null)
+  const [selectingModelId, setSelectingModelId] = useState('')
+  const [selectionNotice, setSelectionNotice] = useState('当前训练 Agent 会写入后端 models.json，并同步影响首页当前模型展示。')
 
   useEffect(() => {
-    api.models().then((items) => setModels(items))
+    api.models().then((items) => {
+      setModels(items)
+      const active = items.find((item) => item.is_active)
+      if (active) setSelectionNotice(`当前训练 Agent：${active.name}。可切换候选模型，但所有输出仍需医生审核。`)
+    })
     api.modelAdmissionState().then(setAdmissionState).catch(() => undefined)
     api.providerStatus().then((status) => {
       setProviderStatus(status)
@@ -80,6 +86,22 @@ export function ModelHub() {
     setSelectedSamples((current) => current.includes(normalized) ? current.filter((value) => value !== normalized) : [...current, normalized])
   }
 
+  const selectTrainingModel = async (modelId: string) => {
+    if (selectingModelId) return
+    setSelectingModelId(modelId)
+    try {
+      const selected = await api.selectModel(modelId)
+      setModels((items) => items.map((item) => ({ ...item, is_active: item.id === selected.id })))
+      setSelectionNotice(`已切换当前训练 Agent：${selected.name}。Dashboard 会从后端 active_model 读取该状态。`)
+    } catch {
+      setSelectionNotice('模型选择接口暂不可用；当前只保留页面状态，未写入后端。')
+    } finally {
+      setSelectingModelId('')
+    }
+  }
+
+  const activeModel = models.find((item) => item.is_active) || models[0]
+
   return (
     <div className="page-stack">
       <Card className="focus-band model-admission-hero">
@@ -121,6 +143,30 @@ export function ModelHub() {
           <div className="source-note">{admissionState.recommendation}</div>
         </Card>
       ) : null}
+
+      <Card className="provider-status-card active-training-agent">
+        <SectionTitle
+          eyebrow="Training agent"
+          title="当前训练 Agent"
+          action={<Tag tone={activeModel?.provider_type === 'mock' ? 'amber' : 'green'}>{activeModel?.provider_type || 'mock'}</Tag>}
+        />
+        <div className="active-agent-strip">
+          <div>
+            <strong>{activeModel?.name || '未选择训练 Agent'}</strong>
+            <span>{activeModel?.recommended_roles.join(' / ') || '用于右侧辅导、错因解释和报告安全边界提示。'}</span>
+          </div>
+          <div className="tag-row">
+            {activeModel?.risk_tags.slice(0, 3).map((tag) => <Tag key={tag} tone="amber">{tag}</Tag>)}
+          </div>
+        </div>
+        <div className={`memory-sync-card ${selectionNotice.includes('已切换') || selectionNotice.includes('当前训练') ? 'synced' : 'fallback'}`}>
+          <ActivitySquare size={18} />
+          <div>
+            <strong>{selectionNotice.includes('暂不可用') ? '选择未写入' : '选择状态已联动'}</strong>
+            <span>{selectionNotice}</span>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid two">
         <Card>
@@ -238,6 +284,17 @@ export function ModelHub() {
               </div>
               <div className="tag-row">
                 {model.risk_tags.map((tag) => <Tag key={tag} tone="amber">{tag}</Tag>)}
+              </div>
+              <div className="model-card-actions">
+                <button
+                  className={model.is_active ? 'button secondary' : 'button primary'}
+                  type="button"
+                  onClick={() => selectTrainingModel(model.id)}
+                  disabled={model.is_active || Boolean(selectingModelId)}
+                >
+                  <CheckCircle2 size={16} />
+                  {model.is_active ? '当前训练 Agent' : selectingModelId === model.id ? '正在切换...' : '设为训练 Agent'}
+                </button>
               </div>
             </Card>
           )

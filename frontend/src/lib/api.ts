@@ -926,7 +926,17 @@ export const api = {
       notice: 'mock',
       safety_notice: safetyNotice,
     })
-    return response.items
+    return response.items.map((item, index) => normalizeModel(item, mockModels[index] || mockModels[0]))
+  },
+
+  async selectModel(modelId: string): Promise<ModelProfile> {
+    const fallback = mockModels.find((item) => item.id === modelId) || mockModels[0]
+    const response = await request<ModelProfile>(
+      '/api/models/select',
+      { method: 'POST', body: JSON.stringify({ model_id: modelId }) },
+      { ...fallback, is_active: true },
+    )
+    return normalizeModel(response, fallback)
   },
 
   async modelAdmissionState(): Promise<ModelAdmissionState> {
