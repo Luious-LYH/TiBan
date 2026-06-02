@@ -704,6 +704,9 @@ export const api = {
         ok: false,
         error: 'backend_unavailable',
       },
+      interaction_tags: ['frontend_fallback'],
+      profile_updated: false,
+      memory_summary: '当前为前端 fallback 辅导，未写入后端医师画像。',
       doctor_review_required: true,
       safety_notice: safetyNotice,
     }
@@ -719,6 +722,9 @@ export const api = {
       scope: asString(response.scope, fallback.scope),
       generation_mode: asString(response.generation_mode, fallback.generation_mode),
       provider_status: normalizeProviderStatus(response.provider_status, fallback.provider_status),
+      interaction_tags: asStringArray(response.interaction_tags, fallback.interaction_tags),
+      profile_updated: asBoolean(response.profile_updated, fallback.profile_updated),
+      memory_summary: typeof response.memory_summary === 'string' ? response.memory_summary : fallback.memory_summary,
       doctor_review_required: true,
       safety_notice: asString(response.safety_notice, safetyNotice),
     }

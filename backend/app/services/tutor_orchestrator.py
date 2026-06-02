@@ -1,8 +1,9 @@
 from app.core.config import SAFETY_NOTICE
-from app.schemas import SubmissionRequest, TutorChatRequest, TutorExplainRequest, TutorHintRequest
+from app.schemas import SubmissionRequest, TutorChatRequest, TutorChatResponse, TutorExplainRequest, TutorHintRequest
 from app.services.audit_service import audit_service
 from app.services.grading_service import grading_service
 from app.services.llm_provider import llm_provider
+from app.services.memory_service import memory_service
 from app.services.question_service import question_service
 from app.services.safety_service import safety_service
 
@@ -89,17 +90,31 @@ class TutorOrchestrator:
                     f"本题的关键训练标签是：{', '.join(question.teaching_tags)}。"
                 )
             risk = "low"
-        audit_service.log("tutor_reply", request.learner_id, reply, risk, question.id)
         provider_status = provider_result.public_status() if provider_result else llm_provider.status()
         generation_mode = "provider" if provider_result and provider_result.ok else "fallback" if provider_result and provider_result.error != "provider_not_configured" else "rule"
-        return {
-            "reply": reply,
-            "scope": "current_question_only",
-            "generation_mode": generation_mode,
-            "provider_status": provider_status,
-            "doctor_review_required": True,
-            "safety_notice": SAFETY_NOTICE,
-        }
+        interaction_tags, memory_summary = memory_service.record_tutor_interaction(
+            question,
+            generation_mode=generation_mode,
+            safety_passed=bool(review["passed"]),
+        )
+        audit_service.log(
+            "tutor_reply",
+            user_id=request.learner_id,
+            entity_id=question.id,
+            summary=f"Agent 辅导完成；模式 {generation_mode}；已回灌画像；未保存医师追问原文。",
+            risk_level=risk,
+        )
+        return TutorChatResponse(
+            reply=reply,
+            scope="current_question_only",
+            generation_mode=generation_mode,
+            provider_status=provider_status,
+            interaction_tags=interaction_tags,
+            profile_updated=True,
+            memory_summary=memory_summary,
+            doctor_review_required=True,
+            safety_notice=SAFETY_NOTICE,
+        ).model_dump()
 
 
 tutor_orchestrator = TutorOrchestrator()

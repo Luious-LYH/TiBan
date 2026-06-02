@@ -68,6 +68,18 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 }
 ```
 
+Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原文：
+
+```json
+{
+  "reply": "请先指出一个可观察事实，再判断它是否支持题干结论。",
+  "generation_mode": "provider | rule | fallback",
+  "interaction_tags": ["证据不足", "病灶识别", "rule"],
+  "profile_updated": true,
+  "memory_summary": "已记录 Agent 辅导事件：...；未保存追问原文。"
+}
+```
+
 报告输出核心字段：
 
 ```json

@@ -63,11 +63,11 @@ LLM_TIMEOUT_SECONDS=25
 | 模块 | v2.0 模式 | 数据来源 | 说明 |
 |---|---|---|---|
 | 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` | 公开样例优先展示，支持错题/收藏/筛选；考试模式有倒计时 |
-| 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案 |
+| 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案；追问会回灌训练事件但不保存原文 |
 | 报告中心 | provider / rule / fallback | 医生输入、公开样例标注、模板 KB、上传图片 | `source_trace` 和 `evidence_ledger` 显示每条来源 |
 | 模型准入 | provider probe / rule draft | 公开样例 + 可选 Provider | 真实调用成功才标记 `provider_called=true` |
 | 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB | 带审核状态和免责声明 |
-| Memory | rule persistence | `learner_profile.json` | 提交题目和报告 judge 都会更新训练记录、能力分与弱项标签 |
+| Memory | rule persistence | `learner_profile.json` | 提交题目、报告 judge 和 Agent 追问都会更新训练记录、能力分与弱项标签 |
 | 审计日志 | backend persistence | `audit_logs.json` | 记录题目、辅导、报告、上传、准入等事件 |
 
 ## 外部参考

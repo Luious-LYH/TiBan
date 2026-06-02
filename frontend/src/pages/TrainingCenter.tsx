@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Bookmark, Bot, CheckCircle2, Clock, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, ShieldAlert, Trophy } from 'lucide-react'
+import { ActivitySquare, Bookmark, Bot, CheckCircle2, Clock, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, ShieldAlert, Trophy } from 'lucide-react'
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
@@ -45,6 +45,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [tutorTab, setTutorTab] = useState<TutorTab>('agent')
   const [agentMode, setAgentMode] = useState('rule')
   const [examSeconds, setExamSeconds] = useState(EXAM_DURATION_SECONDS)
+  const [memorySync, setMemorySync] = useState('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
   const [chat, setChat] = useState<ChatMessage[]>([
     { role: 'agent', text: '林知远医师，先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。', mode: 'rule' },
   ])
@@ -65,6 +66,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setSelected('')
       setSubmission(null)
       setExamSeconds(EXAM_DURATION_SECONDS)
+      setMemorySync('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
     }).catch(() => setQuestions(mockQuestions))
   }, [mode, source, view])
 
@@ -113,6 +115,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setTutorTab('agent')
     setAgentMode('rule')
     setExamSeconds(EXAM_DURATION_SECONDS)
+    setMemorySync('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
     setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
   }
 
@@ -167,9 +170,11 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       const result = await api.chat(question, message)
       setAgentMode(result.generation_mode || 'rule')
       setChat((items) => [...items, { role: 'agent', text: result.reply, mode: result.generation_mode }])
+      setMemorySync(result.memory_summary || (result.profile_updated ? '已写入医师画像。' : '当前未写入后端医师画像。'))
     } catch {
       setAgentMode('fallback')
       setChat((items) => [...items, { role: 'agent', text: '当前辅导接口暂不可用，请先按证据链完成本题，稍后再追问 Agent。', mode: 'fallback' }])
+      setMemorySync('当前辅导接口不可用，未写入后端医师画像。')
     }
   }
 
@@ -190,6 +195,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setTutorTab('agent')
     setAgentMode('rule')
     setExamSeconds(EXAM_DURATION_SECONDS)
+    setMemorySync('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
     setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
   }
 
@@ -324,6 +330,10 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                   <a className="button secondary" href="/feedback">
                     <ShieldAlert size={16} /> 错因复盘
                   </a>
+                </div>
+                <div className={`agent-memory-sync ${memorySync.includes('未写入') || memorySync.includes('不可用') ? 'pending' : 'synced'}`}>
+                  <ActivitySquare size={17} />
+                  <span>{memorySync}</span>
                 </div>
               </>
             ) : tutorTab === 'evidence' ? (

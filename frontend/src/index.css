@@ -814,6 +814,30 @@ input {
   margin-top: 14px;
 }
 
+.agent-memory-sync {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.agent-memory-sync.synced {
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: #99f6e4;
+}
+
+.agent-memory-sync.pending {
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-color: #fde68a;
+}
+
 .result-box {
   margin-top: 14px;
   padding: 13px;

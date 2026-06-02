@@ -301,6 +301,9 @@ export type TutorChatResponse = {
   scope: string
   generation_mode: GenerationMode | string
   provider_status: ProviderStatus
+  interaction_tags: string[]
+  profile_updated: boolean
+  memory_summary?: string | null
   doctor_review_required: boolean
   safety_notice: string
   api_source?: 'backend' | 'fallback'

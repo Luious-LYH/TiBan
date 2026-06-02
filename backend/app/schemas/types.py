@@ -103,6 +103,18 @@ class TutorChatRequest(BaseModel):
     learner_id: str = "demo_learner"
 
 
+class TutorChatResponse(BaseModel):
+    reply: str
+    scope: str = "current_question_only"
+    generation_mode: str = "rule"
+    provider_status: dict[str, Any] = Field(default_factory=dict)
+    interaction_tags: list[str] = Field(default_factory=list)
+    profile_updated: bool = False
+    memory_summary: str | None = None
+    doctor_review_required: bool = True
+    safety_notice: str
+
+
 class LearnerProfile(BaseModel):
     learner_id: str
     name: str

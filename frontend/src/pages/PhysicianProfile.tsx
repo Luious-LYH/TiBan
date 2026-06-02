@@ -102,8 +102,8 @@ export function PhysicianProfile() {
               <div key={`${record.date}_${record.question_id}_${record.score}`}>
                 <span>{record.date}</span>
                 <strong>{record.question_id}</strong>
-                <Tag tone={record.result === '正确' ? 'green' : 'amber'}>{record.result}</Tag>
-                <em>{record.score} 分</em>
+                <Tag tone={record.result === '正确' ? 'green' : record.result === 'Agent辅导' ? 'blue' : 'amber'}>{record.result}</Tag>
+                <em>{record.result === 'Agent辅导' ? '追问' : `${record.score} 分`}</em>
               </div>
             ))}
           </div>

@@ -1,4 +1,4 @@
-from app.schemas import LearnerProfile, ReportJudgeResponse, SubmissionResponse
+from app.schemas import LearnerProfile, Question, ReportJudgeResponse, SubmissionResponse
 from app.services.audit_service import now_iso
 from app.services.data_store import read_json, write_json
 
@@ -102,6 +102,39 @@ class MemoryService:
         profile.updated_at = now_iso()
         write_json("learner_profile.json", profile.model_dump())
         return f"已回灌林知远医师画像：报告修改 {judge.score} 分，事实组合/证据边界能力已更新。"
+
+    def record_tutor_interaction(self, question: Question, *, generation_mode: str, safety_passed: bool) -> tuple[list[str], str]:
+        profile = self.get_profile()
+        interaction_tags = list(dict.fromkeys([
+            *question.teaching_tags[:3],
+            *(fact.skill_dimension for fact in question.atomic_trace[:2]),
+            *([] if safety_passed else ["安全边界"]),
+            generation_mode,
+        ]))
+        profile.question_type_coverage["Agent追问"] = profile.question_type_coverage.get("Agent追问", 0) + 1
+        for fact in question.atomic_trace[:2]:
+            old_score = profile.skill_scores.get(fact.skill_dimension, 70)
+            profile.skill_scores[fact.skill_dimension] = self._bounded_score(old_score, 1 if safety_passed else -2)
+        if not safety_passed and "安全边界" not in profile.weakness_tags:
+            profile.weakness_tags.insert(0, "安全边界")
+        profile.training_records.insert(
+            0,
+            {
+                "date": now_iso()[:10],
+                "question_id": question.id,
+                "score": 0,
+                "result": "Agent辅导",
+            },
+        )
+        profile.training_records = profile.training_records[:12]
+        profile.growth_trend = self._append_growth(profile)
+        profile.updated_at = now_iso()
+        write_json("learner_profile.json", profile.model_dump())
+        summary = (
+            f"已记录 Agent 辅导事件：{question.title}；"
+            f"训练标签 {', '.join(interaction_tags[:3])}；未保存追问原文。"
+        )
+        return interaction_tags, summary
 
     def set_favorite(self, question_id: str, favorited: bool = True) -> LearnerProfile:
         profile = self.get_profile()
