@@ -423,6 +423,11 @@ a {
   cursor: pointer;
 }
 
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .hero-metrics {
   display: grid;
   grid-template-columns: repeat(2, 118px);
@@ -1159,6 +1164,65 @@ input {
   line-height: 1.55;
 }
 
+.challenge-scoreboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
+  gap: 16px;
+  align-items: center;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 48%, #eff6ff 100%);
+}
+
+.challenge-score-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.challenge-score-main svg {
+  color: var(--amber);
+}
+
+.challenge-score-main h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.challenge-score-main p {
+  max-width: 760px;
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.challenge-score-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.challenge-score-grid div {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.challenge-score-grid span,
+.challenge-score-grid strong {
+  display: block;
+}
+
+.challenge-score-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.challenge-score-grid strong {
+  margin-top: 4px;
+  font-size: 24px;
+}
+
 .challenge-box div {
   display: flex;
   gap: 8px;
@@ -1175,6 +1239,22 @@ input {
 .challenge-box span {
   color: var(--text);
   font-weight: 650;
+}
+
+.challenge-round-grid {
+  display: grid !important;
+  grid-template-columns: 1fr;
+  gap: 8px !important;
+  color: var(--text) !important;
+}
+
+.challenge-round-grid span {
+  display: block;
+  padding: 9px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  line-height: 1.45;
 }
 
 .evidence-box {
@@ -2344,6 +2424,7 @@ textarea {
 
   .filter-panel,
   .admission-grid,
+  .challenge-scoreboard,
   .profile-hero,
   .floating-patient-card {
     grid-template-columns: 1fr;
@@ -2400,6 +2481,10 @@ textarea {
 
   .hero-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .challenge-score-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .qbank-toolbar,
