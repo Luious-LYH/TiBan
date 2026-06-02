@@ -75,7 +75,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setIndex(0)
       setSelected('')
       setSubmission(null)
-      setTutorTab(view === 'challenge' ? 'compare' : 'agent')
+      setTutorTab('agent')
       setExamSeconds(EXAM_DURATION_SECONDS)
       setMemorySync(view === 'challenge' ? '比拼模式只记录正式提交结果，不提前泄露基准答案。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
       setHint(view === 'challenge' ? '比拼模式已隐藏提示。请先独立作答，提交后再查看 AI/公开标注对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
@@ -111,7 +111,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const aiAnswer = question.ai_benchmark_answer || question.answer
   const aiCorrect = aiAnswer === question.answer
   const canRevealBenchmark = Boolean(submission)
-  const evidenceLocked = isChallenge && !submission
+  const reviewUnlocked = Boolean(submission)
+  const evidenceLocked = !reviewUnlocked
   const examExpired = mode === 'exam' && examSeconds <= 0 && !submission
   const formattedExamTime = `${String(Math.floor(examSeconds / 60)).padStart(2, '0')}:${String(examSeconds % 60).padStart(2, '0')}`
   const challengeDelta = canRevealBenchmark
@@ -130,7 +131,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setIndex(0)
     setSelected('')
     setSubmission(null)
-    setTutorTab(isChallenge ? 'compare' : 'agent')
+    setTutorTab('agent')
     setAgentMode('rule')
     setExamSeconds(EXAM_DURATION_SECONDS)
     setMemorySync('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
@@ -220,7 +221,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setIndex((value) => (value + 1) % Math.max(filteredQuestions.length, 1))
     setSelected('')
     setSubmission(null)
-    setTutorTab(isChallenge ? 'compare' : 'agent')
+    setTutorTab('agent')
     setAgentMode('rule')
     setExamSeconds(EXAM_DURATION_SECONDS)
     setMemorySync(isChallenge ? '比拼模式只记录正式提交结果，不提前泄露基准答案。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
@@ -340,15 +341,31 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               title={mode === 'exam' ? '考后复盘面板' : '边刷边问 Agent'}
               action={<Tag tone={agentMode === 'provider' ? 'green' : agentMode === 'fallback' ? 'amber' : 'blue'}>{agentMode}</Tag>}
             />
-            <div className="tutor-tabs">
-              <button className={tutorTab === 'agent' ? 'active' : ''} type="button" onClick={() => setTutorTab('agent')}>辅导</button>
-              <button className={tutorTab === 'evidence' ? 'active' : ''} type="button" onClick={() => setTutorTab('evidence')} disabled={evidenceLocked}>证据</button>
-              <button className={tutorTab === 'compare' ? 'active' : ''} type="button" onClick={() => setTutorTab('compare')}>对照</button>
-            </div>
+            {reviewUnlocked ? (
+              <div className="tutor-tabs">
+                <button className={tutorTab === 'agent' ? 'active' : ''} type="button" onClick={() => setTutorTab('agent')}>辅导</button>
+                <button className={tutorTab === 'evidence' ? 'active' : ''} type="button" onClick={() => setTutorTab('evidence')} disabled={evidenceLocked}>证据</button>
+                <button className={tutorTab === 'compare' ? 'active' : ''} type="button" onClick={() => setTutorTab('compare')}>对照</button>
+              </div>
+            ) : (
+              <div className="tutor-review-lock">
+                <strong>{isChallenge ? '比拼进行中' : mode === 'exam' ? '考试进行中' : '专注作答中'}</strong>
+                <span>{isChallenge || mode === 'exam' ? '提交前隐藏提示、证据和基准对照。' : '提交前只开放非泄题辅导；证据与对照将在提交后展开。'}</span>
+              </div>
+            )}
             {mode === 'exam' && !submission ? (
               <div className="exam-lock">
                 <GraduationCap size={20} />
                 <p>{examExpired ? '本题考试时间已结束，请进入复盘或切换下一题。' : `考试进行中，剩余 ${formattedExamTime}，提示和自由追问已隐藏。`}</p>
+              </div>
+            ) : isChallenge && !submission ? (
+              <div className="challenge-box">
+                <div>
+                  <Trophy size={17} />
+                  <strong>独立作答锁定</strong>
+                </div>
+                <p>本轮提交前不开放 Agent 追问、证据页或基准答案；提交后自动进入对照复盘。</p>
+                <span>未提交前隐藏基准答案，避免破坏练习闭环。</span>
               </div>
             ) : tutorTab === 'agent' ? (
               <>

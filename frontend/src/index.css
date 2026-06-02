@@ -1177,6 +1177,27 @@ input {
   opacity: 0.42;
 }
 
+.tutor-review-lock {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 11px 12px;
+  color: var(--muted);
+  background: linear-gradient(135deg, #f8fafc, #eff6ff);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  line-height: 1.45;
+}
+
+.tutor-review-lock strong {
+  color: var(--blue);
+}
+
+.tutor-review-lock span {
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .exam-lock,
 .challenge-box {
   display: grid;
