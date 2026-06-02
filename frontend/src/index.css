@@ -939,6 +939,27 @@ input {
   line-height: 1.55;
 }
 
+.sample-ledger-card {
+  margin-bottom: 12px;
+}
+
+.sample-ledger-card summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.sample-ledger-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.sample-ledger-card[open] summary {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
 .endo-image {
   display: block;
   width: 100%;
@@ -1540,6 +1561,47 @@ textarea {
   color: var(--blue);
   background: #ffffff;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.report-source-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 48%, #f0fdfa 100%);
+}
+
+.report-source-status div {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: start;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.report-source-status svg {
+  grid-row: span 3;
+  color: var(--teal);
+}
+
+.report-source-status span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.report-source-status strong {
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.report-source-status p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .upload-zone {
@@ -2726,7 +2788,8 @@ textarea {
   }
 
   .readiness-summary,
-  .readiness-grid {
+  .readiness-grid,
+  .report-source-status {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2782,6 +2845,7 @@ textarea {
   .grid.two,
   .draft-grid,
   .report-status-grid,
+  .report-source-status,
   .readiness-summary,
   .readiness-grid,
   .form-row,

@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ActivitySquare, ClipboardCheck, FileImage, FileText, Gauge, ListChecks, ShieldAlert, ShieldCheck, WandSparkles } from 'lucide-react'
+import { ActivitySquare, ClipboardCheck, Database, FileImage, FileText, Gauge, ListChecks, ShieldAlert, ShieldCheck, WandSparkles } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
-import type { KnowledgeBase, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
+import type { KnowledgeBase, ProviderStatus, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
 
 export function ReportDraft() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [findingText, setFindingText] = useState('请结合图像与公开样例标注，生成医生审核前结构化报告训练草稿。')
+  const [findingText, setFindingText] = useState('请基于医生所见文本、图像来源台账与报告模板知识库，生成医生审核前结构化报告训练草稿。')
   const [examType, setExamType] = useState('gastroscopy')
   const [templateName, setTemplateName] = useState('胃镜结构化训练模板')
   const [imageName, setImageName] = useState('public_real_x1_0')
@@ -19,6 +19,7 @@ export function ReportDraft() {
   const [uploadStatus, setUploadStatus] = useState('')
   const [draft, setDraft] = useState<ReportDraftType | null>(null)
   const [knowledge, setKnowledge] = useState<KnowledgeBase | null>(null)
+  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
   const [originalReport, setOriginalReport] = useState('本图明确证明患者患胃癌，建议立即治疗。')
   const [revisedReport, setRevisedReport] = useState('胃窦局部黏膜异常表现，建议医生结合完整检查、病史及必要病理结果复核。')
   const [judge, setJudge] = useState<ReportJudge | null>(null)
@@ -34,8 +35,8 @@ export function ReportDraft() {
     setSelectedSample(sample)
     setImageName(sample.id)
     setImagePreview(sample.image_url || '')
-    setUploadStatus('已载入公开样例标注；标注会进入来源追踪，不会伪装成医生输入所见。')
-    setFindingText('请基于单帧公开样例与模板知识库生成医生审核前结构化报告训练草稿，不补充未提供的病史、病理或完整检查范围。')
+    setUploadStatus('已载入公开图像样例；VQA 标注仅作为来源台账，默认不直接写入医生所见文本。')
+    setFindingText('请基于单帧公开图像、医生补充所见与模板知识库生成医生审核前结构化报告训练草稿，不补充未提供的病史、病理或完整检查范围。')
     setExamType(sample.body_part === '结直肠' ? 'colonoscopy' : 'gastroscopy')
   }
 
@@ -45,6 +46,7 @@ export function ReportDraft() {
       const firstTemplate = payload.templates?.[0]?.name
       if (firstTemplate) setTemplateName(firstTemplate)
     }).catch(() => undefined)
+    api.providerStatus().then(setProviderStatus).catch(() => undefined)
     api.realSamples().then((items) => {
       setRealSamples(items)
       const first = items[0]
@@ -90,6 +92,10 @@ export function ReportDraft() {
     }
   }
 
+  const providerReady = Boolean(providerStatus?.configured || providerStatus?.ok)
+  const providerMode = providerReady ? 'provider' : providerStatus?.mode || 'rule'
+  const dataMode = selectedSample ? `${selectedSample.source_dataset} · public sample` : imageName.startsWith('uploads/') ? 'uploaded image' : 'local preview'
+
   return (
     <div className="page-stack">
       <Card className="focus-band report-focus">
@@ -112,6 +118,26 @@ export function ReportDraft() {
 
       {activeTab === 'draft' ? (
         <div className="page-stack">
+          <Card className="report-source-status">
+            <div>
+              <Database size={19} />
+              <span>数据来源</span>
+              <strong>{dataMode}</strong>
+              <p>公开 VQA 标注只进入来源台账，报告正文仍以医生所见和模板约束为准。</p>
+            </div>
+            <div>
+              <Gauge size={19} />
+              <span>Provider</span>
+              <strong>{providerReady ? `${providerStatus?.provider} · ${providerStatus?.model}` : `${providerMode} 模式`}</strong>
+              <p>{providerReady ? '生成时可调用后端大模型通路。' : '未配置真实 Provider 时，输出会显式标注规则/知识库草案。'}</p>
+            </div>
+            <div>
+              <ClipboardCheck size={19} />
+              <span>报告模板</span>
+              <strong>{templateName}</strong>
+              <p>字段、诊断边界、复核点和幻觉审查由知识库模板约束。</p>
+            </div>
+          </Card>
           <div className="grid two report-layout">
             <Card>
               <SectionTitle eyebrow="Image + findings" title="图像与所见输入" />
@@ -138,14 +164,21 @@ export function ReportDraft() {
               </label>
               {uploadStatus ? <div className="source-note">{uploadStatus}</div> : null}
               {selectedSample ? (
-                <div className="sample-annotation-card">
-                  <div>
-                    <span>公开样例标注</span>
+                <details className="sample-annotation-card sample-ledger-card">
+                  <summary>
+                    <span>图像来源台账</span>
                     <strong>{selectedSample.source_dataset} · {selectedSample.body_part}</strong>
+                  </summary>
+                  <div>
+                    <span>VQA 问题</span>
+                    <p>{selectedSample.question}</p>
                   </div>
-                  <p>{selectedSample.question}</p>
-                  <em>参考标注：{selectedSample.answer}</em>
-                </div>
+                  <div>
+                    <span>公开标注</span>
+                    <p>{selectedSample.answer}</p>
+                  </div>
+                  <em>该标注用于追踪公开样例来源，不等同于医生报告结论。</em>
+                </details>
               ) : null}
               <div className="form-row">
                 <label>
