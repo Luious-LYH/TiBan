@@ -200,6 +200,8 @@ export type ReportJudge = {
   issues: string[]
   suggested_revision: string
   rubric_scores: Record<string, number>
+  profile_updated: boolean
+  memory_summary?: string | null
   doctor_review_required: true
   safety_notice: string
   created_at: string

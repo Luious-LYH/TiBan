@@ -215,6 +215,64 @@ a {
   line-height: 1.45;
 }
 
+.top-status-stack {
+  display: grid;
+  gap: 10px;
+  width: min(430px, 100%);
+}
+
+.provider-pill {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  color: var(--blue);
+  background: var(--blue-soft);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.provider-pill.online {
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: #99f6e4;
+}
+
+.provider-pill.rule {
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-color: #fde68a;
+}
+
+.provider-pill span,
+.provider-pill strong,
+.provider-pill em {
+  display: block;
+}
+
+.provider-pill span {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.provider-pill strong {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-pill em {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
 .page-stack {
   display: grid;
   gap: 18px;
@@ -633,6 +691,11 @@ input {
   align-items: center;
 }
 
+.question-meta .timer-expired {
+  color: var(--red);
+  font-weight: 800;
+}
+
 .selected-icon {
   color: var(--amber);
   background: var(--amber-soft);
@@ -731,6 +794,11 @@ input {
   color: #0f5132;
   background: var(--teal-soft);
   border-color: #5eead4;
+}
+
+.option-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .option-button.readonly {
@@ -1332,6 +1400,41 @@ textarea {
 .score-ring span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.memory-sync-card {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+.memory-sync-card.synced {
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: #99f6e4;
+}
+
+.memory-sync-card.fallback {
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-color: #fde68a;
+}
+
+.memory-sync-card strong,
+.memory-sync-card span {
+  display: block;
+}
+
+.memory-sync-card span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .rubric-grid {

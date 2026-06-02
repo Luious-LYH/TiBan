@@ -30,6 +30,8 @@ const emptyFilters: Filters = {
   sourceDataset: '',
 }
 
+const EXAM_DURATION_SECONDS = 12 * 60
+
 export function TrainingCenter({ onSubmission }: { onSubmission: (submission: SubmissionResponse, question: Question) => void }) {
   const [searchParams] = useSearchParams()
   const [questions, setQuestions] = useState<Question[]>(mockQuestions)
@@ -42,6 +44,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [chatInput, setChatInput] = useState('')
   const [tutorTab, setTutorTab] = useState<TutorTab>('agent')
   const [agentMode, setAgentMode] = useState('rule')
+  const [examSeconds, setExamSeconds] = useState(EXAM_DURATION_SECONDS)
   const [chat, setChat] = useState<ChatMessage[]>([
     { role: 'agent', text: '林知远医师，先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。', mode: 'rule' },
   ])
@@ -61,6 +64,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setIndex(0)
       setSelected('')
       setSubmission(null)
+      setExamSeconds(EXAM_DURATION_SECONDS)
     }).catch(() => setQuestions(mockQuestions))
   }, [mode, source, view])
 
@@ -91,6 +95,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const evidence = useMemo(() => question.atomic_trace.map((fact) => fact.evidence).join(' / '), [question])
   const aiAnswer = question.ai_benchmark_answer || question.answer
   const canRevealBenchmark = Boolean(submission)
+  const examExpired = mode === 'exam' && examSeconds <= 0 && !submission
+  const formattedExamTime = `${String(Math.floor(examSeconds / 60)).padStart(2, '0')}:${String(examSeconds % 60).padStart(2, '0')}`
   const challengeDelta = canRevealBenchmark
     ? (selected === aiAnswer ? '你与 AI/公开标注结论一致' : '你与 AI/公开标注结论不同，适合展开证据讨论')
     : '提交答案后解锁医生作答与公开标注/AI 基准对照'
@@ -106,11 +112,20 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setSubmission(null)
     setTutorTab('agent')
     setAgentMode('rule')
+    setExamSeconds(EXAM_DURATION_SECONDS)
     setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
   }
 
+  useEffect(() => {
+    if (mode !== 'exam' || submission || examSeconds <= 0) return undefined
+    const timer = window.setInterval(() => {
+      setExamSeconds((seconds) => Math.max(0, seconds - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [examSeconds, mode, submission])
+
   const submit = async () => {
-    if (!selected) return
+    if (!selected || examExpired) return
     setLoading(true)
     try {
       const result = await api.submit(question, selected)
@@ -174,6 +189,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setSubmission(null)
     setTutorTab('agent')
     setAgentMode('rule')
+    setExamSeconds(EXAM_DURATION_SECONDS)
     setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
   }
 
@@ -234,12 +250,12 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
             <div className="question-meta">
               <span>{index + 1}/{filteredQuestions.length}</span>
               <Tag tone={question.review_status === '待复盘' ? 'amber' : question.review_status === '收藏中' ? 'blue' : 'neutral'}>{question.review_status}</Tag>
-              {mode === 'exam' ? <span><Clock size={15} /> 12:00</span> : null}
+              {mode === 'exam' ? <span className={examExpired ? 'timer-expired' : ''}><Clock size={15} /> {formattedExamTime}</span> : null}
             </div>
             <p className="question-text">{question.question}</p>
             <div className="option-list">
               {question.options.map((option) => (
-                <button key={option} className={`option-button ${selected === option ? 'selected' : ''}`} type="button" onClick={() => setSelected(option)}>
+                <button key={option} className={`option-button ${selected === option ? 'selected' : ''}`} type="button" onClick={() => setSelected(option)} disabled={examExpired}>
                   <span>{option}</span>
                   {selected === option ? <CheckCircle2 size={18} /> : null}
                 </button>
@@ -249,7 +265,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               <button className="button secondary" type="button" onClick={askHint} disabled={loading || mode === 'exam'}>
                 <Lightbulb size={17} /> 提示一下
               </button>
-              <button className="button primary" type="button" onClick={submit} disabled={!selected || loading}>
+              <button className="button primary" type="button" onClick={submit} disabled={!selected || loading || examExpired}>
                 <Send size={17} /> 提交答案
               </button>
               <button className="icon-button" type="button" onClick={next} title="下一题">
@@ -276,10 +292,10 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               <button className={tutorTab === 'evidence' ? 'active' : ''} type="button" onClick={() => setTutorTab('evidence')}>证据</button>
               <button className={tutorTab === 'compare' ? 'active' : ''} type="button" onClick={() => setTutorTab('compare')}>对照</button>
             </div>
-            {mode === 'exam' ? (
+            {mode === 'exam' && !submission ? (
               <div className="exam-lock">
                 <GraduationCap size={20} />
-                <p>考试模式隐藏提示和自由追问，提交后用于统一复盘与画像更新。</p>
+                <p>{examExpired ? '本题考试时间已结束，请进入复盘或切换下一题。' : `考试进行中，剩余 ${formattedExamTime}，提示和自由追问已隐藏。`}</p>
               </div>
             ) : tutorTab === 'agent' ? (
               <>

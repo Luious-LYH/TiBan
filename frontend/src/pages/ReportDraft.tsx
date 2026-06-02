@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
-import { ClipboardCheck, FileImage, FileText, Gauge, ListChecks, ShieldAlert, ShieldCheck, WandSparkles } from 'lucide-react'
+import { ActivitySquare, ClipboardCheck, FileImage, FileText, Gauge, ListChecks, ShieldAlert, ShieldCheck, WandSparkles } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import type { KnowledgeBase, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
@@ -276,6 +276,13 @@ export function ReportDraft() {
               <DraftList title="优点" items={judge.strengths} />
               <DraftList title="需要修正" items={judge.issues} />
               <div className="next-card">{judge.suggested_revision}</div>
+              <div className={`memory-sync-card ${judge.profile_updated ? 'synced' : 'fallback'}`}>
+                <ActivitySquare size={18} />
+                <div>
+                  <strong>{judge.profile_updated ? '已回灌林知远医师画像' : '画像未写入'}</strong>
+                  <span>{judge.memory_summary || '当前评分仅用于本页展示，未更新后端训练记录。'}</span>
+                </div>
+              </div>
             </>
           ) : (
             <div className="empty-state">提交修改稿后，这里会显示 rubric 分数、风险表达和建议改写。</div>

@@ -18,8 +18,11 @@ import {
   UserRound,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
+import { api } from '../lib/api'
 import { safetyNotice } from '../lib/mock'
+import type { ProviderStatus } from '../lib/types'
 
 const navGroups = [
   {
@@ -77,6 +80,37 @@ const navGroups = [
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
+  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    api.providerStatus()
+      .then((status) => {
+        if (mounted) setProviderStatus(status)
+      })
+      .catch(() => {
+        if (mounted) {
+          setProviderStatus({
+            provider: 'frontend',
+            model: 'unavailable',
+            mode: 'fallback',
+            ok: false,
+            error: 'backend_unavailable',
+          })
+        }
+      })
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const providerConfigured = Boolean(providerStatus?.configured || providerStatus?.ok)
+  const providerLabel = providerConfigured
+    ? `${providerStatus?.provider || 'provider'} · ${providerStatus?.model || 'model'}`
+    : providerStatus?.error === 'backend_unavailable'
+      ? '后端未联通'
+      : '规则/知识库模式'
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -112,7 +146,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
         <div className="sidebar-note">
           <ScrollText size={18} />
-          <span>训练与报告输出均为教学/医生审核前辅助；模型准入为 mock 测试。</span>
+          <span>训练、报告与模型准入均标明 provider/rule/fallback 来源；所有医学输出仅供教学或医生审核前辅助。</span>
         </div>
       </aside>
       <main className="main-area">
@@ -121,9 +155,19 @@ export function Layout({ children }: { children: ReactNode }) {
             <p className="top-kicker">面向消化道内镜医师的持续训练平台</p>
             <h1>刷题、报告训练、Agent 辅导和能力成长在同一个工作台里</h1>
           </div>
-          <div className="top-safety">
-            <ShieldCheck size={18} />
-            <span>{safetyNotice}</span>
+          <div className="top-status-stack">
+            <div className={`provider-pill ${providerConfigured ? 'online' : 'rule'}`}>
+              <Gauge size={17} />
+              <div>
+                <span>Provider</span>
+                <strong>{providerLabel}</strong>
+                <em>{providerConfigured ? '真实调用通路可用' : '结果会显式标注规则或 fallback'}</em>
+              </div>
+            </div>
+            <div className="top-safety">
+              <ShieldCheck size={18} />
+              <span>{safetyNotice}</span>
+            </div>
           </div>
         </header>
         {children}

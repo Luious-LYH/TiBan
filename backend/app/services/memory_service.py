@@ -1,4 +1,4 @@
-from app.schemas import LearnerProfile, SubmissionResponse
+from app.schemas import LearnerProfile, ReportJudgeResponse, SubmissionResponse
 from app.services.audit_service import now_iso
 from app.services.data_store import read_json, write_json
 
@@ -56,6 +56,53 @@ class MemoryService:
         write_json("learner_profile.json", profile.model_dump())
         return profile
 
+    def record_report_judge(self, judge: ReportJudgeResponse) -> str:
+        profile = self.get_profile()
+        profile.completed_today = min(profile.daily_target, profile.completed_today + 1)
+        profile.question_type_coverage["报告修改"] = profile.question_type_coverage.get("报告修改", 0) + 1
+
+        report_delta = 3 if judge.score >= 85 else 1 if judge.score >= 70 else -3
+        evidence_delta = 2 if judge.rubric_scores.get("不确定性表达", 0) >= 20 else -3
+        safety_delta = 2 if judge.rubric_scores.get("安全边界", 0) >= 20 else -4
+        profile.skill_scores["事实组合"] = self._bounded_score(profile.skill_scores.get("事实组合", 70), report_delta)
+        profile.skill_scores["证据不足识别"] = self._bounded_score(profile.skill_scores.get("证据不足识别", 70), evidence_delta)
+        profile.skill_scores["属性判断"] = self._bounded_score(profile.skill_scores.get("属性判断", 70), safety_delta)
+
+        weakness_map = {
+            "所见与诊断区分": "报告安全",
+            "不确定性表达": "证据不足",
+            "安全边界": "错误前提",
+        }
+        for rubric, tag in weakness_map.items():
+            if judge.rubric_scores.get(rubric, 0) < 20 and tag not in profile.weakness_tags:
+                profile.weakness_tags.insert(0, tag)
+        if judge.score >= 85:
+            profile.weakness_tags = [tag for tag in profile.weakness_tags if tag not in {"报告安全"}]
+
+        if "报告纠错" in profile.recommended_question_classes:
+            profile.recommended_question_classes = [
+                "报告纠错",
+                *[item for item in profile.recommended_question_classes if item != "报告纠错"],
+            ]
+        else:
+            profile.recommended_question_classes.insert(0, "报告纠错")
+        profile.recommended_question_classes = profile.recommended_question_classes[:4]
+
+        profile.training_records.insert(
+            0,
+            {
+                "date": now_iso()[:10],
+                "question_id": judge.id,
+                "score": judge.score,
+                "result": "报告修改训练",
+            },
+        )
+        profile.training_records = profile.training_records[:12]
+        profile.growth_trend = self._append_growth(profile)
+        profile.updated_at = now_iso()
+        write_json("learner_profile.json", profile.model_dump())
+        return f"已回灌林知远医师画像：报告修改 {judge.score} 分，事实组合/证据边界能力已更新。"
+
     def set_favorite(self, question_id: str, favorited: bool = True) -> LearnerProfile:
         profile = self.get_profile()
         if favorited:
@@ -92,6 +139,9 @@ class MemoryService:
             }
         )
         return trend[-8:]
+
+    def _bounded_score(self, current: int, delta: int) -> int:
+        return min(96, max(35, current + delta))
 
 
 memory_service = MemoryService()

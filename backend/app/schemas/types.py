@@ -205,6 +205,8 @@ class ReportJudgeResponse(BaseModel):
     issues: list[str]
     suggested_revision: str
     rubric_scores: dict[str, int]
+    profile_updated: bool = False
+    memory_summary: str | None = None
     doctor_review_required: bool = True
     safety_notice: str
     created_at: str

@@ -31,8 +31,10 @@
 
 ## v2.0 使用要点
 
-1. 训练中心右侧 Agent 分为“辅导 / 证据 / 对照”，提交前隐藏参考答案。
-2. 报告中心会区分医生输入、公开样例标注、模板知识库、Provider 输出。
-3. 上传图片会保存到 `backend/runtime/uploads`，该目录已加入 `.gitignore`。
-4. 模型准入页可使用后端 `.env` 或页面临时 key 进行一次真实探测，但不会保存密钥。
-5. 真实性说明见 `docs/V2_AUTHENTICITY_MATRIX.md`。
+1. 顶部 Provider 状态条会显示当前处于 `provider`、`rule` 还是 `fallback`，避免把规则草案伪装成真实推理。
+2. 训练中心右侧 Agent 分为“辅导 / 证据 / 对照”，提交前隐藏参考答案；考试模式有 12 分钟倒计时。
+3. 报告中心会区分医生输入、公开样例标注、模板知识库、Provider 输出。
+4. 报告修改训练提交后会回灌林知远医师画像，更新训练记录、能力分和弱项标签。
+5. 上传图片会保存到 `backend/runtime/uploads`，该目录已加入 `.gitignore`。
+6. 模型准入页可使用后端 `.env` 或页面临时 key 进行一次真实探测，但不会保存密钥。
+7. 真实性说明见 `docs/V2_AUTHENTICITY_MATRIX.md`。

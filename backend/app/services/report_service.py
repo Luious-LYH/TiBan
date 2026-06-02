@@ -141,11 +141,15 @@ class ReportService:
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
         )
+        from app.services.memory_service import memory_service
+
+        response.memory_summary = memory_service.record_report_judge(response)
+        response.profile_updated = True
         audit_service.log(
             "report_judge",
             user_id=request.learner_id,
             entity_id=response.id,
-            summary=f"报告修改训练评分：{score} 分；医生审核必需。",
+            summary=f"报告修改训练评分：{score} 分；已回灌医师画像；医生审核必需。",
             risk_level="high",
         )
         return response

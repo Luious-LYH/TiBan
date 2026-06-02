@@ -449,6 +449,25 @@ function normalizeReportDraft(value: unknown, fallback: ReportDraft): ReportDraf
   }
 }
 
+function normalizeReportJudge(value: unknown, fallback: ReportJudge): ReportJudge {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id),
+    score: asNumber(record.score, fallback.score),
+    strengths: asStringArray(record.strengths, fallback.strengths),
+    issues: asStringArray(record.issues, fallback.issues),
+    suggested_revision: asString(record.suggested_revision, fallback.suggested_revision),
+    rubric_scores: asNumberRecord(record.rubric_scores, fallback.rubric_scores),
+    profile_updated: asBoolean(record.profile_updated, fallback.profile_updated),
+    memory_summary: typeof record.memory_summary === 'string' ? record.memory_summary : fallback.memory_summary,
+    doctor_review_required: true,
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    created_at: asString(record.created_at, fallback.created_at),
+  }
+}
+
 function normalizeModelAdmission(value: unknown, fallback: ModelAdmissionResult): ModelAdmissionResult {
   const record = asRecord(value)
   return {
@@ -755,21 +774,25 @@ export const api = {
   },
 
   async reportJudge(originalReport: string, revisedReport: string): Promise<ReportJudge> {
-    return request<ReportJudge>(
+    const fallback: ReportJudge = {
+      id: `judge_local_${Date.now()}`,
+      score: revisedReport.includes('复核') ? 88 : 62,
+      strengths: ['已尝试保留观察事实。'],
+      issues: revisedReport.includes('确诊') ? ['仍含过强诊断语气。'] : ['建议继续补充不确定性说明。'],
+      suggested_revision: `${revisedReport} 建议医生结合完整检查复核。`,
+      rubric_scores: { 部位描述: 20, 所见与诊断区分: 22, 不确定性表达: 20, 安全边界: 20 },
+      profile_updated: false,
+      memory_summary: '当前为前端 fallback 评分，未写入后端医师画像。',
+      doctor_review_required: true,
+      safety_notice: safetyNotice,
+      created_at: new Date().toISOString(),
+    }
+    const response = await request<ReportJudge>(
       '/api/report/judge',
       { method: 'POST', body: JSON.stringify({ original_report: originalReport, revised_report: revisedReport, learner_id: 'demo_learner' }) },
-      {
-        id: `judge_local_${Date.now()}`,
-        score: revisedReport.includes('复核') ? 88 : 62,
-        strengths: ['已尝试保留观察事实。'],
-        issues: revisedReport.includes('确诊') ? ['仍含过强诊断语气。'] : ['建议继续补充不确定性说明。'],
-        suggested_revision: `${revisedReport} 建议医生结合完整检查复核。`,
-        rubric_scores: { 部位描述: 20, 所见与诊断区分: 22, 不确定性表达: 20, 安全边界: 20 },
-        doctor_review_required: true,
-        safety_notice: safetyNotice,
-        created_at: new Date().toISOString(),
-      },
+      fallback,
     )
+    return normalizeReportJudge(response, fallback)
   },
 
   async patientCard(summary: string, options: { templateId?: string; imageUrl?: string; reviewedByDoctor?: boolean } = {}): Promise<PatientCard> {
