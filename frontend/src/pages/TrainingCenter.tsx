@@ -4,7 +4,7 @@ import { ActivitySquare, Bookmark, Bot, CheckCircle2, Clock, Eye, GraduationCap,
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
-import type { Question, SubmissionResponse } from '../lib/types'
+import type { ProviderStatus, Question, SubmissionResponse } from '../lib/types'
 
 type ChatMessage = {
   role: 'agent' | 'doctor'
@@ -55,6 +55,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [examSeconds, setExamSeconds] = useState(EXAM_DURATION_SECONDS)
   const [memorySync, setMemorySync] = useState('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
   const [challengeStats, setChallengeStats] = useState<ChallengeStats>(emptyChallengeStats)
+  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
   const [chat, setChat] = useState<ChatMessage[]>([
     { role: 'agent', text: '林知远医师，先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。', mode: 'rule' },
   ])
@@ -63,6 +64,10 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const view = searchParams.get('view') || ''
   const source = searchParams.get('source') || ''
   const isChallenge = view === 'challenge'
+
+  useEffect(() => {
+    api.providerStatus().then(setProviderStatus).catch(() => undefined)
+  }, [])
 
   useEffect(() => {
     api.qbank({
@@ -77,8 +82,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setSubmission(null)
       setTutorTab('agent')
       setExamSeconds(EXAM_DURATION_SECONDS)
-      setMemorySync(view === 'challenge' ? '比拼模式只记录正式提交结果，不提前泄露基准答案。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-      setHint(view === 'challenge' ? '比拼模式已隐藏提示。请先独立作答，提交后再查看 AI/公开标注对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+      setMemorySync(view === 'challenge' ? '比拼模式只记录正式提交结果，不提前泄露公开标注基准。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
+      setHint(view === 'challenge' ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
       setChallengeStats(emptyChallengeStats)
     }).catch(() => setQuestions(mockQuestions))
   }, [mode, source, view])
@@ -110,6 +115,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const evidence = useMemo(() => question.atomic_trace.map((fact) => fact.evidence).join(' / '), [question])
   const aiAnswer = question.ai_benchmark_answer || question.answer
   const aiCorrect = aiAnswer === question.answer
+  const providerConfigured = Boolean(providerStatus?.configured || providerStatus?.ok)
+  const benchmarkLabel = providerConfigured ? '公开标注基准（Provider 已配置但本回合未调用）' : '公开标注基准（未调用独立模型）'
   const canRevealBenchmark = Boolean(submission)
   const reviewUnlocked = Boolean(submission)
   const evidenceLocked = !reviewUnlocked
@@ -117,10 +124,10 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const formattedExamTime = `${String(Math.floor(examSeconds / 60)).padStart(2, '0')}:${String(examSeconds % 60).padStart(2, '0')}`
   const challengeDelta = canRevealBenchmark
     ? challengeMessage(Boolean(submission?.is_correct), aiCorrect, selected === aiAnswer)
-    : '提交答案后解锁医生作答与公开标注/AI 基准对照'
+    : '提交答案后解锁医生作答与公开标注基准对照'
   const challengeLeader = challengeStats.doctor === challengeStats.benchmark
     ? '暂时平手'
-    : challengeStats.doctor > challengeStats.benchmark ? '医生领先' : 'AI/公开标注领先'
+    : challengeStats.doctor > challengeStats.benchmark ? '医生领先' : '标注基准领先'
 
   const updateFilter = (key: keyof Filters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -135,7 +142,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setAgentMode('rule')
     setExamSeconds(EXAM_DURATION_SECONDS)
     setMemorySync('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再查看 AI/公开标注对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
     setChallengeStats(emptyChallengeStats)
   }
 
@@ -224,8 +231,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setTutorTab('agent')
     setAgentMode('rule')
     setExamSeconds(EXAM_DURATION_SECONDS)
-    setMemorySync(isChallenge ? '比拼模式只记录正式提交结果，不提前泄露基准答案。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再查看 AI/公开标注对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+    setMemorySync(isChallenge ? '比拼模式只记录正式提交结果，不提前泄露公开标注基准。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
+    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
   }
 
   return (
@@ -233,8 +240,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       <Card className="qbank-toolbar">
         <div>
           <span className="eyebrow">Endoscopy Qbank</span>
-          <h2>{mode === 'exam' ? '考试模式' : view === 'wrong' ? '错题本复盘' : view === 'favorite' ? '收藏题训练' : view === 'challenge' ? '医生 vs AI 比拼' : '题库刷题中心'}</h2>
-          <p>{isChallenge ? '当前使用真实公开样例进行回合制比拼：医师先独立作答，提交后才解锁 AI/公开标注基准和证据讨论。' : source === 'public' ? '当前优先加载本地真实公开图文样本：Kvasir-VQA-x1、Kvasir-VQA 与 EndoBench。' : '借鉴 Study/Exam Mode、Tutor Mode、错题复盘和性能分析的训练闭环，默认优先展示真实公开图文样本。'}</p>
+          <h2>{mode === 'exam' ? '考试模式' : view === 'wrong' ? '错题本复盘' : view === 'favorite' ? '收藏题训练' : view === 'challenge' ? '医生 vs 标注基准' : '题库刷题中心'}</h2>
+          <p>{isChallenge ? '当前使用真实公开样例进行回合制比拼：医师先独立作答，提交后才解锁公开标注基准和证据讨论；此模式会明确标注是否调用独立模型。' : source === 'public' ? '当前优先加载本地真实公开图文样本：Kvasir-VQA-x1、Kvasir-VQA 与 EndoBench。' : '借鉴 Study/Exam Mode、Tutor Mode、错题复盘和性能分析的训练闭环，默认优先展示真实公开图文样本。'}</p>
         </div>
         <div className="mode-switch">
           <Tag tone={mode === 'exam' || isChallenge ? 'amber' : 'green'}>{mode === 'exam' ? '计时考试' : isChallenge ? '比拼模式' : '练习辅导'}</Tag>
@@ -247,15 +254,15 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
           <div className="challenge-score-main">
             <Trophy size={24} />
             <div>
-              <span className="eyebrow">Doctor vs AI</span>
+              <span className="eyebrow">Doctor vs Benchmark</span>
               <h3>{challengeLeader}</h3>
-              <p>正式提交会写入医师训练记录；基准答案只在提交后显示，避免破坏训练闭环。</p>
+              <p>正式提交会写入医师训练记录；当前对照为{benchmarkLabel}，提交后才显示。</p>
             </div>
           </div>
           <div className="challenge-score-grid">
             <div><span>回合</span><strong>{challengeStats.rounds}</strong></div>
             <div><span>林医师</span><strong>{challengeStats.doctor}</strong></div>
-            <div><span>AI/公开标注</span><strong>{challengeStats.benchmark}</strong></div>
+            <div><span>标注基准</span><strong>{challengeStats.benchmark}</strong></div>
             <div><span>同判</span><strong>{challengeStats.ties}</strong></div>
           </div>
         </Card>
@@ -350,7 +357,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
             ) : (
               <div className="tutor-review-lock">
                 <strong>{isChallenge ? '比拼进行中' : mode === 'exam' ? '考试进行中' : '专注作答中'}</strong>
-                <span>{isChallenge || mode === 'exam' ? '提交前隐藏提示、证据和基准对照。' : '提交前只开放非泄题辅导；证据与对照将在提交后展开。'}</span>
+                <span>{isChallenge || mode === 'exam' ? '提交前隐藏提示、证据和公开标注基准。' : '提交前只开放非泄题辅导；证据与对照将在提交后展开。'}</span>
               </div>
             )}
             {mode === 'exam' && !submission ? (
@@ -364,8 +371,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                   <Trophy size={17} />
                   <strong>独立作答锁定</strong>
                 </div>
-                <p>本轮提交前不开放 Agent 追问、证据页或基准答案；提交后自动进入对照复盘。</p>
-                <span>未提交前隐藏基准答案，避免破坏练习闭环。</span>
+                <p>本轮提交前不开放 Agent 追问、证据页或公开标注基准；提交后自动进入对照复盘。</p>
+                <span>{benchmarkLabel}，避免伪装成实时模型比赛。</span>
               </div>
             ) : tutorTab === 'agent' ? (
               <>
@@ -409,15 +416,15 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               <div className="challenge-box">
                 <div>
                   <Trophy size={17} />
-                  <strong>医生 vs AI/公开标注</strong>
+                  <strong>医生 vs 公开标注基准</strong>
                 </div>
                 <p>{challengeDelta}</p>
                 {canRevealBenchmark ? (
                   <div className="challenge-round-grid">
                     <span>林医师：{submission?.is_correct ? '本轮正确' : '本轮失分'} · {selected}</span>
-                    <span>AI/公开标注：{aiCorrect ? '基准正确' : '基准待复核'} · {aiAnswer}</span>
+                    <span>{benchmarkLabel}：{aiCorrect ? '基准正确' : '基准待复核'} · {aiAnswer}</span>
                   </div>
-                ) : <span>未提交前隐藏基准答案，避免破坏练习闭环。</span>}
+                ) : <span>未提交前隐藏公开标注基准，避免破坏练习闭环。</span>}
               </div>
             )}
             <div className="safety-mini">{safetyNotice}</div>
@@ -441,9 +448,9 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
 }
 
 function challengeMessage(doctorCorrect: boolean, benchmarkCorrect: boolean, sameAnswer: boolean): string {
-  if (doctorCorrect && benchmarkCorrect && sameAnswer) return '本轮同判正确：医师答案与 AI/公开标注一致。'
+  if (doctorCorrect && benchmarkCorrect && sameAnswer) return '本轮同判正确：医师答案与公开标注基准一致。'
   if (doctorCorrect && benchmarkCorrect) return '本轮都命中参考结论，但表达不同，适合复盘证据措辞。'
   if (doctorCorrect && !benchmarkCorrect) return '本轮医师领先：公开基准需要复核或不适合作为最终判断。'
-  if (!doctorCorrect && benchmarkCorrect) return '本轮 AI/公开标注领先：建议复盘可观察证据和题干边界。'
+  if (!doctorCorrect && benchmarkCorrect) return '本轮公开标注基准领先：建议复盘可观察证据和题干边界。'
   return '本轮双方都需复核：请回到证据标签逐条检查。'
 }
