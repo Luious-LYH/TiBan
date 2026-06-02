@@ -344,6 +344,34 @@ a {
   font-weight: 650;
 }
 
+.fallback-page {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  max-width: 760px;
+  padding: 24px;
+}
+
+.fallback-page h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.fallback-page p {
+  margin: 8px 0 16px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.fallback-page small {
+  display: block;
+  margin-top: 14px;
+  color: var(--amber);
+  line-height: 1.5;
+}
+
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
