@@ -139,6 +139,7 @@ export type AuditLog = {
     | 'report_judge'
     | 'skill_run'
     | 'model_select'
+    | 'model_admission'
     | 'favorite_update'
     | 'image_upload'
     | 'safety_warning'
@@ -226,6 +227,21 @@ export type PatientCard = {
   api_source?: 'backend' | 'fallback'
 }
 
+export type ModelAdmissionState = {
+  updated_at: string
+  last_admission_id: string
+  provider_name: string
+  grade: 'S' | 'A' | 'B' | 'C'
+  total_score: number
+  mode: string
+  provider_called: boolean
+  is_mock: boolean
+  tested_samples: string[]
+  risk_items: string[]
+  recommendation: string
+  safe_for_training: boolean
+}
+
 export type DashboardPayload = {
   today_training: {
     completed: number
@@ -243,6 +259,7 @@ export type DashboardPayload = {
   recent_tutor_summary: string[]
   growth_trend: { date: string; accuracy: number; evidence: number; report: number }[]
   active_model: ModelProfile
+  model_admission_state: ModelAdmissionState
   safety_notice: string
   mock_evaluation_notice: string
   reference_inspirations: string[]
@@ -290,6 +307,8 @@ export type ModelAdmissionResult = {
   }[]
   provider_status: ProviderStatus
   recommendation: string
+  platform_state_updated: boolean
+  platform_state_summary?: string | null
   doctor_review_required: true
   safety_notice: string
   created_at: string

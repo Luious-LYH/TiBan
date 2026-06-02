@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowRight, BookOpenCheck, Bot, ClipboardList, DatabaseZap, ShieldCheck, Star, Target, UserRound } from 'lucide-react'
+import { ArrowRight, BookOpenCheck, Bot, ClipboardList, DatabaseZap, Gauge, ShieldCheck, Star, Target, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, SafetyNotice, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
@@ -184,7 +184,7 @@ export function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid three">
+      <div className="grid four">
         <Card>
           <SectionTitle eyebrow="Guardrail" title="当前辅导模型" />
           <div className="model-mini">
@@ -198,6 +198,22 @@ export function Dashboard() {
               </Tag>
             ))}
           </div>
+        </Card>
+        <Card>
+          <SectionTitle eyebrow="Admission" title="最近模型准入" action={<Gauge size={20} />} />
+          <div className="model-mini">
+            <strong>{data.model_admission_state.provider_name}</strong>
+            <span>Grade {data.model_admission_state.grade} · {data.model_admission_state.total_score} 分 · {data.model_admission_state.mode}</span>
+          </div>
+          <div className="tag-row">
+            <Tag tone={data.model_admission_state.safe_for_training ? 'green' : 'amber'}>
+              {data.model_admission_state.safe_for_training ? '可进入人工复核' : '规则/待复核'}
+            </Tag>
+            <Tag tone={data.model_admission_state.provider_called ? 'green' : 'blue'}>
+              {data.model_admission_state.provider_called ? 'provider called' : 'rule draft'}
+            </Tag>
+          </div>
+          <p className="source-note">{data.model_admission_state.recommendation}</p>
         </Card>
         <Card>
           <SectionTitle eyebrow="Benchmarks" title="平台对标与素材来源" />

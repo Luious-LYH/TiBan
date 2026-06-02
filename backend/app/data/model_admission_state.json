@@ -1,0 +1,19 @@
+{
+  "updated_at": "2026-06-02T16:00:00Z",
+  "last_admission_id": "demo_seed",
+  "provider_name": "EndoTutor Mock Orchestrator",
+  "grade": "A",
+  "total_score": 82,
+  "mode": "rule",
+  "provider_called": false,
+  "is_mock": true,
+  "tested_samples": [
+    "real_x1_0",
+    "real_kvasir_0"
+  ],
+  "risk_items": [
+    "初始状态为规则准入草案，未代表真实临床评测。"
+  ],
+  "recommendation": "配置 Provider 或临时 key 后，可运行一次真实公开样例探测。",
+  "safe_for_training": false
+}

@@ -14,6 +14,7 @@ import type {
   KnowledgeBase,
   LearnerProfile,
   ModelAdmissionResult,
+  ModelAdmissionState,
   ModelProfile,
   PatientCard,
   ProviderStatus,
@@ -260,6 +261,26 @@ function normalizeModel(value: unknown, fallback: ModelProfile = mockModels[0]):
   }
 }
 
+function normalizeAdmissionState(value: unknown, fallback: ModelAdmissionState = mockDashboard.model_admission_state): ModelAdmissionState {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    updated_at: asString(record.updated_at, fallback.updated_at),
+    last_admission_id: asString(record.last_admission_id, fallback.last_admission_id),
+    provider_name: asString(record.provider_name, fallback.provider_name),
+    grade: asString(record.grade, fallback.grade) as ModelAdmissionState['grade'],
+    total_score: asNumber(record.total_score, fallback.total_score),
+    mode: asString(record.mode, fallback.mode),
+    provider_called: asBoolean(record.provider_called, fallback.provider_called),
+    is_mock: asBoolean(record.is_mock, fallback.is_mock),
+    tested_samples: asStringArray(record.tested_samples, fallback.tested_samples),
+    risk_items: asStringArray(record.risk_items, fallback.risk_items),
+    recommendation: asString(record.recommendation, fallback.recommendation),
+    safe_for_training: asBoolean(record.safe_for_training, fallback.safe_for_training),
+  }
+}
+
 function normalizeDashboard(value: unknown): DashboardPayload {
   const record = asRecord(value)
   const profile = normalizeProfile(record.learner_profile, mockDashboard.learner_profile)
@@ -311,6 +332,7 @@ function normalizeDashboard(value: unknown): DashboardPayload {
     recent_tutor_summary: asStringArray(record.recent_tutor_summary, mockDashboard.recent_tutor_summary),
     growth_trend: normalizeTrend(record.growth_trend, profile.growth_trend),
     active_model: normalizeModel(record.active_model, mockDashboard.active_model),
+    model_admission_state: normalizeAdmissionState(record.model_admission_state, mockDashboard.model_admission_state),
     safety_notice: asString(record.safety_notice, safetyNotice),
     mock_evaluation_notice: asString(record.mock_evaluation_notice, mockDashboard.mock_evaluation_notice),
     reference_inspirations: asStringArray(record.reference_inspirations, mockDashboard.reference_inspirations),
@@ -500,6 +522,8 @@ function normalizeModelAdmission(value: unknown, fallback: ModelAdmissionResult)
       : fallback.evidence,
     provider_status: normalizeProviderStatus(record.provider_status, fallback.provider_status),
     recommendation: asString(record.recommendation, fallback.recommendation),
+    platform_state_updated: asBoolean(record.platform_state_updated, fallback.platform_state_updated),
+    platform_state_summary: typeof record.platform_state_summary === 'string' ? record.platform_state_summary : fallback.platform_state_summary,
     doctor_review_required: true,
     safety_notice: asString(record.safety_notice, safetyNotice),
     created_at: asString(record.created_at, fallback.created_at),
@@ -842,6 +866,14 @@ export const api = {
     return response.items
   },
 
+  async modelAdmissionState(): Promise<ModelAdmissionState> {
+    const response = await request<{ item: ModelAdmissionState; safety_notice: string }>('/api/models/admission-state', undefined, {
+      item: mockDashboard.model_admission_state,
+      safety_notice: safetyNotice,
+    })
+    return normalizeAdmissionState(response.item, mockDashboard.model_admission_state)
+  },
+
   async modelAdmissionTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string; sampleIds: string[]; focus: string[] }): Promise<ModelAdmissionResult> {
     const fallback: ModelAdmissionResult = {
       id: `admission_local_${Date.now()}`,
@@ -862,6 +894,8 @@ export const api = {
         error: 'backend_unavailable',
       },
       recommendation: '请先连通后端并配置 Provider，再运行真实准入探测。',
+      platform_state_updated: false,
+      platform_state_summary: '当前为前端 fallback 准入结果，未写入后端平台状态。',
       doctor_review_required: true,
       safety_notice: safetyNotice,
       created_at: new Date().toISOString(),

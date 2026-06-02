@@ -17,9 +17,9 @@
 | 训练题库 | 公开样例优先、支持筛选/收藏/错题，考试模式有 12 分钟倒计时 | `questions.json`, `real_sample_knowledge.json`, `learner_profile.json` | 右侧 chat 可调用 Provider，失败后规则辅导 | 可继续补完整 exam session 保存与成绩单 |
 | 右侧 Agent | `辅导/证据/对照` 三段式面板，提交前隐藏参考答案；追问回灌训练事件 | 当前题、atomic facts、公开图片 URL | `tutor_orchestrator.chat` 调用 Provider | 仅保存题号/标签/模式，不保存医师追问原文；后续可做更细的会话摘要 |
 | 报告中心 | 公开样例、上传图片、结构化报告草稿、幻觉审查、报告修改评分 | 医生输入、公开样例标注、模板 KB、上传图片 | `report_service` 可生成视觉/文本观察摘要 | 报告 judge 规则评分已回灌画像，后续可接 Provider judge |
-| 模型准入 | 公开样例探测、维度评分、证据摘录 | `real_sample_knowledge.json` | 有 key 或 `.env` 时调用 Provider；否则规则草案 | 未做批量多样本评测和统计置信区间 |
+| 模型准入 | 公开样例探测、维度评分、证据摘录，并写入最近准入摘要 | `real_sample_knowledge.json`, `model_admission_state.json` | 有 key 或 `.env` 时调用 Provider；否则规则草案 | 未做批量多样本评测和统计置信区间 |
 | 科普卡片 | 卡片模板、真实样例图片预览、动画卡片 | `card_template_knowledge.json` + 医师输入摘要 | 暂不调用 Provider | 可加入医生审核工作流 |
-| Memory | 提交题目、报告 judge、Agent 追问后更新训练记录、能力分、弱项标签 | `learner_profile.json` | 不调用 Provider | 模型准入结果未统一写入画像 |
+| Memory | 提交题目、报告 judge、Agent 追问后更新训练记录、能力分、弱项标签 | `learner_profile.json` | 不调用 Provider | 模型准入写入平台状态，但不写入医师能力画像 |
 | Audit | 记录题目、答题、辅导、报告、上传、准入 | `audit_logs.json` | 不记录 key 或原始敏感输入 | 需要区分 demo smoke 与正式演示日志 |
 
 ## 密钥和图片安全

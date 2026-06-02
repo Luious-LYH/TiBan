@@ -41,6 +41,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | GET | `/models` | 模型库 mock 看板 |
 | POST | `/models/select` | 选择默认 mock 模型 |
 | POST | `/models/admission-test` | 使用公开样例做 Provider/规则准入探测 |
+| GET | `/models/admission-state` | 最近一次模型准入摘要，不包含 key 或完整模型回复 |
 | GET | `/skills` | Skills 列表 |
 | POST | `/skills/run` | 运行受控 skill |
 | GET | `/audit` | 审计日志 |
@@ -128,6 +129,17 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
   "test_focus": ["基础识别", "错误前提", "报告安全"]
 }
 ```
+
+模型准入成功返回后会写入平台摘要状态：
+
+```json
+{
+  "platform_state_updated": true,
+  "platform_state_summary": "最近准入状态已更新：自定义多模态 API · Grade A · provider。"
+}
+```
+
+最近准入摘要只保存 `provider_name`、`grade`、`total_score`、`mode`、`tested_samples`、`risk_items` 和 `recommendation`，不保存 API key、API base 或完整模型回复。
 
 运行 skill：
 

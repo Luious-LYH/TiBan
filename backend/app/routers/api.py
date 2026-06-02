@@ -240,6 +240,11 @@ def model_admission_test(request: ModelAdmissionTestRequest) -> dict[str, object
     return model_service.admission_test(request).model_dump()
 
 
+@router.get("/models/admission-state")
+def model_admission_state() -> dict[str, object]:
+    return {"item": model_service.admission_state(), "safety_notice": SAFETY_NOTICE}
+
+
 @router.get("/skills")
 def list_skills() -> dict[str, object]:
     skills = skill_registry.list_skills()

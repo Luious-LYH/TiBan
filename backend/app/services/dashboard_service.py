@@ -8,6 +8,7 @@ class DashboardService:
     def get_dashboard(self) -> dict[str, object]:
         profile = memory_service.get_profile()
         active_model = model_service.active_model()
+        admission_state = model_service.admission_state()
         questions = question_service.list_questions()
         wrong_set = set(profile.wrong_questions or profile.recent_errors)
         favorite_set = set(profile.favorite_questions)
@@ -50,6 +51,7 @@ class DashboardService:
             ],
             "growth_trend": profile.growth_trend,
             "active_model": active_model.model_dump(),
+            "model_admission_state": admission_state,
             "safety_notice": SAFETY_NOTICE,
             "mock_evaluation_notice": "模型能力分为演示 mock 和接口预留，不代表真实临床评测结果。",
             "reference_inspirations": [

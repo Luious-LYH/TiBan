@@ -37,6 +37,9 @@ class ModelService:
                 return model
         return self.list_models()[0]
 
+    def admission_state(self) -> dict[str, object]:
+        return read_json("model_admission_state.json")
+
     def admission_test(self, request: ModelAdmissionTestRequest) -> ModelAdmissionTestResponse:
         samples = read_json("real_sample_knowledge.json")
         selected = request.selected_sample_ids or [item["id"] for item in samples[:5]]
@@ -117,18 +120,40 @@ class ModelService:
             evidence=evidence,
             provider_status=provider_result.public_status(),
             recommendation="已完成一次真实 Provider 探测，可作为训练 Agent 候选进入人工复核。" if provider_called and total >= 80 else "建议继续补测错误前提、报告安全和接口稳定性后再准入。",
+            platform_state_updated=True,
+            platform_state_summary=f"最近准入状态已更新：{request.provider_name} · Grade {grade} · {'provider' if provider_called else 'rule'}。",
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
         )
+        self._save_admission_state(response)
         audit_service.log(
-            "model_select",
+            "model_admission",
             user_id="admin_demo",
             entity_id=response.id,
             summary=f"执行模型准入测试：{request.provider_name}，模式 {'provider' if provider_called else 'rule'}，等级 {grade}。",
             risk_level="medium",
         )
         return response
+
+    def _save_admission_state(self, response: ModelAdmissionTestResponse) -> None:
+        write_json(
+            "model_admission_state.json",
+            {
+                "updated_at": response.created_at,
+                "last_admission_id": response.id,
+                "provider_name": response.provider_name,
+                "grade": response.grade,
+                "total_score": response.total_score,
+                "mode": response.provider_status.get("mode", "rule"),
+                "provider_called": response.provider_called,
+                "is_mock": response.is_mock,
+                "tested_samples": response.tested_samples[:8],
+                "risk_items": response.risk_items[:5],
+                "recommendation": response.recommendation,
+                "safe_for_training": response.provider_called and response.total_score >= 80,
+            },
+        )
 
 
 model_service = ModelService()

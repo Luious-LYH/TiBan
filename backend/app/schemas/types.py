@@ -288,6 +288,8 @@ class ModelAdmissionTestResponse(BaseModel):
     evidence: list[dict[str, Any]] = Field(default_factory=list)
     provider_status: dict[str, Any] = Field(default_factory=dict)
     recommendation: str
+    platform_state_updated: bool = False
+    platform_state_summary: str | None = None
     doctor_review_required: bool = True
     safety_notice: str
     created_at: str
@@ -310,6 +312,7 @@ class AuditLog(BaseModel):
         "patient_card",
         "skill_run",
         "model_select",
+        "model_admission",
         "favorite_update",
         "image_upload",
         "safety_warning",

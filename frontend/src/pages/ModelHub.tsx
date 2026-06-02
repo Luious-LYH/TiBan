@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { KeyRound, PlugZap, ShieldAlert, TestTube2 } from 'lucide-react'
+import { ActivitySquare, KeyRound, PlugZap, ShieldAlert, TestTube2 } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
-import type { ModelAdmissionResult, ModelProfile, ProviderStatus, Question } from '../lib/types'
+import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderStatus, Question } from '../lib/types'
 
 const scoreLabels: Record<string, string> = {
   basic_recognition: '基础识别',
@@ -27,9 +27,11 @@ export function ModelHub() {
   const [focus, setFocus] = useState<string[]>(['基础识别', '错误前提', '报告安全'])
   const [selectedSamples, setSelectedSamples] = useState<string[]>([])
   const [result, setResult] = useState<ModelAdmissionResult | null>(null)
+  const [admissionState, setAdmissionState] = useState<ModelAdmissionState | null>(null)
 
   useEffect(() => {
     api.models().then((items) => setModels(items))
+    api.modelAdmissionState().then(setAdmissionState).catch(() => undefined)
     api.providerStatus().then((status) => {
       setProviderStatus(status)
       if (status.model) setModel((current) => current || status.model)
@@ -42,14 +44,31 @@ export function ModelHub() {
   }, [])
 
   const runAdmission = async () => {
-    setResult(await api.modelAdmissionTest({
+    const admission = await api.modelAdmissionTest({
       providerName,
       apiBase,
       apiKey: apiKey.trim() || undefined,
       model: model.trim() || undefined,
       sampleIds: selectedSamples,
       focus,
-    }))
+    })
+    setResult(admission)
+    if (admission.platform_state_updated) {
+      setAdmissionState({
+        updated_at: admission.created_at,
+        last_admission_id: admission.id,
+        provider_name: admission.provider_name,
+        grade: admission.grade,
+        total_score: admission.total_score,
+        mode: admission.provider_status.mode || (admission.provider_called ? 'provider' : 'rule'),
+        provider_called: admission.provider_called,
+        is_mock: admission.is_mock,
+        tested_samples: admission.tested_samples,
+        risk_items: admission.risk_items,
+        recommendation: admission.recommendation,
+        safe_for_training: admission.provider_called && admission.total_score >= 80,
+      })
+    }
   }
 
   const toggleFocus = (item: string) => {
@@ -85,6 +104,23 @@ export function ModelHub() {
           <div><span>密钥状态</span><strong>{providerStatus?.api_key_configured ? '后端已配置' : '页面临时输入或未配置'}</strong></div>
         </div>
       </Card>
+
+      {admissionState ? (
+        <Card className="provider-status-card">
+          <SectionTitle
+            eyebrow="Platform admission state"
+            title="平台最近准入摘要"
+            action={<Tag tone={admissionState.safe_for_training ? 'green' : 'amber'}>{admissionState.safe_for_training ? '可人工复核启用' : '规则/待复核'}</Tag>}
+          />
+          <div className="status-grid">
+            <div><span>Provider</span><strong>{admissionState.provider_name}</strong></div>
+            <div><span>等级</span><strong>Grade {admissionState.grade} · {admissionState.total_score}</strong></div>
+            <div><span>模式</span><strong>{admissionState.provider_called ? 'provider called' : admissionState.mode}</strong></div>
+            <div><span>样例数</span><strong>{admissionState.tested_samples.length}</strong></div>
+          </div>
+          <div className="source-note">{admissionState.recommendation}</div>
+        </Card>
+      ) : null}
 
       <div className="grid two">
         <Card>
@@ -173,6 +209,13 @@ export function ModelHub() {
                 <p>{item.observation_excerpt || item.error || item.question || '暂无样例级证据。'}</p>
               </div>
             ))}
+          </div>
+          <div className={`memory-sync-card ${result.platform_state_updated ? 'synced' : 'fallback'}`}>
+            <ActivitySquare size={18} />
+            <div>
+              <strong>{result.platform_state_updated ? '已写入平台准入状态' : '未写入平台准入状态'}</strong>
+              <span>{result.platform_state_summary || '当前结果仅在本页展示，未影响训练驾驶舱。'}</span>
+            </div>
           </div>
         </Card>
       ) : null}
