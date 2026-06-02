@@ -1023,6 +1023,67 @@ textarea {
   gap: 14px;
 }
 
+.report-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.report-status-grid div,
+.ledger-list div,
+.audit-pass {
+  padding: 12px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.report-status-grid span,
+.ledger-list span,
+.audit-pass span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.report-status-grid strong,
+.ledger-list strong,
+.audit-pass strong {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.ledger-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ledger-list p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.audit-pass {
+  margin-bottom: 12px;
+}
+
+.audit-pass.pass {
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: #99f6e4;
+}
+
+.audit-pass.fail {
+  color: var(--red);
+  background: var(--red-soft);
+  border-color: #fecdd3;
+}
+
 .draft-block {
   padding: 14px;
   background: var(--panel-soft);
@@ -1553,6 +1614,7 @@ textarea {
 
   .grid.two,
   .draft-grid,
+  .report-status-grid,
   .form-row,
   .rubric-grid,
   .card-info-grid,

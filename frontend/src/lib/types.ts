@@ -135,6 +135,29 @@ export type ReportDraft = {
   uncertainty_notes: string[]
   template_name: string
   evidence_source: string[]
+  draft_status: 'ai_draft' | 'needs_human_review' | 'reviewed' | 'signed'
+  exam_context: Record<string, unknown>
+  image_quality: {
+    clarity?: string
+    artifacts?: string[]
+    single_frame_limitation?: boolean
+    [key: string]: unknown
+  }
+  evidence_ledger: {
+    evidence_id: string
+    source_type: string
+    source_ref: string
+    supports: string[]
+  }[]
+  hallucination_audit: {
+    audit_passed?: boolean
+    unsupported_claims?: string[]
+    high_risk_flags?: string[]
+    required_rewrites?: string[]
+    evidence_policy?: string
+    [key: string]: unknown
+  }
+  review_tasks: string[]
   doctor_review_required: true
   safety_notice: string
   created_at: string

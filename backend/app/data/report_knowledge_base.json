@@ -33,7 +33,64 @@
         "是否避免治疗承诺"
       ],
       "max_score": 100
+    },
+    {
+      "name": "单帧图像报告草稿模板",
+      "sections": [
+        "检查信息缺失说明",
+        "图像质量",
+        "内镜所见",
+        "谨慎诊断印象",
+        "证据引用",
+        "局限性与医师复核"
+      ],
+      "review_required": true
+    },
+    {
+      "name": "可信报告审查规则",
+      "criteria": [
+        "不得从单帧图像推断完整检查范围",
+        "不得编造患者信息、病理、活检、切除或治疗",
+        "疑似病变必须使用考虑/待排/需复核",
+        "每条关键声明必须关联图像或上下文证据",
+        "高风险诊断词必须进入医师复核任务"
+      ],
+      "max_score": 100
     }
+  ],
+  "evidence_levels": [
+    {
+      "id": "image_supported",
+      "name": "图像直接支持",
+      "allowed": true
+    },
+    {
+      "id": "context_supported",
+      "name": "检查上下文支持",
+      "allowed": true
+    },
+    {
+      "id": "derived_cautious",
+      "name": "保守推断，必须写考虑/待排",
+      "allowed": true
+    },
+    {
+      "id": "unsupported",
+      "name": "无证据支持，不应进入报告",
+      "allowed": false
+    },
+    {
+      "id": "contradicted",
+      "name": "与图像或上下文冲突，必须删除",
+      "allowed": false
+    }
+  ],
+  "review_actions": [
+    "confirm",
+    "edit",
+    "reject",
+    "request_more_images",
+    "sign"
   ],
   "sample_findings": [
     "胃窦黏膜充血，可见散在糜烂，未见明确活动性出血。",

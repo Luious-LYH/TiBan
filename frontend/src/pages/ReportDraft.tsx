@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
-import { ClipboardCheck, FileImage, FileText, Gauge, ShieldCheck, WandSparkles } from 'lucide-react'
+import { ClipboardCheck, FileImage, FileText, Gauge, ListChecks, ShieldAlert, ShieldCheck, WandSparkles } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import type { KnowledgeBase, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
@@ -51,7 +51,7 @@ export function ReportDraft() {
         <div>
           <span className="eyebrow">Report training center</span>
           <h2>诊断报告中心</h2>
-          <p>面向内镜医师训练结构化所见、诊断边界和审核前表达。可上传图片做演示占位，也可仅根据知识库模板生成训练报告。</p>
+          <p>面向内镜医师训练结构化所见、诊断边界和审核前表达。当前流程参考“视觉观察、报告草稿、字段约束、幻觉审查、医师复核”的可信报告流水线。</p>
         </div>
         <FileText size={42} />
       </Card>
@@ -98,25 +98,66 @@ export function ReportDraft() {
           </div>
           <div className="notice-card">
             <ClipboardCheck size={20} />
-            <p>报告中心只输出医生审核前训练模板，不独立生成最终诊断，不给治疗承诺。</p>
+            <p>报告中心只输出医生审核前训练模板，不独立生成最终诊断，不给治疗承诺；单帧图像不得生成完整检查范围或未观察区域阴性结论。</p>
           </div>
         </Card>
       </div>
 
       {draft ? (
-        <Card>
-          <SectionTitle eyebrow={draft.template_name} title="结构化报告输出" action={<Tag tone="red">需医生审核</Tag>} />
-          <div className="draft-grid">
-            <DraftList icon={<FileText size={18} />} title="结构化所见" items={draft.structured_findings} />
-            <DraftList icon={<ClipboardCheck size={18} />} title="草稿印象" items={draft.draft_impression} />
-            <DraftList title="复核点" items={draft.review_points} />
-            <DraftList title="不确定性说明" items={draft.uncertainty_notes} />
+        <div className="page-stack">
+          <Card>
+            <SectionTitle eyebrow={draft.template_name} title="结构化报告输出" action={<Tag tone="red">需医生审核</Tag>} />
+            <div className="report-status-grid">
+              <div><span>草稿状态</span><strong>{draft.draft_status}</strong></div>
+              <div><span>检查类型</span><strong>{String(draft.exam_context.exam_type || draft.exam_type)}</strong></div>
+              <div><span>图像质量</span><strong>{draft.image_quality.clarity || 'unknown'}</strong></div>
+              <div><span>单帧限制</span><strong>{draft.image_quality.single_frame_limitation ? '是' : '否'}</strong></div>
+            </div>
+            <div className="draft-grid">
+              <DraftList icon={<FileText size={18} />} title="结构化所见" items={draft.structured_findings} />
+              <DraftList icon={<ClipboardCheck size={18} />} title="草稿印象" items={draft.draft_impression} />
+              <DraftList title="复核点" items={draft.review_points} />
+              <DraftList title="不确定性说明" items={draft.uncertainty_notes} />
+            </div>
+            <div className="tag-row">
+              {draft.evidence_source.map((item) => <Tag key={item} tone="blue">{item}</Tag>)}
+            </div>
+            <div className="safety-mini">{draft.safety_notice}</div>
+          </Card>
+
+          <div className="grid two">
+            <Card>
+              <SectionTitle eyebrow="Evidence ledger" title="证据台账与图像质量" action={<ListChecks size={20} />} />
+              <div className="ledger-list">
+                {draft.evidence_ledger.map((item) => (
+                  <div key={item.evidence_id}>
+                    <span>{item.evidence_id} · {item.source_type}</span>
+                    <strong>{item.source_ref}</strong>
+                    <p>{item.supports.join(' / ')}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="tag-row">
+                {(draft.image_quality.artifacts || []).map((item) => <Tag key={item} tone="amber">{item}</Tag>)}
+              </div>
+              <div className="notice-card">
+                <FileImage size={20} />
+                <p>{String(draft.exam_context.missing_context_note || '缺少完整上下文，需医师补充。')}</p>
+              </div>
+            </Card>
+
+            <Card>
+              <SectionTitle eyebrow="Hallucination audit" title="幻觉审查与医师复核" action={<ShieldAlert size={20} />} />
+              <div className={`audit-pass ${draft.hallucination_audit.audit_passed ? 'pass' : 'fail'}`}>
+                <strong>{draft.hallucination_audit.audit_passed ? '未发现单帧范围幻觉' : '存在需改写声明'}</strong>
+                <span>{draft.hallucination_audit.evidence_policy || '证据约束策略已启用'}</span>
+              </div>
+              <DraftList title="高风险标记" items={draft.hallucination_audit.high_risk_flags?.length ? draft.hallucination_audit.high_risk_flags : ['暂无高风险词']} />
+              <DraftList title="必须改写" items={draft.hallucination_audit.required_rewrites?.length ? draft.hallucination_audit.required_rewrites : ['暂无强制改写项']} />
+              <DraftList title="医师复核任务" items={draft.review_tasks} />
+            </Card>
           </div>
-          <div className="tag-row">
-            {draft.evidence_source.map((item) => <Tag key={item} tone="blue">{item}</Tag>)}
-          </div>
-          <div className="safety-mini">{draft.safety_notice}</div>
-        </Card>
+        </div>
       ) : null}
 
       <div className="grid two">

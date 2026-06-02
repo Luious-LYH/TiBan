@@ -1,4 +1,5 @@
 from uuid import uuid4
+import re
 
 from app.core.config import SAFETY_NOTICE
 from app.schemas import (
@@ -12,6 +13,19 @@ from app.schemas import (
 from app.services.audit_service import audit_service, now_iso
 from app.services.data_store import read_json
 from app.services.safety_service import safety_service
+
+
+HIGH_RISK_TERMS = ["癌", "恶性", "早癌", "高级别", "活动性出血", "穿孔", "切除", "活检", "病理"]
+UNSUPPORTED_SINGLE_FRAME_PATTERNS = [
+    r"全结肠.*未见",
+    r"全胃.*未见",
+    r"观察范围包括",
+    r"到达.*回盲部",
+    r"退镜时间",
+    r"病理提示",
+    r"已行.*切除",
+    r"已取.*活检",
+]
 
 
 class ReportService:
@@ -34,12 +48,19 @@ class ReportService:
             "检查是否存在“明确诊断”“必须治疗”等过强表述。",
             "必要时补充活检、病理或其他检查结果。",
         ]
+        single_frame = bool(request.image_name)
+        image_quality = self._image_quality(request.image_name, findings)
+        exam_context = self._exam_context(request.exam_type, request.image_name)
+        draft_impression = self._draft_impression(findings)
+        audit = self._hallucination_audit([*findings, *draft_impression], single_frame=single_frame)
+        evidence_ledger = self._evidence_ledger(request, findings, draft_impression)
+        review_tasks = self._review_tasks(audit, request.image_name)
         draft = ReportDraft(
             id=f"report_{uuid4().hex[:12]}",
             input_finding_text=text,
             exam_type=request.exam_type,
             structured_findings=findings,
-            draft_impression=self._draft_impression(findings),
+            draft_impression=draft_impression,
             review_points=review_points,
             uncertainty_notes=uncertainty_notes,
             template_name=request.template_name or self._template_name(kb, request.exam_type),
@@ -48,6 +69,12 @@ class ReportService:
                 "图片上传占位" if request.image_name else "未上传图片",
                 "report_knowledge_base.json",
             ],
+            draft_status="needs_human_review",
+            exam_context=exam_context,
+            image_quality=image_quality,
+            evidence_ledger=evidence_ledger,
+            hallucination_audit=audit,
+            review_tasks=review_tasks,
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
@@ -170,6 +197,88 @@ class ReportService:
         if not impressions:
             impressions.append("已按输入所见生成结构化草稿，正式印象需医生复核。")
         return impressions
+
+    def _exam_context(self, exam_type: str, image_name: str | None) -> dict[str, object]:
+        return {
+            "exam_type": exam_type,
+            "patient_context_available": False,
+            "procedure_context_available": False,
+            "missing_context_note": (
+                "仅提供单帧图片占位；患者信息、适应证、完整检查范围、操作记录、病理结果均未提供。"
+                if image_name
+                else "未上传图片；当前仅根据医生输入文本和模板知识库生成训练草稿。"
+            ),
+            "single_frame": bool(image_name),
+        }
+
+    def _image_quality(self, image_name: str | None, findings: list[str]) -> dict[str, object]:
+        artifacts = ["reflection"] if image_name else ["unknown"]
+        clarity = "acceptable" if image_name else "unknown"
+        if any("模糊" in item or "遮挡" in item for item in findings):
+            clarity = "poor"
+            artifacts.append("occlusion")
+        return {
+            "clarity": clarity,
+            "artifacts": list(dict.fromkeys(artifacts)),
+            "single_frame_limitation": bool(image_name),
+        }
+
+    def _evidence_ledger(self, request: ReportDraftRequest, findings: list[str], impressions: list[str]) -> list[dict[str, object]]:
+        source_ref = request.image_name or "report_knowledge_base.json"
+        return [
+            {
+                "evidence_id": "img_001" if request.image_name else "kb_001",
+                "source_type": "image" if request.image_name else "procedure_context",
+                "source_ref": source_ref,
+                "supports": [*findings[:3], *impressions[:2]] or ["结构化报告模板训练样例"],
+            }
+        ]
+
+    def _hallucination_audit(self, statements: list[str], *, single_frame: bool) -> dict[str, object]:
+        text = "；".join(statements)
+        unsupported: list[str] = []
+        rewrites: list[str] = []
+        if single_frame:
+            for pattern in UNSUPPORTED_SINGLE_FRAME_PATTERNS:
+                if re.search(pattern, text):
+                    unsupported.append(pattern)
+                    rewrites.append("删除或改写单帧图像无法支持的完整检查声明。")
+        high_risk = [term for term in HIGH_RISK_TERMS if self._is_asserted_risk(text, term)]
+        if high_risk:
+            rewrites.append("高风险词必须有明确上下文或医师确认；否则降级为“考虑/待排/需复核”。")
+        return {
+            "audit_passed": not unsupported,
+            "unsupported_claims": unsupported,
+            "high_risk_flags": high_risk,
+            "required_rewrites": list(dict.fromkeys(rewrites)),
+            "evidence_policy": "image_supported/context_supported/derived_cautious only",
+        }
+
+    def _is_asserted_risk(self, text: str, term: str) -> bool:
+        cursor = 0
+        while True:
+            index = text.find(term, cursor)
+            if index == -1:
+                return False
+            prefix = text[max(0, index - 8):index]
+            if not any(token in prefix for token in ["未见", "无", "未发现", "未明确"]):
+                return True
+            cursor = index + len(term)
+
+    def _review_tasks(self, audit: dict[str, object], image_name: str | None) -> list[str]:
+        tasks = [
+            "确认检查类型、病灶解剖部位和完整检查范围。",
+            "确认病灶数量、大小、形态分型和是否存在多视角证据。",
+            "确认是否已有活检、切除或病理结果；未提供时不得写入正式报告。",
+            "签发前逐条核对证据台账与报告声明。",
+        ]
+        if image_name:
+            tasks.insert(0, "当前仅为单帧图片占位，不能写全胃/全结肠阴性结论。")
+        if audit.get("high_risk_flags"):
+            tasks.insert(0, "高风险诊断或操作词已标记，需医师确认或降级表达。")
+        if audit.get("unsupported_claims"):
+            tasks.insert(0, "存在单帧无法支持的声明，需删除或改写。")
+        return tasks
 
     def _default_finding(self, kb: dict) -> str:
         samples = kb.get("sample_findings", [])

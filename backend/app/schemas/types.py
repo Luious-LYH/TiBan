@@ -162,6 +162,12 @@ class ReportDraft(BaseModel):
     uncertainty_notes: list[str]
     template_name: str = "胃镜结构化训练模板"
     evidence_source: list[str] = Field(default_factory=list)
+    draft_status: Literal["ai_draft", "needs_human_review", "reviewed", "signed"] = "needs_human_review"
+    exam_context: dict[str, Any] = Field(default_factory=dict)
+    image_quality: dict[str, Any] = Field(default_factory=dict)
+    evidence_ledger: list[dict[str, Any]] = Field(default_factory=list)
+    hallucination_audit: dict[str, Any] = Field(default_factory=dict)
+    review_tasks: list[str] = Field(default_factory=list)
     doctor_review_required: bool = True
     safety_notice: str
     created_at: str
