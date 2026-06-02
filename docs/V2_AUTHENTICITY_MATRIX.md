@@ -15,10 +15,12 @@
 | 模块 | 当前实现 | 真实来源 | Provider 使用 | 仍需改进 |
 |---|---|---|---|---|
 | 训练题库 | 公开样例优先、支持筛选/收藏/错题，考试模式有 12 分钟倒计时 | `questions.json`, `real_sample_knowledge.json`, `learner_profile.json` | 右侧 chat 可调用 Provider，失败后规则辅导 | 可继续补完整 exam session 保存与成绩单 |
-| 右侧 Agent | `辅导/证据/对照` 三段式面板，提交前隐藏参考答案；追问回灌训练事件 | 当前题、atomic facts、公开图片 URL | `tutor_orchestrator.chat` 调用 Provider | 仅保存题号/标签/模式，不保存医师追问原文；后续可做更细的会话摘要 |
-| 报告中心 | 公开样例、上传图片、结构化报告草稿、幻觉审查、报告修改评分 | 医生输入、公开样例标注、模板 KB、上传图片 | `report_service` 可生成视觉/文本观察摘要 | 报告 judge 规则评分已回灌画像，后续可接 Provider judge |
+| 右侧 Agent | `辅导/证据/对照` 三段式面板，提交前隐藏参考答案；挑战模式提交前锁住证据页；追问回灌训练事件 | 当前题、atomic facts、公开图片 URL | `tutor_orchestrator.chat` 调用 Provider | 仅保存题号/标签/模式，不保存医师追问原文；后续可做更细的会话摘要 |
+| 错误前提训练 | 医师先独立作答，提交后解锁证据不足事实、原子证据、得分和复盘建议 | false-premise 题库、atomic facts、公开图像 | 不直接调用 Provider；可作为模型准入样例 | 后续可加入限时 drill 和更多拒答题型 |
+| 报告中心 | 首屏展示数据来源、Provider、模板；公开 VQA 标注默认收进来源台账；支持上传图片、结构化报告草稿、幻觉审查、报告修改评分 | 医生输入、公开样例来源台账、模板 KB、上传图片 | `report_service` 可生成视觉/文本观察摘要 | 报告 judge 规则评分已回灌画像，后续可接 Provider judge |
 | 模型准入 | 公开样例探测、维度评分、证据摘录，并写入最近准入摘要 | `real_sample_knowledge.json`, `model_admission_state.json` | 有 key 或 `.env` 时调用 Provider；否则规则草案 | 未做批量多样本评测和统计置信区间 |
-| 科普卡片 | 卡片模板、真实样例图片预览、动画卡片 | `card_template_knowledge.json` + 医师输入摘要 | 暂不调用 Provider | 可加入医生审核工作流 |
+| 科普卡片 | 卡片模板、真实样例图片预览、动画卡片、本机图片预览、打印与分享文案 | `card_template_knowledge.json` + 医师输入摘要 | 暂不调用 Provider | 可加入医生审核工作流 |
+| Skills | 受控技能列表、运行样例选择、运行摘要、医生复核状态、工作区跳转；完整 JSON 折叠展示 | `skills.json` + 题库/报告/卡片/安全服务 | 取决于具体 skill 调用的服务 | 后续可加启停配置持久化和权限角色 |
 | Memory | 提交题目、报告 judge、Agent 追问后更新训练记录、能力分、弱项标签 | `learner_profile.json` | 不调用 Provider | 模型准入写入平台状态，但不写入医师能力画像 |
 | Audit | 记录题目、答题、辅导、报告、上传、准入 | `audit_logs.json` | 不记录 key 或原始敏感输入 | 需要区分 demo smoke 与正式演示日志 |
 
@@ -33,4 +35,4 @@
 
 ## 答辩时建议说法
 
-本平台不是把所有能力伪装成“已完成临床级 AI”。v2.0 的核心进步是：每个输出都能说明它来自真实 Provider、后端规则，还是 fallback；报告中心能追踪医生输入、公开样例标注、模板知识库和 Provider 观察；模型准入能做一次真实 OpenAI-compatible 调用探测，但完整评测流水线仍按需求暂缓。
+本平台不是把所有能力伪装成“已完成临床级 AI”。v2.0 的核心进步是：每个输出都能说明它来自真实 Provider、后端规则，还是 fallback；训练中心提交前不泄露参考答案，挑战模式提交前锁住证据页；报告中心能追踪医生输入、公开样例来源台账、模板知识库和 Provider 观察；模型准入能做一次真实 OpenAI-compatible 调用探测，但完整评测流水线仍按需求暂缓。

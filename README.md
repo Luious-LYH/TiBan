@@ -1,6 +1,6 @@
 # 内镜智训Agent
 
-面向消化道内镜医师培训的智能辅导平台。当前版本实现可运行、可演示、可答辩的 Web 原型：题库训练、右侧 Agent 辅导、答案讲解、原子事实错因反馈、错误前提训练、诊断报告草稿、图片上传、公开样例知识库、科普卡片、Skills 中心、Memory、模型准入探测和审计日志。
+面向消化道内镜医师培训的智能辅导平台。当前 v2.0 实现可运行、可演示、可答辩的 Web 原型：训练驾驶舱、题库/错题/收藏/考试、右侧 Agent 辅导、Doctor vs AI/公开标注比拼、交互式错误前提训练、诊断报告中心、报告修改训练、医师画像、科普卡片、受控 Skills、Memory、模型准入探测和审计日志。
 
 > 本项目仅用于教学训练和医生审核前辅助，不替代临床诊断。真实评测流水线暂未开发；v2.0 支持 OpenAI-compatible Provider 连通性/教学推理探测，并在 UI 中明确标出 `provider`、`rule`、`fallback` 模式。
 
@@ -46,23 +46,28 @@ LLM_TIMEOUT_SECONDS=25
 
 不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页也支持临时输入 key 进行一次请求级探测，但不会保存或写入审计日志。
 
-## 演示路径
+## v2.0 演示路径
 
 1. 首页总览：先看“平台真实性与演示路径”，确认后端、公开样例、画像、报告知识库、Provider 和模型准入状态。
-2. 训练中心：右侧 Agent 默认只辅导当前题，不提前泄露参考答案；提交后解锁公开标注/AI 对照。
+2. 训练中心：右侧 Agent 默认只辅导当前题，不提前泄露参考答案；Doctor vs AI 模式提交前锁住证据页，提交后解锁公开标注/AI 对照。
 3. 错因分析：查看 atomic facts、错因标签和下一题推荐。
-4. 报告中心：选择真实公开样例或上传图片，生成结构化草稿，并查看医生输入、公开样例、模板 KB、Provider 输出来源追踪。
-5. 报告修改训练：AI judge 评分后回灌林知远医师画像。
-6. 模型准入：使用公开样例做真实/规则准入探测，查看 Provider 调用证据、延迟、风险项和平台最近准入摘要。
-7. 科普卡片、Skills、审计日志：展示患者沟通、受控 skill 和关键事件记录。
+4. 错误前提训练：先让林知远医师独立判断题干是否成立，提交后才解锁证据不足事实、得分和复盘建议。
+5. 报告中心：选择真实公开样例或上传图片，先看数据来源/Provider/模板状态，再生成结构化草稿；公开 VQA 标注默认收进来源台账，不伪装成医生报告结论。
+6. 报告修改训练：AI judge 评分后回灌林知远医师画像。
+7. 模型准入：使用公开样例做真实/规则准入探测，查看 Provider 调用证据、延迟、风险项和平台最近准入摘要。
+8. 科普卡片、Skills、审计日志：展示患者沟通卡片、受控 skill 运行摘要和关键事件记录。
+
+详细操作手册见 [docs/V2_USER_GUIDE.md](docs/V2_USER_GUIDE.md)。
 
 ## 功能真实性矩阵
 
 | 模块 | v2.0 模式 | 数据来源 | 说明 |
 |---|---|---|---|
 | 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` | 公开样例优先展示，支持错题/收藏/筛选；考试模式有倒计时 |
-| 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案；追问会回灌训练事件但不保存原文 |
-| 报告中心 | provider / rule / fallback | 医生输入、公开样例标注、模板 KB、上传图片 | `source_trace` 和 `evidence_ledger` 显示每条来源 |
+| 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案；挑战模式提交前锁住证据页；追问会回灌训练事件但不保存原文 |
+| 错误前提训练 | backend rule | false-premise 题库 + atomic facts | 先作答后解锁证据不足事实、得分和复盘建议 |
+| 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 首屏展示数据/Provider/模板状态，`source_trace` 和 `evidence_ledger` 显示每条来源 |
+| Skills 中心 | backend rule | `skills.json` + 当前题/报告/卡片服务 | 页面展示运行摘要、审核状态和工作区跳转；完整 JSON 仅放在开发细节折叠项 |
 | 模型准入 | provider probe / rule draft | 公开样例 + 可选 Provider | 真实调用成功才标记 `provider_called=true`；最近准入摘要会写入平台状态，不保存 key |
 | 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB | 带审核状态和免责声明 |
 | Memory | rule persistence | `learner_profile.json` | 提交题目、报告 judge 和 Agent 追问都会更新训练记录、能力分与弱项标签 |
