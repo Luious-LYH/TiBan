@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ActivitySquare, Bookmark, Bot, CheckCircle2, Clock, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, ShieldAlert, Trophy } from 'lucide-react'
+import { ActivitySquare, Bookmark, Bot, CheckCircle2, Clock, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Trophy } from 'lucide-react'
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
@@ -322,14 +322,6 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                   <button className="icon-button" type="button" onClick={askAgent} title="发送追问">
                     <MessageSquare size={17} />
                   </button>
-                </div>
-                <div className="agent-mini-actions">
-                  <button className="button secondary" type="button" onClick={askHint} disabled={loading}>
-                    <Lightbulb size={16} /> 追问提示
-                  </button>
-                  <a className="button secondary" href="/feedback">
-                    <ShieldAlert size={16} /> 错因复盘
-                  </a>
                 </div>
                 <div className={`agent-memory-sync ${memorySync.includes('未写入') || memorySync.includes('不可用') ? 'pending' : 'synced'}`}>
                   <ActivitySquare size={17} />
