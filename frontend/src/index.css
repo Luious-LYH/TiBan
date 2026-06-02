@@ -1731,6 +1731,44 @@ textarea {
   line-height: 1.5;
 }
 
+.profile-goal strong,
+.profile-goal span {
+  display: block;
+}
+
+.profile-goal span {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px;
+}
+
+.profile-tabs a {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  color: var(--muted);
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-weight: 750;
+}
+
+.profile-tabs a.active {
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: #5eead4;
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
 .metric-card {
   min-height: 104px;
 }
@@ -1751,6 +1789,74 @@ textarea {
   color: var(--muted);
   font-size: 13px;
   font-style: normal;
+}
+
+.record-list.detailed div {
+  min-height: 50px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.skill-plan-list,
+.memory-replay-list,
+.quest-list {
+  display: grid;
+  gap: 10px;
+}
+
+.skill-plan-list a,
+.quest-list a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  color: var(--text);
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.quest-list a {
+  grid-template-columns: 22px minmax(0, 1fr) 18px;
+}
+
+.skill-plan-list strong,
+.skill-plan-list span,
+.memory-replay-list strong,
+.memory-replay-list span,
+.quest-list span {
+  display: block;
+}
+
+.skill-plan-list span,
+.memory-replay-list span,
+.quest-list span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.memory-replay-list div {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: start;
+  padding: 12px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.memory-replay-list svg {
+  grid-row: span 2;
+  color: var(--teal);
+}
+
+.profile-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
 }
 
 .badge-row {
@@ -1775,6 +1881,41 @@ textarea {
   margin-top: 4px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.badge-row.detailed {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.badge-row.detailed div {
+  display: grid;
+  gap: 6px;
+  min-height: 144px;
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+}
+
+.badge-row.detailed div.earned {
+  background: linear-gradient(135deg, #f0fdfa, #eff6ff);
+  border-color: #99f6e4;
+}
+
+.badge-row.detailed div.locked {
+  opacity: 0.82;
+}
+
+.badge-row.detailed svg {
+  color: var(--amber);
+}
+
+.badge-row.detailed div.earned svg {
+  color: var(--teal);
+}
+
+.badge-row.detailed em {
+  color: var(--blue);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
 }
 
 .card-studio .card-builder {

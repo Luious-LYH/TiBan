@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { api } from '../lib/api'
 import { safetyNotice } from '../lib/mock'
 import type { ProviderStatus } from '../lib/types'
@@ -80,6 +80,7 @@ const navGroups = [
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
+  const location = useLocation()
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
 
   useEffect(() => {
@@ -134,7 +135,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 {group.items.map((item) => {
                   const Icon = item.icon
                   return (
-                    <NavLink key={item.path} to={item.path} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                    <NavLink key={item.path} to={item.path} className={`nav-item ${isNavActive(item.path, location.pathname, location.search) ? 'active' : ''}`}>
                       <Icon size={17} />
                       <span>{item.label}</span>
                     </NavLink>
@@ -174,4 +175,10 @@ export function Layout({ children }: { children: ReactNode }) {
       </main>
     </div>
   )
+}
+
+function isNavActive(target: string, pathname: string, search: string): boolean {
+  const [targetPathname, targetSearch = ''] = target.split('?')
+  if (targetPathname !== pathname) return false
+  return targetSearch ? search === `?${targetSearch}` : search === ''
 }
