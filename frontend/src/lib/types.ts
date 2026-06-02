@@ -11,6 +11,8 @@ export type ProviderStatus = {
   ok?: boolean
   error?: string | null
   latency_ms?: number | null
+  sample_count?: number
+  provider_success_count?: number
   base_url_configured?: boolean
   api_key_configured?: boolean
   safety_notice?: string

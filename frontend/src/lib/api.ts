@@ -107,6 +107,8 @@ function normalizeProviderStatus(value: unknown, fallback: ProviderStatus = {
     ok: typeof record.ok === 'boolean' ? record.ok : fallback.ok,
     error: typeof record.error === 'string' || record.error === null ? record.error : fallback.error,
     latency_ms: record.latency_ms === null ? null : asNumber(record.latency_ms, fallback.latency_ms ?? 0),
+    sample_count: asNumber(record.sample_count, fallback.sample_count ?? 0),
+    provider_success_count: asNumber(record.provider_success_count, fallback.provider_success_count ?? 0),
     configured: typeof record.configured === 'boolean' ? record.configured : fallback.configured,
     base_url_configured: typeof record.base_url_configured === 'boolean' ? record.base_url_configured : fallback.base_url_configured,
     api_key_configured: typeof record.api_key_configured === 'boolean' ? record.api_key_configured : fallback.api_key_configured,

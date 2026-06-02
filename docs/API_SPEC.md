@@ -42,7 +42,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | POST | `/patient-card` | 科普卡片草稿/医生审核确认 |
 | GET | `/models` | 模型库 mock 看板 |
 | POST | `/models/select` | 选择默认 mock 模型 |
-| POST | `/models/admission-test` | 使用公开样例做 Provider/规则准入探测 |
+| POST | `/models/admission-test` | 使用公开样例做样例级 Provider/规则准入检查 |
 | GET | `/models/admission-state` | 最近一次模型准入摘要，不包含 key 或完整模型回复 |
 | GET | `/skills` | Skills 列表 |
 | POST | `/skills/run` | 运行受控 skill |
@@ -206,21 +206,35 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
   "api_base": "https://api.example.com/v1",
   "api_key": "仅本次请求可选，禁止写入仓库",
   "model": "your-model-name",
-  "selected_sample_ids": ["real_x1_0"],
+  "selected_sample_ids": ["real_x1_0", "real_x1_2", "real_x1_3"],
   "test_focus": ["基础识别", "错误前提", "报告安全"]
 }
 ```
 
-模型准入成功返回后会写入平台摘要状态：
+模型准入会对最多 3 个公开样例逐条返回 evidence；检查清单分只服务训练 Agent 接入，不代表临床模型评测：
 
 ```json
 {
+  "provider_called": true,
+  "provider_status": {
+    "mode": "provider",
+    "sample_count": 3,
+    "provider_success_count": 3
+  },
+  "evidence": [
+    {
+      "sample_id": "real_x1_0",
+      "provider_called": true,
+      "latency_ms": 1240,
+      "observation_excerpt": "模型返回的教学观察摘要..."
+    }
+  ],
   "platform_state_updated": true,
   "platform_state_summary": "最近准入状态已更新：自定义多模态 API · Grade A · provider。"
 }
 ```
 
-最近准入摘要只保存 `provider_name`、`grade`、`total_score`、`mode`、`tested_samples`、`risk_items` 和 `recommendation`，不保存 API key、API base 或完整模型回复。
+最近准入摘要只保存 `provider_name`、`grade`、`total_score`、`mode`、`tested_samples`、`risk_items` 和 `recommendation`，不保存 API key、API base 或完整模型回复。请求级 `api_base`、`model` 可以覆盖后端 `.env` 默认值；`https://api.example.com/v1` 这类示例地址会被视为未配置。
 
 平台就绪度：
 

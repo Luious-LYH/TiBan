@@ -442,13 +442,25 @@ class ReportService:
         )
 
     def _provider_kwargs(self, request: ReportDraftRequest | ReportJudgeRequest) -> dict[str, object]:
-        use_request_provider = bool(request.api_key)
+        api_base = self._request_provider_value(request.api_base)
+        api_key = request.api_key.strip() if request.api_key and request.api_key.strip() else None
+        model = request.model.strip() if request.model and request.model.strip() else None
+        provider = request.provider_name.strip() if request.provider_name and request.provider_name.strip() else None
+        use_request_provider = bool(api_base or api_key or model or provider)
         return {
-            "base_url": request.api_base if use_request_provider else None,
-            "api_key": request.api_key if use_request_provider else None,
-            "model": request.model if use_request_provider else None,
-            "provider": (request.provider_name or "openai_compatible") if use_request_provider else None,
+            "base_url": api_base if use_request_provider else None,
+            "api_key": api_key,
+            "model": model if use_request_provider else None,
+            "provider": (provider or "openai_compatible") if use_request_provider else None,
         }
+
+    def _request_provider_value(self, value: str | None) -> str | None:
+        if not value:
+            return None
+        cleaned = value.strip().rstrip("/")
+        if not cleaned or "api.example.com" in cleaned:
+            return None
+        return cleaned
 
     def _hallucination_audit(self, statements: list[str], *, single_frame: bool) -> dict[str, object]:
         text = "；".join(statements)

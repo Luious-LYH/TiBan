@@ -101,6 +101,8 @@ export function ModelHub() {
   }
 
   const activeModel = models.find((item) => item.is_active) || models[0]
+  const providerSuccessCount = result?.provider_status.provider_success_count
+  const providerSampleCount = result?.provider_status.sample_count || result?.evidence.length || 0
 
   return (
     <div className="page-stack">
@@ -108,7 +110,7 @@ export function ModelHub() {
         <div>
           <span className="eyebrow">Model admission center</span>
           <h2>模型准入与测试中心</h2>
-          <p>模型能力服务于医师训练，而不是首页主角。这里用公开内镜样例做一次 OpenAI-compatible Provider 探测；未配置密钥时明确降级为规则准入草案。</p>
+          <p>这里做训练 Agent 的接入前检查，不做临床能力评测。每个勾选的公开样例都会生成样例级 evidence；未完成真实 Provider 调用时会明确标为规则草案。</p>
         </div>
         <ShieldAlert size={42} />
       </Card>
@@ -132,19 +134,19 @@ export function ModelHub() {
           <KeyRound size={19} />
           <span>凭据处理</span>
           <strong>{apiKey.trim() ? '页面临时 key' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'}</strong>
-          <p>临时 key 只随本次准入请求发送，不写入审计日志、状态文件或 git。</p>
+          <p>临时 key 只随本次准入请求发送，不写入审计日志、状态文件或 git；base/model 可临时覆盖后端默认配置。</p>
         </div>
         <div>
           <Database size={19} />
           <span>发送样例</span>
           <strong>{selectedSamples.length || 0} 个公开教学样例</strong>
-          <p>准入探测只选取公开内镜样例和脱敏题干，不上传真实患者身份信息。</p>
+          <p>后端会按样例逐条探测并返回 evidence，最多使用 3 个公开内镜样例。</p>
         </div>
         <div>
           <ShieldCheck size={19} />
           <span>保存内容</span>
           <strong>只保存准入摘要</strong>
-          <p>平台仅记录 provider 名称、等级、分数、风险项和建议，不保存 API base、key 或完整模型回复。</p>
+          <p>平台仅记录 provider 名称、检查清单分、风险项和建议，不保存 API base、key 或完整模型回复。</p>
         </div>
       </Card>
 
@@ -157,7 +159,7 @@ export function ModelHub() {
           />
           <div className="status-grid">
             <div><span>Provider</span><strong>{admissionState.provider_name}</strong></div>
-            <div><span>等级</span><strong>Grade {admissionState.grade} · {admissionState.total_score}</strong></div>
+            <div><span>检查清单分</span><strong>Grade {admissionState.grade} · {admissionState.total_score}</strong></div>
             <div><span>模式</span><strong>{admissionState.provider_called ? 'provider called' : admissionState.mode}</strong></div>
             <div><span>样例数</span><strong>{admissionState.tested_samples.length}</strong></div>
           </div>
@@ -199,7 +201,7 @@ export function ModelHub() {
             </label>
             <label>
               <span>API Base URL</span>
-              <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} />
+              <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="留空或示例地址则使用后端 .env" />
             </label>
             <label>
               <span>模型名称</span>
@@ -212,7 +214,7 @@ export function ModelHub() {
           </div>
           <div className="notice-card">
             <KeyRound size={20} />
-            <p>临时密钥只随本次准入请求发送到后端，不会写入仓库、文档或审计日志。正式演示建议使用后端 .env 配置。</p>
+            <p>临时密钥只随本次准入请求发送到后端，不会写入仓库、文档或审计日志。正式演示建议使用后端 .env 配置；页面 base/model 可覆盖后端默认值。</p>
           </div>
         </Card>
 
@@ -238,7 +240,7 @@ export function ModelHub() {
             })}
           </div>
           <button className="button primary" type="button" onClick={runAdmission}>
-            <ShieldAlert size={17} /> 运行真实/规则准入探测
+            <ShieldAlert size={17} /> 运行样例级准入探测
           </button>
         </Card>
       </div>
@@ -247,13 +249,13 @@ export function ModelHub() {
         <Card className="admission-result">
           <SectionTitle
             eyebrow={result.provider_name}
-            title="准入评分结果"
+            title="准入检查清单结果"
             action={<Tag tone={result.provider_called ? 'green' : result.is_mock ? 'amber' : 'blue'}>{result.provider_called ? 'provider called' : 'rule draft'}</Tag>}
           />
           <div className="admission-grid">
             <div className="score-ring large">
               <strong>{result.total_score}</strong>
-              <span>Grade {result.grade}</span>
+              <span>Checklist · Grade {result.grade}</span>
             </div>
             <div className="rubric-grid">
               {Object.entries(result.dimension_scores).map(([name, score]) => (
@@ -267,7 +269,11 @@ export function ModelHub() {
           </div>
           <div className="tag-row">
             {result.tested_samples.map((sample) => <Tag key={sample} tone="blue">{sample}</Tag>)}
+            <Tag tone={result.provider_called ? 'green' : 'amber'}>
+              Provider {providerSuccessCount ?? 0}/{providerSampleCount}
+            </Tag>
           </div>
+          <div className="source-note">该分数是训练准入检查清单分，基于接口连通、样例 evidence、安全边界和规则项汇总，不代表临床模型评测。</div>
           <div className="provider-evidence-list">
             {result.evidence.map((item, itemIndex) => (
               <div key={`${item.sample_id || 'sample'}_${itemIndex}`}>
