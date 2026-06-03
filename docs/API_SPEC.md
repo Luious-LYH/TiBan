@@ -25,7 +25,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 视觉自检、沙盒自检、挑战基准和审计收据能力的后端 |
+| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 视觉自检、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力的后端 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
 | POST | `/provider/self-test` | Provider 文本/视觉通道自检；视觉模式可附加一张公开样例图片，但不发送参考标注，不更新模型准入状态，不保存 key/base/完整回复 |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
@@ -447,3 +447,43 @@ POST /api/platform/demo-check?learner_id=demo_learner&persist=false
   "learner_id": "demo_learner"
 }
 ```
+
+核心返回字段：
+
+```json
+{
+  "message": "该题包含错误前提或证据不足训练。",
+  "doctor_review_required": true,
+  "skill_run_receipt": {
+    "audit_log_id": "audit_...",
+    "skill_id": "false_premise_guard",
+    "skill_name": "错误前提守卫",
+    "risk_level": "high",
+    "learner_id": "demo_learner",
+    "input_trace": [
+      {
+        "source_type": "question_context",
+        "label": "训练题上下文",
+        "used": true,
+        "detail": "q005"
+      }
+    ],
+    "source_trace": [
+      {
+        "source_type": "atomic_facts",
+        "label": "原子事实链",
+        "used": true,
+        "detail": "来自题库 atomic_trace 与评分服务。"
+      }
+    ],
+    "next_actions": [
+      { "label": "进入错误前提训练", "href": "/false-premise" }
+    ],
+    "doctor_review_required": true,
+    "created_at": "2026-06-04T00:00:00"
+  },
+  "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+}
+```
+
+`skill_run_receipt` 用于证明本次受控 skill 已由后端编排并写入 `skill_run` 审计。`input_trace` 和 `source_trace` 只记录来源类型、题号或脱敏摘要，不保存医生自由文本、API key、API base 或完整模型回复。前端断连时允许返回同形 fallback 收据，但 `audit_log_id` 必须为空，`source_trace` 必须标注 `frontend_fallback`，不能当作真实后端审计。

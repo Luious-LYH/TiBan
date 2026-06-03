@@ -29,6 +29,7 @@ import type {
   ReportJudge,
   ReportDraft,
   SkillDefinition,
+  SkillRunPayload,
   SubmissionResponse,
   SourceTraceItem,
   TrainingState,
@@ -40,7 +41,7 @@ const apiBaseCandidates = configuredApiBase
   ? [configuredApiBase]
   : ['http://127.0.0.1:8000', 'http://127.0.0.1:8001']
 const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
-const requiredApiCapabilities = ['provider_self_test', 'provider_visual_self_test', 'demo_check_sandbox', 'challenge_benchmark', 'challenge_audit_receipt', 'patient_card_generation_receipt']
+const requiredApiCapabilities = ['provider_self_test', 'provider_visual_self_test', 'demo_check_sandbox', 'challenge_benchmark', 'challenge_audit_receipt', 'patient_card_generation_receipt', 'skill_run_receipt']
 let activeApiBase = apiBaseCandidates[0]
 let apiBaseProbe: Promise<boolean> | null = null
 
@@ -206,6 +207,44 @@ function normalizeAtomicFact(value: unknown, fallback: AtomicFact, index: number
     evidence: asString(record.evidence, fallback.evidence),
     skill_dimension: asString(record.skill_dimension, fallback.skill_dimension) as AtomicFact['skill_dimension'],
   }
+}
+
+function fallbackSkillInputTrace(payload: SkillRunPayload) {
+  const trace: { source_type: string; label: string; used: boolean; detail: string }[] = []
+  if (payload.question_id) {
+    trace.push({ source_type: 'question_context', label: '训练题上下文', used: true, detail: String(payload.question_id) })
+  }
+  if (payload.selected_answer) {
+    trace.push({ source_type: 'doctor_answer', label: '医师作答', used: true, detail: '已接收作答内容；仅记录来源类型。' })
+  }
+  if (payload.finding_text) {
+    trace.push({ source_type: 'report_text', label: '报告所见文本', used: true, detail: '已接收报告训练文本；收据不保存全文。' })
+  }
+  if (payload.diagnosis_summary) {
+    trace.push({ source_type: 'card_summary', label: '卡片摘要', used: true, detail: '已接收患者沟通摘要；收据不保存全文。' })
+  }
+  if (payload.text) {
+    trace.push({ source_type: 'safety_text', label: '安全审查文本', used: true, detail: '已接收安全审查文本；收据不保存全文。' })
+  }
+  if (payload.event_type || payload.summary) {
+    trace.push({ source_type: 'audit_summary', label: '审计摘要输入', used: true, detail: '已接收审计摘要或事件类型；收据不保存自由文本全文。' })
+  }
+  if (payload.learner_id) {
+    trace.push({ source_type: 'learner_context', label: '医师画像上下文', used: true, detail: String(payload.learner_id) })
+  }
+  return trace.length ? trace : [{ source_type: 'platform_context', label: '平台默认上下文', used: true, detail: '使用当前 demo learner 与默认样例上下文。' }]
+}
+
+function fallbackSkillNextActions(category: SkillDefinition['category']) {
+  const actionMap: Record<SkillDefinition['category'], { label: string; href: string }[]> = {
+    training: [{ label: '继续题库训练', href: '/training' }],
+    feedback: [{ label: '查看错因复盘', href: '/feedback' }],
+    report: [{ label: '进入报告训练', href: '/report' }],
+    card: [{ label: '进入科普卡片审核', href: '/card' }],
+    safety: [{ label: '进入错误前提训练', href: '/false-premise' }],
+    audit: [{ label: '查看审计日志', href: '/audit' }],
+  }
+  return actionMap[category]
 }
 
 function normalizeQuestion(value: unknown, fallback: Question = mockQuestions[0], index = 0): Question {
@@ -1459,11 +1498,35 @@ export const api = {
     return response.items
   },
 
-  async runSkill(skillId: string, questionId = 'q005') {
+  async runSkill(skill: SkillDefinition, payload: SkillRunPayload = { question_id: 'q005' }) {
+    const doctorReviewRequired = skill.risk_level !== 'low'
     return request<Record<string, unknown>>(
       '/api/skills/run',
-      { method: 'POST', body: JSON.stringify({ skill_id: skillId, payload: { question_id: questionId }, learner_id: 'demo_learner' }) },
-      { message: '已在本地 fallback 中模拟运行。', doctor_review_required: skillId.includes('premise'), safety_notice: safetyNotice },
+      { method: 'POST', body: JSON.stringify({ skill_id: skill.id, payload, learner_id: 'demo_learner' }) },
+      {
+        message: '已在本地 fallback 中模拟运行。',
+        doctor_review_required: doctorReviewRequired,
+        safety_notice: safetyNotice,
+        skill_run_receipt: {
+          audit_log_id: null,
+          skill_id: skill.id,
+          skill_name: skill.name,
+          risk_level: skill.risk_level,
+          learner_id: 'demo_learner',
+          input_trace: fallbackSkillInputTrace(payload),
+          source_trace: [
+            {
+              source_type: 'frontend_fallback',
+              label: '本地预览',
+              used: true,
+              detail: '后端 skills/run 不可用；未写入 skill_run 审计。',
+            },
+          ],
+          next_actions: fallbackSkillNextActions(skill.category),
+          doctor_review_required: doctorReviewRequired,
+          created_at: new Date().toISOString(),
+        },
+      },
     )
   },
 

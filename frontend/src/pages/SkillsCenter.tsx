@@ -4,7 +4,7 @@ import { ActivitySquare, ArrowRight, CheckCircle2, ClipboardList, PlayCircle, Sh
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, mockSkills, safetyNotice } from '../lib/mock'
-import type { Question, SkillDefinition } from '../lib/types'
+import type { Question, SkillDefinition, SkillRunPayload, SkillRunReceipt } from '../lib/types'
 
 const toneByRisk = {
   low: 'green',
@@ -35,12 +35,21 @@ export function SkillsCenter() {
 
   const runSkill = async (skill: SkillDefinition) => {
     setRunning(skill.id)
-    const result = await api.runSkill(skill.id, selectedQuestionId)
-    setRunView({ skill, result, ranAt: new Date().toLocaleString() })
-    setRunning('')
+    try {
+      const result = await api.runSkill(skill, buildSkillPayload(skill, activeQuestion))
+      setRunView({ skill, result, ranAt: new Date().toLocaleString() })
+    } finally {
+      setRunning('')
+    }
   }
 
   const activeQuestion = questions.find((item) => item.id === selectedQuestionId) || questions[0]
+  const receipt = runView ? skillRunReceipt(runView.result) : null
+  const auditReceiptLabel = receipt?.audit_log_id
+    ? 'audit receipt'
+    : runView?.result.api_source === 'fallback'
+      ? 'local preview'
+      : 'audit when run'
 
   return (
     <div className="page-stack">
@@ -68,9 +77,9 @@ export function SkillsCenter() {
           </select>
         </label>
         <div className="skill-console-status">
-          <Tag tone="green">backend skills</Tag>
+          <Tag tone={runView?.result.api_source === 'fallback' ? 'amber' : 'green'}>{runView?.result.api_source === 'fallback' ? 'fallback preview' : 'backend capable'}</Tag>
           <Tag tone="amber">doctor review</Tag>
-          <Tag tone="blue">audit logged</Tag>
+          <Tag tone={receipt?.audit_log_id ? 'blue' : 'neutral'}>{auditReceiptLabel}</Tag>
         </div>
       </Card>
 
@@ -120,6 +129,33 @@ export function SkillsCenter() {
               <p>{runView.skill.category === 'report' ? '可进入报告中心继续修改训练。' : runView.skill.category === 'card' ? '可进入科普卡片做医生审核前沟通草稿。' : '可回到题库继续刷题并写入医师画像。'}</p>
             </div>
           </div>
+          {receipt ? (
+            <div className={`skill-run-receipt ${runView.result.api_source === 'fallback' ? 'fallback' : 'synced'}`}>
+              <div className="skill-receipt-head">
+                <CheckCircle2 size={18} />
+                <div>
+                  <strong>{runView.result.api_source === 'fallback' ? '本地技能预览' : '后端 Skill 运行收据'}</strong>
+                  <span>{receipt.audit_log_id ? `已写入 skill_run 审计：${receipt.audit_log_id}` : '当前没有后端审计 ID；仅作前端预览。'}</span>
+                </div>
+              </div>
+              <div className="skill-receipt-metrics">
+                <div><span>风险等级</span><strong>{receipt.risk_level || runView.skill.risk_level}</strong></div>
+                <div><span>复核状态</span><strong>{receipt.doctor_review_required ? '医生复核' : '低风险通过'}</strong></div>
+                <div><span>收据时间</span><strong>{receipt.created_at || runView.ranAt}</strong></div>
+              </div>
+              <TraceChips title="输入来源" items={receipt.input_trace || []} />
+              <TraceChips title="执行来源" items={receipt.source_trace || []} />
+              {receipt.next_actions?.length ? (
+                <div className="skill-receipt-actions">
+                  {receipt.next_actions.map((action) => (
+                    <Link to={action.href || '/training'} key={`${action.label}_${action.href}`}>
+                      {action.label || '继续训练'} <ArrowRight size={15} />
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="skill-link-row">
             <Link to="/training">题库刷题 <ArrowRight size={15} /></Link>
             <Link to="/report">报告训练 <ArrowRight size={15} /></Link>
@@ -132,6 +168,65 @@ export function SkillsCenter() {
           <div className="safety-mini">{String(runView.result.safety_notice || safetyNotice)}</div>
         </Card>
       ) : null}
+    </div>
+  )
+}
+
+function buildSkillPayload(skill: SkillDefinition, question: Question): SkillRunPayload {
+  const selectedAnswer = question.options.find((option) => option !== question.answer) || question.answer
+  if (skill.id === 'answer_explain' || skill.id === 'atomic_feedback') {
+    return { question_id: question.id, selected_answer: selectedAnswer }
+  }
+  if (skill.id === 'question_hint' || skill.id === 'false_premise_guard') {
+    return { question_id: question.id }
+  }
+  if (skill.id === 'next_question') {
+    return { learner_id: 'demo_learner' }
+  }
+  if (skill.id === 'report_structure') {
+    return {
+      finding_text: `${question.case_summary} ${question.image_placeholder}`,
+      exam_type: 'gastroscopy',
+    }
+  }
+  if (skill.id === 'patient_card') {
+    return {
+      diagnosis_summary: `${question.title}：${question.explanation} 需由医生结合完整检查和病理结果复核后再用于患者沟通。`,
+    }
+  }
+  if (skill.id === 'safety_review') {
+    return {
+      text: '本图可直接证明胃癌并建议立即治疗。请改为保留不确定性、提示补充检查并要求医生复核。',
+    }
+  }
+  if (skill.id === 'audit_log') {
+    return {
+      event_type: 'skill_run',
+      summary: `Skills 编排演示：${skill.name} 已完成一次受控调用。`,
+    }
+  }
+  return { question_id: question.id }
+}
+
+function skillRunReceipt(result: Record<string, unknown>): SkillRunReceipt | null {
+  const receipt = result.skill_run_receipt
+  return receipt && typeof receipt === 'object' && !Array.isArray(receipt)
+    ? receipt as SkillRunReceipt
+    : null
+}
+
+function TraceChips({ title, items }: { title: string; items: NonNullable<SkillRunReceipt['input_trace']> }) {
+  if (!items.length) return null
+  return (
+    <div className="skill-trace-block">
+      <strong>{title}</strong>
+      <div>
+        {items.map((item) => (
+          <span className={item.used ? 'used' : ''} key={`${item.source_type || title}_${item.label}_${item.detail}`}>
+            {item.label || item.source_type || '来源'}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }

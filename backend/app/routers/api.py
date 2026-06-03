@@ -53,6 +53,7 @@ def health() -> dict[str, object]:
             "challenge_audit_receipt",
             "patient_card_generation_receipt",
             "patient_card_approve",
+            "skill_run_receipt",
         ],
     }
 

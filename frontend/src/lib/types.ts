@@ -161,6 +161,28 @@ export type SkillDefinition = {
   output_schema: Record<string, unknown>
 }
 
+export type SkillRunPayload = Record<string, string | number | boolean | null | undefined>
+
+export type SkillRunTraceItem = {
+  source_type: string
+  label: string
+  used: boolean
+  detail: string
+}
+
+export type SkillRunReceipt = {
+  audit_log_id?: string | null
+  skill_id: string
+  skill_name: string
+  risk_level: RiskLevel
+  learner_id: string
+  input_trace: SkillRunTraceItem[]
+  source_trace: SkillRunTraceItem[]
+  next_actions: { label: string; href: string }[]
+  doctor_review_required: boolean
+  created_at: string
+}
+
 export type AuditLog = {
   id: string
   event_type:

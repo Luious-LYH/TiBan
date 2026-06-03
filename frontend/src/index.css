@@ -4011,6 +4011,127 @@ textarea {
   color: var(--muted);
 }
 
+.skill-run-receipt {
+  display: grid;
+  gap: 12px;
+  padding: 13px;
+  background: linear-gradient(135deg, var(--teal-soft), #ffffff);
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+}
+
+.skill-run-receipt.fallback {
+  background: linear-gradient(135deg, #fff7ed, #ffffff);
+  border-color: #fed7aa;
+}
+
+.skill-receipt-head {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 9px;
+  align-items: flex-start;
+}
+
+.skill-receipt-head svg {
+  color: var(--teal);
+}
+
+.skill-run-receipt.fallback .skill-receipt-head svg {
+  color: #ea580c;
+}
+
+.skill-receipt-head strong,
+.skill-receipt-head span {
+  display: block;
+}
+
+.skill-receipt-head strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.skill-receipt-head span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.skill-receipt-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.skill-receipt-metrics div {
+  min-width: 0;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 8px;
+}
+
+.skill-receipt-metrics span,
+.skill-receipt-metrics strong,
+.skill-trace-block strong {
+  display: block;
+}
+
+.skill-receipt-metrics span,
+.skill-trace-block strong {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.skill-receipt-metrics strong {
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-trace-block {
+  display: grid;
+  gap: 7px;
+}
+
+.skill-trace-block div,
+.skill-receipt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.skill-trace-block span,
+.skill-receipt-actions a {
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.skill-trace-block span {
+  color: var(--muted);
+}
+
+.skill-trace-block span.used {
+  color: var(--teal);
+  border-color: #99f6e4;
+}
+
+.skill-receipt-actions a {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--blue);
+  border-color: #bfdbfe;
+}
+
 .skill-link-row a {
   display: inline-flex;
   gap: 6px;
