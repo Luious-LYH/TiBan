@@ -415,6 +415,74 @@ a {
   opacity: 0.55;
 }
 
+.report-drill-landing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 0.72fr) auto;
+  gap: 16px;
+  align-items: center;
+  background: linear-gradient(135deg, #fff7ed, #f0fdfa 56%, #eff6ff);
+  border-color: #fed7aa;
+}
+
+.report-drill-landing h3 {
+  margin: 2px 0 6px;
+  font-size: 22px;
+}
+
+.report-drill-landing p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.report-drill-landing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.report-drill-landing-grid div {
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.report-drill-landing-grid span,
+.report-drill-landing-grid strong {
+  display: block;
+}
+
+.report-drill-landing-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.report-drill-landing-grid strong {
+  margin-top: 4px;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.report-drill-warning {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  color: #92400e;
+  background: rgba(255, 251, 235, 0.9);
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.report-drill-landing > .button {
+  justify-self: end;
+}
+
 .icon-button {
   display: inline-grid;
   place-items: center;
@@ -4689,8 +4757,13 @@ textarea {
   .admission-grid,
   .challenge-scoreboard,
   .premise-scoreboard,
+  .report-drill-landing,
   .profile-hero,
   .floating-patient-card {
+    grid-template-columns: 1fr;
+  }
+
+  .report-drill-landing-grid {
     grid-template-columns: 1fr;
   }
 

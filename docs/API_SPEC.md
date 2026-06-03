@@ -205,8 +205,9 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
   "recommended_drills": [
     {
       "label": "报告安全专项",
-      "href": "/training?question_class=报告纠错",
+      "href": "/training?source=report_judge&drill=report_safety&question_class=报告纠错",
       "reason": "把观察性所见和诊断性结论拆开，减少越界表达。",
+      "drill_id": "report_safety",
       "rubric": "所见与诊断区分",
       "score": 18
     }
@@ -215,6 +216,17 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
   "memory_summary": "已回灌林知远医师画像：报告修改 88 分，事实组合/证据边界能力已更新。"
 }
 ```
+
+`recommended_drills` 的跳转契约固定为 `/training?source=report_judge&drill={drill_id}&question_class={question_class}`。当前报告 judge 映射如下：
+
+| drill_id | 推荐题类 | 触发场景 |
+|---|---|---|
+| `location_scope` | `病变属性` | 部位、范围或数量表达不足 |
+| `report_safety` | `报告纠错` | 所见与诊断区分不足，或综合表达进阶 |
+| `evidence_boundary` | `错误前提` | 不确定性表达不足 |
+| `false_premise` | `错误前提` | 安全边界不足 |
+
+训练中心会校验 `question_class` 是否属于题库枚举；旧链接或手改 URL 传入非法题类时，会回退到 `drill_id` 对应题类并显示提示。进入专项后只筛选题库，不重复写入报告评分记录；医师提交训练题后才继续回灌画像。
 
 科普卡片默认生成待审核草稿，打印/分享保持锁定。`POST /patient-card` 会返回草稿生成收据：`generation_mode`、`source_trace`、`knowledge_base_id`、`audit_logged` 和 `audit_log_id`，用于证明后端已经用卡片模板知识库生成草稿并写入 `patient_card` 审计。该收据不代表医生审核通过。医生确认审核后，对同一张草稿卡调用 approve 接口才会解锁；平台不再通过“重新生成一张已审核卡”伪装审核闭环。
 

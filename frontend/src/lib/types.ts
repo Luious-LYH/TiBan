@@ -308,6 +308,7 @@ export type ReportJudge = {
     label: string
     href: string
     reason: string
+    drill_id?: string
     rubric?: string
     score?: number
   }[]

@@ -767,8 +767,9 @@ function normalizeReportJudge(value: unknown, fallback: ReportJudge): ReportJudg
           const drill = asRecord(item)
           return {
             label: asString(drill.label, '报告表达专项'),
-            href: asString(drill.href, '/training?question_class=报告纠错'),
+            href: asString(drill.href, '/training?source=report_judge&drill=report_safety&question_class=报告纠错'),
             reason: asString(drill.reason, '继续巩固报告证据边界。'),
+            drill_id: typeof drill.drill_id === 'string' ? drill.drill_id : undefined,
             rubric: typeof drill.rubric === 'string' ? drill.rubric : undefined,
             score: Number.isFinite(Number(drill.score)) ? Number(drill.score) : undefined,
           }
@@ -1113,6 +1114,7 @@ export const api = {
     difficulty?: string
     questionType?: string
     sourceDataset?: string
+    questionClass?: string
     onlyFavorites?: boolean
     onlyWrong?: boolean
     publicOnly?: boolean
@@ -1127,19 +1129,22 @@ export const api = {
     if (params.difficulty) search.set('difficulty', params.difficulty)
     if (params.questionType) search.set('question_type', params.questionType)
     if (params.sourceDataset) search.set('source_dataset', params.sourceDataset)
+    if (params.questionClass) search.set('question_class', params.questionClass)
     if (params.onlyFavorites) search.set('only_favorites', 'true')
     if (params.onlyWrong) search.set('only_wrong', 'true')
+    const fallbackItems = mockQuestions.filter((q) => {
+      if (params.onlyFavorites && !q.is_favorited) return false
+      if (params.onlyWrong && q.review_status !== '待复盘') return false
+      if (params.difficulty && q.difficulty !== params.difficulty) return false
+      if (params.questionClass && q.question_class !== params.questionClass) return false
+      return true
+    })
     const response = await request<{ items: Question[]; total: number }>(
       `/api/questions${search.toString() ? `?${search.toString()}` : ''}`,
       undefined,
       {
-        items: mockQuestions.filter((q) => {
-          if (params.onlyFavorites && !q.is_favorited) return false
-          if (params.onlyWrong && q.review_status !== '待复盘') return false
-          if (params.difficulty && q.difficulty !== params.difficulty) return false
-          return true
-        }),
-        total: mockQuestions.length,
+        items: fallbackItems,
+        total: fallbackItems.length,
       },
     )
     return normalizeQuestions(response.items)
@@ -1536,8 +1541,9 @@ export const api = {
       recommended_drills: [
         {
           label: '报告表达进阶',
-          href: '/training?question_class=报告纠错',
+          href: '/training?source=report_judge&drill=report_safety&question_class=报告纠错',
           reason: '后端不可用时先回到报告纠错题巩固证据边界。',
+          drill_id: 'report_safety',
           rubric: '综合表达',
           score: revisedReport.includes('复核') ? 20 : 12,
         },

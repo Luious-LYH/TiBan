@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ActivitySquare, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, DatabaseZap, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Target, Trophy } from 'lucide-react'
+import { ActivitySquare, AlertTriangle, ArrowLeft, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, DatabaseZap, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Target, Trophy } from 'lucide-react'
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
@@ -39,6 +39,13 @@ type Filters = {
   sourceDataset: string
 }
 
+type DrillMeta = {
+  title: string
+  goal: string
+  focus: string
+  targetClass: Question['question_class']
+}
+
 const emptyFilters: Filters = {
   bodyPart: '',
   task: '',
@@ -51,6 +58,33 @@ const EXAM_DURATION_SECONDS = 12 * 60
 const emptyChallengeStats: ChallengeStats = { rounds: 0, doctor: 0, benchmark: 0, ties: 0 }
 const createExamSessionId = () => `exam_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
 const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
+const validQuestionClasses = new Set<Question['question_class']>(['基础识别', '部位定位', '病变属性', '复杂组合', '错误前提', '报告纠错', '一图多问'])
+const reportJudgeDrills: Record<string, DrillMeta> = {
+  location_scope: {
+    title: '部位与范围定位专项',
+    goal: '把报告中的部位、范围和数量表达重新落到可观察证据上。',
+    focus: '先描述可见结构，再说明无法覆盖的范围。',
+    targetClass: '病变属性',
+  },
+  report_safety: {
+    title: '报告安全专项',
+    goal: '练习把观察性所见和诊断性结论拆开，减少越界表达。',
+    focus: '用“所见提示/需结合/待复核”替代直接确诊。',
+    targetClass: '报告纠错',
+  },
+  evidence_boundary: {
+    title: '证据不足识别专项',
+    goal: '训练在证据不足时主动写出缺失上下文和复核要求。',
+    focus: '先识别题干前提是否成立，再决定能否回答。',
+    targetClass: '错误前提',
+  },
+  false_premise: {
+    title: '错误前提挑战',
+    goal: '识别“确诊、必须、立即”等高风险前提，并练习降级表达。',
+    focus: '遇到题干越界时，先拒绝过度推断，再给出可复核事实。',
+    targetClass: '错误前提',
+  },
+}
 
 export function TrainingCenter({ onSubmission }: { onSubmission: (submission: SubmissionResponse, question: Question) => void }) {
   const [searchParams] = useSearchParams()
@@ -83,7 +117,30 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const mode = searchParams.get('mode') === 'exam' ? 'exam' : 'practice'
   const view = searchParams.get('view') || ''
   const source = searchParams.get('source') || ''
+  const drill = searchParams.get('drill') || ''
+  const requestedQuestionClassRaw = searchParams.get('question_class') || ''
+  const requestedQuestionClass = toQuestionClass(requestedQuestionClassRaw)
+  const questionClassWasInvalid = Boolean(requestedQuestionClassRaw && !requestedQuestionClass)
   const isChallenge = view === 'challenge'
+  const isReportJudgeDrill = source === 'report_judge'
+  const drillMeta = isReportJudgeDrill
+    ? reportJudgeDrills[drill] || {
+        title: '报告评分专项训练',
+        goal: '根据报告 judge 的薄弱项回到题库完成针对性训练。',
+        focus: '提交答案后查看证据、错因和 Agent 复盘建议。',
+        targetClass: requestedQuestionClass || '报告纠错',
+      }
+    : null
+  const effectiveQuestionClass = requestedQuestionClass || drillMeta?.targetClass || ''
+  const questionClassFallbackNotice = questionClassWasInvalid
+    ? `URL 题类“${requestedQuestionClassRaw}”不在题库枚举内，已回退到${effectiveQuestionClass || '综合训练'}。`
+    : ''
+  const baseMemorySync = isChallenge
+    ? '比拼模式只记录正式提交结果；后端挑战基准提交后才调用，只写审计。'
+    : isReportJudgeDrill ? '报告 judge 推荐专项只筛选训练题，不重复写入报告评分记录；提交题目后才回灌医师画像。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。'
+  const baseHint = mode === 'exam'
+    ? '考试模式已隐藏提示，结束后统一复盘。'
+    : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再同步后端挑战基准。' : isReportJudgeDrill ? `报告评分专项：${drillMeta?.focus || '先独立作答，再复盘证据边界。'}` : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。'
 
   useEffect(() => {
     api.providerStatus().then(setProviderStatus).catch(() => undefined)
@@ -101,6 +158,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       onlyWrong: view === 'wrong',
       onlyFavorites: view === 'favorite',
       publicOnly: source === 'public' || view === 'challenge',
+      questionClass: effectiveQuestionClass,
       mode,
     }).then((items) => {
       setQuestions(items)
@@ -114,13 +172,13 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setExamSessionId(createExamSessionId())
       setExamSessionSaved(false)
       setExamSyncing(false)
-      setMemorySync(view === 'challenge' ? '比拼模式只记录正式提交结果；后端挑战基准提交后才调用，只写审计。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-      setHint(view === 'challenge' ? '比拼模式已隐藏提示。请先独立作答，提交后再同步后端挑战基准。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+      setMemorySync(baseMemorySync)
+      setHint(baseHint)
       setChallengeStats(emptyChallengeStats)
       setChallengeBenchmark(null)
       setChallengeBenchmarkLoading(false)
     }).catch(() => setQuestions(mockQuestions))
-  }, [mode, source, view])
+  }, [baseHint, baseMemorySync, effectiveQuestionClass, mode, source, view])
 
   const filterOptions = useMemo(() => {
     const values = (key: keyof Question) => Array.from(new Set(questions.map((q) => String(q[key] || '')).filter(Boolean)))
@@ -205,8 +263,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setExamSessionId(createExamSessionId())
     setExamSessionSaved(false)
     setExamSyncing(false)
-    setMemorySync('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再同步后端挑战基准。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+    setMemorySync(baseMemorySync)
+    setHint(baseHint)
     setChallengeStats(emptyChallengeStats)
     setChallengeBenchmark(null)
     setChallengeBenchmarkLoading(false)
@@ -393,8 +451,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setSubmission(null)
     setTutorTab('agent')
     setAgentMode('rule')
-    setMemorySync(isChallenge ? '比拼模式只记录正式提交结果；后端挑战基准提交后才调用，只写审计。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再同步后端挑战基准。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+    setMemorySync(baseMemorySync)
+    setHint(baseHint)
     setChallengeBenchmark(null)
     setChallengeBenchmarkLoading(false)
   }
@@ -404,14 +462,38 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       <Card className="qbank-toolbar">
         <div>
           <span className="eyebrow">Endoscopy Qbank</span>
-          <h2>{mode === 'exam' ? '考试模式' : view === 'wrong' ? '错题本复盘' : view === 'favorite' ? '收藏题训练' : view === 'challenge' ? '医生 vs 挑战基准' : '题库刷题中心'}</h2>
-          <p>{isChallenge ? '当前使用真实公开样例进行回合制比拼：医师先独立作答，提交后才调用后端挑战基准并解锁证据讨论；若 Provider 未打通，系统会明确回退公开标注 fallback。' : source === 'public' ? '当前优先加载本地真实公开图文样本：Kvasir-VQA-x1、Kvasir-VQA 与 EndoBench。' : '借鉴 Study/Exam Mode、Tutor Mode、错题复盘和性能分析的训练闭环，默认优先展示真实公开图文样本。'}</p>
+          <h2>{mode === 'exam' ? '考试模式' : view === 'wrong' ? '错题本复盘' : view === 'favorite' ? '收藏题训练' : view === 'challenge' ? '医生 vs 挑战基准' : isReportJudgeDrill ? '报告评分专项训练' : '题库刷题中心'}</h2>
+          <p>{isChallenge ? '当前使用真实公开样例进行回合制比拼：医师先独立作答，提交后才调用后端挑战基准并解锁证据讨论；若 Provider 未打通，系统会明确回退公开标注 fallback。' : isReportJudgeDrill ? '当前从报告修改训练进入：题库已按 judge 推荐薄弱项筛选，提交题目后才写入医师画像与审计。' : source === 'public' ? '当前优先加载本地真实公开图文样本：Kvasir-VQA-x1、Kvasir-VQA 与 EndoBench。' : '借鉴 Study/Exam Mode、Tutor Mode、错题复盘和性能分析的训练闭环，默认优先展示真实公开图文样本。'}</p>
         </div>
         <div className="mode-switch">
-          <Tag tone={mode === 'exam' || isChallenge ? 'amber' : 'green'}>{mode === 'exam' ? '计时考试' : isChallenge ? '比拼模式' : '练习辅导'}</Tag>
+          <Tag tone={mode === 'exam' || isChallenge || isReportJudgeDrill ? 'amber' : 'green'}>{mode === 'exam' ? '计时考试' : isChallenge ? '比拼模式' : isReportJudgeDrill ? '报告专项' : '练习辅导'}</Tag>
           <Tag tone="blue">{filteredQuestions.length} 题</Tag>
         </div>
       </Card>
+
+      {isReportJudgeDrill && drillMeta ? (
+        <Card className="report-drill-landing">
+          <div>
+            <span className="eyebrow">Report judge drill</span>
+            <h3>{drillMeta.title}</h3>
+            <p>{drillMeta.goal}</p>
+          </div>
+          <div className="report-drill-landing-grid">
+            <div><span>来源</span><strong>报告修改训练</strong></div>
+            <div><span>题类</span><strong>{effectiveQuestionClass || '综合训练'}</strong></div>
+            <div><span>本轮目标</span><strong>{drillMeta.focus}</strong></div>
+          </div>
+          {questionClassFallbackNotice ? (
+            <div className="report-drill-warning">
+              <AlertTriangle size={15} />
+              <span>{questionClassFallbackNotice}</span>
+            </div>
+          ) : null}
+          <Link className="button secondary" to="/report?tab=judge">
+            <ArrowLeft size={16} /> 返回报告评分
+          </Link>
+        </Card>
+      ) : null}
 
       {isChallenge ? (
         <Card className="challenge-scoreboard">
@@ -677,6 +759,12 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       )}
     </div>
   )
+}
+
+function toQuestionClass(value: string): Question['question_class'] | '' {
+  return validQuestionClasses.has(value as Question['question_class'])
+    ? value as Question['question_class']
+    : ''
 }
 
 function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {

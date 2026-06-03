@@ -568,23 +568,27 @@ class ReportService:
         drill_map = {
             "部位描述": {
                 "label": "部位与范围定位专项",
-                "href": "/training?question_class=属性判断",
-                "reason": "部位、范围、数量表达不足时，先回到属性判断题练定位。",
+                "href": "/training?source=report_judge&drill=location_scope&question_class=病变属性",
+                "reason": "部位、范围、数量表达不足时，先回到病变属性/部位定位题练定位。",
+                "drill_id": "location_scope",
             },
             "所见与诊断区分": {
                 "label": "报告安全专项",
-                "href": "/training?question_class=报告纠错",
+                "href": "/training?source=report_judge&drill=report_safety&question_class=报告纠错",
                 "reason": "把观察性所见和诊断性结论拆开，减少越界表达。",
+                "drill_id": "report_safety",
             },
             "不确定性表达": {
                 "label": "证据不足识别专项",
-                "href": "/training?question_class=证据不足",
+                "href": "/training?source=report_judge&drill=evidence_boundary&question_class=错误前提",
                 "reason": "训练在证据不足时主动写出缺失上下文和复核要求。",
+                "drill_id": "evidence_boundary",
             },
             "安全边界": {
                 "label": "错误前提挑战",
-                "href": "/training?mode=challenge",
+                "href": "/training?source=report_judge&drill=false_premise&question_class=错误前提",
                 "reason": "识别“确诊、必须、立即”等高风险前提，练习降级表达。",
+                "drill_id": "false_premise",
             },
         }
         weak = [
@@ -597,10 +601,11 @@ class ReportService:
         return [
             {
                 "label": "报告表达进阶",
-                "href": "/training?question_class=报告纠错",
+                "href": "/training?source=report_judge&drill=report_safety&question_class=报告纠错",
                 "reason": "本次修改已达标，继续用报告纠错题巩固证据边界。",
                 "rubric": "综合表达",
                 "score": min(rubric_scores.values()) if rubric_scores else 0,
+                "drill_id": "report_safety",
             }
         ]
 
