@@ -384,6 +384,8 @@ class ProviderSelfTestResponse(BaseModel):
     image_source_dataset: str | None = None
     visual_probe: bool = False
     audit_logged: bool = False
+    audit_log_id: str | None = None
+    self_test_receipt: dict[str, Any] | None = None
     key_persisted: bool = False
     admission_state_updated: bool = False
     recommendation: str
@@ -407,6 +409,9 @@ class ModelAdmissionTestResponse(BaseModel):
     recommendation: str
     platform_state_updated: bool = False
     platform_state_summary: str | None = None
+    audit_logged: bool = False
+    audit_log_id: str | None = None
+    admission_receipt: dict[str, Any] | None = None
     doctor_review_required: bool = True
     safety_notice: str
     created_at: str

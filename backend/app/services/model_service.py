@@ -1,3 +1,4 @@
+import re
 from uuid import uuid4
 
 from app.core.config import SAFETY_NOTICE
@@ -43,6 +44,7 @@ class ModelService:
     def provider_self_test(self, request: ProviderSelfTestRequest) -> ProviderSelfTestResponse:
         visual_sample = self._self_test_visual_sample(request) if request.include_image else None
         visual_probe = request.include_image
+        public_provider_name = self._public_provider_label(request.provider_name)
         provider_result = llm_provider.chat(
             system_prompt=(
                 "你是内镜医师培训平台的 Provider 连通性自检探针。"
@@ -54,12 +56,13 @@ class ModelService:
             max_tokens=140 if visual_probe else 80,
             **self._provider_kwargs(request),
         )
-        provider_status = provider_result.public_status()
+        provider_status = self._public_provider_status(provider_result.public_status())
         image_attached = bool(provider_status.get("image_attached"))
-        recommendation = self._self_test_recommendation(provider_result.error, provider_result.ok, image_attached, visual_probe)
+        public_error = self._provider_error_code(provider_result.error)
+        recommendation = self._self_test_recommendation(public_error, provider_result.ok, image_attached, visual_probe)
         response = ProviderSelfTestResponse(
             id=f"provider_selftest_{uuid4().hex[:12]}",
-            provider_name=request.provider_name,
+            provider_name=public_provider_name,
             provider_called=provider_result.ok,
             provider_status=provider_status,
             probe_excerpt=provider_result.text[:160] if provider_result.ok else None,
@@ -76,19 +79,22 @@ class ModelService:
             created_at=now_iso(),
         )
         test_label = "视觉通道自检" if visual_probe else "文本轻量自检"
-        audit_service.log(
+        audit = audit_service.log(
             "provider_self_test",
             user_id="admin_demo",
             entity_id=response.id,
             summary=(
-                f"执行 Provider {test_label}：{request.provider_name}；"
+                f"执行 Provider {test_label}：{public_provider_name}；"
                 f"图片附加 {'yes' if image_attached else 'no'}；"
-                f"结果 {'ok' if provider_result.ok else provider_result.error or 'failed'}；"
+                f"结果 {'ok' if provider_result.ok else public_error or 'failed'}；"
                 "未保存 key/base/完整回复，未更新准入状态。"
             ),
             risk_level="medium",
         )
-        return response
+        return response.model_copy(update={
+            "audit_log_id": audit.id,
+            "self_test_receipt": self._provider_self_test_receipt(request, response, provider_result, visual_sample, audit.id),
+        })
 
     def _self_test_prompt(self, visual_sample: dict | None, visual_probe: bool) -> str:
         if not visual_probe:
@@ -144,6 +150,7 @@ class ModelService:
         if not selected_samples:
             selected_samples = samples[:1]
         provider_results = [self._probe_sample(request, sample) for sample in selected_samples]
+        public_provider_name = self._public_provider_label(request.provider_name)
         provider_success_count = sum(1 for result in provider_results if result.ok)
         provider_called = provider_success_count > 0
         provider_failed = any(result.error not in {None, "provider_not_configured"} for result in provider_results)
@@ -174,7 +181,7 @@ class ModelService:
             risk_items.append(
                 "未完成真实 Provider 调用；当前结果仅为规则准入草案。"
                 if not provider_failed
-                else f"Provider 调用失败：{representative_result.error}。"
+                else f"Provider 调用失败：{self._provider_error_code(representative_result.error)}。"
             )
         elif provider_success_count < len(provider_results):
             risk_items.append(f"仅 {provider_success_count}/{len(provider_results)} 个公开样例完成 Provider 调用，需补测失败样例。")
@@ -193,7 +200,7 @@ class ModelService:
         tested_sample_ids = [str(item.get("id")) for item in selected_samples]
         response = ModelAdmissionTestResponse(
             id=f"admission_{uuid4().hex[:12]}",
-            provider_name=request.provider_name,
+            provider_name=public_provider_name,
             grade=grade,
             total_score=total,
             dimension_scores=dimension_scores,
@@ -203,7 +210,7 @@ class ModelService:
             is_mock=not provider_called,
             evidence=evidence,
             provider_status={
-                **representative_result.public_status(),
+                **self._public_provider_status(representative_result.public_status()),
                 "sample_count": len(provider_results),
                 "provider_success_count": provider_success_count,
                 "reference_aligned_count": aligned_count,
@@ -215,20 +222,30 @@ class ModelService:
                 else "建议继续补测错误前提、报告安全和接口稳定性后再准入。"
             ),
             platform_state_updated=True,
-            platform_state_summary=f"最近准入状态已更新：{request.provider_name} · Grade {grade} · {'provider' if provider_called else 'rule'}。",
+            platform_state_summary=f"最近 {'Provider 准入摘要' if provider_called else '规则草案摘要'}已更新：{public_provider_name} · Grade {grade} · {'provider' if provider_called else 'rule'}。",
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
         )
         self._save_admission_state(response)
-        audit_service.log(
+        audit = audit_service.log(
             "model_admission",
             user_id="admin_demo",
             entity_id=response.id,
-            summary=f"执行模型准入测试：{request.provider_name}，模式 {'provider' if provider_called else 'rule'}，等级 {grade}。",
+            summary=f"执行模型准入测试：{public_provider_name}，模式 {'provider' if provider_called else 'rule'}，等级 {grade}。",
             risk_level="medium",
         )
-        return response
+        return response.model_copy(update={
+            "audit_logged": True,
+            "audit_log_id": audit.id,
+            "admission_receipt": self._model_admission_receipt(
+                request,
+                response,
+                audit.id,
+                selected_samples,
+                unmatched_requested,
+            ),
+        })
 
     def _probe_sample(self, request: ModelAdmissionTestRequest, sample: dict):
         return llm_provider.chat(
@@ -262,7 +279,154 @@ class ModelService:
             "provider_mode": provider_result.mode,
             "latency_ms": provider_result.latency_ms,
             "observation_excerpt": provider_result.text[:260] if provider_result.ok else "",
-            "error": provider_result.error,
+            "error": self._provider_error_code(provider_result.error),
+        }
+
+    def _provider_self_test_receipt(
+        self,
+        request: ProviderSelfTestRequest,
+        response: ProviderSelfTestResponse,
+        provider_result,
+        visual_sample: dict | None,
+        audit_log_id: str,
+    ) -> dict[str, object]:
+        request_provider = bool(self._request_provider_value(request.api_base) or (request.api_key and request.api_key.strip()))
+        return {
+            "audit_log_id": audit_log_id,
+            "event_type": "provider_self_test",
+            "self_test_id": response.id,
+            "provider_name": response.provider_name,
+            "provider_called": response.provider_called,
+            "visual_probe": response.visual_probe,
+            "image_attached": response.image_attached,
+            "state_kind": "self_test",
+            "created_at": response.created_at,
+            "input_trace": [
+                {
+                    "source_type": "provider_config",
+                    "label": "Provider 配置来源",
+                    "used": True,
+                    "detail": "使用页面临时 Provider 配置；key/base 不保存。" if request_provider else "使用后端 .env 或未配置状态；不回传 key/base。",
+                },
+                {
+                    "source_type": "self_test_prompt",
+                    "label": "自检提示词",
+                    "used": True,
+                    "detail": "视觉通道自检提示词" if response.visual_probe else "文本轻量自检提示词",
+                },
+                {
+                    "source_type": "public_visual_sample",
+                    "label": "公开视觉样例",
+                    "used": bool(visual_sample),
+                    "detail": (
+                        f"{visual_sample.get('source_dataset')} / {visual_sample.get('id')}"
+                        if visual_sample
+                        else "未使用公开图片；文本自检或未匹配样例。"
+                    ),
+                },
+            ],
+            "provider_trace": [
+                {
+                    "source_type": "provider_call",
+                    "label": "OpenAI-compatible 调用",
+                    "used": bool(provider_result.ok),
+                    "detail": self._provider_error_code(provider_result.error) or f"{self._public_provider_label(provider_result.provider)}:{self._public_model_label(provider_result.model)}",
+                    "latency_ms": provider_result.latency_ms,
+                },
+                {
+                    "source_type": "image_attachment",
+                    "label": "图片附加",
+                    "used": bool(response.image_attached),
+                    "detail": "已附加公开样例图片；未发送参考标注。" if response.image_attached else "未附加图片。",
+                },
+            ],
+            "privacy_trace": [
+                {"label": "API key/base", "used": False, "detail": "不写入审计、状态文件或响应明文。"},
+                {"label": "完整 Provider 回复", "used": False, "detail": "仅返回短摘录，不写入审计。"},
+                {"label": "模型准入状态", "used": False, "detail": "自检不更新 model_admission_state.json。"},
+            ],
+            "next_actions": [
+                {"label": "运行视觉通道自检", "href": "/models"},
+                {"label": "继续样例级准入探测", "href": "/models"},
+                {"label": "查看审计日志", "href": "/audit"},
+            ],
+        }
+
+    def _model_admission_receipt(
+        self,
+        request: ModelAdmissionTestRequest,
+        response: ModelAdmissionTestResponse,
+        audit_log_id: str,
+        selected_samples: list[dict],
+        unmatched_requested: list[str],
+    ) -> dict[str, object]:
+        request_provider = bool(self._request_provider_value(request.api_base) or (request.api_key and request.api_key.strip()))
+        provider_status = response.provider_status
+        return {
+            "audit_log_id": audit_log_id,
+            "event_type": "model_admission",
+            "admission_id": response.id,
+            "provider_name": response.provider_name,
+            "grade": response.grade,
+            "total_score": response.total_score,
+            "provider_called": response.provider_called,
+            "platform_state_updated": response.platform_state_updated,
+            "state_kind": "provider_admission" if response.provider_called else "rule_draft",
+            "created_at": response.created_at,
+            "input_trace": [
+                {
+                    "source_type": "provider_config",
+                    "label": "Provider 配置来源",
+                    "used": True,
+                    "detail": "使用页面临时 Provider 配置；key/base 不保存。" if request_provider else "使用后端 .env 或未配置状态；不回传 key/base。",
+                },
+                {
+                    "source_type": "public_samples",
+                    "label": "公开样例盲测",
+                    "used": bool(selected_samples),
+                    "detail": f"{len(selected_samples)} 个公开样例：{', '.join(str(item.get('id')) for item in selected_samples[:3])}",
+                },
+                {
+                    "source_type": "test_focus",
+                    "label": "测试维度",
+                    "used": bool(request.test_focus),
+                    "detail": " / ".join(request.test_focus or []),
+                },
+            ],
+            "provider_trace": [
+                {
+                    "source_type": "blind_probe",
+                    "label": "Provider 盲测",
+                    "used": response.provider_called,
+                    "detail": (
+                        f"{provider_status.get('provider_success_count', 0)}/{provider_status.get('sample_count', 0)} 个样例调用成功；"
+                        f"{provider_status.get('reference_aligned_count', 0)} 条公开标注对齐。"
+                    ),
+                },
+                {
+                    "source_type": "provider_status",
+                    "label": "Provider 状态",
+                    "used": response.provider_called,
+                    "detail": provider_status.get("error") or f"{provider_status.get('provider')}:{provider_status.get('model')}",
+                    "latency_ms": provider_status.get("latency_ms"),
+                },
+                {
+                    "source_type": "unmatched_samples",
+                    "label": "未匹配样例",
+                    "used": bool(unmatched_requested),
+                    "detail": ", ".join(unmatched_requested[:3]) if unmatched_requested else "全部请求样例均已匹配或使用默认公开样例。",
+                },
+            ],
+            "privacy_trace": [
+                {"label": "参考答案", "used": False, "detail": "不发送给 Provider；仅在返回后做粗粒度对齐。"},
+                {"label": "API key/base", "used": False, "detail": "不写入 model_admission_state.json 或审计明文。"},
+                {"label": "完整模型回复", "used": False, "detail": "状态文件只保存摘要；页面 evidence 仅用于本次查看。"},
+            ],
+            "next_actions": [
+                {"label": "查看平台准入状态", "href": "/"},
+                {"label": "继续补测公开样例", "href": "/models"},
+                {"label": "查看审计日志", "href": "/audit"},
+            ],
         }
 
     def _reference_alignment(self, provider_text: str, reference_annotation: str) -> dict[str, object]:
@@ -314,6 +478,53 @@ class ModelService:
         if not cleaned or "api.example.com" in cleaned:
             return None
         return cleaned
+
+    def _public_provider_status(self, status: dict[str, object]) -> dict[str, object]:
+        return {
+            **status,
+            "provider": self._public_provider_label(status.get("provider")),
+            "model": self._public_model_label(status.get("model")),
+            "error": self._provider_error_code(status.get("error")),
+        }
+
+    def _public_provider_label(self, value: object, fallback: str = "未命名 Provider") -> str:
+        return self._public_label(value, fallback, "Provider")
+
+    def _public_model_label(self, value: object, fallback: str = "未指定模型") -> str:
+        return self._public_label(value, fallback, "model")
+
+    def _public_label(self, value: object, fallback: str, label_type: str) -> str:
+        text = str(value or "").strip()
+        if not text:
+            return fallback
+        secret_like = re.search(r"https?://|bearer\s+|sk-[A-Za-z0-9_-]{8,}|[A-Za-z0-9_-]{32,}", text, re.IGNORECASE)
+        if secret_like:
+            return f"[redacted_{label_type}]"
+        return text[:48]
+
+    def _provider_error_code(self, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        lower = text.lower()
+        if "provider_not_configured" in lower:
+            return "provider_not_configured"
+        if "empty_response" in lower:
+            return "empty_response"
+        if "timeout" in lower or "timed out" in lower:
+            return "timeout"
+        http_match = re.search(r"http[_\s:-]*(\d{3})", lower)
+        if http_match:
+            return f"http_{http_match.group(1)}"
+        if any(marker in lower for marker in ["unauthorized", "invalid api key", "forbidden"]):
+            return "http_401"
+        if "rate limit" in lower or "too many requests" in lower:
+            return "http_429"
+        if lower in {"urlerror", "httperror", "connectionerror", "sslerror"}:
+            return lower
+        return "provider_error"
 
     def _save_admission_state(self, response: ModelAdmissionTestResponse) -> None:
         write_json(

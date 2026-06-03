@@ -25,9 +25,9 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 视觉自检、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力的后端 |
+| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 视觉自检、Provider 自检收据、模型准入收据、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力的后端 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
-| POST | `/provider/self-test` | Provider 文本/视觉通道自检；视觉模式可附加一张公开样例图片，但不发送参考标注，不更新模型准入状态，不保存 key/base/完整回复 |
+| POST | `/provider/self-test` | Provider 文本/视觉通道自检；视觉模式可附加一张公开样例图片，但不发送参考标注，不更新模型准入状态，不保存 key/base/完整回复；返回 `audit_log_id` 和 `self_test_receipt` |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
 | GET | `/platform/readiness` | 平台就绪度、真实性矩阵和建议演示路线 |
 | POST | `/platform/demo-check` | 手动触发一次公开样例演示闭环自检；`persist=false` 沙盒写入后自动恢复，`persist=true` 才保留画像和审计；后端不可用时前端不伪造通过 |
@@ -48,7 +48,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | POST | `/patient-card/{card_id}/approve` | 审核同一张科普卡片草稿并解锁分享 |
 | GET | `/models` | 模型库 mock 看板 |
 | POST | `/models/select` | 选择默认 mock 模型 |
-| POST | `/models/admission-test` | 使用公开样例做样例级 Provider/规则准入检查 |
+| POST | `/models/admission-test` | 使用公开样例做样例级 Provider/规则准入检查；返回 `audit_logged`、`audit_log_id` 和 `admission_receipt` |
 | GET | `/models/admission-state` | 最近一次模型准入摘要，不包含 key 或完整模型回复 |
 | GET | `/skills` | Skills 列表 |
 | POST | `/skills/run` | 运行受控 skill |
@@ -307,11 +307,35 @@ Provider 文本/视觉通道自检：
   },
   "probe_excerpt": null,
   "audit_logged": true,
+  "audit_log_id": "audit_xxx",
+  "self_test_receipt": {
+    "audit_log_id": "audit_xxx",
+    "event_type": "provider_self_test",
+    "self_test_id": "provider_selftest_xxx",
+    "provider_called": false,
+    "visual_probe": true,
+    "image_attached": true,
+    "state_kind": "self_test",
+    "input_trace": [
+      { "source_type": "provider_config", "label": "Provider 配置来源", "used": true, "detail": "使用页面临时 Provider 配置；key/base 不保存。" },
+      { "source_type": "public_visual_sample", "label": "公开视觉样例", "used": true, "detail": "Kvasir-VQA-x1 / real_x1_0" }
+    ],
+    "provider_trace": [
+      { "source_type": "provider_call", "label": "OpenAI-compatible 调用", "used": false, "detail": "provider_not_configured" },
+      { "source_type": "image_attachment", "label": "图片附加", "used": true, "detail": "已附加公开样例图片；未发送参考标注。" }
+    ],
+    "privacy_trace": [
+      { "label": "API key/base", "used": false, "detail": "不写入审计、状态文件或响应明文。" },
+      { "label": "模型准入状态", "used": false, "detail": "自检不更新 model_admission_state.json。" }
+    ]
+  },
   "key_persisted": false,
   "admission_state_updated": false,
   "recommendation": "后端已构造并附加公开样例图片，但 Provider 自检未通过：provider_not_configured。请检查 base URL、模型名、key 或后端 .env。"
 }
 ```
+
+`self_test_receipt` 是前端“后端 Provider 自检收据”的数据源，用于展示本次自检的审计 ID、输入来源、Provider 调用来源和隐私边界。后端只记录摘要审计，不保存 key/base/完整回复；前端 fallback 收据必须让 `audit_log_id=null`。
 
 模型准入：
 
@@ -350,11 +374,35 @@ Provider 文本/视觉通道自检：
     }
   ],
   "platform_state_updated": true,
-  "platform_state_summary": "最近准入状态已更新：自定义多模态 API · Grade A · provider。"
+  "platform_state_summary": "最近 Provider 准入摘要已更新：自定义多模态 API · Grade A · provider。",
+  "audit_logged": true,
+  "audit_log_id": "audit_xxx",
+  "admission_receipt": {
+    "audit_log_id": "audit_xxx",
+    "event_type": "model_admission",
+    "admission_id": "admission_xxx",
+    "provider_called": true,
+    "grade": "A",
+    "total_score": 86,
+    "platform_state_updated": true,
+    "state_kind": "provider_admission",
+    "input_trace": [
+      { "source_type": "public_samples", "label": "公开样例盲测", "used": true, "detail": "3 个公开样例：real_x1_0, real_x1_2, real_x1_3" },
+      { "source_type": "test_focus", "label": "测试维度", "used": true, "detail": "基础识别 / 错误前提 / 报告安全" }
+    ],
+    "provider_trace": [
+      { "source_type": "blind_probe", "label": "Provider 盲测", "used": true, "detail": "3/3 个样例调用成功；2 条公开标注对齐。" },
+      { "source_type": "unmatched_samples", "label": "未匹配样例", "used": false, "detail": "全部请求样例均已匹配或使用默认公开样例。" }
+    ],
+    "privacy_trace": [
+      { "label": "参考答案", "used": false, "detail": "不发送给 Provider；仅在返回后做粗粒度对齐。" },
+      { "label": "API key/base", "used": false, "detail": "不写入 model_admission_state.json 或审计明文。" }
+    ]
+  }
 }
 ```
 
-最近准入摘要只保存 `provider_name`、`grade`、`total_score`、`mode`、`tested_samples`、`risk_items`、`reference_aligned_count` 和 `recommendation`，不保存 API key、API base 或完整模型回复。只有请求级 `api_base` 或 `api_key` 存在时，`model` 才作为本次请求覆盖项；`https://api.example.com/v1` 这类示例地址会被视为未配置。
+`admission_receipt` 是前端“后端模型准入收据”的数据源，用于证明准入接口已写入 `model_admission` 审计，并展示 blind probe 输入来源、Provider 来源、隐私边界和下一步动作。最近准入摘要只保存 `provider_name`、`grade`、`total_score`、`mode`、`tested_samples`、`risk_items`、`reference_aligned_count` 和 `recommendation`，不保存 API key、API base 或完整模型回复。只有请求级 `api_base` 或 `api_key` 存在时，`model` 才作为本次请求覆盖项；`https://api.example.com/v1` 这类示例地址会被视为未配置。
 
 平台就绪度：
 

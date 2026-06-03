@@ -21,6 +21,7 @@ import type {
   ModelAdmissionState,
   ModelProfile,
   PatientCard,
+  ProviderEvidenceReceipt,
   PlatformReadiness,
   PlatformReadinessModule,
   ProviderSelfTestResult,
@@ -41,7 +42,17 @@ const apiBaseCandidates = configuredApiBase
   ? [configuredApiBase]
   : ['http://127.0.0.1:8000', 'http://127.0.0.1:8001']
 const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
-const requiredApiCapabilities = ['provider_self_test', 'provider_visual_self_test', 'demo_check_sandbox', 'challenge_benchmark', 'challenge_audit_receipt', 'patient_card_generation_receipt', 'skill_run_receipt']
+const requiredApiCapabilities = [
+  'provider_self_test',
+  'provider_visual_self_test',
+  'provider_self_test_receipt',
+  'model_admission_receipt',
+  'demo_check_sandbox',
+  'challenge_benchmark',
+  'challenge_audit_receipt',
+  'patient_card_generation_receipt',
+  'skill_run_receipt',
+]
 let activeApiBase = apiBaseCandidates[0]
 let apiBaseProbe: Promise<boolean> | null = null
 
@@ -755,6 +766,9 @@ function normalizeModelAdmission(value: unknown, fallback: ModelAdmissionResult)
     recommendation: asString(record.recommendation, fallback.recommendation),
     platform_state_updated: asBoolean(record.platform_state_updated, fallback.platform_state_updated),
     platform_state_summary: typeof record.platform_state_summary === 'string' ? record.platform_state_summary : fallback.platform_state_summary,
+    audit_logged: asBoolean(record.audit_logged, fallback.audit_logged),
+    audit_log_id: typeof record.audit_log_id === 'string' || record.audit_log_id === null ? record.audit_log_id : fallback.audit_log_id,
+    admission_receipt: normalizeProviderEvidenceReceipt(record.admission_receipt, fallback.admission_receipt),
     doctor_review_required: true,
     safety_notice: asString(record.safety_notice, safetyNotice),
     created_at: asString(record.created_at, fallback.created_at),
@@ -776,12 +790,136 @@ function normalizeProviderSelfTest(value: unknown, fallback: ProviderSelfTestRes
     image_source_dataset: typeof record.image_source_dataset === 'string' || record.image_source_dataset === null ? record.image_source_dataset : fallback.image_source_dataset,
     visual_probe: asBoolean(record.visual_probe, fallback.visual_probe),
     audit_logged: asBoolean(record.audit_logged, fallback.audit_logged),
+    audit_log_id: typeof record.audit_log_id === 'string' || record.audit_log_id === null ? record.audit_log_id : fallback.audit_log_id,
+    self_test_receipt: normalizeProviderEvidenceReceipt(record.self_test_receipt, fallback.self_test_receipt),
     key_persisted: asBoolean(record.key_persisted, fallback.key_persisted),
     admission_state_updated: asBoolean(record.admission_state_updated, fallback.admission_state_updated),
     recommendation: asString(record.recommendation, fallback.recommendation),
     doctor_review_required: true,
     safety_notice: asString(record.safety_notice, safetyNotice),
     created_at: asString(record.created_at, fallback.created_at),
+  }
+}
+
+function normalizeProviderEvidenceReceipt(value: unknown, fallback?: ProviderEvidenceReceipt | null): ProviderEvidenceReceipt | null {
+  const record = asRecord(value)
+  if (!Object.keys(record).length) return fallback || null
+  const normalizeTrace = (trace: unknown) => Array.isArray(trace)
+    ? trace.map((item) => {
+        const entry = asRecord(item)
+        return {
+          source_type: asString(entry.source_type, ''),
+          label: asString(entry.label, '证据来源'),
+          used: asBoolean(entry.used, false),
+          detail: asString(entry.detail, ''),
+          latency_ms: entry.latency_ms === null ? null : asNumber(entry.latency_ms, 0),
+        }
+      })
+    : []
+  const normalizePrivacy = (trace: unknown) => Array.isArray(trace)
+    ? trace.map((item) => {
+        const entry = asRecord(item)
+        return {
+          label: asString(entry.label, '隐私边界'),
+          used: asBoolean(entry.used, false),
+          detail: asString(entry.detail, ''),
+        }
+      })
+    : []
+  const normalizeActions = (actions: unknown) => Array.isArray(actions)
+    ? actions.map((item) => {
+        const entry = asRecord(item)
+        return { label: asString(entry.label, '继续查看'), href: asString(entry.href, '/models') }
+      })
+    : []
+  return {
+    audit_log_id: typeof record.audit_log_id === 'string' || record.audit_log_id === null ? record.audit_log_id : fallback?.audit_log_id,
+    event_type: asString(record.event_type, fallback?.event_type || ''),
+    self_test_id: typeof record.self_test_id === 'string' ? record.self_test_id : fallback?.self_test_id,
+    admission_id: typeof record.admission_id === 'string' ? record.admission_id : fallback?.admission_id,
+    provider_name: asString(record.provider_name, fallback?.provider_name || ''),
+    provider_called: asBoolean(record.provider_called, fallback?.provider_called || false),
+    visual_probe: asBoolean(record.visual_probe, fallback?.visual_probe || false),
+    image_attached: asBoolean(record.image_attached, fallback?.image_attached || false),
+    grade: typeof record.grade === 'string' ? record.grade : fallback?.grade,
+    total_score: record.total_score === undefined ? fallback?.total_score : asNumber(record.total_score, fallback?.total_score || 0),
+    platform_state_updated: asBoolean(record.platform_state_updated, fallback?.platform_state_updated || false),
+    state_kind: asString(record.state_kind, fallback?.state_kind || ''),
+    input_trace: normalizeTrace(record.input_trace).length ? normalizeTrace(record.input_trace) : fallback?.input_trace,
+    provider_trace: normalizeTrace(record.provider_trace).length ? normalizeTrace(record.provider_trace) : fallback?.provider_trace,
+    privacy_trace: normalizePrivacy(record.privacy_trace).length ? normalizePrivacy(record.privacy_trace) : fallback?.privacy_trace,
+    next_actions: normalizeActions(record.next_actions).length ? normalizeActions(record.next_actions) : fallback?.next_actions,
+    created_at: asString(record.created_at, fallback?.created_at || ''),
+  }
+}
+
+function localProviderSelfTestReceipt(payload: { providerName: string; includeImage?: boolean; sampleId?: string }): ProviderEvidenceReceipt {
+  return {
+    audit_log_id: null,
+    event_type: 'provider_self_test',
+    self_test_id: `provider_selftest_local_${Date.now()}`,
+    provider_name: payload.providerName,
+    provider_called: false,
+    visual_probe: Boolean(payload.includeImage),
+    image_attached: false,
+    state_kind: 'self_test',
+    input_trace: [
+      {
+        source_type: 'frontend_fallback',
+        label: '本地自检预览',
+        used: true,
+        detail: payload.includeImage ? `后端不可用，未附加公开样例 ${payload.sampleId || '默认样例'}。` : '后端不可用，未发送文本自检请求。',
+      },
+    ],
+    provider_trace: [
+      {
+        source_type: 'frontend_fallback',
+        label: 'Provider 调用',
+        used: false,
+        detail: '后端 provider/self-test 不可用，未写入 provider_self_test 审计。',
+      },
+    ],
+    privacy_trace: [
+      { label: 'API key/base', used: false, detail: '前端 fallback 不会保存或回显密钥。' },
+      { label: '准入状态', used: false, detail: '未更新 model_admission_state.json。' },
+    ],
+    next_actions: [{ label: '检查后端服务', href: '/models' }],
+    created_at: new Date().toISOString(),
+  }
+}
+
+function localAdmissionReceipt(payload: { providerName: string; sampleIds: string[]; focus: string[] }): ProviderEvidenceReceipt {
+  return {
+    audit_log_id: null,
+    event_type: 'model_admission',
+    admission_id: `admission_local_${Date.now()}`,
+    provider_name: payload.providerName,
+    provider_called: false,
+    platform_state_updated: false,
+    state_kind: 'rule_draft',
+    input_trace: [
+      {
+        source_type: 'frontend_fallback',
+        label: '本地准入预览',
+        used: true,
+        detail: `选择 ${payload.sampleIds.length} 个样例，维度：${payload.focus.join(' / ') || '未选择'}；后端不可用，未执行盲测。`,
+      },
+    ],
+    provider_trace: [
+      {
+        source_type: 'frontend_fallback',
+        label: 'Provider 盲测',
+        used: false,
+        detail: '后端 models/admission-test 不可用，未写入 model_admission 审计。',
+      },
+    ],
+    privacy_trace: [
+      { label: '参考答案', used: false, detail: '前端 fallback 未发送样例或参考标注给 Provider。' },
+      { label: 'API key/base', used: false, detail: '前端 fallback 不会保存或回显密钥。' },
+      { label: '平台状态', used: false, detail: '未写入 model_admission_state.json。' },
+    ],
+    next_actions: [{ label: '检查后端服务', href: '/models' }],
+    created_at: new Date().toISOString(),
   }
 }
 
@@ -1044,8 +1182,10 @@ export const api = {
   },
 
   async providerSelfTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string; includeImage?: boolean; sampleId?: string }): Promise<ProviderSelfTestResult> {
+    const fallbackId = `provider_selftest_local_${Date.now()}`
+    const fallbackCreatedAt = new Date().toISOString()
     const fallback: ProviderSelfTestResult = {
-      id: `provider_selftest_local_${Date.now()}`,
+      id: fallbackId,
       provider_name: payload.providerName,
       provider_called: false,
       provider_status: {
@@ -1062,6 +1202,12 @@ export const api = {
       image_source_dataset: null,
       visual_probe: Boolean(payload.includeImage),
       audit_logged: false,
+      audit_log_id: null,
+      self_test_receipt: {
+        ...localProviderSelfTestReceipt(payload),
+        self_test_id: fallbackId,
+        created_at: fallbackCreatedAt,
+      },
       key_persisted: false,
       admission_state_updated: false,
       recommendation: payload.includeImage
@@ -1069,7 +1215,7 @@ export const api = {
         : '后端不可用，未完成 Provider 文本轻量自检；请先启动 FastAPI，再运行完整准入探测。',
       doctor_review_required: true,
       safety_notice: safetyNotice,
-      created_at: new Date().toISOString(),
+      created_at: fallbackCreatedAt,
     }
     const response = await request<ProviderSelfTestResult>(
       '/api/provider/self-test',
@@ -1419,8 +1565,10 @@ export const api = {
   },
 
   async modelAdmissionTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string; sampleIds: string[]; focus: string[] }): Promise<ModelAdmissionResult> {
+    const fallbackId = `admission_local_${Date.now()}`
+    const fallbackCreatedAt = new Date().toISOString()
     const fallback: ModelAdmissionResult = {
-      id: `admission_local_${Date.now()}`,
+      id: fallbackId,
       provider_name: payload.providerName,
       grade: 'B',
       total_score: 69,
@@ -1440,9 +1588,16 @@ export const api = {
       recommendation: '请先连通后端并配置 Provider，再运行真实准入探测。',
       platform_state_updated: false,
       platform_state_summary: '当前为前端 fallback 准入结果，未写入后端平台状态。',
+      audit_logged: false,
+      audit_log_id: null,
+      admission_receipt: {
+        ...localAdmissionReceipt(payload),
+        admission_id: fallbackId,
+        created_at: fallbackCreatedAt,
+      },
       doctor_review_required: true,
       safety_notice: safetyNotice,
-      created_at: new Date().toISOString(),
+      created_at: fallbackCreatedAt,
     }
     const response = await request<ModelAdmissionResult>(
       '/api/models/admission-test',

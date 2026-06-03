@@ -335,6 +335,8 @@ export type ProviderSelfTestResult = {
   image_source_dataset?: string | null
   visual_probe: boolean
   audit_logged: boolean
+  audit_log_id?: string | null
+  self_test_receipt?: ProviderEvidenceReceipt | null
   key_persisted: boolean
   admission_state_updated: boolean
   recommendation: string
@@ -520,10 +522,33 @@ export type ModelAdmissionResult = {
   recommendation: string
   platform_state_updated: boolean
   platform_state_summary?: string | null
+  audit_logged: boolean
+  audit_log_id?: string | null
+  admission_receipt?: ProviderEvidenceReceipt | null
   doctor_review_required: true
   safety_notice: string
   created_at: string
   api_source?: 'backend' | 'fallback'
+}
+
+export type ProviderEvidenceReceipt = {
+  audit_log_id?: string | null
+  event_type?: string
+  self_test_id?: string
+  admission_id?: string
+  provider_name?: string
+  provider_called?: boolean
+  visual_probe?: boolean
+  image_attached?: boolean
+  grade?: string
+  total_score?: number
+  platform_state_updated?: boolean
+  state_kind?: 'self_test' | 'provider_admission' | 'rule_draft' | string
+  input_trace?: { source_type?: string; label: string; used: boolean; detail: string }[]
+  provider_trace?: { source_type?: string; label: string; used: boolean; detail: string; latency_ms?: number | null }[]
+  privacy_trace?: { label: string; used: boolean; detail: string }[]
+  next_actions?: { label: string; href: string }[]
+  created_at?: string
 }
 
 export type TutorChatResponse = {

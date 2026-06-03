@@ -39,7 +39,7 @@ cd backend
 python -m uvicorn app.main:app --reload --port 8001
 ```
 
-前端未显式设置 `VITE_API_BASE_URL` 时，会按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 自动探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities（Provider 视觉自检、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据）的服务；如果需要固定端口，可在启动前设置 `VITE_API_BASE_URL`。
+前端未显式设置 `VITE_API_BASE_URL` 时，会按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 自动探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities（Provider 视觉自检、Provider 自检收据、模型准入收据、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据）的服务；如果需要固定端口，可在启动前设置 `VITE_API_BASE_URL`。
 
 ## 可选真实 Provider 配置
 
@@ -63,7 +63,7 @@ LLM_TIMEOUT_SECONDS=25
 4. 错误前提训练：先让林知远医师独立判断题干是否成立，提交后才解锁证据不足事实、得分和复盘建议。
 5. 报告中心：选择真实公开样例或上传图片，在流程工作台中完成“图像/所见 -> 草稿 -> 证据台账 -> 医师复核”；可用后端 `.env` 或页面临时 Provider 做一次真实推理，公开 VQA 标注默认收进来源台账，不伪装成医生报告结论。
 6. 报告修改训练：AI judge 评分后回灌林知远医师画像，并返回下一步专项训练入口；评分后的建议改写或医生修改稿摘要可带入科普卡片工作室生成待审核草稿；可选 Provider 评阅会显示 `provider/rule/fallback`、延迟和来源台账。
-7. 模型准入：先做 Provider 文本轻量自检或视觉通道自检确认通道可用；视觉自检只证明后端已将公开样例图片附加到多模态请求，不发送参考标注、不更新准入状态。随后使用最多 3 个公开样例做 blind probe 准入检查；Provider 只接收图片和问题，不接收参考标注，后端返回后再做公开标注对齐。
+7. 模型准入：先做 Provider 文本轻量自检或视觉通道自检确认通道可用；视觉自检只证明后端已将公开样例图片附加到多模态请求，不发送参考标注、不更新准入状态。页面会展示后端 Provider 自检收据，包括 `provider_self_test` 审计 ID、输入来源、Provider 调用来源和隐私边界。随后使用最多 3 个公开样例做 blind probe 准入检查；Provider 只接收图片和问题，不接收参考标注，后端返回后再做公开标注对齐，并展示 `model_admission` 审计 ID 与模型准入收据。
 8. 科普卡片、Skills、审计日志：展示患者沟通卡片生成收据、医生审核闸门、后端 Skill 运行收据、`skill_run` 审计 ID、输入/执行来源和关键事件记录。
 
 详细操作手册见 [docs/V2_USER_GUIDE.md](docs/V2_USER_GUIDE.md)。
@@ -78,7 +78,7 @@ LLM_TIMEOUT_SECONDS=25
 | 错误前提训练 | backend rule | false-premise 题库 + atomic facts | 先作答后解锁证据不足事实、得分和复盘建议 |
 | 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 流程工作台展示数据/Provider/模板状态；报告生成显示 `source_trace`、Provider 状态和 `evidence_ledger`；报告评分返回画像回灌与 `recommended_drills`，并可把建议改写或医生修改稿摘要带入科普卡片待审流程 |
 | Skills 中心 | backend rule / fallback | `skills.json` + 当前题/报告/卡片服务 | 页面展示运行摘要、`skill_run_receipt`、审计 ID、输入来源、执行来源和工作区跳转；前端 fallback 只显示本地预览且不伪造审计 ID；完整 JSON 仅放在开发细节折叠项 |
-| 模型准入 | provider text/visual self-test / blind provider probe / rule draft | 公开样例 + 可选 Provider | 文本自检只验证文字通道；视觉自检会把一张公开内镜图以 `image_url` data URL 附加到请求，但不发送参考标注、不更新准入状态；逐样例准入不泄露参考标注，返回 provider answer、对齐状态和 evidence；最近准入摘要不保存 key/base |
+| 模型准入 | provider text/visual self-test / blind provider probe / rule draft | 公开样例 + 可选 Provider | 文本自检只验证文字通道；视觉自检会把一张公开内镜图以 `image_url` data URL 附加到请求，但不发送参考标注、不更新准入状态；自检返回 `self_test_receipt` 和 `provider_self_test` 审计 ID；逐样例准入不泄露参考标注，返回 provider answer、对齐状态、evidence、`admission_receipt` 和 `model_admission` 审计 ID；最近准入摘要不保存 key/base |
 | 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB | 生成草稿后显示 `source_trace`、模板知识库和 `patient_card` 审计收据；可从报告修改训练带入建议改写或医生修改稿摘要；默认锁定打印/分享；医生完成审核清单后通过同一 `card_id` 解锁，并写入 `patient_card_approve` 审计日志 |
 | Memory | rule persistence | `learner_profile.json` | 提交题目、考试 Session、报告 judge 和 Agent 追问都会更新训练记录、能力分与弱项标签；考试汇总不重复增加单题题量 |
 | 审计日志 | backend persistence | `audit_logs.json` | 记录题目、辅导、报告、上传、准入等事件 |

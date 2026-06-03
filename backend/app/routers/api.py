@@ -48,6 +48,8 @@ def health() -> dict[str, object]:
         "capabilities": [
             "provider_self_test",
             "provider_visual_self_test",
+            "provider_self_test_receipt",
+            "model_admission_receipt",
             "demo_check_sandbox",
             "challenge_benchmark",
             "challenge_audit_receipt",

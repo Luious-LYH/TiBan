@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { ActivitySquare, AlertTriangle, CheckCircle2, Database, KeyRound, LoaderCircle, PlugZap, ShieldAlert, ShieldCheck, TestTube2 } from 'lucide-react'
+import { ActivitySquare, AlertTriangle, ArrowRight, CheckCircle2, Database, FileCheck2, KeyRound, LoaderCircle, PlugZap, ShieldAlert, ShieldCheck, TestTube2 } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
-import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderSelfTestResult, ProviderStatus, Question } from '../lib/types'
+import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderEvidenceReceipt, ProviderSelfTestResult, ProviderStatus, Question } from '../lib/types'
 
 const scoreLabels: Record<string, string> = {
   basic_recognition: '基础识别',
@@ -18,6 +19,117 @@ const focusItems = ['基础识别', '复杂推理', '错误前提', '报告安�
 
 function admissionSampleId(sampleId: string): string {
   return sampleId.startsWith('public_') ? sampleId.slice('public_'.length) : sampleId
+}
+
+function receiptTimeLabel(value?: string): string {
+  if (!value) return '未记录'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+function ReceiptTraceChips({
+  title,
+  items,
+}: {
+  title: string
+  items?: { label: string; used: boolean; detail: string; latency_ms?: number | null }[]
+}) {
+  if (!items?.length) return null
+  return (
+    <div className="provider-trace-block">
+      <strong>{title}</strong>
+      <div>
+        {items.map((item, index) => (
+          <span className={item.used ? 'used' : ''} key={`${title}_${item.label}_${index}`}>
+            <em>{item.label}{item.latency_ms ? ` · ${item.latency_ms}ms` : ''}</em>
+            <small>{item.detail}</small>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ProviderReceiptPanel({
+  receipt,
+  fallback,
+  title,
+}: {
+  receipt?: ProviderEvidenceReceipt | null
+  fallback: boolean
+  title: string
+}) {
+  if (!receipt) return null
+  const isAdmission = receipt.event_type === 'model_admission'
+  const stateLabel = receipt.state_kind === 'provider_admission'
+    ? 'Provider 准入摘要'
+    : receipt.state_kind === 'rule_draft'
+      ? '规则草案摘要'
+      : receipt.platform_state_updated
+        ? '已更新摘要'
+        : '未更新'
+  return (
+    <div className={`provider-receipt ${fallback || !receipt.audit_log_id ? 'fallback' : 'synced'}`}>
+      <div className="provider-receipt-head">
+        <FileCheck2 size={20} />
+        <div>
+          <strong>{fallback || !receipt.audit_log_id ? title.replace('后端', '本地') : title}</strong>
+          <span>
+            {receipt.audit_log_id
+              ? `已写入 ${receipt.event_type || 'provider_event'} 审计：${receipt.audit_log_id}`
+              : '当前没有后端审计 ID；仅作前端预览。'}
+          </span>
+        </div>
+      </div>
+      <div className="provider-receipt-metrics">
+        <div>
+          <span>Provider 调用</span>
+          <strong>{receipt.provider_called ? '已调用' : '未调用'}</strong>
+        </div>
+        <div>
+          <span>{isAdmission ? '平台状态' : '图片附加'}</span>
+          <strong>
+            {isAdmission
+              ? stateLabel
+              : receipt.visual_probe ? (receipt.image_attached ? '已附加公开图' : '未附加') : '文本自检'}
+          </strong>
+        </div>
+        <div>
+          <span>{isAdmission ? '准入分' : '收据时间'}</span>
+          <strong>{isAdmission ? `Grade ${receipt.grade || '-'} · ${receipt.total_score ?? '-'}` : receiptTimeLabel(receipt.created_at)}</strong>
+        </div>
+      </div>
+      {isAdmission ? (
+        <div className="provider-receipt-metrics compact">
+          <div>
+            <span>收据时间</span>
+            <strong>{receiptTimeLabel(receipt.created_at)}</strong>
+          </div>
+          <div>
+            <span>准入 ID</span>
+            <strong>{receipt.admission_id || '未记录'}</strong>
+          </div>
+          <div>
+            <span>Provider</span>
+            <strong>{receipt.provider_name || '未记录'}</strong>
+          </div>
+        </div>
+      ) : null}
+      <ReceiptTraceChips title="输入来源" items={receipt.input_trace} />
+      <ReceiptTraceChips title="Provider 来源" items={receipt.provider_trace} />
+      <ReceiptTraceChips title="隐私边界" items={receipt.privacy_trace} />
+      {receipt.next_actions?.length ? (
+        <div className="provider-receipt-actions">
+          {receipt.next_actions.map((action) => (
+            <Link to={action.href || '/models'} key={`${action.label}_${action.href}`}>
+              {action.label} <ArrowRight size={14} />
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 export function ModelHub() {
@@ -300,6 +412,11 @@ export function ModelHub() {
               <div><span>准入状态</span><strong>{selfTest.admission_state_updated ? '已更新' : '未更新'}</strong></div>
             </div>
           ) : null}
+          <ProviderReceiptPanel
+            receipt={selfTest?.self_test_receipt}
+            fallback={selfTest?.api_source === 'fallback' || !selfTest?.audit_log_id}
+            title="后端 Provider 自检收据"
+          />
           <div className="self-test-actions">
             <button className="button secondary" type="button" onClick={() => runProviderSelfTest(false)} disabled={isRunningSelfTest || isRunningAdmission}>
               {isRunningSelfTest && selfTestMode === 'text' ? <LoaderCircle className="spin-icon" size={17} /> : <PlugZap size={17} />}
@@ -378,6 +495,11 @@ export function ModelHub() {
             </Tag>
           </div>
           <div className="source-note">该分数是训练准入检查清单分，Provider 样例为盲测：请求不包含参考标注，后端只在返回后做公开标注对齐，不代表临床模型评测。</div>
+          <ProviderReceiptPanel
+            receipt={result.admission_receipt}
+            fallback={result.api_source === 'fallback' || !result.audit_log_id}
+            title="后端模型准入收据"
+          />
           <div className="provider-evidence-list">
             {result.evidence.map((item, itemIndex) => (
               <div key={`${item.sample_id || 'sample'}_${itemIndex}`}>
