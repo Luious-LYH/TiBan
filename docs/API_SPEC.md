@@ -48,7 +48,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | POST | `/patient-card` | 科普卡片草稿 |
 | POST | `/patient-card/{card_id}/approve` | 审核同一张科普卡片草稿并解锁分享 |
 | GET | `/models` | 模型库 mock 看板 |
-| POST | `/models/select` | 选择默认 mock 模型 |
+| POST | `/models/select` | 仅在最近准入摘要满足真实 Provider 调用、公开标注对齐和安全阈值，且目标不是 mock 模型时，写入待人工复核候选；否则返回 400，不允许前端伪造切换成功 |
 | POST | `/models/admission-test` | 使用公开样例做样例级 Provider/规则准入检查；返回 `audit_logged`、`audit_log_id` 和 `admission_receipt` |
 | GET | `/models/admission-state` | 最近一次模型准入摘要，不包含 key 或完整模型回复 |
 | GET | `/skills` | Skills 列表 |

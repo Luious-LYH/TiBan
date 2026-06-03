@@ -308,6 +308,8 @@ def select_model(request: ModelSelectRequest) -> dict[str, object]:
         return model_service.select_model(request.model_id).model_dump()
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/models/admission-test")

@@ -217,21 +217,21 @@ export function ModelHub() {
   const [result, setResult] = useState<ModelAdmissionResult | null>(null)
   const [admissionState, setAdmissionState] = useState<ModelAdmissionState | null>(null)
   const [selectingModelId, setSelectingModelId] = useState('')
-  const [selectionNotice, setSelectionNotice] = useState('当前训练候选会写入后端 models.json，并同步影响首页当前模型展示；未通过真实 Provider 准入前仅作演示候选。')
+  const [selectionNotice, setSelectionNotice] = useState('当前只展示模型看板候选；未完成真实 Provider blind probe、公开标注对齐和人工复核前，不宣称已启用正式训练 Agent。')
   const [isRunningAdmission, setIsRunningAdmission] = useState(false)
   const [admissionNotice, setAdmissionNotice] = useState('等待运行：请选择公开样例和测试维度，再启动样例级准入探测。')
   const [selfTest, setSelfTest] = useState<ProviderSelfTestResult | null>(null)
   const [isRunningSelfTest, setIsRunningSelfTest] = useState(false)
   const [selfTestMode, setSelfTestMode] = useState<'text' | 'visual' | null>(null)
   const [selfTestNotice, setSelfTestNotice] = useState('可先做轻量自检：只验证 Provider 通道，不读取公开样例，不写入模型准入状态。')
-  const trainingAgentLabel = '当前训练候选'
-  const inactiveAgentLabel = '设为展示候选'
+  const activeCandidateLabel = '当前看板候选'
+  const inactiveCandidateLabel = '设为待复核候选'
 
   useEffect(() => {
     api.models().then((items) => {
       setModels(items)
       const active = items.find((item) => item.is_active)
-      if (active) setSelectionNotice(`当前训练候选：${active.name}。可切换候选模型，但所有输出仍需医生审核；未通过真实 Provider 准入前仅作演示候选。`)
+      if (active) setSelectionNotice(`当前看板候选：${active.name}。模型卡片只代表展示/联调候选；未通过真实 Provider 准入和人工复核前，不作为正式训练 Agent。`)
     })
     api.modelAdmissionState().then(setAdmissionState).catch(() => undefined)
     api.providerStatus().then((status) => {
@@ -341,21 +341,59 @@ export function ModelHub() {
     setSelectedSamples((current) => current.includes(normalized) ? current.filter((value) => value !== normalized) : [...current, normalized])
   }
 
+  const referenceAlignedCount = admissionState?.reference_aligned_count ?? 0
+  const admissionGateReady = Boolean(admissionState?.safe_for_training && admissionState.provider_called && referenceAlignedCount > 0)
+  const activeModel = models.find((item) => item.is_active) || models[0]
+  const activeModelEligible = Boolean(admissionGateReady && activeModel?.provider_type !== 'mock')
+  const admissionGateItems = [
+    {
+      label: 'Provider blind probe',
+      value: admissionState?.provider_called ? '已调用' : '未调用',
+      ready: Boolean(admissionState?.provider_called),
+      detail: '必须由后端 Provider 盲测公开样例。',
+    },
+    {
+      label: '公开标注对齐',
+      value: referenceAlignedCount > 0 ? `${referenceAlignedCount} 条` : '0 条',
+      ready: referenceAlignedCount > 0,
+      detail: '至少一条 Provider 回答与公开标注部分对齐。',
+    },
+    {
+      label: '平台准入摘要',
+      value: admissionState?.safe_for_training ? '可复核' : '规则/待复核',
+      ready: Boolean(admissionState?.safe_for_training),
+      detail: '准入状态来自后端 model_admission_state。',
+    },
+    {
+      label: '非 mock 候选',
+      value: activeModel?.provider_type === 'mock' ? 'mock 展示' : activeModel?.provider_type || '未选择',
+      ready: Boolean(activeModel?.provider_type && activeModel.provider_type !== 'mock'),
+      detail: 'mock 模型永远只作看板展示，不进入待复核候选。',
+    },
+    {
+      label: '模型卡动作',
+      value: admissionGateReady ? '非 mock 可切换' : '已锁定',
+      ready: admissionGateReady,
+      detail: '准入未通过时不写入新候选；mock 始终只展示。',
+    },
+  ]
+
   const selectTrainingModel = async (modelId: string) => {
-    if (selectingModelId) return
+    const targetModel = models.find((item) => item.id === modelId)
+    if (selectingModelId || !admissionGateReady || targetModel?.provider_type === 'mock') return
     setSelectingModelId(modelId)
     try {
       const selected = await api.selectModel(modelId)
       setModels((items) => items.map((item) => ({ ...item, is_active: item.id === selected.id })))
-      setSelectionNotice(`已切换当前训练候选：${selected.name}。Dashboard 会从后端 active_model 读取该状态；未通过真实 Provider 准入前仅作演示候选。`)
-    } catch {
-      setSelectionNotice('模型选择接口暂不可用；当前只保留页面状态，未写入后端。')
+      setSelectionNotice(`已切换待人工复核候选：${selected.name}。Dashboard 会从后端 active_model 读取该状态；仍需医生/管理员确认后才可作为正式训练 Agent。`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '未知错误'
+      setSelectionNotice(`模型选择未写入：${message}。当前仍只保留页面看板状态。`)
     } finally {
       setSelectingModelId('')
     }
   }
 
-  const activeModel = models.find((item) => item.is_active) || models[0]
   const providerSuccessCount = result?.provider_status.provider_success_count
   const providerSampleCount = result?.provider_status.sample_count || result?.evidence.length || 0
   const canRunAdmission = Boolean(selectedSamples.length && focus.length && !isRunningAdmission && !isRunningSelfTest)
@@ -430,9 +468,9 @@ export function ModelHub() {
 
       <Card className="provider-status-card active-training-agent">
         <SectionTitle
-          eyebrow="Training agent"
-          title="当前训练候选 Agent"
-          action={<Tag tone={activeModel?.provider_type === 'mock' ? 'amber' : 'green'}>{activeModel?.provider_type || 'mock'}</Tag>}
+          eyebrow="Training candidate"
+          title="当前看板候选 Agent"
+          action={<Tag tone={activeModelEligible ? 'green' : 'amber'}>{activeModelEligible ? '准入已过 · 待复核' : activeModel?.provider_type === 'mock' ? 'mock · 仅展示' : '未准入 · 展示候选'}</Tag>}
         />
         <div className="active-agent-strip">
           <div>
@@ -443,10 +481,19 @@ export function ModelHub() {
             {activeModel?.risk_tags.slice(0, 3).map((tag) => <Tag key={tag} tone="amber">{tag}</Tag>)}
           </div>
         </div>
-        <div className={`memory-sync-card ${selectionNotice.includes('已切换') || selectionNotice.includes('当前训练') ? 'synced' : 'fallback'}`}>
-          <ActivitySquare size={18} />
+        <div className="admission-gate-grid">
+          {admissionGateItems.map((item) => (
+            <div className={item.ready ? 'ready' : 'blocked'} key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.value}</strong>
+              <small>{item.detail}</small>
+            </div>
+          ))}
+        </div>
+        <div className={`memory-sync-card ${activeModelEligible ? 'synced' : 'fallback'}`}>
+          {activeModelEligible ? <ActivitySquare size={18} /> : <ShieldAlert size={18} />}
           <div>
-            <strong>{selectionNotice.includes('暂不可用') ? '选择未写入' : '选择状态已联动'}</strong>
+            <strong>{activeModelEligible ? '准入闸门已通过' : admissionGateReady ? '准入已过，当前 mock 仍仅展示' : '准入闸门未通过'}</strong>
             <span>{selectionNotice}</span>
           </div>
         </div>
@@ -607,12 +654,20 @@ export function ModelHub() {
         </Card>
       ) : null}
 
+      <div className="model-selection-policy source-note">
+        模型卡片默认是能力看板。只有最近准入摘要满足真实 Provider 调用、公开标注对齐和安全阈值，且目标模型不是 mock 时，才允许写入“待人工复核候选”；未过闸门时不会把 mock/rule draft 说成正式训练 Agent。
+      </div>
       <div className="model-grid">
         {models.map((model) => {
           const chartData = Object.entries(model.ability_scores).map(([key, value]) => ({ dimension: scoreLabels[key] || key, score: value }))
+          const modelCanBeSelected = admissionGateReady && model.provider_type !== 'mock'
           return (
             <Card key={model.id} className={model.is_active ? 'active-model' : ''}>
-              <SectionTitle eyebrow={model.model_family} title={model.name} action={<Tag tone={model.is_active ? 'green' : 'neutral'}>{model.is_active ? trainingAgentLabel : `Grade ${model.grade}`}</Tag>} />
+              <SectionTitle
+                eyebrow={model.model_family}
+                title={model.name}
+                action={<Tag tone={model.is_active ? (modelCanBeSelected ? 'green' : 'amber') : 'neutral'}>{model.is_active ? activeCandidateLabel : `Grade ${model.grade}`}</Tag>}
+              />
               <div className="chart-box small">
                 <ResponsiveContainer width="100%" height={210}>
                   <RadarChart data={chartData}>
@@ -628,13 +683,14 @@ export function ModelHub() {
               </div>
               <div className="model-card-actions">
                 <button
-                  className={model.is_active ? 'button secondary' : 'button primary'}
+                  className={model.is_active || !modelCanBeSelected ? 'button secondary' : 'button primary'}
                   type="button"
                   onClick={() => selectTrainingModel(model.id)}
-                  disabled={model.is_active || Boolean(selectingModelId)}
+                  disabled={model.is_active || Boolean(selectingModelId) || !modelCanBeSelected}
+                  title={!modelCanBeSelected ? '请先运行真实 Provider 样例级准入探测、完成公开标注对齐，并选择非 mock 模型。' : undefined}
                 >
                   <CheckCircle2 size={16} />
-                  {model.is_active ? trainingAgentLabel : selectingModelId === model.id ? '正在切换...' : inactiveAgentLabel}
+                  {model.is_active ? activeCandidateLabel : !modelCanBeSelected ? model.provider_type === 'mock' ? 'mock 仅展示' : '待准入解锁' : selectingModelId === model.id ? '正在切换...' : inactiveCandidateLabel}
                 </button>
               </div>
             </Card>

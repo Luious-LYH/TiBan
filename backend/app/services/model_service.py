@@ -17,20 +17,34 @@ class ModelService:
         models = read_json("models.json")
         selected: dict | None = None
         for model in models:
-            model["is_active"] = model["id"] == model_id
-            if model["is_active"]:
+            if model["id"] == model_id:
                 selected = model
         if selected is None:
             raise KeyError(f"Model not found: {model_id}")
+        self._assert_model_selectable(selected)
+        for model in models:
+            model["is_active"] = model["id"] == model_id
         write_json("models.json", models)
         audit_service.log(
             "model_select",
             user_id="admin_demo",
             entity_id=model_id,
-            summary=f"选择模型：{selected['name']}。能力看板仍为 mock/预留。",
+            summary=f"选择待人工复核候选：{selected['name']}。已通过最近 Provider 准入闸门，仍需医生/管理员复核。",
             risk_level="medium",
         )
         return ModelProfile(**selected)
+
+    def _assert_model_selectable(self, selected: dict) -> None:
+        admission_state = self.admission_state()
+        aligned_count = int(admission_state.get("reference_aligned_count", 0) or 0)
+        if selected.get("provider_type") == "mock":
+            raise ValueError("Mock 模型只能作为能力看板展示，不能写入待人工复核候选。")
+        if not admission_state.get("provider_called"):
+            raise ValueError("尚未完成真实 Provider blind probe，不能切换候选模型。")
+        if aligned_count <= 0:
+            raise ValueError("最近准入摘要缺少公开标注对齐证据，不能切换候选模型。")
+        if not admission_state.get("safe_for_training"):
+            raise ValueError("最近准入摘要尚未达到安全阈值，不能切换候选模型。")
 
     def active_model(self) -> ModelProfile:
         for model in self.list_models():

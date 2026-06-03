@@ -122,7 +122,13 @@ async function request<T extends object>(path: string, init?: RequestInit, fallb
         ...init,
       })
       if (!response.ok) {
-        throw new ApiRequestError(`${response.status} ${response.statusText}`, response.status)
+        let detail = ''
+        try {
+          detail = asString(asRecord(await response.json()).detail)
+        } catch {
+          detail = ''
+        }
+        throw new ApiRequestError(detail ? `${response.status} ${response.statusText}: ${detail}` : `${response.status} ${response.statusText}`, response.status)
       }
       activeApiBase = apiBase
       return markSource((await response.json()) as T, 'backend')
@@ -1680,7 +1686,6 @@ export const api = {
     const response = await request<ModelProfile>(
       '/api/models/select',
       { method: 'POST', body: JSON.stringify({ model_id: modelId }) },
-      { ...fallback, is_active: true },
     )
     return normalizeModel(response, fallback)
   },

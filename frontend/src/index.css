@@ -3869,6 +3869,54 @@ textarea {
   line-height: 1.45;
 }
 
+.admission-gate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.admission-gate-grid div {
+  padding: 11px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.admission-gate-grid div.ready {
+  background: var(--teal-soft);
+  border-color: #99f6e4;
+}
+
+.admission-gate-grid div.blocked {
+  background: var(--amber-soft);
+  border-color: #fde68a;
+}
+
+.admission-gate-grid span,
+.admission-gate-grid strong,
+.admission-gate-grid small {
+  display: block;
+}
+
+.admission-gate-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.admission-gate-grid strong {
+  margin-top: 6px;
+  color: var(--text);
+}
+
+.admission-gate-grid small {
+  margin-top: 5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .status-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
