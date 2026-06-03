@@ -35,8 +35,12 @@ import type {
   TutorChatResponse,
 } from './types'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const configuredApiBase = import.meta.env.VITE_API_BASE_URL as string | undefined
+const apiBaseCandidates = configuredApiBase
+  ? [configuredApiBase]
+  : ['http://127.0.0.1:8000', 'http://127.0.0.1:8001']
 const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
+let activeApiBase = apiBaseCandidates[0]
 
 type ApiSource = 'backend' | 'fallback'
 
@@ -44,22 +48,48 @@ function markSource<T extends object>(payload: T, source: ApiSource): T {
   return { ...payload, api_source: source }
 }
 
-async function request<T extends object>(path: string, init?: RequestInit, fallback?: T): Promise<T> {
-  try {
-    const response = await fetch(`${API_BASE}${path}`, {
-      headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-      ...init,
-    })
-    if (!response.ok) {
-      throw new Error(`${response.status} ${response.statusText}`)
-    }
-    return markSource((await response.json()) as T, 'backend')
-  } catch (error) {
-    if (fallback !== undefined) {
-      return markSource(fallback, 'fallback')
-    }
-    throw error
+class ApiRequestError extends Error {
+  status?: number
+
+  constructor(message: string, status?: number) {
+    super(message)
+    this.status = status
   }
+}
+
+function shouldTryNextApiBase(error: unknown): boolean {
+  if (configuredApiBase) return false
+  if (error instanceof TypeError) return true
+  if (error instanceof ApiRequestError) return error.status === 404 || error.status === 405
+  return false
+}
+
+function orderedApiBaseCandidates(): string[] {
+  return [activeApiBase, ...apiBaseCandidates.filter((base) => base !== activeApiBase)]
+}
+
+async function request<T extends object>(path: string, init?: RequestInit, fallback?: T): Promise<T> {
+  let lastError: unknown
+  for (const apiBase of orderedApiBaseCandidates()) {
+    try {
+      const response = await fetch(`${apiBase}${path}`, {
+        headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+        ...init,
+      })
+      if (!response.ok) {
+        throw new ApiRequestError(`${response.status} ${response.statusText}`, response.status)
+      }
+      activeApiBase = apiBase
+      return markSource((await response.json()) as T, 'backend')
+    } catch (error) {
+      lastError = error
+      if (!shouldTryNextApiBase(error)) break
+    }
+  }
+  if (fallback !== undefined) {
+    return markSource(fallback, 'fallback')
+  }
+  throw lastError
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

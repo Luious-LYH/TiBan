@@ -32,6 +32,15 @@ npm run dev
 
 浏览器打开：`http://localhost:5173`
 
+如果本机 `8000` 被旧版后端占用，可把最新后端改到 `8001`：
+
+```bash
+cd backend
+python -m uvicorn app.main:app --reload --port 8001
+```
+
+前端未显式设置 `VITE_API_BASE_URL` 时，会按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 自动探测后端；如果需要固定端口，可在启动前设置 `VITE_API_BASE_URL`。
+
 ## 可选真实 Provider 配置
 
 复制 `.env.example` 为 `.env`，只在本机填写真实配置：

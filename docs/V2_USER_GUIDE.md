@@ -33,6 +33,15 @@ http://127.0.0.1:8000/api/health
 http://127.0.0.1:8000/api/platform/readiness
 ```
 
+如果 `8000` 被旧版后端或其他服务占用，把最新后端启动到 `8001`：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code\backend
+python -m uvicorn app.main:app --reload --port 8001
+```
+
+前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
+
 ## 2. 可选真实 Provider
 
 如果没有配置 Provider，平台仍可用规则、模板和公开样例完成训练演示，并会在 UI 中显示 `rule` 或 `fallback`。如需真实 OpenAI-compatible 调用，只在本机 `.env` 填写：
