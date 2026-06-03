@@ -58,7 +58,7 @@ class DashboardService:
                 "AMBOSS: Study/Exam Mode 与 session analysis 的题库训练组织",
                 "UWorld: Tutor/Timed 模式与错题解释卡片",
                 "Lecturio: Qbank、AI Tutor 与持续表现追踪",
-                "Kvasir/EndoBench: 公开内镜样例用于教学原型素材",
+                "Kvasir/EndoBench: 公开内镜样例用于医师训练素材",
             ],
         }
 

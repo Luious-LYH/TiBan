@@ -247,7 +247,7 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
   "review_status": "doctor_review_pending",
   "share_status": "locked_pending_review",
   "generation_mode": "rule",
-  "knowledge_base_id": "card_template_kb_v1_1",
+  "knowledge_base_id": "card_template_kb_v2",
   "audit_logged": true,
   "audit_log_id": "audit_xxx",
   "source_trace": [

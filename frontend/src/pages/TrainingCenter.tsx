@@ -203,6 +203,12 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     })
   }, [filters, questions, source])
 
+  const publicQuestionCount = useMemo(() => questions.filter((item) => publicDatasets.has(item.source_dataset)).length, [questions])
+  const filteredPublicCount = useMemo(() => filteredQuestions.filter((item) => publicDatasets.has(item.source_dataset)).length, [filteredQuestions])
+  const sourceDatasetCount = useMemo(() => new Set(questions.map((item) => item.source_dataset).filter(Boolean)).size, [questions])
+  const publicQuickQuestions = useMemo(() => filteredQuestions.filter((item) => publicDatasets.has(item.source_dataset)).slice(0, 4), [filteredQuestions])
+  const teachingQuestionCount = Math.max(questions.length - publicQuestionCount, 0)
+  const publicCoverage = questions.length ? Math.round((publicQuestionCount / questions.length) * 100) : 0
   const question = filteredQuestions[index % Math.max(filteredQuestions.length, 1)] || mockQuestions[0]
   const evidence = useMemo(() => question.atomic_trace.map((fact) => fact.evidence).join(' / '), [question])
   const aiAnswer = question.ai_benchmark_answer || question.answer
@@ -235,7 +241,11 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     : challengeStats.doctor > challengeStats.benchmark ? '医生领先' : '挑战基准领先'
   const isPublicSample = publicDatasets.has(question.source_dataset)
   const canUseTutorChat = mode !== 'exam' && (!isChallenge || Boolean(submission))
-  const imageSourceLabel = isPublicSample ? '真实公开样例' : '教学合成图'
+  const imageSourceLabel = isPublicSample ? '真实公开样例' : '平台教学样例'
+  const currentImageRef = question.image_url ? question.image_url.replace('/assets/real_samples/', 'real_samples/') : 'synthetic-endoscopy-training.svg'
+  const currentSourceAssurance = isPublicSample
+    ? '图像、题干、公开标注来自本地真实公开样例知识库；中文解释由平台按训练目标改写。'
+    : '平台教学题用于补足训练类型，不声明为真实公开图片。'
   const tutorAvailability = mode === 'exam' && !submission
     ? '考试纪律'
     : mode === 'exam' ? '考后证据复盘' : isChallenge && !submission ? '独立作答锁定' : submission ? '复盘追问' : '证据式辅导'
@@ -245,6 +255,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const quickAgentPrompts = submission
     ? ['用一句话总结错因', '给我下一题复盘策略', '帮我改写成报告表达']
     : ['按部位-形态-边界追问我', '这题最容易越界的判断是什么？', '给我一个不泄题提示']
+  const visibleChat = chat.slice(1)
 
   const updateFilter = (key: keyof Filters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -457,6 +468,20 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setChallengeBenchmarkLoading(false)
   }
 
+  const jumpToQuestion = (questionId: string) => {
+    const nextIndex = filteredQuestions.findIndex((item) => item.id === questionId)
+    if (nextIndex < 0) return
+    setIndex(nextIndex)
+    setSelected('')
+    setSubmission(null)
+    setTutorTab('agent')
+    setAgentMode('rule')
+    setMemorySync(baseMemorySync)
+    setHint(baseHint)
+    setChallengeBenchmark(null)
+    setChallengeBenchmarkLoading(false)
+  }
+
   return (
     <div className="page-stack">
       <Card className="qbank-toolbar">
@@ -549,7 +574,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               <RotateCcw size={16} /> 重开本场
             </button>
             {examWrongAttempts.length ? (
-              <Link className="button primary" to="/feedback">
+              <Link className="button primary" to={`/feedback?session=${encodeURIComponent(examSessionId)}`}>
                 <Target size={16} /> 进入错因复盘
               </Link>
             ) : null}
@@ -575,6 +600,59 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
         <button className="button secondary" type="button" onClick={() => { setFilters(emptyFilters); resetQuestionState() }}>
           <RotateCcw size={16} /> 清空筛选
         </button>
+      </Card>
+
+      <Card className={`qbank-source-ledger ${isPublicSample ? 'verified' : 'teaching'}`}>
+        <div className="qbank-ledger-main">
+          <DatabaseZap size={22} />
+          <div>
+            <span className="eyebrow">Source ledger</span>
+            <h3>题库来源总账</h3>
+            <p>{currentSourceAssurance} 当前筛选命中 {filteredPublicCount} 条公开样例，演示时可一键切到纯公开样例训练。</p>
+          </div>
+        </div>
+        <div className="qbank-ledger-metrics">
+          <div>
+            <span>真实公开样例</span>
+            <strong>{publicQuestionCount}</strong>
+            <em>{publicCoverage}% of qbank</em>
+          </div>
+          <div>
+            <span>平台教学题</span>
+            <strong>{teachingQuestionCount}</strong>
+            <em>明确标注边界</em>
+          </div>
+          <div>
+            <span>来源数据集</span>
+            <strong>{sourceDatasetCount}</strong>
+            <em>{question.source_dataset}</em>
+          </div>
+        </div>
+        <div className="qbank-ledger-actions">
+          <Link className="button primary" to="/training?source=public">
+            <Eye size={16} /> 只看真实公开样例
+          </Link>
+          {source === 'public' ? (
+            <Link className="button secondary" to="/training">
+              <ClipboardList size={16} /> 回到综合训练
+            </Link>
+          ) : (
+            <Link className="button secondary" to="/report">
+              <ClipboardList size={16} /> 报告中心取样
+            </Link>
+          )}
+        </div>
+        {mode !== 'exam' && !isChallenge && publicQuickQuestions.length ? (
+          <div className="public-sample-jump-row" aria-label="公开样例快捷切换">
+            {publicQuickQuestions.map((sample) => (
+              <button className={sample.id === question.id ? 'active' : ''} key={sample.id} type="button" onClick={() => jumpToQuestion(sample.id)}>
+                <span>{sample.source_dataset}</span>
+                <strong>{sample.body_part}</strong>
+                <em>{sample.question_type}</em>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </Card>
 
       {filteredQuestions.length === 0 ? (
@@ -605,6 +683,21 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               {question.false_premise_flag ? <Tag tone="red">错误前提</Tag> : null}
             </div>
             <div className="source-note">{question.citation_note}</div>
+            <div className={`current-source-ledger ${isPublicSample ? 'verified' : 'teaching'}`}>
+              <div className="current-source-head">
+                <DatabaseZap size={17} />
+                <div>
+                  <span>{isPublicSample ? '当前真实样例链路' : '当前教学样例边界'}</span>
+                  <strong>{isPublicSample ? '图像-题干-标注已对齐' : '教学构造，不作为真实公开图声明'}</strong>
+                </div>
+              </div>
+              <div className="current-source-grid">
+                <div><span>样例ID</span><strong>{question.id}</strong></div>
+                <div><span>图像引用</span><strong>{currentImageRef}</strong></div>
+                <div><span>题干/标注</span><strong>{isPublicSample ? '公开VQA标注' : '平台教学规则'}</strong></div>
+                <div><span>中文解释</span><strong>平台训练改写</strong></div>
+              </div>
+            </div>
           </Card>
 
           <Card className="question-panel">
@@ -704,14 +797,16 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                     ))}
                   </div>
                 ) : null}
-                <div className="chat-thread">
-                  {chat.map((message, itemIndex) => (
-                    <div className={`chat-line ${message.role}`} key={`${message.role}_${itemIndex}`}>
-                      <span>{message.role === 'agent' ? `Agent${message.mode ? ` · ${message.mode}` : ''}` : '林医师'}</span>
-                      <p>{message.text}</p>
-                    </div>
-                  ))}
-                </div>
+                {visibleChat.length ? (
+                  <div className={`chat-thread ${submission ? 'expanded' : ''}`}>
+                    {visibleChat.map((message, itemIndex) => (
+                      <div className={`chat-line ${message.role}`} key={`${message.role}_${itemIndex}`}>
+                        <span>{message.role === 'agent' ? `Agent${message.mode ? ` · ${message.mode}` : ''}` : '林医师'}</span>
+                        <p>{message.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="chat-input-row">
                   <input value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder={!canUseTutorChat ? '当前模式锁定自由追问...' : '追问当前病例、证据或报告表达...'} disabled={!canUseTutorChat} />
                   <button className="icon-button" type="button" onClick={askAgent} title="发送追问" disabled={!canUseTutorChat || loading}>

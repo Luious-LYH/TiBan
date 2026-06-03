@@ -26,7 +26,7 @@
         "a": "z-line"
       }
     ],
-    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学原型展示。"
+    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学训练展示。"
   },
   {
     "id": "real_x1_2",
@@ -55,7 +55,7 @@
         "a": "center; upper-center"
       }
     ],
-    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学原型展示。"
+    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学训练展示。"
   },
   {
     "id": "real_x1_3",
@@ -84,7 +84,7 @@
         "a": "1"
       }
     ],
-    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学原型展示。"
+    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学训练展示。"
   },
   {
     "id": "real_x1_6",
@@ -113,7 +113,7 @@
         "a": "center; center-left; center-right; upper-center; upper-left; upper-right"
       }
     ],
-    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学原型展示。"
+    "citation_note": "公开 GI-VQA 复杂问答样例，仅用于教学训练展示。"
   },
   {
     "id": "real_kv_0",
@@ -127,7 +127,7 @@
       "Ulcerative Colitis"
     ],
     "original_atomic": [],
-    "citation_note": "公开基础内镜 VQA 样例，仅用于教学原型展示。"
+    "citation_note": "公开基础内镜 VQA 样例，仅用于教学训练展示。"
   },
   {
     "id": "real_kv_17",
@@ -141,7 +141,7 @@
       "Ulcerative Colitis"
     ],
     "original_atomic": [],
-    "citation_note": "公开基础内镜 VQA 样例，仅用于教学原型展示。"
+    "citation_note": "公开基础内镜 VQA 样例，仅用于教学训练展示。"
   },
   {
     "id": "real_kv_34",
@@ -155,7 +155,7 @@
       "Ulcerative Colitis"
     ],
     "original_atomic": [],
-    "citation_note": "公开基础内镜 VQA 样例，仅用于教学原型展示。"
+    "citation_note": "公开基础内镜 VQA 样例，仅用于教学训练展示。"
   },
   {
     "id": "real_endo_0",
@@ -177,7 +177,7 @@
       "Organ Identification"
     ],
     "scene": "Capsule Endoscopy",
-    "citation_note": "公开 EndoBench benchmark 样例，仅用于教学原型展示。"
+    "citation_note": "公开 EndoBench benchmark 样例，仅用于教学训练展示。"
   },
   {
     "id": "real_endo_1",
@@ -199,7 +199,7 @@
       "Organ Identification"
     ],
     "scene": "Capsule Endoscopy",
-    "citation_note": "公开 EndoBench benchmark 样例，仅用于教学原型展示。"
+    "citation_note": "公开 EndoBench benchmark 样例，仅用于教学训练展示。"
   },
   {
     "id": "real_endo_2",
@@ -221,6 +221,6 @@
       "Organ Identification"
     ],
     "scene": "Capsule Endoscopy",
-    "citation_note": "公开 EndoBench benchmark 样例，仅用于教学原型展示。"
+    "citation_note": "公开 EndoBench benchmark 样例，仅用于教学训练展示。"
   }
 ]
