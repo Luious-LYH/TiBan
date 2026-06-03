@@ -68,7 +68,7 @@ const requestTimeoutMs: Record<RequestTimeoutProfile, number> = {
   probe: 1800,
   status: 5000,
   standard: 12000,
-  provider: 65000,
+  provider: 95000,
 }
 
 function markSource<T extends object>(payload: T, source: ApiSource): T {

@@ -76,7 +76,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
   "image_name": "public_real_x1_0",
   "template_name": "胃镜结构化训练模板",
   "provider_name": "可选，仅本次请求",
-  "api_base": "可选，例如 https://api.example.com/v1",
+  "api_base": "可选，可填根地址、/v1 或完整 /chat/completions",
   "api_key": "可选，仅本次请求，禁止写入仓库",
   "model": "可选模型名"
 }
@@ -303,7 +303,7 @@ Provider 文本/视觉通道自检：
 }
 ```
 
-`include_image=false` 时，自检只发送一条安全短提示词，验证 OpenAI-compatible 文本通道是否可用。`include_image=true` 时，后端会选择 `sample_id` 指定或默认第一条公开样例，把图片编码为 `image_url` data URL 附加到请求；prompt 只包含数据集名、问题和安全要求，不包含公开参考标注。两种模式都不写入 `model_admission_state.json`，也不保存 API key、API base 或完整模型回复。核心返回字段：
+`api_base` 可以填写 Provider 根地址、`/v1` 地址，或完整 `/chat/completions` endpoint；后端会规范化为 OpenAI-compatible chat completions 请求，未写协议的外部域名按 `https://` 处理，本地 `localhost` / `127.0.0.1` 地址按 `http://` 处理；根地址会优先尝试 `/v1/chat/completions`，404/405 时再尝试 `/chat/completions`。非本机 `http`、metadata、内网/保留地址会被拒绝为 `unsafe_base_url`，避免密钥外发。`include_image=false` 时，自检只发送一条安全短提示词，验证 OpenAI-compatible 文本通道是否可用。`include_image=true` 时，后端会选择 `sample_id` 指定或默认第一条公开样例，把图片编码为 `image_url` data URL 附加到请求；prompt 只包含数据集名、问题和安全要求，不包含公开参考标注。两种模式都不写入 `model_admission_state.json`，也不保存 API key、API base 或完整模型回复。核心返回字段：
 
 ```json
 {

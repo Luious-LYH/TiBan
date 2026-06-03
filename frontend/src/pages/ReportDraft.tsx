@@ -205,7 +205,7 @@ export function ReportDraft() {
             </label>
             <label>
               <span>API Base URL</span>
-              <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="例如 https://your-provider.example/v1" />
+              <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="如 https://api.example.com、/v1 或完整 /chat/completions" />
             </label>
             <label>
               <span>模型名称</span>

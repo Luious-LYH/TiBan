@@ -283,8 +283,8 @@ class ModelService:
         total = round(sum(dimension_scores.values()) / len(dimension_scores))
         grade = "S" if total >= 90 else "A" if total >= 80 else "B" if total >= 70 else "C"
         risk_items = []
-        if explicit_api_base and not explicit_api_base.startswith("https://"):
-            risk_items.append("API Base 不是 https，演示中判为接口安全风险。")
+        if explicit_api_base and explicit_api_base.lower().startswith("http://") and not self._is_local_provider_base(explicit_api_base):
+            risk_items.append("API Base 使用非本机 http，后端会拒绝该地址以避免密钥外发风险。")
         if not provider_called:
             risk_items.append(
                 "未完成真实 Provider 调用；当前结果仅为规则准入草案。"
@@ -587,6 +587,10 @@ class ModelService:
             return None
         return cleaned
 
+    def _is_local_provider_base(self, value: str) -> bool:
+        lowered = value.strip().lower()
+        return lowered.startswith(("http://localhost", "http://127.", "http://[::1]"))
+
     def _public_provider_status(self, status: dict[str, object]) -> dict[str, object]:
         return {
             **status,
@@ -621,6 +625,8 @@ class ModelService:
             return "provider_not_configured"
         if "empty_response" in lower:
             return "empty_response"
+        if "unsafe_base_url" in lower:
+            return "unsafe_base_url"
         if "timeout" in lower or "timed out" in lower:
             return "timeout"
         http_match = re.search(r"http[_\s:-]*(\d{3})", lower)

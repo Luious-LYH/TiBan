@@ -54,7 +54,7 @@ LLM_MODEL=your-model-name
 LLM_TIMEOUT_SECONDS=25
 ```
 
-不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页会先显示 Provider 联调状态检查，确认 `.env` 缺失项、公开样例数量、最近自检/准入审计和下一步动作，但不会返回 key/base 明文或完整模型回复。一次性 key 可用于文本/视觉自检或样例级准入检查，不会保存到数据文件；只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
+`LLM_BASE_URL` 或页面临时 API Base 可以填写 Provider 根地址、`/v1` 地址，或完整 `/chat/completions` endpoint；后端会规范化为 OpenAI-compatible chat completions 请求，未写协议的外部域名按 `https://` 处理，本地 `localhost` / `127.0.0.1` 地址按 `http://` 处理；根地址会优先尝试 `/v1/chat/completions`，404/405 时再尝试 `/chat/completions`。非本机 `http`、metadata、内网/保留地址会被拒绝为 `unsafe_base_url`，避免密钥外发。不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页会先显示 Provider 联调状态检查，确认 `.env` 缺失项、公开样例数量、最近自检/准入审计和下一步动作，但不会返回 key/base 明文或完整模型回复。一次性 key 可用于文本/视觉自检或样例级准入检查，不会保存到数据文件；只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
 
 ## 3. 推荐演示顺序
 

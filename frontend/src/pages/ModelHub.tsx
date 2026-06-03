@@ -509,7 +509,7 @@ export function ModelHub() {
             </label>
             <label>
               <span>API Base URL</span>
-              <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="例如 https://your-provider.example/v1；留空则使用后端 .env" />
+              <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="如 https://api.example.com、/v1 或完整 /chat/completions；留空用 .env" />
             </label>
             <label>
               <span>模型名称</span>
@@ -522,7 +522,7 @@ export function ModelHub() {
           </div>
           <div className="notice-card">
             <KeyRound size={20} />
-            <p>临时密钥只随本次准入请求发送到后端，不会写入仓库、文档或审计日志。正式演示建议使用后端 .env；只填模型名不会触发临时 Provider。</p>
+            <p>临时密钥只随本次准入请求发送到后端，不会写入仓库、文档或审计日志。API Base 兼容根地址、/v1 或完整 /chat/completions；只填域名会按 https 处理，本地地址按 http 处理。</p>
           </div>
           <div className={`admission-run-strip provider-self-test-strip ${isRunningSelfTest ? 'running' : selfTest?.api_source === 'fallback' || (selfTest && !selfTest.provider_called) ? 'fallback' : selfTest?.provider_called ? 'synced' : ''}`}>
             {isRunningSelfTest ? <LoaderCircle className="spin-icon" size={18} /> : selfTest && !selfTest.provider_called ? <AlertTriangle size={18} /> : <PlugZap size={18} />}
