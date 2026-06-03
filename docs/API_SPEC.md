@@ -467,7 +467,7 @@ Provider 文本/视觉通道自检：
 POST /api/platform/demo-check?learner_id=demo_learner&persist=false
 ```
 
-该接口用于答辩前确认平台不是静态页面。它会选择一条公开样例题，真实触发 `/submit`、`/tutor/chat`、`/report-draft`、`/report/judge` 及 `demo_check` 审计摘要，并返回证据收据。它不会保存 API key 或自由追问原文；若 Provider 未配置，结果会明确显示 `rule` 模式。默认 `persist=false` 会在返回前恢复 `learner_profile.json` 和 `audit_logs.json`，用于无污染 smoke；只有 `persist=true` 时才保留演示画像和审计留痕。
+该接口用于答辩前确认平台不是静态页面。它会选择一条公开样例题，真实触发 `/submit`、`/tutor/chat`、`/tutor/challenge-benchmark`、`/report-draft`、`/report/judge` 及 `demo_check` 审计摘要，并返回 6 张证据收据。它不会保存 API key 或自由追问原文；若 Provider 未配置，结果会明确显示 `rule` / `public_annotation` 模式。默认 `persist=false` 会在返回前恢复 `learner_profile.json` 和 `audit_logs.json`，用于无污染 smoke；只有 `persist=true` 时才保留演示画像和审计留痕。
 
 核心返回字段：
 
@@ -482,7 +482,8 @@ POST /api/platform/demo-check?learner_id=demo_learner&persist=false
   "provider_mode": "rule",
   "profile_updated": false,
   "audit_logged": false,
-  "audit_delta": 7,
+  "audit_delta": 8,
+  "audit_event_types": ["demo_check", "report_judge", "report_draft", "challenge_benchmark", "tutor_reply", "question_view", "answer_submit"],
   "receipts": [
     {
       "label": "公开样例提交",
@@ -490,9 +491,14 @@ POST /api/platform/demo-check?learner_id=demo_learner&persist=false
       "detail": "Kvasir-VQA-x1 · 100 分 · 沙盒已验证写入后自动恢复。"
     },
     {
+      "label": "挑战基准",
+      "status": "public_annotation",
+      "detail": "挑战基准（公开标注 fallback） · 与医师答案一致；只写 challenge_benchmark 审计，不回灌医师画像。"
+    },
+    {
       "label": "审计链路",
-      "status": "+7",
-      "detail": "沙盒已验证审计写入后自动恢复。触发 question_view、answer_submit、tutor_reply、report_draft、report_judge 与 demo_check 等摘要事件。"
+      "status": "+8",
+      "detail": "沙盒已验证审计写入后自动恢复。触发 question_view、answer_submit、tutor_reply、challenge_benchmark、report_draft、report_judge 与 demo_check 等摘要事件。"
     }
   ],
   "doctor_review_required": true

@@ -497,6 +497,7 @@ export type DemoCheckResult = {
   audit_before_count: number
   audit_after_count: number
   audit_delta: number
+  audit_event_types?: string[]
   receipts: DemoCheckReceipt[]
   profile_updated: boolean
   audit_logged: boolean

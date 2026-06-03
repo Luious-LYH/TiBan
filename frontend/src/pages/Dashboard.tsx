@@ -46,6 +46,7 @@ export function Dashboard() {
   const profile = data.learner_profile
   const readiness = data.platform_readiness
   const readinessSource = readiness.api_source || data.api_source || 'backend'
+  const challengeVerified = Boolean(demoCheck?.audit_event_types?.includes('challenge_benchmark'))
 
   return (
     <div className="page-stack">
@@ -129,8 +130,8 @@ export function Dashboard() {
               <strong>{demoCheck ? `${demoCheck.source_dataset} · ${demoCheck.question_title}` : '一键跑通医生训练闭环'}</strong>
               <p>
                 {demoCheck
-                  ? `${demoCheck.persisted ? '正式留痕' : '沙盒验证'} · 写入验证 ${demoCheck.write_verified ? '通过' : '待核查'} · ${demoCheck.restored_after_run ? '已自动恢复数据' : '已保留画像/审计'} · Provider ${demoCheck.provider_ready ? '真实可用' : `${demoCheck.provider_mode} 模式`}`
-                  : '默认沙盒触发公开样例提交、Agent 辅导、报告草稿、报告修改评分、画像回灌和审计收据；写入后自动恢复。'}
+                  ? `${demoCheck.persisted ? '正式留痕' : '沙盒验证'} · 写入验证 ${demoCheck.write_verified ? '通过' : '待核查'} · 挑战基准 ${challengeVerified ? '已验证' : '待核查'} · ${demoCheck.restored_after_run ? '已自动恢复数据' : '已保留画像/审计'} · Provider ${demoCheck.provider_ready ? '真实可用' : `${demoCheck.provider_mode} 模式`}`
+                  : '默认沙盒触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、画像回灌和审计收据；写入后自动恢复。'}
               </p>
             </div>
           </div>

@@ -57,7 +57,7 @@ LLM_TIMEOUT_SECONDS=25
 
 ## v2.0 演示路径
 
-1. 首页总览：先看“平台真实性与演示路径”“可核验证据收据”和“真实数据来源链”，确认后端、公开样例、画像、报告/科普知识库、Provider、自检/准入、挑战基准审计和审计日志状态；来源链会列出 `real_sample_knowledge.json`、`report_knowledge_base.json`、`card_template_knowledge.json` 的条数、样例 ID 和消费页面；“沙盒自检”会真实跑通训练/Agent/报告/judge/审计链路后自动恢复数据，“写入演示画像”才保留留痕。
+1. 首页总览：先看“平台真实性与演示路径”“可核验证据收据”和“真实数据来源链”，确认后端、公开样例、画像、报告/科普知识库、Provider、自检/准入、挑战基准审计和审计日志状态；来源链会列出 `real_sample_knowledge.json`、`report_knowledge_base.json`、`card_template_knowledge.json` 的条数、样例 ID 和消费页面；“沙盒自检”会真实跑通训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分和审计链路后自动恢复数据，“写入演示画像”才保留留痕。
 2. 训练中心：右侧 Agent 默认只辅导当前题，不提前泄露参考答案；考试模式有全局 session 倒计时、累计战报、交卷复盘入口；比拼模式提交前锁住证据页，提交后调用后端挑战基准，并在比分板展示最近 `challenge_benchmark` 后端审计收据；Provider 可用时用 Provider 作答，不通时明确回退公开标注 fallback。
 3. 错因分析：查看 atomic facts、错因标签和下一题推荐。
 4. 错误前提训练：先让林知远医师独立判断题干是否成立，提交后才解锁证据不足事实、得分和复盘建议。
