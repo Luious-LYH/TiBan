@@ -2,7 +2,7 @@
 
 Base URL: `http://127.0.0.1:8000/api`
 
-本机 `8000` 被旧服务占用时，可将最新后端启动到 `http://127.0.0.1:8001/api`；前端未显式配置 `VITE_API_BASE_URL` 时会自动尝试 `8000` 和 `8001`。
+本机 `8000` 被旧服务占用时，可将最新后端启动到 `http://127.0.0.1:8001/api`；前端未显式配置 `VITE_API_BASE_URL` 时会自动尝试 `8000` 和 `8001`，并优先选择 `/api/health` 暴露 v2.0 capabilities 的后端。
 
 所有医疗相关输出都应包含：
 
@@ -25,7 +25,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/health` | 服务健康检查 |
+| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 视觉自检、沙盒自检、挑战基准和审计收据能力的后端 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
 | POST | `/provider/self-test` | Provider 文本/视觉通道自检；视觉模式可附加一张公开样例图片，但不发送参考标注，不更新模型准入状态，不保存 key/base/完整回复 |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |

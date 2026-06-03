@@ -40,8 +40,20 @@ router = APIRouter(prefix="/api")
 
 
 @router.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": APP_NAME}
+def health() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "service": APP_NAME,
+        "version": "v2.0",
+        "capabilities": [
+            "provider_self_test",
+            "provider_visual_self_test",
+            "demo_check_sandbox",
+            "challenge_benchmark",
+            "challenge_audit_receipt",
+            "patient_card_approve",
+        ],
+    }
 
 
 @router.get("/provider/status")

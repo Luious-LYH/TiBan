@@ -39,7 +39,7 @@ cd backend
 python -m uvicorn app.main:app --reload --port 8001
 ```
 
-前端未显式设置 `VITE_API_BASE_URL` 时，会按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 自动探测后端；如果需要固定端口，可在启动前设置 `VITE_API_BASE_URL`。
+前端未显式设置 `VITE_API_BASE_URL` 时，会按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 自动探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities（Provider 视觉自检、沙盒自检、挑战基准与审计收据）的服务；如果需要固定端口，可在启动前设置 `VITE_API_BASE_URL`。
 
 ## 可选真实 Provider 配置
 

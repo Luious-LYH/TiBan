@@ -40,7 +40,9 @@ const apiBaseCandidates = configuredApiBase
   ? [configuredApiBase]
   : ['http://127.0.0.1:8000', 'http://127.0.0.1:8001']
 const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
+const requiredApiCapabilities = ['provider_self_test', 'provider_visual_self_test', 'demo_check_sandbox', 'challenge_benchmark', 'challenge_audit_receipt']
 let activeApiBase = apiBaseCandidates[0]
+let apiBaseProbe: Promise<boolean> | null = null
 
 type ApiSource = 'backend' | 'fallback'
 
@@ -68,7 +70,33 @@ function orderedApiBaseCandidates(): string[] {
   return [activeApiBase, ...apiBaseCandidates.filter((base) => base !== activeApiBase)]
 }
 
+async function ensureCapableApiBase(): Promise<void> {
+  if (configuredApiBase) return
+  apiBaseProbe ??= probeApiBases()
+  const foundCapableApi = await apiBaseProbe
+  if (!foundCapableApi) apiBaseProbe = null
+}
+
+async function probeApiBases(): Promise<boolean> {
+  for (const apiBase of apiBaseCandidates) {
+    try {
+      const response = await fetch(`${apiBase}/api/health`, { headers: { 'Content-Type': 'application/json' } })
+      if (!response.ok) continue
+      const health = asRecord(await response.json())
+      const capabilities = asStringArray(health.capabilities)
+      if (requiredApiCapabilities.every((capability) => capabilities.includes(capability))) {
+        activeApiBase = apiBase
+        return true
+      }
+    } catch {
+      // Keep probing the next candidate; request() still has its own fallback path.
+    }
+  }
+  return false
+}
+
 async function request<T extends object>(path: string, init?: RequestInit, fallback?: T): Promise<T> {
+  await ensureCapableApiBase()
   let lastError: unknown
   for (const apiBase of orderedApiBaseCandidates()) {
     try {
