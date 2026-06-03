@@ -13,6 +13,7 @@ import type {
   DashboardPayload,
   DemoCheckResult,
   ExamSessionAttempt,
+  ExamSessionRecord,
   ExamSessionResponse,
   ImageUploadResponse,
   KnowledgeSourceChainItem,
@@ -461,6 +462,27 @@ function normalizeTrainingRecords(value: unknown, fallback: LearnerProfile['trai
   })
 }
 
+function normalizeExamSessions(value: unknown, fallback: ExamSessionRecord[] = []): ExamSessionRecord[] {
+  if (!Array.isArray(value)) return fallback
+  return value.map((item, index) => {
+    const record = asRecord(item)
+    return {
+      id: asString(record.id, `exam_session_${index}`),
+      session_id: asString(record.session_id, asString(record.question_id, `exam_${index}`)),
+      date: asString(record.date, asString(record.created_at, new Date().toISOString()).slice(0, 10)),
+      answered_count: asNumber(record.answered_count, 0),
+      correct_count: asNumber(record.correct_count, 0),
+      accuracy: asNumber(record.accuracy, 0),
+      average_score: asNumber(record.average_score, 0),
+      wrong_questions: asStringArray(record.wrong_questions),
+      elapsed_seconds: asNumber(record.elapsed_seconds, 0),
+      finished_reason: asString(record.finished_reason, 'manual_submit'),
+      profile_updated: asBoolean(record.profile_updated, false),
+      created_at: asString(record.created_at, new Date().toISOString()),
+    }
+  })
+}
+
 function normalizeProfile(value: unknown, fallback: LearnerProfile = mockDashboard.learner_profile): LearnerProfile {
   const record = asRecord(value)
   return {
@@ -486,6 +508,7 @@ function normalizeProfile(value: unknown, fallback: LearnerProfile = mockDashboa
     recommended_question_classes: asStringArray(record.recommended_question_classes, fallback.recommended_question_classes),
     growth_trend: normalizeTrend(record.growth_trend, fallback.growth_trend),
     training_records: normalizeTrainingRecords(record.training_records, fallback.training_records),
+    exam_sessions: normalizeExamSessions(record.exam_sessions, fallback.exam_sessions),
     question_type_coverage: asNumberRecord(record.question_type_coverage, fallback.question_type_coverage),
     updated_at: asString(record.updated_at, fallback.updated_at),
   }
@@ -1310,6 +1333,8 @@ export const api = {
       profile: mockDashboard.learner_profile,
       wrong_questions: mockDashboard.learner_profile.wrong_questions,
       favorite_questions: mockDashboard.learner_profile.favorite_questions,
+      exam_sessions: mockDashboard.learner_profile.exam_sessions,
+      latest_exam_session: mockDashboard.learner_profile.exam_sessions[0] || null,
       review_queue: mockDashboard.learner_profile.wrong_questions.length,
       next_plan: [
         { label: '证据不足复盘', count: 4, reason: '最近错因集中在错误前提和过度诊断' },
@@ -1322,6 +1347,8 @@ export const api = {
       profile: normalizeProfile(response.profile),
       wrong_questions: asStringArray(response.wrong_questions, mockDashboard.learner_profile.wrong_questions),
       favorite_questions: asStringArray(response.favorite_questions, mockDashboard.learner_profile.favorite_questions),
+      exam_sessions: normalizeExamSessions(response.exam_sessions, mockDashboard.learner_profile.exam_sessions),
+      latest_exam_session: response.latest_exam_session ? normalizeExamSessions([response.latest_exam_session])[0] : null,
       review_queue: asNumber(response.review_queue, mockDashboard.learner_profile.wrong_questions.length),
       next_plan: Array.isArray(response.next_plan) ? response.next_plan : [],
       safety_notice: asString(response.safety_notice, safetyNotice),

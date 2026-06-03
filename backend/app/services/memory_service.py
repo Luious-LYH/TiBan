@@ -68,6 +68,8 @@ class MemoryService:
         wrong_questions = [attempt.question_id for attempt in request.attempts if not attempt.is_correct]
         elapsed_seconds = max(0, min(request.duration_seconds, request.duration_seconds - request.remaining_seconds))
         session_id = request.session_id or f"exam_{uuid4().hex[:12]}"
+        created_at = now_iso()
+        response_id = f"exam_session_{uuid4().hex[:12]}"
 
         profile.question_type_coverage["考试Session"] = profile.question_type_coverage.get("考试Session", 0) + 1
         if wrong_questions and "考试错题复盘" not in profile.weakness_tags:
@@ -77,7 +79,7 @@ class MemoryService:
             profile.wrong_questions = list(dict.fromkeys([*wrong_questions, *profile.wrong_questions]))[:16]
 
         record = {
-            "date": now_iso()[:10],
+            "date": created_at[:10],
             "question_id": session_id,
             "score": average_score,
             "result": f"考试Session {answered_count}题/{accuracy}%",
@@ -85,11 +87,29 @@ class MemoryService:
         profile.training_records = [item for item in profile.training_records if item.get("question_id") != session_id]
         profile.training_records.insert(0, record)
         profile.training_records = profile.training_records[:12]
+        profile.exam_sessions = [item for item in profile.exam_sessions if item.get("session_id") != session_id]
+        profile.exam_sessions.insert(
+            0,
+            {
+                "id": response_id,
+                "session_id": session_id,
+                "date": created_at[:10],
+                "answered_count": answered_count,
+                "correct_count": correct_count,
+                "accuracy": accuracy,
+                "average_score": average_score,
+                "wrong_questions": wrong_questions,
+                "elapsed_seconds": elapsed_seconds,
+                "finished_reason": request.finished_reason,
+                "profile_updated": True,
+                "created_at": created_at,
+            },
+        )
+        profile.exam_sessions = profile.exam_sessions[:8]
         profile.growth_trend = self._append_growth(profile)
-        profile.updated_at = now_iso()
+        profile.updated_at = created_at
         write_json("learner_profile.json", profile.model_dump())
 
-        response_id = f"exam_session_{uuid4().hex[:12]}"
         summary = (
             f"已写入{profile.name}的考试 Session：{answered_count} 题，正确率 {accuracy}%，"
             f"平均分 {average_score}，错题 {len(wrong_questions)} 题；单题提交已分别记录，本汇总不重复增加题量。"
@@ -108,7 +128,7 @@ class MemoryService:
             memory_summary=summary,
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
-            created_at=now_iso(),
+            created_at=created_at,
         )
 
     def record_report_judge(self, judge: ReportJudgeResponse) -> str:
@@ -204,10 +224,13 @@ class MemoryService:
 
     def training_state(self) -> dict[str, object]:
         profile = self.get_profile()
+        exam_sessions = profile.exam_sessions or []
         return {
             "profile": profile.model_dump(),
             "wrong_questions": profile.wrong_questions,
             "favorite_questions": profile.favorite_questions,
+            "exam_sessions": exam_sessions,
+            "latest_exam_session": exam_sessions[0] if exam_sessions else None,
             "review_queue": len(profile.wrong_questions or profile.recent_errors),
             "next_plan": [
                 {"label": "证据不足复盘", "count": 4, "reason": "最近错因集中在错误前提和过度诊断"},

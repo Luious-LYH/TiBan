@@ -65,10 +65,10 @@ LLM_TIMEOUT_SECONDS=25
    展示公开样例图像、病例摘要、题目和右侧 Agent。练习模式可以点“提示一下”，Agent 只追问证据，不直接给答案。提交后显示得分、错因标签、解释和对照。
 
 3. 考试模式 `/training?mode=exam`
-   进入后启动一场全局 12 分钟 session。倒计时不会因单题提交或切换题目重置；页面会累计已答题、正确率、平均分和最近错题，并提供“交卷复盘”“重开本场”和错因复盘入口。考试中隐藏提示和自由追问，交卷后会调用 `/api/learner/exam-session` 写入整场考试摘要、画像记录和审计日志。
+   进入后启动一场全局 12 分钟 session。倒计时不会因单题提交或切换题目重置；页面会累计已答题、正确率、平均分和最近错题，并提供“交卷复盘”“重开本场”和错因复盘入口。考试中隐藏提示和自由追问，交卷后会调用 `/api/learner/exam-session` 写入整场考试摘要、画像记录和审计日志；摘要会进入 `learner_profile.exam_sessions`，复盘入口携带 `/feedback?session=...`，用于恢复本场错题队列。
 
 4. 错因复盘 `/feedback`
-   从训练中心提交后进入时显示本轮提交；直接打开或刷新时会从后端错题本恢复最近复盘题，并标注为“复盘快照”，不会重复写入医师画像。
+   从训练中心提交后进入时显示本轮提交；直接打开或刷新时会从后端错题本恢复最近复盘题，并标注为“复盘快照”，不会重复写入医师画像。若 URL 携带 `session`，页面会从 `training-state.exam_sessions` 找到对应考试，显示“Exam session replay”证据卡、题量、正确率、错题数、画像回灌状态和本场错题队列。
 
 5. 医生 vs 后端挑战基准 `/training?view=challenge`
    先独立作答。提交前右侧证据页和基准答案不会泄露；医师提交后，前端才调用 `/api/tutor/challenge-benchmark` 同步挑战基准。Provider 可用时由 Provider 独立选择答案；不可用或调用失败时明确显示“公开标注 fallback”。该基准只写 `challenge_benchmark` 审计，不重复更新林知远医师画像。比分板会展示最近一条真实后端 `challenge_benchmark` 审计收据；后端不可用或只有前端 fallback 时，不会伪造“已连接”。

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ActivitySquare, CheckCircle2, RotateCcw, XCircle } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { ActivitySquare, CheckCircle2, ClipboardList, RotateCcw, XCircle } from 'lucide-react'
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
-import type { Question, SubmissionResponse } from '../lib/types'
+import type { ExamSessionRecord, Question, SubmissionResponse } from '../lib/types'
 
 export function ErrorFeedback({
   submission,
@@ -12,29 +13,40 @@ export function ErrorFeedback({
   submission: SubmissionResponse | null
   question: Question | null
 }) {
+  const [searchParams] = useSearchParams()
   const [restoredQuestion, setRestoredQuestion] = useState<Question | null>(null)
   const [restoreSource, setRestoreSource] = useState('')
+  const [examSession, setExamSession] = useState<ExamSessionRecord | null>(null)
+  const sessionId = searchParams.get('session') || ''
 
   useEffect(() => {
     if (submission || question) return
     let mounted = true
     api.trainingState()
       .then(async (state) => {
-        const reviewId = state.wrong_questions[0] || state.profile.recent_errors[0] || state.profile.training_records.find((record) => record.result === '待复盘')?.question_id
+        const matchedSession = sessionId
+          ? state.exam_sessions.find((session) => session.session_id === sessionId || session.id === sessionId) || null
+          : null
+        const fallbackSession = matchedSession || (!sessionId ? state.latest_exam_session || null : null)
+        const reviewQueue = fallbackSession?.wrong_questions?.length ? fallbackSession.wrong_questions : state.wrong_questions
+        const reviewId = reviewQueue[0] || state.profile.recent_errors[0] || state.profile.training_records.find((record) => record.result === '待复盘')?.question_id
         if (!reviewId) return
         const item = await api.question(reviewId)
         if (mounted) {
+          setExamSession(fallbackSession)
           setRestoredQuestion(item)
-          setRestoreSource(`已从后端错题本恢复最近复盘题：${reviewId}`)
+          setRestoreSource(fallbackSession
+            ? `已从考试 Session ${fallbackSession.session_id} 恢复错题：${reviewId}`
+            : `已从后端错题本恢复最近复盘题：${reviewId}`)
         }
       })
       .catch(() => {
         if (mounted) setRestoreSource('后端训练状态暂不可用，展示本地复盘样例。')
       })
     return () => {
-      mounted = false
-    }
-  }, [question, submission])
+        mounted = false
+      }
+  }, [question, sessionId, submission])
 
   const activeQuestion = question || restoredQuestion || mockQuestions.find((item) => item.review_status === '待复盘') || mockQuestions[1]
   const activeSubmission =
@@ -54,6 +66,30 @@ export function ErrorFeedback({
           <p>{isRestoredReview ? '这是复盘视图，基于题目标准答案和原子事实生成示例错误答案，不会伪装成真实提交或重复计入训练记录。' : '本次提交已由训练中心写入医师画像和审计日志。'}</p>
         </div>
       </Card>
+
+      {examSession ? (
+        <Card className="feedback-session-card">
+          <div className="feedback-session-main">
+            <ClipboardList size={22} />
+            <div>
+              <span className="eyebrow">Exam session replay</span>
+              <strong>{examSession.session_id}</strong>
+              <p>本场考试已写入林知远医师画像；复盘页按 session 恢复错题队列，不重复增加答题记录。</p>
+            </div>
+          </div>
+          <div className="feedback-session-metrics">
+            <div><span>题量</span><strong>{examSession.answered_count}</strong></div>
+            <div><span>正确率</span><strong>{examSession.accuracy}%</strong></div>
+            <div><span>错题</span><strong>{examSession.wrong_questions.length}</strong></div>
+            <div><span>画像</span><strong>{examSession.profile_updated ? '已回灌' : '未写入'}</strong></div>
+          </div>
+          <div className="feedback-session-queue">
+            {examSession.wrong_questions.length
+              ? examSession.wrong_questions.map((item) => <span key={item}>{item}</span>)
+              : <span>本场没有错题，当前展示最近复盘题。</span>}
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid two">
         <Card>

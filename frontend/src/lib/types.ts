@@ -156,6 +156,21 @@ export type ExamSessionResponse = {
   api_source?: 'backend' | 'fallback'
 }
 
+export type ExamSessionRecord = {
+  id: string
+  session_id: string
+  date: string
+  answered_count: number
+  correct_count: number
+  accuracy: number
+  average_score: number
+  wrong_questions: string[]
+  elapsed_seconds: number
+  finished_reason: string
+  profile_updated: boolean
+  created_at: string
+}
+
 export type LearnerProfile = {
   learner_id: string
   name: string
@@ -177,6 +192,7 @@ export type LearnerProfile = {
   recommended_question_classes: string[]
   growth_trend: { date: string; accuracy: number; evidence: number; report: number }[]
   training_records: { date: string; question_id: string; score: number; result: string }[]
+  exam_sessions: ExamSessionRecord[]
   question_type_coverage: Record<string, number>
   updated_at: string
 }
@@ -537,6 +553,8 @@ export type TrainingState = {
   profile: LearnerProfile
   wrong_questions: string[]
   favorite_questions: string[]
+  exam_sessions: ExamSessionRecord[]
+  latest_exam_session?: ExamSessionRecord | null
   review_queue: number
   next_plan: { label: string; count: number; reason: string }[]
   safety_notice: string

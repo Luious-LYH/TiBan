@@ -85,6 +85,12 @@
   "training_records": [
     {
       "date": "2026-06-02",
+      "question_id": "exam_seed_session",
+      "score": 67,
+      "result": "考试Session 3题/67%"
+    },
+    {
+      "date": "2026-06-02",
       "question_id": "q004",
       "score": 35,
       "result": "待复盘"
@@ -100,6 +106,24 @@
       "question_id": "q020",
       "score": 92,
       "result": "正确"
+    }
+  ],
+  "exam_sessions": [
+    {
+      "id": "exam_session_seed",
+      "session_id": "exam_seed_session",
+      "date": "2026-06-02",
+      "answered_count": 3,
+      "correct_count": 2,
+      "accuracy": 67,
+      "average_score": 67,
+      "wrong_questions": [
+        "q004"
+      ],
+      "elapsed_seconds": 418,
+      "finished_reason": "manual_submit",
+      "profile_updated": true,
+      "created_at": "2026-06-02T12:36:20.000000Z"
     }
   ],
   "question_type_coverage": {

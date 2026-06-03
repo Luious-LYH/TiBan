@@ -2204,6 +2204,96 @@ input {
   line-height: 1.55;
 }
 
+.feedback-session-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr);
+  gap: 16px;
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdfa 48%, #eff6ff 100%);
+  border-color: #99f6e4;
+}
+
+.feedback-session-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.feedback-session-main svg {
+  color: var(--teal);
+}
+
+.feedback-session-main strong,
+.feedback-session-main p {
+  display: block;
+}
+
+.feedback-session-main strong {
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.feedback-session-main p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.feedback-session-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.feedback-session-metrics div {
+  min-width: 0;
+  padding: 11px 12px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.feedback-session-metrics span,
+.feedback-session-metrics strong {
+  display: block;
+}
+
+.feedback-session-metrics span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.feedback-session-metrics strong {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedback-session-queue {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(226, 232, 240, 0.86);
+}
+
+.feedback-session-queue span {
+  padding: 7px 9px;
+  color: var(--teal);
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .answer-compare div {
   padding: 12px;
   background: var(--panel-soft);
@@ -4989,6 +5079,7 @@ textarea {
 
   .filter-panel,
   .qbank-source-ledger,
+  .feedback-session-card,
   .admission-grid,
   .challenge-scoreboard,
   .premise-scoreboard,
@@ -5007,6 +5098,10 @@ textarea {
   }
 
   .public-sample-jump-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .feedback-session-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -5165,7 +5260,8 @@ textarea {
 
   .qbank-ledger-metrics,
   .public-sample-jump-row,
-  .current-source-grid {
+  .current-source-grid,
+  .feedback-session-metrics {
     grid-template-columns: 1fr;
   }
 

@@ -151,13 +151,36 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
 
 ```json
 {
+  "id": "exam_session_xxx",
   "answered_count": 1,
   "accuracy": 100,
   "average_score": 100,
+  "wrong_questions": [],
   "profile_updated": true,
   "memory_summary": "已写入林知远医师考试 Session..."
 }
 ```
+
+交卷后，同一场考试摘要会进入 `learner_profile.exam_sessions`，并可通过 `GET /api/learner/training-state` 读取：
+
+```json
+{
+  "exam_sessions": [
+    {
+      "session_id": "exam_abc123",
+      "answered_count": 1,
+      "accuracy": 100,
+      "wrong_questions": [],
+      "profile_updated": true
+    }
+  ],
+  "latest_exam_session": {
+    "session_id": "exam_abc123"
+  }
+}
+```
+
+前端错因复盘页支持 `/feedback?session=exam_abc123`，会按该 session 恢复错题队列并显示“Exam session replay”证据卡；该复盘视图不重复写入答题记录。
 
 报告输出核心字段：
 

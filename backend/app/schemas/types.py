@@ -196,6 +196,7 @@ class LearnerProfile(BaseModel):
     recommended_question_classes: list[str]
     growth_trend: list[dict[str, int | str]] = Field(default_factory=list)
     training_records: list[dict[str, int | str]] = Field(default_factory=list)
+    exam_sessions: list[dict[str, Any]] = Field(default_factory=list)
     question_type_coverage: dict[str, int] = Field(default_factory=dict)
     updated_at: str
 
