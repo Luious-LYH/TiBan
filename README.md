@@ -52,8 +52,8 @@ LLM_TIMEOUT_SECONDS=25
 2. 训练中心：右侧 Agent 默认只辅导当前题，不提前泄露参考答案；考试模式有全局 session 倒计时、累计战报、交卷复盘入口；比拼模式提交前锁住证据页，提交后解锁公开标注/Provider 基准对照。
 3. 错因分析：查看 atomic facts、错因标签和下一题推荐。
 4. 错误前提训练：先让林知远医师独立判断题干是否成立，提交后才解锁证据不足事实、得分和复盘建议。
-5. 报告中心：选择真实公开样例或上传图片，先看数据来源/Provider/模板状态，再生成结构化草稿；可用后端 `.env` 或页面临时 Provider 做一次真实推理，公开 VQA 标注默认收进来源台账，不伪装成医生报告结论。
-6. 报告修改训练：AI judge 评分后回灌林知远医师画像；可选 Provider 评阅会显示 `provider/rule/fallback`、延迟和来源台账。
+5. 报告中心：选择真实公开样例或上传图片，在流程工作台中完成“图像/所见 -> 草稿 -> 证据台账 -> 医师复核”；可用后端 `.env` 或页面临时 Provider 做一次真实推理，公开 VQA 标注默认收进来源台账，不伪装成医生报告结论。
+6. 报告修改训练：AI judge 评分后回灌林知远医师画像，并返回下一步专项训练入口；可选 Provider 评阅会显示 `provider/rule/fallback`、延迟和来源台账。
 7. 模型准入：使用最多 3 个公开样例做样例级真实/规则准入检查，查看逐样例 Provider evidence、延迟、风险项和平台最近准入摘要。
 8. 科普卡片、Skills、审计日志：展示患者沟通卡片审核闸门、受控 skill 运行摘要和关键事件记录。
 
@@ -66,7 +66,7 @@ LLM_TIMEOUT_SECONDS=25
 | 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` | 公开样例优先展示，支持错题/收藏/筛选；考试模式有全局倒计时、累计正确率、平均分，交卷后通过 `/api/learner/exam-session` 写入画像和审计 |
 | 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案；挑战模式提交前锁住证据页；追问会回灌训练事件但不保存原文 |
 | 错误前提训练 | backend rule | false-premise 题库 + atomic facts | 先作答后解锁证据不足事实、得分和复盘建议 |
-| 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 首屏展示真实推理控制；报告生成与修改评分都显示 `source_trace`、Provider 状态和 `evidence_ledger` |
+| 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 流程工作台展示数据/Provider/模板状态；报告生成显示 `source_trace`、Provider 状态和 `evidence_ledger`；报告评分返回画像回灌与 `recommended_drills` |
 | Skills 中心 | backend rule | `skills.json` + 当前题/报告/卡片服务 | 页面展示运行摘要、审核状态和工作区跳转；完整 JSON 仅放在开发细节折叠项 |
 | 模型准入 | provider probe / rule draft | 公开样例 + 可选 Provider | 逐样例返回 evidence；真实调用成功才标记 `provider_called=true`；最近准入摘要会写入平台状态，不保存 key/base |
 | 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB | 默认锁定打印/分享；医生完成审核清单后才解锁，并写入审计日志 |

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ActivitySquare, ClipboardCheck, Database, FileImage, FileText, Gauge, KeyRound, ListChecks, PlugZap, ShieldAlert, ShieldCheck, WandSparkles } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { ActivitySquare, ArrowRight, CheckCircle2, ClipboardCheck, FileImage, FileText, Gauge, KeyRound, ListChecks, PlugZap, ShieldAlert, ShieldCheck, WandSparkles, Workflow } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import type { KnowledgeBase, ProviderStatus, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
@@ -100,10 +100,22 @@ export function ReportDraft() {
   }
 
   const providerReady = Boolean(providerStatus?.configured || providerStatus?.ok)
-  const requestProviderActive = Boolean(apiKey.trim())
-  const requestKeyMode = apiKey.trim() ? '页面临时 key' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'
+  const requestProviderActive = Boolean(apiKey.trim() || apiBase.trim() || providerModel.trim())
+  const requestKeyMode = apiKey.trim() ? '页面临时 key' : requestProviderActive ? '请求级 base/model' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'
   const providerMode = providerReady ? 'provider' : providerStatus?.mode || 'rule'
   const dataMode = selectedSample ? `${selectedSample.source_dataset} · public sample` : imageName.startsWith('uploads/') ? 'uploaded image' : 'local preview'
+  const activeProviderMode = draft?.generation_mode || judge?.generation_mode || (requestProviderActive || providerReady ? 'provider-ready' : providerMode)
+  const workflowSteps = activeTab === 'draft'
+    ? [
+        { label: '图像/所见', detail: selectedSample ? selectedSample.source_dataset : imageName ? '已选择图片' : '待选择', done: Boolean(imageName || findingText.trim()) },
+        { label: '生成草稿', detail: draft ? draft.generation_mode : '等待生成', done: Boolean(draft) },
+        { label: '复核台账', detail: draft ? `${draft.review_tasks.length} 项任务` : '生成后显示', done: Boolean(draft) },
+      ]
+    : [
+        { label: '定位越界句', detail: originalReport.trim() ? '已填写' : '待填写', done: Boolean(originalReport.trim()) },
+        { label: '医师改写', detail: revisedReport.trim() ? '已填写' : '待填写', done: Boolean(revisedReport.trim()) },
+        { label: '画像回灌', detail: judge?.profile_updated ? '已完成' : '评分后写入', done: Boolean(judge?.profile_updated) },
+      ]
   const providerOptions = () => ({
     providerName: requestProviderActive ? providerName.trim() || undefined : undefined,
     apiBase: apiBase.trim() || undefined,
@@ -117,7 +129,7 @@ export function ReportDraft() {
         <div>
           <span className="eyebrow">Report training center</span>
           <h2>{activeTab === 'judge' ? '报告修改训练' : '诊断报告中心'}</h2>
-          <p>{activeTab === 'judge' ? '聚焦训练医师改写越界诊断、补充不确定性表达，并把评分结果回灌到个人画像。' : '面向内镜医师训练结构化所见、诊断边界和审核前表达。当前流程参考“视觉观察、报告草稿、字段约束、幻觉审查、医师复核”的可信报告流水线。'}</p>
+          <p>{activeTab === 'judge' ? '改写越界报告，评分后回灌林知远医师画像并生成下一步专项训练。' : '选图、补所见、生成医生审核前结构化报告，并保留来源台账与幻觉审查。'}</p>
         </div>
         <FileText size={42} />
       </Card>
@@ -131,10 +143,34 @@ export function ReportDraft() {
         </button>
       </Card>
 
-      <Card className="report-provider-console">
+      <Card className="report-workflow-strip">
+        <div className="workflow-title">
+          <Workflow size={20} />
+          <div>
+            <span>{activeTab === 'judge' ? '修改训练闭环' : '报告生成闭环'}</span>
+            <strong>{activeTab === 'judge' ? '原报告 -> 医师改写 -> AI judge -> 画像/专项' : '图像/所见 -> 草稿 -> 证据台账 -> 医师复核'}</strong>
+          </div>
+        </div>
+        <div className="workflow-steps">
+          {workflowSteps.map((step, index) => (
+            <div className={step.done ? 'done' : ''} key={step.label}>
+              <CheckCircle2 size={16} />
+              <span>{index + 1}. {step.label}</span>
+              <strong>{step.detail}</strong>
+            </div>
+          ))}
+        </div>
+        <div className="report-quick-status">
+          <div><span>数据</span><strong>{dataMode}</strong></div>
+          <div><span>Provider</span><strong>{activeProviderMode}</strong></div>
+          <div><span>模板</span><strong>{templateName}</strong></div>
+        </div>
+      </Card>
+
+      <Card className="report-provider-console compact">
         <SectionTitle
-          eyebrow="Request-level provider"
-          title="真实推理控制"
+          eyebrow="Technical details"
+          title="请求级 Provider"
           action={<Tag tone={requestProviderActive || providerReady ? 'green' : 'amber'}>{requestProviderActive ? '本次请求覆盖' : providerReady ? '使用后端 .env' : '规则模式'}</Tag>}
         />
         <div className="report-provider-grid">
@@ -185,27 +221,7 @@ export function ReportDraft() {
 
       {activeTab === 'draft' ? (
         <div className="page-stack">
-          <Card className="report-source-status">
-            <div>
-              <Database size={19} />
-              <span>数据来源</span>
-              <strong>{dataMode}</strong>
-              <p>公开 VQA 标注只进入来源台账，报告正文仍以医生所见和模板约束为准。</p>
-            </div>
-            <div>
-              <Gauge size={19} />
-              <span>Provider</span>
-              <strong>{providerReady ? `${providerStatus?.provider} · ${providerStatus?.model}` : `${providerMode} 模式`}</strong>
-              <p>{providerReady ? '生成时可调用后端大模型通路。' : '未配置真实 Provider 时，输出会显式标注规则/知识库草案。'}</p>
-            </div>
-            <div>
-              <ClipboardCheck size={19} />
-              <span>报告模板</span>
-              <strong>{templateName}</strong>
-              <p>字段、诊断边界、复核点和幻觉审查由知识库模板约束。</p>
-            </div>
-          </Card>
-          <div className="grid two report-layout">
+          <div className="report-workbench">
             <Card>
               <SectionTitle eyebrow="Image + findings" title="图像与所见输入" />
               {realSamples.length ? (
@@ -269,19 +285,45 @@ export function ReportDraft() {
               </button>
             </Card>
 
-            <Card>
-              <SectionTitle eyebrow="Template KB" title="报告模板知识库" action={<Tag tone="blue">公开样例 + demo 模板</Tag>} />
-              <div className="knowledge-list">
-                {knowledge?.templates?.map((template) => (
-                  <div key={template.name}>
-                    <strong>{template.name}</strong>
-                    <p>{template.sections?.join(' / ') || template.criteria?.join(' / ') || template.tone || '医生审核前训练模板'}</p>
+            <Card className="report-side-panel">
+              <SectionTitle
+                eyebrow={draft ? 'Review cockpit' : 'Template KB'}
+                title={draft ? '复核与证据台账' : '模板与边界'}
+                action={<Tag tone={draft?.generation_mode === 'provider' ? 'green' : 'blue'}>{draft?.generation_mode || 'ready'}</Tag>}
+              />
+              {draft ? (
+                <>
+                  <div className={`audit-pass ${draft.hallucination_audit.audit_passed ? 'pass' : 'fail'}`}>
+                    <strong>{draft.hallucination_audit.audit_passed ? '单帧范围审查通过' : '发现需改写声明'}</strong>
+                    <span>{draft.hallucination_audit.evidence_policy || '证据约束策略已启用'}</span>
                   </div>
-                ))}
-              </div>
+                  <DraftList title="医师复核任务" items={draft.review_tasks.slice(0, 4)} />
+                  <div className="source-trace-grid compact">
+                    {draft.source_trace.slice(0, 4).map((item) => (
+                      <div className={item.used ? 'used' : ''} key={`${item.source_type}_${item.label}`}>
+                        <span>{item.label}</span>
+                        <strong>{item.used ? '已使用' : '未使用'}</strong>
+                        <p>{item.detail}{item.latency_ms ? ` · ${item.latency_ms}ms` : ''}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="button secondary" type="button" onClick={() => switchTab('judge')}>
+                    <ShieldCheck size={17} /> 进入报告修改训练
+                  </button>
+                </>
+              ) : (
+                <div className="knowledge-list compact">
+                  {knowledge?.templates?.slice(0, 3).map((template) => (
+                    <div key={template.name}>
+                      <strong>{template.name}</strong>
+                      <p>{template.sections?.join(' / ') || template.criteria?.join(' / ') || template.tone || '医生审核前训练模板'}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="notice-card">
                 <ClipboardCheck size={20} />
-                <p>报告中心只输出医生审核前训练模板，不独立生成最终诊断，不给治疗承诺；单帧图像不得生成完整检查范围或未观察区域阴性结论。</p>
+                <p>公开 VQA 标注只进入来源台账；报告中心只输出医生审核前训练模板，不独立生成最终诊断。</p>
               </div>
             </Card>
           </div>
@@ -428,6 +470,22 @@ export function ReportDraft() {
                   <strong>{judge.profile_updated ? '已回灌林知远医师画像' : '画像未写入'}</strong>
                   <span>{judge.memory_summary || '当前评分仅用于本页展示，未更新后端训练记录。'}</span>
                 </div>
+              </div>
+              <div className="report-drill-list">
+                <div className="drill-list-header">
+                  <span>下一步专项训练</span>
+                  <strong>{judge.recommended_drills.length} 个推荐</strong>
+                </div>
+                {judge.recommended_drills.map((drill) => (
+                  <Link to={drill.href} key={`${drill.label}_${drill.rubric || 'report'}`}>
+                    <div>
+                      <strong>{drill.label}</strong>
+                      <span>{drill.rubric ? `${drill.rubric} · ${drill.score ?? '-'} 分` : '报告训练'}</span>
+                      <p>{drill.reason}</p>
+                    </div>
+                    <ArrowRight size={17} />
+                  </Link>
+                ))}
               </div>
             </>
           ) : (

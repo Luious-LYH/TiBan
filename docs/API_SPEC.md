@@ -165,6 +165,15 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
     "不确定性表达": 25,
     "安全边界": 25
   },
+  "recommended_drills": [
+    {
+      "label": "报告安全专项",
+      "href": "/training?question_class=报告纠错",
+      "reason": "把观察性所见和诊断性结论拆开，减少越界表达。",
+      "rubric": "所见与诊断区分",
+      "score": 18
+    }
+  ],
   "profile_updated": true,
   "memory_summary": "已回灌林知远医师画像：报告修改 88 分，事实组合/证据边界能力已更新。"
 }

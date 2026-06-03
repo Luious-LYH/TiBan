@@ -1979,6 +1979,122 @@ textarea {
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
+.report-workflow-strip {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(320px, 1.45fr) minmax(240px, 0.95fr);
+  gap: 14px;
+  align-items: stretch;
+  padding: 12px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 55%, #eef6ff 100%);
+  border-color: #dbeafe;
+}
+
+.workflow-title,
+.workflow-steps,
+.report-quick-status {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.workflow-title {
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.workflow-title svg {
+  color: var(--blue);
+}
+
+.workflow-title span,
+.workflow-steps span,
+.report-quick-status span,
+.drill-list-header span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.workflow-title strong,
+.workflow-steps strong,
+.report-quick-status strong,
+.drill-list-header strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.workflow-steps {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.workflow-steps div,
+.report-quick-status div {
+  min-width: 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.workflow-steps div {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 3px 8px;
+  align-content: start;
+}
+
+.workflow-steps svg {
+  grid-row: span 2;
+  color: #94a3b8;
+}
+
+.workflow-steps div.done {
+  background: var(--teal-soft);
+  border-color: #99f6e4;
+}
+
+.workflow-steps div.done svg {
+  color: var(--teal);
+}
+
+.report-quick-status {
+  grid-template-columns: 1fr;
+}
+
+.report-provider-console.compact {
+  gap: 10px;
+}
+
+.report-provider-console.compact .report-provider-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.report-workbench {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.12fr) minmax(300px, 0.88fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.report-side-panel {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.knowledge-list.compact {
+  display: grid;
+  gap: 10px;
+}
+
 .report-source-status {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2416,6 +2532,57 @@ textarea {
   margin-top: 3px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.report-drill-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.drill-list-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.report-drill-list a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  color: inherit;
+  text-decoration: none;
+  background: #f8fbff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.report-drill-list a:hover {
+  border-color: var(--blue);
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
+  transform: translateY(-1px);
+}
+
+.report-drill-list a strong,
+.report-drill-list a span {
+  display: block;
+}
+
+.report-drill-list a span {
+  margin-top: 3px;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.report-drill-list a p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .rubric-grid {
@@ -3509,9 +3676,19 @@ textarea {
   .readiness-summary,
   .readiness-grid,
   .report-source-status,
+  .report-workflow-strip,
   .profile-provenance,
   .credential-policy-card {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workflow-title,
+  .report-workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .workflow-steps {
+    grid-column: 1 / -1;
   }
 
   .hero-metrics {
@@ -3567,6 +3744,9 @@ textarea {
   .draft-grid,
   .report-status-grid,
   .report-source-status,
+  .report-workflow-strip,
+  .workflow-steps,
+  .report-provider-console.compact .report-provider-grid,
   .profile-provenance,
   .credential-policy-card,
   .readiness-summary,
@@ -3595,6 +3775,10 @@ textarea {
 
   .filter-panel {
     grid-template-columns: 1fr;
+  }
+
+  .report-side-panel {
+    position: static;
   }
 
   .record-list div,

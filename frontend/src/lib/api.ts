@@ -544,6 +544,18 @@ function normalizeReportJudge(value: unknown, fallback: ReportJudge): ReportJudg
     issues: asStringArray(record.issues, fallback.issues),
     suggested_revision: asString(record.suggested_revision, fallback.suggested_revision),
     rubric_scores: asNumberRecord(record.rubric_scores, fallback.rubric_scores),
+    recommended_drills: Array.isArray(record.recommended_drills)
+      ? record.recommended_drills.map((item) => {
+          const drill = asRecord(item)
+          return {
+            label: asString(drill.label, '报告表达专项'),
+            href: asString(drill.href, '/training?question_class=报告纠错'),
+            reason: asString(drill.reason, '继续巩固报告证据边界。'),
+            rubric: typeof drill.rubric === 'string' ? drill.rubric : undefined,
+            score: Number.isFinite(Number(drill.score)) ? Number(drill.score) : undefined,
+          }
+        })
+      : fallback.recommended_drills,
     generation_mode: asString(record.generation_mode, fallback.generation_mode),
     provider_status: normalizeProviderStatus(record.provider_status, fallback.provider_status),
     provider_feedback: typeof record.provider_feedback === 'string' ? record.provider_feedback : fallback.provider_feedback,
@@ -946,6 +958,15 @@ export const api = {
       issues: revisedReport.includes('确诊') ? ['仍含过强诊断语气。'] : ['建议继续补充不确定性说明。'],
       suggested_revision: `${revisedReport} 建议医生结合完整检查复核。`,
       rubric_scores: { 部位描述: 20, 所见与诊断区分: 22, 不确定性表达: 20, 安全边界: 20 },
+      recommended_drills: [
+        {
+          label: '报告表达进阶',
+          href: '/training?question_class=报告纠错',
+          reason: '后端不可用时先回到报告纠错题巩固证据边界。',
+          rubric: '综合表达',
+          score: revisedReport.includes('复核') ? 20 : 12,
+        },
+      ],
       generation_mode: 'fallback',
       provider_status: {
         provider: 'frontend_fallback',

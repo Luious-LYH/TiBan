@@ -232,6 +232,13 @@ export type ReportJudge = {
   issues: string[]
   suggested_revision: string
   rubric_scores: Record<string, number>
+  recommended_drills: {
+    label: string
+    href: string
+    reason: string
+    rubric?: string
+    score?: number
+  }[]
   generation_mode: GenerationMode | string
   provider_status: ProviderStatus
   provider_feedback?: string | null

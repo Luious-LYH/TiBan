@@ -261,6 +261,7 @@ class ReportJudgeResponse(BaseModel):
     issues: list[str]
     suggested_revision: str
     rubric_scores: dict[str, int]
+    recommended_drills: list[dict[str, Any]] = Field(default_factory=list)
     generation_mode: str = "rule"
     provider_status: dict[str, Any] = Field(default_factory=dict)
     provider_feedback: str | None = None

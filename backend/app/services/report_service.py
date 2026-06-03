@@ -143,6 +143,7 @@ class ReportService:
             issues=issues or ["未发现明显越界表达，仍需医生最终审核。"],
             suggested_revision=self._suggest_revision(revised),
             rubric_scores=rubric_scores,
+            recommended_drills=self._recommended_report_drills(rubric_scores),
             generation_mode=generation_mode,
             provider_status=provider_result.public_status(),
             provider_feedback=provider_result.text if provider_result.ok else None,
@@ -440,6 +441,46 @@ class ReportService:
             max_tokens=520,
             **self._provider_kwargs(request),
         )
+
+    def _recommended_report_drills(self, rubric_scores: dict[str, int]) -> list[dict[str, object]]:
+        drill_map = {
+            "部位描述": {
+                "label": "部位与范围定位专项",
+                "href": "/training?question_class=属性判断",
+                "reason": "部位、范围、数量表达不足时，先回到属性判断题练定位。",
+            },
+            "所见与诊断区分": {
+                "label": "报告安全专项",
+                "href": "/training?question_class=报告纠错",
+                "reason": "把观察性所见和诊断性结论拆开，减少越界表达。",
+            },
+            "不确定性表达": {
+                "label": "证据不足识别专项",
+                "href": "/training?question_class=证据不足",
+                "reason": "训练在证据不足时主动写出缺失上下文和复核要求。",
+            },
+            "安全边界": {
+                "label": "错误前提挑战",
+                "href": "/training?mode=challenge",
+                "reason": "识别“确诊、必须、立即”等高风险前提，练习降级表达。",
+            },
+        }
+        weak = [
+            {**drill_map[name], "rubric": name, "score": score}
+            for name, score in rubric_scores.items()
+            if score < 20 and name in drill_map
+        ]
+        if weak:
+            return weak[:3]
+        return [
+            {
+                "label": "报告表达进阶",
+                "href": "/training?question_class=报告纠错",
+                "reason": "本次修改已达标，继续用报告纠错题巩固证据边界。",
+                "rubric": "综合表达",
+                "score": min(rubric_scores.values()) if rubric_scores else 0,
+            }
+        ]
 
     def _provider_kwargs(self, request: ReportDraftRequest | ReportJudgeRequest) -> dict[str, object]:
         api_base = self._request_provider_value(request.api_base)
