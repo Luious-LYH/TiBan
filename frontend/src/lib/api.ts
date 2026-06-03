@@ -706,9 +706,9 @@ export const api = {
     return normalizePlatformReadiness(response)
   },
 
-  async platformDemoCheck(): Promise<DemoCheckResult> {
+  async platformDemoCheck(persist = false): Promise<DemoCheckResult> {
     return request<DemoCheckResult>(
-      '/api/platform/demo-check?learner_id=demo_learner',
+      `/api/platform/demo-check?learner_id=demo_learner&persist=${persist ? 'true' : 'false'}`,
       { method: 'POST' },
     )
   },

@@ -65,8 +65,8 @@ def platform_readiness() -> dict[str, object]:
 
 
 @router.post("/platform/demo-check")
-def platform_demo_check(learner_id: str = "demo_learner") -> dict[str, object]:
-    return demo_check_service.run(learner_id=learner_id)
+def platform_demo_check(learner_id: str = "demo_learner", persist: bool = False) -> dict[str, object]:
+    return demo_check_service.run(learner_id=learner_id, persist=persist)
 
 
 @router.get("/questions")

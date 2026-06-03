@@ -12,6 +12,7 @@ export function Dashboard() {
   const [status, setStatus] = useState('连接后端中')
   const [demoCheck, setDemoCheck] = useState<DemoCheckResult | null>(null)
   const [demoCheckStatus, setDemoCheckStatus] = useState<'idle' | 'running' | 'done' | 'failed'>('idle')
+  const [demoCheckIntent, setDemoCheckIntent] = useState<'sandbox' | 'persisted'>('sandbox')
 
   useEffect(() => {
     api.dashboard()
@@ -25,11 +26,12 @@ export function Dashboard() {
       })
   }, [])
 
-  const runDemoCheck = async () => {
+  const runDemoCheck = async (persist = false) => {
     if (demoCheckStatus === 'running') return
+    setDemoCheckIntent(persist ? 'persisted' : 'sandbox')
     setDemoCheckStatus('running')
     try {
-      const result = await api.platformDemoCheck()
+      const result = await api.platformDemoCheck(persist)
       setDemoCheck(result)
       setDemoCheckStatus('done')
       const nextDashboard = await api.dashboard()
@@ -127,14 +129,19 @@ export function Dashboard() {
               <strong>{demoCheck ? `${demoCheck.source_dataset} · ${demoCheck.question_title}` : '一键跑通医生训练闭环'}</strong>
               <p>
                 {demoCheck
-                  ? `本次写入画像：${demoCheck.profile_updated ? '是' : '否'} · 审计新增 ${demoCheck.audit_delta} 条 · Provider ${demoCheck.provider_ready ? '真实可用' : `${demoCheck.provider_mode} 模式`}`
-                  : '手动触发公开样例提交、Agent 辅导、报告草稿、报告修改评分、画像回灌和审计收据。'}
+                  ? `${demoCheck.persisted ? '正式留痕' : '沙盒验证'} · 写入验证 ${demoCheck.write_verified ? '通过' : '待核查'} · ${demoCheck.restored_after_run ? '已自动恢复数据' : '已保留画像/审计'} · Provider ${demoCheck.provider_ready ? '真实可用' : `${demoCheck.provider_mode} 模式`}`
+                  : '默认沙盒触发公开样例提交、Agent 辅导、报告草稿、报告修改评分、画像回灌和审计收据；写入后自动恢复。'}
               </p>
             </div>
           </div>
-          <button className="button primary" type="button" onClick={runDemoCheck} disabled={demoCheckStatus === 'running' || readinessSource === 'fallback'}>
-            <ActivitySquare size={17} /> {demoCheckStatus === 'running' ? '自检运行中' : demoCheck ? '再次运行自检' : '运行闭环自检'}
-          </button>
+          <div className="demo-check-actions">
+            <button className="button primary" type="button" onClick={() => runDemoCheck(false)} disabled={demoCheckStatus === 'running' || readinessSource === 'fallback'}>
+              <ActivitySquare size={17} /> {demoCheckStatus === 'running' && demoCheckIntent === 'sandbox' ? '沙盒运行中' : '沙盒自检'}
+            </button>
+            <button className="button secondary" type="button" onClick={() => runDemoCheck(true)} disabled={demoCheckStatus === 'running' || readinessSource === 'fallback'}>
+              <ShieldCheck size={17} /> {demoCheckStatus === 'running' && demoCheckIntent === 'persisted' ? '写入中' : '写入演示画像'}
+            </button>
+          </div>
           {demoCheckStatus === 'failed' ? <span className="demo-check-error">后端自检未完成，请确认 FastAPI 在线后重试。</span> : null}
           {readinessSource === 'fallback' ? <span className="demo-check-error">当前为前端 fallback，不能伪造自检通过。</span> : null}
           {demoCheck ? (

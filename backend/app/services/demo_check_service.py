@@ -3,6 +3,7 @@ from uuid import uuid4
 from app.core.config import SAFETY_NOTICE
 from app.schemas import ReportDraftRequest, ReportJudgeRequest, SubmissionRequest, TutorChatRequest
 from app.services.audit_service import audit_service, now_iso
+from app.services.data_store import read_json, write_json
 from app.services.grading_service import grading_service
 from app.services.llm_provider import llm_provider
 from app.services.memory_service import memory_service
@@ -15,11 +16,36 @@ PUBLIC_DATASETS = {"Kvasir-VQA-x1", "Kvasir-VQA", "EndoBench"}
 
 
 class DemoCheckService:
-    def run(self, learner_id: str = "demo_learner") -> dict[str, object]:
+    def run(self, learner_id: str = "demo_learner", *, persist: bool = False) -> dict[str, object]:
+        profile_snapshot = read_json("learner_profile.json")
+        audit_snapshot = read_json("audit_logs.json")
         before_profile = memory_service.get_profile()
         before_logs = audit_service.list_logs()
         before_audit_count = len(before_logs)
         before_audit_ids = {item.id for item in before_logs}
+        try:
+            result = self._run_chain(
+                learner_id=learner_id,
+                before_profile=before_profile,
+                before_audit_count=before_audit_count,
+                before_audit_ids=before_audit_ids,
+                persist=persist,
+            )
+        finally:
+            if not persist:
+                write_json("learner_profile.json", profile_snapshot)
+                write_json("audit_logs.json", audit_snapshot)
+        return result
+
+    def _run_chain(
+        self,
+        *,
+        learner_id: str,
+        before_profile,
+        before_audit_count: int,
+        before_audit_ids: set[str],
+        persist: bool,
+    ) -> dict[str, object]:
         question = self._select_public_question()
 
         submission = grading_service.grade(
@@ -63,11 +89,16 @@ class DemoCheckService:
         after_audit_count = len(after_logs)
         audit_delta = sum(1 for item in after_logs if item.id not in before_audit_ids)
         provider_status = llm_provider.status()
-        receipts = self._receipts(question, submission, tutor, draft, judge, audit_delta)
+        receipts = self._receipts(question, submission, tutor, draft, judge, audit_delta, persist=persist)
+        profile_changed = after_profile.updated_at != before_profile.updated_at
 
         return {
             "id": f"demo_check_{uuid4().hex[:12]}",
             "learner_id": learner_id,
+            "mode": "persisted" if persist else "sandbox",
+            "persisted": persist,
+            "write_verified": profile_changed and audit_delta >= 5,
+            "restored_after_run": not persist,
             "question_id": question.id,
             "question_title": question.title,
             "source_dataset": question.source_dataset,
@@ -88,8 +119,8 @@ class DemoCheckService:
             "audit_after_count": after_audit_count,
             "audit_delta": audit_delta,
             "receipts": receipts,
-            "profile_updated": after_profile.updated_at != before_profile.updated_at,
-            "audit_logged": True,
+            "profile_updated": profile_changed and persist,
+            "audit_logged": persist,
             "doctor_review_required": True,
             "safety_notice": SAFETY_NOTICE,
             "created_at": now_iso(),
@@ -100,21 +131,33 @@ class DemoCheckService:
         public_questions = [question for question in questions if question.source_dataset in PUBLIC_DATASETS]
         return public_questions[0] if public_questions else questions[0]
 
-    def _receipts(self, question, submission, tutor, draft, judge, audit_delta: int) -> list[dict[str, object]]:
+    def _receipts(self, question, submission, tutor, draft, judge, audit_delta: int, *, persist: bool) -> list[dict[str, object]]:
         tutor_mode = str(tutor.get("generation_mode", "rule"))
+        persistence_label = "已写入训练画像。" if persist else "沙盒已验证写入后自动恢复。"
+        audit_label = "已持久化审计摘要。" if persist else "沙盒已验证审计写入后自动恢复。"
+        tutor_detail = (
+            str(tutor.get("memory_summary") or "已记录训练标签，不保存追问原文。")
+            if persist
+            else "沙盒已验证 Agent 辅导画像回灌路径，返回前自动恢复；不保存追问原文。"
+        )
+        judge_detail = (
+            judge.memory_summary or "报告修改训练已完成。"
+            if persist
+            else "沙盒已验证报告修改评分和画像回灌路径，返回前自动恢复。"
+        )
         return [
             {
                 "id": "answer_submit",
                 "label": "公开样例提交",
                 "status": "correct" if submission.is_correct else "review",
-                "detail": f"{question.source_dataset} · {submission.score} 分 · 已写入训练画像。",
+                "detail": f"{question.source_dataset} · {submission.score} 分 · {persistence_label}",
                 "tone": "green" if submission.is_correct else "amber",
             },
             {
                 "id": "tutor_agent",
                 "label": "Agent 辅导",
                 "status": tutor_mode,
-                "detail": str(tutor.get("memory_summary") or "已记录训练标签，不保存追问原文。"),
+                "detail": tutor_detail,
                 "tone": "green" if tutor.get("profile_updated") else "blue",
             },
             {
@@ -128,14 +171,14 @@ class DemoCheckService:
                 "id": "report_judge",
                 "label": "修改评分",
                 "status": f"{judge.score}分",
-                "detail": judge.memory_summary or "报告修改训练已完成。",
+                "detail": judge_detail,
                 "tone": "green" if judge.profile_updated else "amber",
             },
             {
                 "id": "audit_log",
                 "label": "审计链路",
                 "status": f"+{audit_delta}",
-                "detail": "已记录 question_view、answer_submit、tutor_reply、report_draft、report_judge 与 demo_check 等摘要事件。",
+                "detail": f"{audit_label} 触发 question_view、answer_submit、tutor_reply、report_draft、report_judge 与 demo_check 等摘要事件。",
                 "tone": "green" if audit_delta >= 5 else "amber",
             },
         ]

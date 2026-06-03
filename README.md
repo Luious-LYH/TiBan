@@ -48,7 +48,7 @@ LLM_TIMEOUT_SECONDS=25
 
 ## v2.0 演示路径
 
-1. 首页总览：先看“平台真实性与演示路径”和“可核验证据收据”，确认后端、公开样例、画像、报告/科普知识库、Provider、自检/准入、挑战基准审计和审计日志状态。
+1. 首页总览：先看“平台真实性与演示路径”和“可核验证据收据”，确认后端、公开样例、画像、报告/科普知识库、Provider、自检/准入、挑战基准审计和审计日志状态；“沙盒自检”会真实跑通训练/Agent/报告/judge/审计链路后自动恢复数据，“写入演示画像”才保留留痕。
 2. 训练中心：右侧 Agent 默认只辅导当前题，不提前泄露参考答案；考试模式有全局 session 倒计时、累计战报、交卷复盘入口；比拼模式提交前锁住证据页，提交后调用后端挑战基准，Provider 可用时用 Provider 作答，不通时明确回退公开标注 fallback。
 3. 错因分析：查看 atomic facts、错因标签和下一题推荐。
 4. 错误前提训练：先让林知远医师独立判断题干是否成立，提交后才解锁证据不足事实、得分和复盘建议。
@@ -64,6 +64,7 @@ LLM_TIMEOUT_SECONDS=25
 | 模块 | v2.0 模式 | 数据来源 | 说明 |
 |---|---|---|---|
 | 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` | 公开样例优先展示，支持错题/收藏/筛选；考试模式有全局倒计时、累计正确率、平均分，交卷后通过 `/api/learner/exam-session` 写入画像和审计 |
+| 首页闭环自检 | backend sandbox / persistence | 公开样例 + `learner_profile.json` + `audit_logs.json` | `persist=false` 真实写入后自动恢复，`persist=true` 才保留演示画像和审计 |
 | 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案；挑战模式提交后才调用后端挑战基准，基准只写 `challenge_benchmark` 审计不重复回灌画像；追问会回灌训练事件但不保存原文 |
 | 错误前提训练 | backend rule | false-premise 题库 + atomic facts | 先作答后解锁证据不足事实、得分和复盘建议 |
 | 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 流程工作台展示数据/Provider/模板状态；报告生成显示 `source_trace`、Provider 状态和 `evidence_ledger`；报告评分返回画像回灌与 `recommended_drills` |

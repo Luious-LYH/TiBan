@@ -571,6 +571,17 @@ a {
   font-weight: 750;
 }
 
+.demo-check-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.demo-check-actions .button {
+  min-width: 138px;
+}
+
 .demo-check-receipts {
   grid-column: 1 / -1;
   display: grid;

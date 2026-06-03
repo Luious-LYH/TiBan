@@ -384,6 +384,10 @@ export type DemoCheckReceipt = {
 export type DemoCheckResult = {
   id: string
   learner_id: string
+  mode: 'sandbox' | 'persisted' | string
+  persisted: boolean
+  write_verified: boolean
+  restored_after_run: boolean
   question_id: string
   question_title: string
   source_dataset: string
