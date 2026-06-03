@@ -171,6 +171,7 @@ export type AuditLog = {
     | 'report_judge'
     | 'skill_run'
     | 'model_select'
+    | 'provider_self_test'
     | 'model_admission'
     | 'favorite_update'
     | 'image_upload'
@@ -288,6 +289,22 @@ export type ModelAdmissionState = {
   risk_items: string[]
   recommendation: string
   safe_for_training: boolean
+}
+
+export type ProviderSelfTestResult = {
+  id: string
+  provider_name: string
+  provider_called: boolean
+  provider_status: ProviderStatus
+  probe_excerpt?: string | null
+  audit_logged: boolean
+  key_persisted: boolean
+  admission_state_updated: boolean
+  recommendation: string
+  doctor_review_required: true
+  safety_notice: string
+  created_at: string
+  api_source?: 'backend' | 'fallback'
 }
 
 export type ReadinessTone = 'green' | 'amber' | 'blue' | 'red' | 'neutral'

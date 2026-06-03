@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from app.core.config import SAFETY_NOTICE
-from app.schemas import ModelAdmissionTestRequest, ModelAdmissionTestResponse, ModelProfile
+from app.schemas import ModelAdmissionTestRequest, ModelAdmissionTestResponse, ModelProfile, ProviderSelfTestRequest, ProviderSelfTestResponse
 from app.services.audit_service import now_iso
 from app.services.audit_service import audit_service
 from app.services.data_store import read_json, write_json
@@ -39,6 +39,47 @@ class ModelService:
 
     def admission_state(self) -> dict[str, object]:
         return read_json("model_admission_state.json")
+
+    def provider_self_test(self, request: ProviderSelfTestRequest) -> ProviderSelfTestResponse:
+        provider_result = llm_provider.chat(
+            system_prompt=(
+                "你是内镜医师培训平台的 Provider 连通性自检探针。"
+                "只确认接口可用性和安全边界，不输出诊断、治疗建议或患者信息。"
+            ),
+            user_prompt=(
+                "请用中文用一句话回复：Provider 自检已收到。"
+                "不要包含任何 API key、患者身份信息或临床诊断。"
+            ),
+            temperature=0.0,
+            max_tokens=80,
+            **self._provider_kwargs(request),
+        )
+        response = ProviderSelfTestResponse(
+            id=f"provider_selftest_{uuid4().hex[:12]}",
+            provider_name=request.provider_name,
+            provider_called=provider_result.ok,
+            provider_status=provider_result.public_status(),
+            probe_excerpt=provider_result.text[:160] if provider_result.ok else None,
+            audit_logged=True,
+            key_persisted=False,
+            admission_state_updated=False,
+            recommendation=(
+                "Provider 线路已打通；如需进入训练 Agent 候选，请继续运行公开样例级准入探测。"
+                if provider_result.ok
+                else f"Provider 自检未通过：{provider_result.error or 'unknown_error'}。请检查 base URL、模型名、key 或后端 .env。"
+            ),
+            doctor_review_required=True,
+            safety_notice=SAFETY_NOTICE,
+            created_at=now_iso(),
+        )
+        audit_service.log(
+            "provider_self_test",
+            user_id="admin_demo",
+            entity_id=response.id,
+            summary=f"执行 Provider 轻量自检：{request.provider_name}；结果 {'ok' if provider_result.ok else provider_result.error or 'failed'}；未保存 key，未更新准入状态。",
+            risk_level="medium",
+        )
+        return response
 
     def admission_test(self, request: ModelAdmissionTestRequest) -> ModelAdmissionTestResponse:
         samples = read_json("real_sample_knowledge.json")
@@ -164,12 +205,12 @@ class ModelService:
             "error": provider_result.error,
         }
 
-    def _provider_kwargs(self, request: ModelAdmissionTestRequest) -> dict[str, object]:
+    def _provider_kwargs(self, request: ModelAdmissionTestRequest | ProviderSelfTestRequest) -> dict[str, object]:
         api_base = self._request_provider_value(request.api_base)
         api_key = request.api_key.strip() if request.api_key and request.api_key.strip() else None
         model = request.model.strip() if request.model and request.model.strip() else None
         provider = request.provider_name.strip() if request.provider_name and request.provider_name.strip() else None
-        use_request_provider = bool(api_base or api_key or model or provider)
+        use_request_provider = bool(api_base or api_key or model)
         return {
             "base_url": api_base if use_request_provider else None,
             "api_key": api_key,

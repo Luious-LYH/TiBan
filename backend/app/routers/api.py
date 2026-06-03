@@ -14,6 +14,7 @@ from app.schemas import (
     ModelSelectRequest,
     PatientCardApproveRequest,
     PatientCardRequest,
+    ProviderSelfTestRequest,
     ReportDraftRequest,
     ReportJudgeRequest,
     SkillRunRequest,
@@ -44,6 +45,11 @@ def health() -> dict[str, str]:
 @router.get("/provider/status")
 def provider_status() -> dict[str, object]:
     return llm_provider.status()
+
+
+@router.post("/provider/self-test")
+def provider_self_test(request: ProviderSelfTestRequest) -> dict[str, object]:
+    return model_service.provider_self_test(request).model_dump()
 
 
 @router.get("/dashboard")

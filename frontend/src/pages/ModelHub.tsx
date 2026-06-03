@@ -4,7 +4,7 @@ import { ActivitySquare, AlertTriangle, CheckCircle2, Database, KeyRound, Loader
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
-import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderStatus, Question } from '../lib/types'
+import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderSelfTestResult, ProviderStatus, Question } from '../lib/types'
 
 const scoreLabels: Record<string, string> = {
   basic_recognition: '基础识别',
@@ -36,6 +36,9 @@ export function ModelHub() {
   const [selectionNotice, setSelectionNotice] = useState('当前训练 Agent 会写入后端 models.json，并同步影响首页当前模型展示。')
   const [isRunningAdmission, setIsRunningAdmission] = useState(false)
   const [admissionNotice, setAdmissionNotice] = useState('等待运行：请选择公开样例和测试维度，再启动样例级准入探测。')
+  const [selfTest, setSelfTest] = useState<ProviderSelfTestResult | null>(null)
+  const [isRunningSelfTest, setIsRunningSelfTest] = useState(false)
+  const [selfTestNotice, setSelfTestNotice] = useState('可先做轻量自检：只验证 Provider 通道，不读取公开样例，不写入模型准入状态。')
 
   useEffect(() => {
     api.models().then((items) => {
@@ -57,7 +60,7 @@ export function ModelHub() {
   }, [])
 
   const runAdmission = async () => {
-    if (isRunningAdmission || !selectedSamples.length || !focus.length) return
+    if (isRunningAdmission || isRunningSelfTest || !selectedSamples.length || !focus.length) return
     setIsRunningAdmission(true)
     setAdmissionNotice(`正在探测 ${Math.min(selectedSamples.length, 3)} 个公开样例；结果会显示 backend/fallback、Provider 成功数和失败原因。`)
     try {
@@ -98,6 +101,30 @@ export function ModelHub() {
     }
   }
 
+  const runProviderSelfTest = async () => {
+    if (isRunningSelfTest || isRunningAdmission) return
+    setIsRunningSelfTest(true)
+    setSelfTestNotice('正在发送一条安全短提示词；本次只验证 Provider 通道，不会保存 key/base 或更新模型准入摘要。')
+    try {
+      const response = await api.providerSelfTest({
+        providerName,
+        apiBase,
+        apiKey: apiKey.trim() || undefined,
+        model: model.trim() || undefined,
+      })
+      setSelfTest(response)
+      const source = response.api_source === 'fallback' ? 'frontend fallback' : 'backend live'
+      const providerText = response.provider_called
+        ? `Provider 已返回：${response.probe_excerpt || '连通成功'}`
+        : `Provider 未打通：${response.provider_status.error || 'provider_not_configured'}`
+      setSelfTestNotice(`${source} 返回 ${response.id}；${providerText}；${response.admission_state_updated ? '异常：已触碰准入状态。' : '未更新准入状态。'}`)
+    } catch (error) {
+      setSelfTestNotice(`Provider 自检失败：${error instanceof Error ? error.message : '未知错误'}。请确认 FastAPI 在线、Provider 配置无误。`)
+    } finally {
+      setIsRunningSelfTest(false)
+    }
+  }
+
   const toggleFocus = (item: string) => {
     setFocus((current) => current.includes(item) ? current.filter((value) => value !== item) : [...current, item])
   }
@@ -124,8 +151,9 @@ export function ModelHub() {
   const activeModel = models.find((item) => item.is_active) || models[0]
   const providerSuccessCount = result?.provider_status.provider_success_count
   const providerSampleCount = result?.provider_status.sample_count || result?.evidence.length || 0
-  const canRunAdmission = Boolean(selectedSamples.length && focus.length && !isRunningAdmission)
+  const canRunAdmission = Boolean(selectedSamples.length && focus.length && !isRunningAdmission && !isRunningSelfTest)
   const resultSource = result?.api_source === 'fallback' ? 'frontend fallback' : result ? 'backend live' : 'not run'
+  const selfTestSource = selfTest?.api_source === 'fallback' ? 'frontend fallback' : selfTest ? 'backend live' : 'not run'
 
   return (
     <div className="page-stack">
@@ -239,6 +267,25 @@ export function ModelHub() {
             <KeyRound size={20} />
             <p>临时密钥只随本次准入请求发送到后端，不会写入仓库、文档或审计日志。正式演示建议使用后端 .env 配置；页面 base/model 可覆盖后端默认值。</p>
           </div>
+          <div className={`admission-run-strip provider-self-test-strip ${isRunningSelfTest ? 'running' : selfTest?.api_source === 'fallback' || (selfTest && !selfTest.provider_called) ? 'fallback' : selfTest?.provider_called ? 'synced' : ''}`}>
+            {isRunningSelfTest ? <LoaderCircle className="spin-icon" size={18} /> : selfTest && !selfTest.provider_called ? <AlertTriangle size={18} /> : <PlugZap size={18} />}
+            <div>
+              <strong>{isRunningSelfTest ? '正在轻量自检' : selfTest ? `最近自检：${selfTestSource}` : 'Provider 轻量自检'}</strong>
+              <span>{selfTestNotice}</span>
+            </div>
+          </div>
+          {selfTest ? (
+            <div className="self-test-detail-grid">
+              <div><span>Provider 调用</span><strong>{selfTest.provider_called ? '成功' : '未成功'}</strong></div>
+              <div><span>审计写入</span><strong>{selfTest.audit_logged ? '已写摘要' : '未写入'}</strong></div>
+              <div><span>保存 key</span><strong>{selfTest.key_persisted ? '异常' : '否'}</strong></div>
+              <div><span>准入状态</span><strong>{selfTest.admission_state_updated ? '已更新' : '未更新'}</strong></div>
+            </div>
+          ) : null}
+          <button className="button secondary full-width" type="button" onClick={runProviderSelfTest} disabled={isRunningSelfTest || isRunningAdmission}>
+            {isRunningSelfTest ? <LoaderCircle className="spin-icon" size={17} /> : <PlugZap size={17} />}
+            {isRunningSelfTest ? '正在自检...' : '先做 Provider 轻量自检'}
+          </button>
         </Card>
 
         <Card>

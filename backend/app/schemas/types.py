@@ -334,6 +334,29 @@ class ModelAdmissionTestRequest(BaseModel):
     test_focus: list[str] = Field(default_factory=lambda: ["基础识别", "错误前提", "报告安全"])
 
 
+class ProviderSelfTestRequest(BaseModel):
+    provider_name: str = "自定义 Provider"
+    api_base: str = "https://api.example.com/v1"
+    api_key_masked: str = "sk-****"
+    api_key: str | None = None
+    model: str | None = None
+
+
+class ProviderSelfTestResponse(BaseModel):
+    id: str
+    provider_name: str
+    provider_called: bool = False
+    provider_status: dict[str, Any] = Field(default_factory=dict)
+    probe_excerpt: str | None = None
+    audit_logged: bool = False
+    key_persisted: bool = False
+    admission_state_updated: bool = False
+    recommendation: str
+    doctor_review_required: bool = True
+    safety_notice: str
+    created_at: str
+
+
 class ModelAdmissionTestResponse(BaseModel):
     id: str
     provider_name: str
@@ -373,6 +396,7 @@ class AuditLog(BaseModel):
         "patient_card_approve",
         "skill_run",
         "model_select",
+        "provider_self_test",
         "model_admission",
         "favorite_update",
         "image_upload",

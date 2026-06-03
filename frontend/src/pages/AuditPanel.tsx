@@ -51,7 +51,7 @@ export function AuditPanel() {
         <div>
           <span className="eyebrow">Audit memory</span>
           <h2>安全审计管理</h2>
-          <p>记录题目查看、答题提交、考试交卷、辅导回复、报告草稿、科普卡片、模型选择和 skill 调用。</p>
+          <p>记录题目查看、答题提交、考试交卷、辅导回复、报告草稿、科普卡片、Provider 自检、模型准入和 skill 调用。</p>
         </div>
         <ScrollText size={42} />
       </Card>
@@ -118,7 +118,7 @@ function auditMatches(log: AuditLog, filter: AuditFilter): boolean {
   if (filter === 'high') return log.risk_level === 'high'
   if (filter === 'training') return ['question_view', 'answer_submit', 'exam_session', 'tutor_reply', 'favorite_update'].includes(log.event_type)
   if (filter === 'report') return ['report_draft', 'report_judge', 'patient_card', 'patient_card_approve', 'image_upload'].includes(log.event_type)
-  if (filter === 'model') return ['model_select', 'model_admission'].includes(log.event_type)
+  if (filter === 'model') return ['model_select', 'provider_self_test', 'model_admission'].includes(log.event_type)
   if (filter === 'skills') return log.event_type === 'skill_run'
   return true
 }
@@ -135,6 +135,7 @@ function eventLabel(type: AuditLog['event_type']): string {
     report_judge: '报告评分',
     skill_run: 'Skill运行',
     model_select: '模型选择',
+    provider_self_test: 'Provider自检',
     model_admission: '模型准入',
     favorite_update: '收藏更新',
     image_upload: '图片上传',

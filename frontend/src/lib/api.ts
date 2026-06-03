@@ -21,6 +21,7 @@ import type {
   PatientCard,
   PlatformReadiness,
   PlatformReadinessModule,
+  ProviderSelfTestResult,
   ProviderStatus,
   Question,
   ReportJudge,
@@ -608,6 +609,26 @@ function normalizeModelAdmission(value: unknown, fallback: ModelAdmissionResult)
   }
 }
 
+function normalizeProviderSelfTest(value: unknown, fallback: ProviderSelfTestResult): ProviderSelfTestResult {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id),
+    provider_name: asString(record.provider_name, fallback.provider_name),
+    provider_called: asBoolean(record.provider_called, fallback.provider_called),
+    provider_status: normalizeProviderStatus(record.provider_status, fallback.provider_status),
+    probe_excerpt: typeof record.probe_excerpt === 'string' ? record.probe_excerpt : fallback.probe_excerpt,
+    audit_logged: asBoolean(record.audit_logged, fallback.audit_logged),
+    key_persisted: asBoolean(record.key_persisted, fallback.key_persisted),
+    admission_state_updated: asBoolean(record.admission_state_updated, fallback.admission_state_updated),
+    recommendation: asString(record.recommendation, fallback.recommendation),
+    doctor_review_required: true,
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    created_at: asString(record.created_at, fallback.created_at),
+  }
+}
+
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -834,6 +855,44 @@ export const api = {
       safety_notice: safetyNotice,
     })
     return normalizeProviderStatus(response)
+  },
+
+  async providerSelfTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string }): Promise<ProviderSelfTestResult> {
+    const fallback: ProviderSelfTestResult = {
+      id: `provider_selftest_local_${Date.now()}`,
+      provider_name: payload.providerName,
+      provider_called: false,
+      provider_status: {
+        provider: 'frontend_fallback',
+        model: payload.model || 'none',
+        mode: 'fallback',
+        ok: false,
+        error: 'backend_unavailable',
+      },
+      probe_excerpt: null,
+      audit_logged: false,
+      key_persisted: false,
+      admission_state_updated: false,
+      recommendation: '后端不可用，未完成 Provider 轻量自检；请先启动 FastAPI，再运行完整准入探测。',
+      doctor_review_required: true,
+      safety_notice: safetyNotice,
+      created_at: new Date().toISOString(),
+    }
+    const response = await request<ProviderSelfTestResult>(
+      '/api/provider/self-test',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          provider_name: payload.providerName,
+          api_base: payload.apiBase,
+          api_key_masked: payload.apiKey ? payload.apiKey.replace(/(.{4}).+(.{2})/, '$1****$2') : '',
+          api_key: payload.apiKey || undefined,
+          model: payload.model || undefined,
+        }),
+      },
+      fallback,
+    )
+    return normalizeProviderSelfTest(response, fallback)
   },
 
   async hint(question: Question): Promise<{

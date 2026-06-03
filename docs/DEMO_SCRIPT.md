@@ -54,7 +54,7 @@
 
 在 `/skills` 选择当前题运行 `false_premise_guard` 或 `atomic_feedback`。页面展示运行摘要、医生复核状态和跳转入口；完整 JSON 只在开发细节折叠项里。
 
-在 `/models` 展示模型接入测试和用户自带 API/key 的样例级准入检查。勾选多个公开样例后，页面会逐条显示 Provider evidence、延迟或失败原因；只有真实 Provider 调用成功才会显示 `provider_called=true`。
+在 `/models` 先展示 Provider 轻量自检：它只验证 OpenAI-compatible 通道，不读取公开样例，不保存 key/base/完整回复，也不会更新模型准入状态。随后展示用户自带 API/key 的样例级准入检查；勾选多个公开样例后，页面会逐条显示 Provider evidence、延迟或失败原因，只有真实 Provider 调用成功才会显示 `provider_called=true`。
 
 最后进入 `/audit` 展示审计驾驶舱：事件总量、高风险事件、医生复核负载、最近写入时间、分类筛选和完整日志表。强调审计日志只保存事件摘要、风险等级和审核状态，不保存 API key 或医师自由追问原文。
 

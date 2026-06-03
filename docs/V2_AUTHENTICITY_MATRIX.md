@@ -19,7 +19,7 @@
 | 错因复盘 | 本轮提交进入时显示真实提交；直接打开时从后端错题本恢复最近复盘题并标注为 review snapshot | `learner_profile.json` wrong/recent errors、`questions` API、atomic facts | 不调用 Provider | 复盘快照不重复写入画像；后续可加正式 submission history 表 |
 | 错误前提训练 | 医师先独立作答，提交后解锁证据不足事实、原子证据、得分和复盘建议 | false-premise 题库、atomic facts、公开图像 | 不直接调用 Provider；可作为模型准入样例 | 后续可加入限时 drill 和更多拒答题型 |
 | 报告中心 | 流程工作台展示图像/所见、草稿生成、复核台账；公开 VQA 标注默认收进来源台账；支持上传图片、结构化报告草稿、幻觉审查、报告修改评分和 `recommended_drills` | 医生输入、公开样例来源台账、模板 KB、上传图片 | `report_service` 可用后端 `.env` 或请求级临时 Provider 生成视觉/文本观察摘要，并可给报告修改训练追加 Provider 评阅 | Provider 反馈仅作训练建议，仍需医生审核；后续可接真实专家评分 |
-| 模型准入 | 最多 3 个公开样例逐条准入检查、样例级 evidence、检查清单分，并写入最近准入摘要 | `real_sample_knowledge.json`, `model_admission_state.json` | 有 key 或 `.env` 时逐样例调用 Provider；否则规则草案；base/model 可请求级覆盖后端默认值 | 未做批量临床评测和统计置信区间 |
+| 模型准入 | Provider 轻量自检 + 最多 3 个公开样例逐条准入检查、样例级 evidence、检查清单分，并写入最近准入摘要 | `real_sample_knowledge.json`, `model_admission_state.json`, `audit_logs.json` | 轻量自检只发安全短提示词，不读取公开样例、不更新准入状态；样例级准入在有 key 或 `.env` 时逐样例调用 Provider，否则规则草案；base/model 可请求级覆盖后端默认值 | 未做批量临床评测和统计置信区间 |
 | 科普卡片 | 卡片模板、真实样例图片预览、动画卡片、本机图片预览、医生审核闸门、审核后打印/分享解锁 | `card_template_knowledge.json` + 医师输入摘要 + 审计日志 | 暂不调用 Provider | 上传图仍为本机预览；后续可接报告中心已审核结论一键带入 |
 | Skills | 受控技能列表、运行样例选择、运行摘要、医生复核状态、工作区跳转；完整 JSON 折叠展示 | `skills.json` + 题库/报告/卡片/安全服务 | 取决于具体 skill 调用的服务 | 后续可加启停配置持久化和权限角色 |
 | Memory | 提交题目、考试 Session、报告 judge、Agent 追问后更新训练记录、能力分、弱项标签 | `learner_profile.json` | 不调用 Provider | 考试 Session 只写整场摘要，不重复增加单题题量；模型准入写入平台状态，但不写入医师能力画像 |
@@ -27,7 +27,7 @@
 
 ## 密钥和图片安全
 
-- 真实 key 只能放本地 `.env`，或模型准入/报告中心页面的一次性临时输入；临时 base/model 可覆盖后端默认值，但 key/base 不写入状态文件。
+- 真实 key 只能放本地 `.env`，或模型准入/报告中心页面的一次性临时输入；临时 base/model 可覆盖后端默认值，但 key/base 不写入状态文件。Provider 轻量自检只写 `provider_self_test` 摘要审计，不写 `model_admission_state.json`。
 - `.env` 和 `backend/runtime/` 均不提交 git。
 - Provider 图片输入只允许：
   - `/assets/real_samples/...`
@@ -36,6 +36,6 @@
 
 ## 答辩时建议说法
 
-本平台不是把所有能力伪装成“已完成临床级 AI”。v2.0 的核心进步是：每个输出都能说明它来自真实 Provider、后端规则，还是 fallback；训练中心提交前不泄露参考答案，挑战模式提交前锁住证据页；报告中心能追踪医生输入、公开样例来源台账、模板知识库、Provider 观察、Provider 评阅和评分后的推荐专项训练；模型准入会逐公开样例返回 evidence 和 Provider 调用状态，但完整临床评测流水线仍按需求暂缓。
+本平台不是把所有能力伪装成“已完成临床级 AI”。v2.0 的核心进步是：每个输出都能说明它来自真实 Provider、后端规则，还是 fallback；训练中心提交前不泄露参考答案，挑战模式提交前锁住证据页；报告中心能追踪医生输入、公开样例来源台账、模板知识库、Provider 观察、Provider 评阅和评分后的推荐专项训练；模型页先提供不改准入状态的 Provider 轻量自检，再用公开样例做准入 evidence，但完整临床评测流水线仍按需求暂缓。
 
 科普卡片的打印/分享不是自由按钮：草稿生成后默认 `share_status=locked_pending_review`，医生完成审核清单后调用 `/patient-card/{card_id}/approve` 审核同一张草稿，后端返回 `reviewed_ready_to_share` 才会解锁，同时写入 `patient_card_approve` 审计事件。

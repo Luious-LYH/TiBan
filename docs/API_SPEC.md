@@ -11,7 +11,7 @@ Base URL: `http://127.0.0.1:8000/api`
 }
 ```
 
-当前 `/submit`、`/learner/exam-session`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/report-draft`、`/report/judge`、`/patient-card`、`/models/admission-test` 和高风险 `/skills/run` 输出均遵循该契约。
+当前 `/submit`、`/learner/exam-session`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/report-draft`、`/report/judge`、`/patient-card`、`/provider/self-test`、`/models/admission-test` 和高风险 `/skills/run` 输出均遵循该契约。
 
 v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mode` / `provider_status` / `provider_called`：
 
@@ -25,6 +25,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 |---|---|---|
 | GET | `/health` | 服务健康检查 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
+| POST | `/provider/self-test` | Provider 轻量连通自检；不读取公开样例，不更新模型准入状态，不保存 key/base/完整回复 |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
 | GET | `/platform/readiness` | 平台就绪度、真实性矩阵和建议演示路线 |
 | GET | `/questions` | 题库列表，支持 `question_class`、`difficulty`、`false_premise` |
@@ -219,6 +220,30 @@ POST /api/patient-card/card_xxx/approve
     { "label": "摘要来自医生确认的报告或训练输入", "checked": true }
   ],
   "doctor_review_required": true
+}
+```
+
+Provider 轻量自检：
+
+```json
+{
+  "provider_name": "自定义多模态 API",
+  "api_base": "https://api.example.com/v1",
+  "api_key": "仅本次请求可选，禁止写入仓库",
+  "model": "your-model-name"
+}
+```
+
+自检只发送一条安全短提示词，验证 OpenAI-compatible 通道是否可用；它不使用公开样例，不写入 `model_admission_state.json`，也不保存 API key、API base 或完整模型回复。核心返回字段：
+
+```json
+{
+  "provider_called": false,
+  "probe_excerpt": null,
+  "audit_logged": true,
+  "key_persisted": false,
+  "admission_state_updated": false,
+  "recommendation": "Provider 自检未通过：provider_not_configured。请检查 base URL、模型名、key 或后端 .env。"
 }
 ```
 
