@@ -417,8 +417,8 @@ Provider 文本/视觉通道自检：
       "source_file": "real_sample_knowledge.json",
       "record_count": 10,
       "sample_ids": ["real_x1_0", "real_kvasir_0"],
-      "used_by": ["题库训练", "报告中心", "模型准入"],
-      "proof": "10 道训练题由公开样例映射生成；模型准入和报告页复用同一批样例 ID。公开教学样例不代表批量临床评测。",
+      "used_by": ["题库训练", "报告中心", "科普卡片配图", "模型准入"],
+      "proof": "10 道训练题由公开样例映射生成；报告、科普卡片配图和模型准入复用同一批样例 ID。公开教学样例不代表批量临床评测。",
       "href": "/training?source=public",
       "tone": "green"
     }

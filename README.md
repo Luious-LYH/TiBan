@@ -79,7 +79,7 @@ LLM_TIMEOUT_SECONDS=25
 | 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 流程工作台展示数据/Provider/模板状态；报告生成显示 `source_trace`、Provider 状态和 `evidence_ledger`；报告评分返回画像回灌与 `recommended_drills`，并可把建议改写或医生修改稿摘要带入科普卡片待审流程 |
 | Skills 中心 | backend rule / fallback | `skills.json` + 当前题/报告/卡片服务 | 页面展示运行摘要、`skill_run_receipt`、审计 ID、输入来源、执行来源和工作区跳转；前端 fallback 只显示本地预览且不伪造审计 ID；完整 JSON 仅放在开发细节折叠项 |
 | 模型准入 | provider text/visual self-test / blind provider probe / rule draft | 公开样例 + 可选 Provider | 文本自检只验证文字通道；视觉自检会把一张公开内镜图以 `image_url` data URL 附加到请求，但不发送参考标注、不更新准入状态；自检返回 `self_test_receipt` 和 `provider_self_test` 审计 ID；逐样例准入不泄露参考标注，返回 provider answer、对齐状态、evidence、`admission_receipt` 和 `model_admission` 审计 ID；最近准入摘要不保存 key/base |
-| 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB | 生成草稿后显示 `source_trace`、模板知识库和 `patient_card` 审计收据；可从报告修改训练带入建议改写或医生修改稿摘要；默认锁定打印/分享；医生完成审核清单后通过同一 `card_id` 解锁，并写入 `patient_card_approve` 审计日志 |
+| 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB + 公开样例图像池 | 图片选择优先读取 `/api/knowledge/real-samples` 映射出的公开样例，后端不可用时才回退本地资产；生成草稿后显示 `source_trace`、模板知识库和 `patient_card` 审计收据；可从报告修改训练带入建议改写或医生修改稿摘要；默认锁定打印/分享；医生完成审核清单后通过同一 `card_id` 解锁，并写入 `patient_card_approve` 审计日志 |
 | Memory | rule persistence | `learner_profile.json` | 提交题目、考试 Session、报告 judge 和 Agent 追问都会更新训练记录、能力分与弱项标签；考试汇总不重复增加单题题量 |
 | 审计日志 | backend persistence | `audit_logs.json` | 记录题目、辅导、报告、上传、准入等事件 |
 

@@ -4,13 +4,58 @@ import { useLocation, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, ImagePlus, LockKeyhole, Printer, Share2, Sparkles, WandSparkles } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
-import type { KnowledgeBase, PatientCard as PatientCardType } from '../lib/types'
+import type { KnowledgeBase, PatientCard as PatientCardType, Question } from '../lib/types'
 
-const sampleImages = [
-  '/assets/real_samples/kv_cla820gl0s3nv071u4fgd7xgq.jpg',
-  '/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg',
-  '/assets/real_samples/endo_image_0.jpg',
+type CardImageOption = {
+  id: string
+  imageUrl: string
+  label: string
+  dataset: string
+  source: 'backend' | 'fallback'
+}
+
+const fallbackCardImages: CardImageOption[] = [
+  {
+    id: 'fallback_kvasir_01',
+    imageUrl: '/assets/real_samples/kv_cla820gl0s3nv071u4fgd7xgq.jpg',
+    label: '本地公开样例',
+    dataset: 'fallback asset',
+    source: 'fallback',
+  },
+  {
+    id: 'fallback_x1_01',
+    imageUrl: '/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg',
+    label: '本地公开样例',
+    dataset: 'fallback asset',
+    source: 'fallback',
+  },
+  {
+    id: 'fallback_demo_01',
+    imageUrl: '/assets/real_samples/endo_image_0.jpg',
+    label: '本地公开样例',
+    dataset: 'fallback asset',
+    source: 'fallback',
+  },
 ]
+
+function realSamplesToCardImages(samples: Question[]): CardImageOption[] {
+  const seen = new Set<string>()
+  return samples
+    .filter((sample) => sample.image_url && sample.image_url.startsWith('/assets/real_samples/'))
+    .map((sample) => ({
+      id: sample.id,
+      imageUrl: sample.image_url || '',
+      label: sample.title || sample.id,
+      dataset: sample.source_dataset || 'public sample',
+      source: 'backend' as const,
+    }))
+    .filter((sample) => {
+      if (!sample.imageUrl || seen.has(sample.imageUrl)) return false
+      seen.add(sample.imageUrl)
+      return true
+    })
+    .slice(0, 6)
+}
 
 export function PatientCard() {
   const [searchParams] = useSearchParams()
@@ -29,7 +74,10 @@ export function PatientCard() {
     : '摘要来自外部入口，生成卡片后仍需医生审核。'
   const [summary, setSummary] = useState(() => incomingSummary || defaultSummary)
   const [templateId, setTemplateId] = useState('calm_blue')
-  const [imageUrl, setImageUrl] = useState(sampleImages[0])
+  const [imageOptions, setImageOptions] = useState<CardImageOption[]>(fallbackCardImages)
+  const [imageUrl, setImageUrl] = useState(fallbackCardImages[0].imageUrl)
+  const [selectedImageId, setSelectedImageId] = useState(fallbackCardImages[0].id)
+  const [imageSourceStatus, setImageSourceStatus] = useState('正在读取公开样例图像池...')
   const [card, setCard] = useState<PatientCardType | null>(null)
   const [knowledge, setKnowledge] = useState<KnowledgeBase | null>(null)
   const [cardStatus, setCardStatus] = useState(() => incomingSummary ? importedStatus : defaultStatus)
@@ -45,6 +93,40 @@ export function PatientCard() {
 
   useEffect(() => {
     api.cardKnowledge().then(setKnowledge)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    api.realSamples()
+      .then((samples) => {
+        if (cancelled) return
+        const options = realSamplesToCardImages(samples)
+        if (options.length) {
+          setImageOptions(options)
+          setImageUrl((current) => {
+            if (current.startsWith('blob:')) return current
+            const currentStillAvailable = options.some((option) => option.imageUrl === current)
+            return currentStillAvailable ? current : options[0].imageUrl
+          })
+          setSelectedImageId((current) => {
+            if (current === 'local_upload') return current
+            const currentStillAvailable = options.some((option) => option.id === current)
+            return currentStillAvailable ? current : options[0].id
+          })
+          setImageSourceStatus(`已从 real_sample_knowledge.json 读取 ${options.length} 张公开教学样例；仅作医生审核前卡片配图，不代表自动诊断。`)
+        } else {
+          setImageOptions(fallbackCardImages)
+          setImageSourceStatus('后端公开样例暂无可用图片，当前使用本地 fallback 公开样例资产。')
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        setImageOptions(fallbackCardImages)
+        setImageSourceStatus('后端公开样例接口暂不可用，当前使用本地 fallback 公开样例资产。')
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const isReviewed = card?.share_status === 'reviewed_ready_to_share' || card?.review_status === 'doctor_reviewed_input'
@@ -101,6 +183,7 @@ export function PatientCard() {
     if (!file) return
     const objectUrl = URL.createObjectURL(file)
     setImageUrl(objectUrl)
+    setSelectedImageId('local_upload')
     setUploadedImageName(file.name)
     markDraftDirty(`已载入本地图片：${file.name}。仅用于本机预览；请重新生成草稿并完成医生审核。`)
   }
@@ -134,6 +217,7 @@ export function PatientCard() {
   }
 
   const activeTemplate = knowledge?.templates?.find((item) => item.id === templateId)
+  const selectedImageOption = imageOptions.find((item) => item.id === selectedImageId)
   const reviewSteps = isReviewed && card?.review_steps?.length
     ? card.review_steps
     : [
@@ -192,19 +276,20 @@ export function PatientCard() {
             ))}
           </div>
           <div className="image-strip">
-            {sampleImages.map((item) => (
+            {imageOptions.map((item) => (
               <button
-                key={item}
-                className={item === imageUrl ? 'active' : ''}
+                key={item.id}
+                className={item.id === selectedImageId && !uploadedImageName ? 'active' : ''}
                 type="button"
                 onClick={() => {
-                  setImageUrl(item)
+                  setImageUrl(item.imageUrl)
+                  setSelectedImageId(item.id)
                   setUploadedImageName('')
-                  markDraftDirty('已切换为公开样例图片，请重新生成草稿并完成医生审核。')
+                  markDraftDirty(`${item.source === 'backend' ? '已切换为后端公开样例' : '已切换为本地 fallback 样例'}：${item.label}。请重新生成草稿并完成医生审核。`)
                 }}
-                title="选择卡片图像"
+                title={`${item.label} · ${item.dataset}`}
               >
-                <img src={item} alt="公开内镜样例缩略图" />
+                <img src={item.imageUrl} alt={`${item.label} 缩略图`} />
               </button>
             ))}
             <label className={`image-placeholder ${uploadedImageName ? 'active-upload' : ''}`} title="上传本地卡片图像">
@@ -212,6 +297,11 @@ export function PatientCard() {
               <ImagePlus size={18} />
             </label>
           </div>
+          <div className="card-image-source">
+            <Tag tone={selectedImageOption?.source === 'backend' ? 'green' : 'amber'}>{selectedImageOption?.source === 'backend' ? 'backend sample' : uploadedImageName ? 'local preview' : 'fallback asset'}</Tag>
+            <span>{uploadedImageName ? `本地上传：${uploadedImageName}` : selectedImageOption ? `${selectedImageOption.id} · ${selectedImageOption.dataset}` : '等待选择图像'}</span>
+          </div>
+          <div className="source-note">{imageSourceStatus}</div>
           {uploadedImageName ? <div className="source-note">本地上传预览：{uploadedImageName}。未接入受控上传前，该图片不会写入后端卡片记录。</div> : null}
           <button className="button primary" type="button" onClick={generate}>
             <WandSparkles size={17} /> 生成浮动科普卡片

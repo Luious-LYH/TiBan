@@ -3263,10 +3263,31 @@ textarea {
   border-color: var(--blue);
 }
 
+.image-strip button:hover {
+  border-color: #99f6e4;
+  box-shadow: 0 8px 20px rgba(15, 118, 110, 0.12);
+}
+
 .image-strip img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.card-image-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: -2px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.card-image-source span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .image-placeholder {
