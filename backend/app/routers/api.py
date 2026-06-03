@@ -55,6 +55,7 @@ def health() -> dict[str, object]:
             "knowledge_source_chain",
             "demo_check_sandbox",
             "demo_check_restore_verified",
+            "demo_check_exam_card_receipt",
             "challenge_benchmark",
             "challenge_audit_receipt",
             "patient_card_generation_receipt",

@@ -40,7 +40,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code\backend
 python -m uvicorn app.main:app --reload --port 8001
 ```
 
-前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 联调状态检查、Provider Base URL 预检、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核和 Skill 运行收据能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
+前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 联调状态检查、Provider Base URL 预检、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核和 Skill 运行收据能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
 
 ## 2. 可选真实 Provider
 
@@ -59,7 +59,7 @@ LLM_TIMEOUT_SECONDS=25
 ## 3. 推荐演示顺序
 
 1. 训练驾驶舱 `/`
-   先看“平台真实性与演示路径”“可核验证据收据”和“真实数据来源链”，说明后端、公开样例、考试 Session 复盘、报告/科普知识库、Provider、自检/准入、训练挑战基准审计、Memory 和 Audit 的状态。来源链来自 `/api/platform/readiness.knowledge_source_chain`，会列出本地 JSON 知识库文件名、记录数、样例 ID 和消费页面。首页的“最近考试 Session”卡片会直接给出 session id、题量、正确率、错题数和复盘入口，适合回答“训练是否真的沉淀到画像”。首页的“沙盒自检”会真实跑通训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、画像回灌和审计链路并自动恢复数据；需要在审计页留下演示证据时，再点击“写入演示画像”。
+   先看“平台真实性与演示路径”“可核验证据收据”和“真实数据来源链”，说明后端、公开样例、考试 Session 复盘、报告/科普知识库、Provider、自检/准入、训练挑战基准审计、Memory 和 Audit 的状态。来源链来自 `/api/platform/readiness.knowledge_source_chain`，会列出本地 JSON 知识库文件名、记录数、样例 ID 和消费页面。首页的“最近考试 Session”卡片会直接给出 session id、题量、正确率、错题数和复盘入口，适合回答“训练是否真的沉淀到画像”。首页的“沙盒自检”会真实跑通训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计链路并自动恢复数据；需要在审计页留下演示证据时，再点击“写入演示画像”。
 
 2. 题库刷题 `/training`
    展示公开样例图像、病例摘要、题目和右侧 Agent。练习模式可以点“提示一下”，Agent 只追问证据，不直接给答案。提交后显示得分、错因标签、解释和对照。
@@ -104,7 +104,7 @@ LLM_TIMEOUT_SECONDS=25
 | 公开样例题库 | 从 `real_sample_knowledge.json` 和公开图像资产加载 | 只抽取部分本地真实数据用于演示，不等同完整数据集训练 |
 | 首页来源链 | `/api/platform/readiness` 返回 `knowledge_source_chain`，展示真实样例库、报告知识库、卡片模板库被哪些页面消费 | 证明本地知识库被平台引用，不代表已经完成批量临床评测 |
 | 医师训练闭环 | 答题、收藏、错题、考试 session、比拼、错误前提训练 | 当前只有 `demo_learner` 单医师画像；单题提交单独更新题量和能力分，考试 session 交卷会持久化整场题量、正确率、平均分和错题摘要，不重复增加单题题量 |
-| 首页闭环自检 | 沙盒自检和正式写入两种模式 | `persist=false` 真实写入后自动恢复，验证训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、画像回灌和 6 张收据，适合反复演示前 smoke；`persist=true` 才保留演示画像和审计 |
+| 首页闭环自检 | 沙盒自检和正式写入两种模式 | `persist=false` 真实写入后自动恢复，验证训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和 9 张收据，适合反复演示前 smoke；`persist=true` 才保留演示画像、审计和卡片运行记录 |
 | Agent 辅导 | 后端 tutor 编排，可接 Provider，也有规则兜底 | 不保存自由追问原文，只记录训练标签和模式 |
 | 报告生成 | 图片上传、公开样例、模板 KB、来源追踪、幻觉审查、请求级 Provider，并复用 Base URL 预检 | 输出是医生审核前训练草稿，不是最终诊断；临时 key 不保存；预检不发送模型请求、不写审计，未通过时阻断报告生成和 AI judge |
 | 报告 judge | 规则 rubric + 可选 Provider 评阅，并回灌画像与推荐专项训练 | Provider 反馈仅作训练建议；后续可接真实专家评分 |
@@ -135,6 +135,10 @@ LLM_TIMEOUT_SECONDS=25
 - `audit_logs.json`
 - `models.json`
 - `model_admission_state.json`
+
+科普卡片草稿和审核运行记录在：
+
+- `backend/runtime/patient_cards.json`
 
 正式演示前建议先备份这些文件。不要使用 `git reset --hard` 清理状态，避免误删用户改动。
 
@@ -177,6 +181,7 @@ assert r.status_code == 200, r.text
 assert r.json()["mode"] == "sandbox"
 assert r.json()["write_verified"] is True
 assert r.json()["restored_after_run"] is True
+assert r.json()["restore_verified"] is True
 '@ | python -
 ```
 
@@ -187,7 +192,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 python scripts\demo_smoke.py
 ```
 
-该命令会自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并以 `persist=false` 沙盒模式触发首页同款闭环自检：真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、审计收据都会被检查；写入验证完成后会自动恢复画像和审计数据，并二次确认 readiness 摘要未变化。它覆盖训练/Agent/挑战/报告闭环；科普卡片审核和考试 Session 仍建议按上方演示顺序进入页面验证。只有需要保留演示留痕时才使用 `--persist --yes`，不要在多人并发演示时运行会写入状态的自检。
+该命令会自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并以 `persist=false` 沙盒模式触发首页同款闭环自检：真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核和审计收据都会被检查；写入验证完成后会自动恢复画像、审计和卡片运行数据，并二次确认 readiness 摘要未变化。只有需要保留演示留痕时才使用 `--persist --yes`，不要在多人并发演示时运行会写入状态的自检。
 
 Provider Base URL 预检和自检 smoke：
 

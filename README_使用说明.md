@@ -32,7 +32,7 @@
 ## v2.0 使用要点
 
 1. 首页“平台真实性与演示路径”会聚合后端、真实公开样例、医师画像、考试 Session 复盘、报告知识库、Provider、模型准入和审计状态，适合答辩时先讲系统闭环；“最近考试 Session”卡片会直接显示本场题量、正确率、错题数和 `/feedback?session=...` 复盘入口；“真实数据来源链”会列出本地 JSON 知识库的记录数、样例 ID 和消费页面，避免看起来只是静态页面陈列。
-   首页还提供“沙盒自检 / 写入演示画像”双按钮：沙盒会真实触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、画像回灌和审计写入，再自动恢复数据；正式写入会保留画像和审计。两种模式都会返回 6 张证据收据，包含 `challenge_benchmark` 审计验证，后端不可用时不会用前端 fallback 伪造通过。
+   首页还提供“沙盒自检 / 写入演示画像”双按钮：沙盒会真实触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计写入，再自动恢复数据；正式写入会保留画像、审计和卡片运行记录。两种模式都会返回 9 张证据收据，包含 `challenge_benchmark`、`exam_session`、`patient_card` 和 `patient_card_approve` 审计验证，后端不可用时不会用前端 fallback 伪造通过。
 2. 顶部 Provider 状态条会显示当前处于 `provider`、`rule` 还是 `fallback`；模型准入页还会展示 Provider 联调状态检查，列出缺失配置、公开样例数、最近自检/准入审计和隐私边界，避免把规则草案伪装成真实推理。
 3. 训练中心右侧 Agent 分为“辅导 / 证据 / 对照”，提交前隐藏参考答案；追问会记录训练标签和模式，不保存自由追问原文。
 4. 报告中心会以流程工作台区分医生输入、公开样例标注、模板知识库、Provider 输出和医师复核任务。
@@ -55,7 +55,7 @@
 - 前端 API 层已加入分级超时保护：健康/状态/诊断类接口会快速失败并显示 fallback 或不可用原因，真实 Provider 推理、报告生成、准入探测保留更长等待时间，避免演示时页面长期卡在加载状态。
 - Provider API Base 支持根地址、`/v1` 或完整 `/chat/completions`；后端会优先尝试 `/v1/chat/completions` 并拒绝非本机 `http`、metadata、内网/保留地址，避免临时 key 外发。
 - 新增 `scripts/provider_smoke.py` 作为终端联调入口：先调用后端 `/api/provider/preflight`，只在预检通过且明确提供 key 或使用后端 `.env` key 时才运行 Provider 自检；脚本不会打印 API key。
-- 新增 `scripts/demo_smoke.py` 作为答辩前一键自检入口：默认自动探测 `8000/8001` 后端，调用 `/api/health`、`/api/platform/readiness` 和 `/api/platform/demo-check?persist=false`，确认真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告训练、画像写入恢复和审计收据均可跑通；默认沙盒模式会自动恢复画像和审计数据，并二次确认 readiness 摘要未变化。该 smoke 覆盖训练/Agent/挑战/报告闭环；科普卡片审核和考试 Session 可按演示手册分别进入页面验证。
+- 新增 `scripts/demo_smoke.py` 作为答辩前一键自检入口：默认自动探测 `8000/8001` 后端，调用 `/api/health`、`/api/platform/readiness` 和 `/api/platform/demo-check?persist=false`，确认真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告训练、考试 Session、科普卡片草稿、同卡片医生审核、画像写入恢复和审计收据均可跑通；默认沙盒模式会自动恢复画像、审计和卡片运行数据，并二次确认 readiness 摘要未变化。
 - 科普卡片已从单纯预览升级为“公开样例图像池 -> 草稿生成 -> 同一 `card_id` 医生审核 -> 分享/打印解锁 -> 审计记录”的受控流程。
 - Skills 中心展示受控运行摘要、医生复核状态和工作区跳转，完整 JSON 只放在开发细节折叠项中。
-- 首页闭环自检对应 `POST /api/platform/demo-check?persist=false|true`。默认 `persist=false` 会真实写入后自动恢复，用于答辩前安全确认训练链路；`persist=true` 才会保留 `learner_profile.json` 和 `audit_logs.json` 的演示留痕。
+- 首页闭环自检对应 `POST /api/platform/demo-check?persist=false|true`。默认 `persist=false` 会真实写入后自动恢复，用于答辩前安全确认训练链路；`persist=true` 才会保留 `learner_profile.json`、`audit_logs.json` 和 `backend/runtime/patient_cards.json` 的演示留痕。

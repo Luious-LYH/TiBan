@@ -25,14 +25,14 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider Base URL 预检、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核和 Skill 运行收据能力的后端 |
+| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider Base URL 预检、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核和 Skill 运行收据能力的后端 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
 | GET | `/provider/diagnostics` | Provider 联调状态检查；返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要、准入状态和下一步动作，不返回 key/base 明文或完整模型回复 |
 | POST | `/provider/preflight` | Provider Base URL 安全预检；不需要 key，不发送模型请求，不写审计；返回规范化预览、会尝试的 chat completions path、安全拦截原因和下一步动作 |
 | POST | `/provider/self-test` | Provider 文本/视觉通道自检；视觉模式可附加一张公开样例图片，但不发送参考标注，不更新模型准入状态，不保存 key/base/完整回复；返回 `audit_log_id` 和 `self_test_receipt` |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
 | GET | `/platform/readiness` | 平台就绪度、真实性矩阵和建议演示路线 |
-| POST | `/platform/demo-check` | 手动触发一次公开样例演示闭环自检；`persist=false` 沙盒写入后自动恢复并返回 `restore_verified`，`persist=true` 才保留画像和审计；后端不可用时前端不伪造通过 |
+| POST | `/platform/demo-check` | 手动触发一次公开样例演示闭环自检；`persist=false` 沙盒写入后自动恢复画像、审计和卡片运行记录并返回 `restore_verified`，`persist=true` 才保留画像、审计和卡片运行记录；后端不可用时前端不伪造通过 |
 | GET | `/questions` | 题库列表，支持 `question_class`、`difficulty`、`false_premise` |
 | GET | `/questions/{id}` | 单题详情 |
 | POST | `/submit` | 提交答案并生成错因反馈 |
@@ -548,7 +548,7 @@ Provider 文本/视觉通道自检：
 POST /api/platform/demo-check?learner_id=demo_learner&persist=false
 ```
 
-该接口用于答辩前确认平台不是静态页面。它会选择一条公开样例题，真实触发 `/submit`、`/tutor/chat`、`/tutor/challenge-benchmark`、`/report-draft`、`/report/judge` 及 `demo_check` 审计摘要，并返回 6 张证据收据。它不会保存 API key 或自由追问原文；若 Provider 未配置，结果会明确显示 `rule` / `public_annotation` 模式。默认 `persist=false` 会在返回前恢复 `learner_profile.json` 和 `audit_logs.json`，并以 `restore_verified=true` 表示恢复后的文件字节与运行前快照一致；只有 `persist=true` 时才保留演示画像和审计留痕。
+该接口用于答辩前确认平台不是静态页面。它会选择一条公开样例题，真实触发 `/submit`、`/tutor/chat`、`/tutor/challenge-benchmark`、`/report-draft`、`/report/judge`、考试 Session 写入、`/patient-card` 草稿生成、同 `card_id` 审核通过及 `demo_check` 审计摘要，并返回 9 张证据收据。它不会保存 API key 或自由追问原文；若 Provider 未配置，结果会明确显示 `rule` / `public_annotation` 模式。默认 `persist=false` 会在返回前恢复 `learner_profile.json`、`audit_logs.json` 和 `backend/runtime/patient_cards.json`，并以 `restore_verified=true` 表示恢复后的文件字节与运行前快照一致；只有 `persist=true` 时才保留演示画像、审计和卡片运行留痕。
 
 核心返回字段：
 
@@ -564,8 +564,8 @@ POST /api/platform/demo-check?learner_id=demo_learner&persist=false
   "provider_mode": "rule",
   "profile_updated": false,
   "audit_logged": false,
-  "audit_delta": 8,
-  "audit_event_types": ["demo_check", "report_judge", "report_draft", "challenge_benchmark", "tutor_reply", "question_view", "answer_submit"],
+  "audit_delta": 11,
+  "audit_event_types": ["demo_check", "patient_card_approve", "patient_card", "exam_session", "report_judge", "report_draft", "challenge_benchmark", "tutor_reply", "question_view", "answer_submit"],
   "receipts": [
     {
       "label": "公开样例提交",
@@ -578,9 +578,19 @@ POST /api/platform/demo-check?learner_id=demo_learner&persist=false
       "detail": "挑战基准（公开标注 fallback） · 与医师答案一致；只写 challenge_benchmark 审计，不回灌医师画像。"
     },
     {
+      "label": "考试 Session",
+      "status": "1题/100%",
+      "detail": "沙盒已验证整场考试 Session 写入画像和 exam_session 审计，返回前自动恢复。"
+    },
+    {
+      "label": "卡片审核",
+      "status": "reviewed_ready_to_share",
+      "detail": "沙盒已验证同 card_id 医生审核、分享解锁和 patient_card_approve 审计，返回前自动恢复。"
+    },
+    {
       "label": "审计链路",
-      "status": "+8",
-      "detail": "沙盒已验证审计写入后自动恢复。触发 question_view、answer_submit、tutor_reply、challenge_benchmark、report_draft、report_judge 与 demo_check 等摘要事件。"
+      "status": "+11",
+      "detail": "沙盒已验证审计写入后自动恢复。触发 question_view、answer_submit、tutor_reply、challenge_benchmark、report_draft、report_judge、exam_session、patient_card、patient_card_approve 与 demo_check 等摘要事件。"
     }
   ],
   "doctor_review_required": true

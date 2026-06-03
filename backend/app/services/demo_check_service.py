@@ -1,7 +1,18 @@
+from threading import Lock
 from uuid import uuid4
 
-from app.core.config import DATA_DIR, SAFETY_NOTICE
-from app.schemas import ChallengeBenchmarkRequest, ReportDraftRequest, ReportJudgeRequest, SubmissionRequest, TutorChatRequest
+from app.core.config import BACKEND_DIR, DATA_DIR, SAFETY_NOTICE
+from app.schemas import (
+    ChallengeBenchmarkRequest,
+    ExamSessionAttempt,
+    ExamSessionRequest,
+    PatientCardApproveRequest,
+    PatientCardRequest,
+    ReportDraftRequest,
+    ReportJudgeRequest,
+    SubmissionRequest,
+    TutorChatRequest,
+)
 from app.services.audit_service import audit_service, now_iso
 from app.services.data_store import read_json
 from app.services.grading_service import grading_service
@@ -16,40 +27,61 @@ PUBLIC_DATASETS = {"Kvasir-VQA-x1", "Kvasir-VQA", "EndoBench"}
 
 
 class DemoCheckService:
+    def __init__(self) -> None:
+        self._run_lock = Lock()
+
     def run(self, learner_id: str = "demo_learner", *, persist: bool = False) -> dict[str, object]:
-        profile_snapshot = self._read_data_bytes("learner_profile.json")
-        audit_snapshot = self._read_data_bytes("audit_logs.json")
-        before_profile = memory_service.get_profile()
-        before_logs = audit_service.list_logs()
-        before_audit_count = len(before_logs)
-        before_audit_ids = {item.id for item in before_logs}
-        try:
-            result = self._run_chain(
-                learner_id=learner_id,
-                before_profile=before_profile,
-                before_audit_count=before_audit_count,
-                before_audit_ids=before_audit_ids,
-                persist=persist,
-            )
-        finally:
+        with self._run_lock:
+            profile_snapshot = self._read_data_bytes("learner_profile.json")
+            audit_snapshot = self._read_data_bytes("audit_logs.json")
+            card_snapshot = self._read_runtime_bytes("patient_cards.json")
+            before_profile = memory_service.get_profile()
+            before_logs = audit_service.list_logs()
+            before_audit_count = len(before_logs)
+            before_audit_ids = {item.id for item in before_logs}
+            try:
+                result = self._run_chain(
+                    learner_id=learner_id,
+                    before_profile=before_profile,
+                    before_audit_count=before_audit_count,
+                    before_audit_ids=before_audit_ids,
+                    persist=persist,
+                )
+            finally:
+                if not persist:
+                    self._restore_data_bytes("learner_profile.json", profile_snapshot)
+                    self._restore_data_bytes("audit_logs.json", audit_snapshot)
+                    self._restore_runtime_bytes("patient_cards.json", card_snapshot)
             if not persist:
-                self._restore_data_bytes("learner_profile.json", profile_snapshot)
-                self._restore_data_bytes("audit_logs.json", audit_snapshot)
-        if not persist:
-            result["restore_verified"] = (
-                self._read_data_bytes("learner_profile.json") == profile_snapshot
-                and self._read_data_bytes("audit_logs.json") == audit_snapshot
-            )
-        else:
-            result["restore_verified"] = False
-        return result
+                result["restore_verified"] = (
+                    self._read_data_bytes("learner_profile.json") == profile_snapshot
+                    and self._read_data_bytes("audit_logs.json") == audit_snapshot
+                    and self._read_runtime_bytes("patient_cards.json") == card_snapshot
+                )
+            else:
+                result["restore_verified"] = False
+            return result
 
     def _read_data_bytes(self, name: str) -> bytes:
         return (DATA_DIR / name).read_bytes()
 
+    def _read_runtime_bytes(self, name: str) -> bytes | None:
+        path = BACKEND_DIR / "runtime" / name
+        return path.read_bytes() if path.exists() else None
+
     def _restore_data_bytes(self, name: str, payload: bytes) -> None:
         path = DATA_DIR / name
         temp_path = DATA_DIR / f".{name}.demo_check_tmp"
+        temp_path.write_bytes(payload)
+        temp_path.replace(path)
+
+    def _restore_runtime_bytes(self, name: str, payload: bytes | None) -> None:
+        path = BACKEND_DIR / "runtime" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if payload is None:
+            path.unlink(missing_ok=True)
+            return
+        temp_path = path.with_name(f".{name}.demo_check_tmp")
         temp_path.write_bytes(payload)
         temp_path.replace(path)
 
@@ -96,6 +128,52 @@ class DemoCheckService:
                 revised_report="单帧公开内镜图像可提示局部黏膜异常表现，性质、范围和处理意见仍需医生结合完整检查、病史及必要病理结果复核。",
             )
         )
+        exam = memory_service.record_exam_session(
+            ExamSessionRequest(
+                session_id=f"demo_smoke_{uuid4().hex[:8]}",
+                learner_id=learner_id,
+                duration_seconds=720,
+                remaining_seconds=380,
+                finished_reason="manual_submit",
+                attempts=[
+                    ExamSessionAttempt(
+                        question_id=question.id,
+                        title=question.title,
+                        selected_answer=question.answer,
+                        correct_answer=question.answer,
+                        is_correct=True,
+                        score=100,
+                        error_tags=[],
+                    )
+                ],
+            )
+        )
+        audit_service.log(
+            "exam_session",
+            user_id=learner_id,
+            entity_id=exam.id,
+            summary=exam.memory_summary,
+            risk_level="low",
+        )
+        card = report_service.generate_patient_card(
+            PatientCardRequest(
+                diagnosis_summary="单帧公开内镜训练样例提示局部黏膜表现需要医生结合完整检查复核，本卡片仅用于教学演示。",
+                template_id="calm_blue",
+                image_url=question.image_url,
+            )
+        )
+        approved_card = report_service.approve_patient_card(
+            card.id,
+            PatientCardApproveRequest(
+                reviewer_name="林知远",
+                review_notes="演示沙盒审核：确认仅用于教学沟通样例，不代表真实患者诊断。",
+                review_checks={
+                    "summaryMatched": True,
+                    "noUnsupportedClaim": True,
+                    "disclaimerKept": True,
+                },
+            ),
+        )
 
         audit_service.log(
             "demo_check",
@@ -103,7 +181,7 @@ class DemoCheckService:
             entity_id=question.id,
             summary=(
                 "演示闭环自检完成：公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、"
-                "画像回灌和审计链路均已触发。"
+                "考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计链路均已触发。"
             ),
             risk_level="medium",
         )
@@ -114,16 +192,30 @@ class DemoCheckService:
         audit_delta = len(new_audit_logs)
         audit_event_types = list(dict.fromkeys(item.event_type for item in new_audit_logs))
         provider_status = llm_provider.status()
-        receipts = self._receipts(question, submission, tutor, challenge, draft, judge, audit_delta, persist=persist)
+        receipts = self._receipts(
+            question,
+            submission,
+            tutor,
+            challenge,
+            draft,
+            judge,
+            exam,
+            card,
+            approved_card,
+            audit_delta,
+            persist=persist,
+        )
         profile_changed = after_profile.updated_at != before_profile.updated_at
         challenge_logged = "challenge_benchmark" in audit_event_types
+        exam_logged = "exam_session" in audit_event_types
+        card_logged = "patient_card" in audit_event_types and "patient_card_approve" in audit_event_types
 
         return {
             "id": f"demo_check_{uuid4().hex[:12]}",
             "learner_id": learner_id,
             "mode": "persisted" if persist else "sandbox",
             "persisted": persist,
-            "write_verified": profile_changed and audit_delta >= 6 and challenge_logged,
+            "write_verified": profile_changed and audit_delta >= 9 and challenge_logged and exam_logged and card_logged,
             "restored_after_run": not persist,
             "restore_verified": False,
             "question_id": question.id,
@@ -159,7 +251,21 @@ class DemoCheckService:
         public_questions = [question for question in questions if question.source_dataset in PUBLIC_DATASETS]
         return public_questions[0] if public_questions else questions[0]
 
-    def _receipts(self, question, submission, tutor, challenge, draft, judge, audit_delta: int, *, persist: bool) -> list[dict[str, object]]:
+    def _receipts(
+        self,
+        question,
+        submission,
+        tutor,
+        challenge,
+        draft,
+        judge,
+        exam,
+        card,
+        approved_card,
+        audit_delta: int,
+        *,
+        persist: bool,
+    ) -> list[dict[str, object]]:
         tutor_mode = str(tutor.get("generation_mode", "rule"))
         challenge_mode = str(challenge.get("generation_mode", "public_annotation"))
         persistence_label = "已写入训练画像。" if persist else "沙盒已验证写入后自动恢复。"
@@ -215,11 +321,40 @@ class DemoCheckService:
                 "tone": "green" if judge.profile_updated else "amber",
             },
             {
+                "id": "exam_session",
+                "label": "考试 Session",
+                "status": f"{exam.answered_count}题/{exam.accuracy}%",
+                "detail": (
+                    exam.memory_summary
+                    if persist
+                    else "沙盒已验证整场考试 Session 写入画像和 exam_session 审计，返回前自动恢复。"
+                ),
+                "tone": "green" if exam.profile_updated else "amber",
+            },
+            {
+                "id": "patient_card",
+                "label": "科普卡片草稿",
+                "status": card.generation_mode,
+                "detail": f"{card.knowledge_base_id or 'card_template_kb'} · 草稿审计 {card.audit_log_id or 'pending'} · 分享保持锁定。",
+                "tone": "green" if card.audit_logged else "amber",
+            },
+            {
+                "id": "patient_card_approve",
+                "label": "卡片审核",
+                "status": approved_card.share_status,
+                "detail": (
+                    f"{approved_card.reviewer_name or '医生'} 已审核同一张卡片，打印/分享状态：{approved_card.share_status}。"
+                    if persist
+                    else "沙盒已验证同 card_id 医生审核、分享解锁和 patient_card_approve 审计，返回前自动恢复。"
+                ),
+                "tone": "green" if approved_card.share_status == "reviewed_ready_to_share" else "amber",
+            },
+            {
                 "id": "audit_log",
                 "label": "审计链路",
                 "status": f"+{audit_delta}",
-                "detail": f"{audit_label} 触发 question_view、answer_submit、tutor_reply、challenge_benchmark、report_draft、report_judge 与 demo_check 等摘要事件。",
-                "tone": "green" if audit_delta >= 6 else "amber",
+                "detail": f"{audit_label} 触发 question_view、answer_submit、tutor_reply、challenge_benchmark、report_draft、report_judge、exam_session、patient_card、patient_card_approve 与 demo_check 等摘要事件。",
+                "tone": "green" if audit_delta >= 9 else "amber",
             },
         ]
 

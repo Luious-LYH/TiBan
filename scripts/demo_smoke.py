@@ -12,6 +12,7 @@ REQUIRED_CAPABILITIES = {
     "provider_preflight",
     "demo_check_sandbox",
     "demo_check_restore_verified",
+    "demo_check_exam_card_receipt",
     "challenge_benchmark",
     "challenge_audit_receipt",
     "patient_card_generation_receipt",
@@ -98,15 +99,15 @@ def resolve_backend(explicit_backend: str | None, timeout: float) -> tuple[str, 
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run ARIS v2.0 demo smoke checks without keeping learner/audit mutations.")
+    parser = argparse.ArgumentParser(description="Run ARIS v2.0 demo smoke checks without keeping learner/audit/card mutations.")
     parser.add_argument("--backend", help="Backend API base. When omitted, auto-probes http://127.0.0.1:8000/api then http://127.0.0.1:8001/api.")
     parser.add_argument("--learner-id", default="demo_learner")
-    parser.add_argument("--persist", action="store_true", help="Keep demo-check learner/audit writes. Default is sandbox restore.")
-    parser.add_argument("--yes", action="store_true", help="Required with --persist to confirm keeping learner/audit writes.")
+    parser.add_argument("--persist", action="store_true", help="Keep demo-check learner/audit/card writes. Default is sandbox restore.")
+    parser.add_argument("--yes", action="store_true", help="Required with --persist to confirm keeping learner/audit/card writes.")
     parser.add_argument("--timeout", type=float, default=30.0)
     args = parser.parse_args()
     if args.persist and not args.yes:
-        print("\nERROR: --persist keeps learner/audit writes. Re-run with --persist --yes if you intentionally want demo traces.", file=sys.stderr)
+        print("\nERROR: --persist keeps learner/audit/card writes. Re-run with --persist --yes if you intentionally want demo traces.", file=sys.stderr)
         return 2
 
     failures: list[str] = []
@@ -146,7 +147,21 @@ def main() -> int:
     require(bool(demo.get("restored_after_run")) is (not args.persist), "Demo-check restore/persist flag mismatch.", failures)
     require(bool(demo.get("restore_verified")) is (not args.persist), "Demo-check restore verification flag mismatch.", failures)
     require("challenge_benchmark" in audit_events, "Demo-check did not trigger challenge_benchmark audit event.", failures)
-    require({"answer_submit", "tutor_agent", "challenge_benchmark", "report_draft", "report_judge", "audit_log"}.issubset(receipt_ids), "Demo-check receipts are incomplete.", failures)
+    require(
+        {
+            "answer_submit",
+            "tutor_agent",
+            "challenge_benchmark",
+            "report_draft",
+            "report_judge",
+            "exam_session",
+            "patient_card",
+            "patient_card_approve",
+            "audit_log",
+        }.issubset(receipt_ids),
+        "Demo-check receipts are incomplete.",
+        failures,
+    )
 
     after_summary = None
     if not args.persist:
@@ -173,7 +188,7 @@ def main() -> int:
     if failures:
         print_section("Failures", {"items": failures})
         return 2
-    print("\nDemo smoke passed. Sandbox mode restored learner/audit data and the readiness summary stayed unchanged." if not args.persist else "\nDemo smoke passed. Persisted mode kept learner/audit writes.")
+    print("\nDemo smoke passed. Sandbox mode restored learner/audit/card data and the readiness summary stayed unchanged." if not args.persist else "\nDemo smoke passed. Persisted mode kept learner/audit/card writes.")
     return 0
 
 

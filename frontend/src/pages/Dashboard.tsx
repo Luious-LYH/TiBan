@@ -29,7 +29,7 @@ export function Dashboard() {
   const runDemoCheck = async (persist = false) => {
     if (demoCheckStatus === 'running') return
     if (persist) {
-      const confirmed = window.confirm('写入演示画像会保留 learner_profile.json 与 audit_logs.json 的训练/审计记录。确认要留下正式演示留痕吗？')
+      const confirmed = window.confirm('写入演示画像会保留 learner_profile.json、audit_logs.json 与 patient_cards.json 的训练/审计/卡片记录。确认要留下正式演示留痕吗？')
       if (!confirmed) return
     }
     setDemoCheckIntent(persist ? 'persisted' : 'sandbox')
@@ -47,9 +47,11 @@ export function Dashboard() {
   }
 
   const isDemoCheckPassed = (result: DemoCheckResult) => {
-    const challengeLogged = Boolean(result.audit_event_types?.includes('challenge_benchmark'))
+    const auditEvents = new Set(result.audit_event_types || [])
+    const requiredEvents = ['challenge_benchmark', 'exam_session', 'patient_card', 'patient_card_approve']
+    const requiredEventsLogged = requiredEvents.every((eventType) => auditEvents.has(eventType))
     const restoreOk = result.persisted ? true : result.restored_after_run && result.restore_verified !== false
-    return Boolean(result.write_verified && challengeLogged && restoreOk)
+    return Boolean(result.write_verified && requiredEventsLogged && restoreOk)
   }
 
   const completion = Math.round((data.today_training.completed / Math.max(data.today_training.target, 1)) * 100)
@@ -192,9 +194,9 @@ export function Dashboard() {
                         ? demoCheck.restore_verified === false
                           ? '恢复待核查'
                           : '已校验恢复'
-                        : '已保留画像/审计'
+                        : '已保留画像/审计/卡片'
                     } · Provider ${demoCheck.provider_ready ? '真实可用' : `${demoCheck.provider_mode} 模式`}`
-                  : '默认沙盒触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、画像回灌和审计收据；写入后自动恢复。'}
+                  : '默认沙盒触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片审核、画像回灌和审计收据；写入后自动恢复。'}
               </p>
             </div>
           </div>
@@ -210,8 +212,8 @@ export function Dashboard() {
               </strong>
               <span>
                 {challengeVerified
-                  ? '本次自检已真实触发挑战基准、写入摘要审计并按沙盒策略恢复数据；需要留痕时可点击“写入演示画像”。'
-                  : challengeReceipt?.detail || '沙盒自检会真实触发 challenge_benchmark，但返回前恢复 audit_logs.json。'}
+                  ? '本次自检已真实触发挑战基准、考试 Session、卡片审核和摘要审计，并按沙盒策略恢复画像、审计和卡片数据；需要留痕时可点击“写入演示画像”。'
+                  : challengeReceipt?.detail || '沙盒自检会真实触发 challenge_benchmark、exam_session、patient_card_approve，并在返回前恢复画像、审计和卡片数据。'}
               </span>
             </div>
             <Link className="button secondary" to="/training?view=challenge">
@@ -228,7 +230,7 @@ export function Dashboard() {
           </div>
           {demoCheckStatus === 'failed' ? (
             <span className="demo-check-error">
-              {demoCheck ? '自检返回但关键收据未全部通过，请核查写入验证、挑战基准和沙盒恢复状态。' : '后端自检未完成，请确认 FastAPI 在线后重试。'}
+              {demoCheck ? '自检返回但关键收据未全部通过，请核查写入验证、挑战基准、考试 Session、科普卡片审核和沙盒恢复状态。' : '后端自检未完成，请确认 FastAPI 在线后重试。'}
             </span>
           ) : null}
           {readinessSource === 'fallback' ? <span className="demo-check-error">当前为前端 fallback，不能伪造自检通过。</span> : null}
