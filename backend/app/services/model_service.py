@@ -2,7 +2,15 @@ import re
 from uuid import uuid4
 
 from app.core.config import SAFETY_NOTICE
-from app.schemas import ModelAdmissionTestRequest, ModelAdmissionTestResponse, ModelProfile, ProviderSelfTestRequest, ProviderSelfTestResponse
+from app.schemas import (
+    ModelAdmissionTestRequest,
+    ModelAdmissionTestResponse,
+    ModelProfile,
+    ProviderPreflightRequest,
+    ProviderPreflightResponse,
+    ProviderSelfTestRequest,
+    ProviderSelfTestResponse,
+)
 from app.services.audit_service import now_iso
 from app.services.audit_service import audit_service
 from app.services.data_store import read_json, write_json
@@ -136,6 +144,13 @@ class ModelService:
             "safety_notice": SAFETY_NOTICE,
             "created_at": now_iso(),
         }
+
+    def provider_preflight(self, request: ProviderPreflightRequest) -> ProviderPreflightResponse:
+        result = llm_provider.preflight(request.api_base)
+        return ProviderPreflightResponse(
+            **result,
+            safety_notice=SAFETY_NOTICE,
+        )
 
     def _latest_audit_summary(self, logs: list[dict]) -> dict[str, object] | None:
         if not logs:

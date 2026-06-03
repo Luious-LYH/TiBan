@@ -374,6 +374,25 @@ class ProviderSelfTestRequest(BaseModel):
     sample_id: str | None = None
 
 
+class ProviderPreflightRequest(BaseModel):
+    api_base: str | None = None
+
+
+class ProviderPreflightResponse(BaseModel):
+    ok: bool
+    safety_status: str
+    mode: str
+    normalized_preview: str | None = None
+    endpoint_paths: list[str] = Field(default_factory=list)
+    blocked_reason: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    key_required_for_call: bool = True
+    request_sent: bool = False
+    key_persisted: bool = False
+    safety_notice: str
+
+
 class ProviderSelfTestResponse(BaseModel):
     id: str
     provider_name: str

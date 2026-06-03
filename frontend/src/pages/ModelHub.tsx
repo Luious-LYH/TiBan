@@ -5,7 +5,7 @@ import { ActivitySquare, AlertTriangle, ArrowRight, CheckCircle2, Database, File
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
-import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderDiagnostics, ProviderEvidenceReceipt, ProviderSelfTestResult, ProviderStatus, Question } from '../lib/types'
+import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderDiagnostics, ProviderEvidenceReceipt, ProviderPreflight, ProviderSelfTestResult, ProviderStatus, Question } from '../lib/types'
 
 const scoreLabels: Record<string, string> = {
   basic_recognition: '基础识别',
@@ -203,6 +203,57 @@ function ProviderDiagnosticsLoadingCard() {
   )
 }
 
+function ProviderPreflightPanel({
+  preflight,
+  loading,
+}: {
+  preflight: ProviderPreflight | null
+  loading: boolean
+}) {
+  const fallback = preflight?.api_source === 'fallback'
+  const ok = Boolean(preflight?.ok)
+  const statusTone = fallback ? 'red' : ok ? 'green' : 'amber'
+  return (
+    <div className={`provider-preflight-panel ${fallback ? 'fallback' : ok ? 'synced' : 'blocked'}`}>
+      <div className="provider-preflight-head">
+        {loading ? <LoaderCircle className="spin-icon" size={19} /> : ok ? <ShieldCheck size={19} /> : <AlertTriangle size={19} />}
+        <div>
+          <span className="eyebrow">Base URL preflight</span>
+          <strong>{loading ? '正在检查 API Base 安全策略' : ok ? 'API Base 可进入自检流程' : 'API Base 暂不能进入 Provider 调用'}</strong>
+          <p>预检只做 URL 规范化、安全策略和 endpoint 路径推导，不发送模型请求、不读取或保存 API key。</p>
+        </div>
+        <Tag tone={statusTone}>{preflight?.safety_status || 'checking'}</Tag>
+      </div>
+      {preflight ? (
+        <>
+          <div className="provider-preflight-grid">
+            <div><span>模式</span><strong>{preflight.mode}</strong></div>
+            <div><span>规范化预览</span><strong>{preflight.normalized_preview || '未配置'}</strong></div>
+            <div><span>请求发送</span><strong>{preflight.request_sent ? '异常：已发送' : '否'}</strong></div>
+            <div><span>保存 key</span><strong>{preflight.key_persisted ? '异常' : '否'}</strong></div>
+          </div>
+          <div className="provider-preflight-paths">
+            <span>将尝试的 chat completions path</span>
+            {preflight.endpoint_paths.length
+              ? preflight.endpoint_paths.map((path) => <strong key={path}>{path}</strong>)
+              : <strong>{preflight.blocked_reason || '等待 API Base'}</strong>}
+          </div>
+          {preflight.warnings.length ? (
+            <div className="provider-preflight-list">
+              <span>提示</span>
+              {preflight.warnings.map((item) => <p key={item}>{item}</p>)}
+            </div>
+          ) : null}
+          <div className="provider-preflight-list next">
+            <span>下一步</span>
+            {preflight.next_actions.slice(0, 3).map((item) => <p key={item}>{item}</p>)}
+          </div>
+        </>
+      ) : null}
+    </div>
+  )
+}
+
 export function ModelHub() {
   const [models, setModels] = useState<ModelProfile[]>(mockModels)
   const [samples, setSamples] = useState<Question[]>([])
@@ -212,6 +263,8 @@ export function ModelHub() {
   const [model, setModel] = useState('')
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
   const [diagnostics, setDiagnostics] = useState<ProviderDiagnostics | null>(null)
+  const [preflight, setPreflight] = useState<ProviderPreflight | null>(null)
+  const [isCheckingPreflight, setIsCheckingPreflight] = useState(false)
   const [focus, setFocus] = useState<string[]>(['基础识别', '错误前提', '报告安全'])
   const [selectedSamples, setSelectedSamples] = useState<string[]>([])
   const [result, setResult] = useState<ModelAdmissionResult | null>(null)
@@ -247,8 +300,49 @@ export function ModelHub() {
     }).catch(() => setAdmissionNotice('真实样例接口暂不可用；页面将无法证明选中样例与后端准入样例一致。'))
   }, [])
 
+  useEffect(() => {
+    let mounted = true
+    const timer = window.setTimeout(() => {
+      setIsCheckingPreflight(true)
+      api.providerPreflight(apiBase)
+        .then((result) => {
+          if (mounted) setPreflight(result)
+        })
+        .catch(() => {
+          if (mounted) {
+            setPreflight({
+              ok: false,
+              safety_status: 'frontend_error',
+              mode: 'fallback',
+              normalized_preview: null,
+              endpoint_paths: [],
+              blocked_reason: 'frontend_error',
+              warnings: ['前端未能读取后端预检结果，不能证明 API Base 可用。'],
+              next_actions: ['确认 FastAPI 后端在线，再重新检查 API Base。'],
+              key_required_for_call: true,
+              request_sent: false,
+              key_persisted: false,
+              safety_notice: '仅供教学训练或医生审核前辅助，不作为独立诊断依据。',
+              api_source: 'fallback',
+            })
+          }
+        })
+        .finally(() => {
+          if (mounted) setIsCheckingPreflight(false)
+        })
+    }, 350)
+    return () => {
+      mounted = false
+      window.clearTimeout(timer)
+    }
+  }, [apiBase])
+
   const runAdmission = async () => {
     if (isRunningAdmission || isRunningSelfTest || !selectedSamples.length || !focus.length) return
+    if (providerActionBlocked) {
+      setAdmissionNotice(providerPreflightIssue)
+      return
+    }
     setIsRunningAdmission(true)
     setAdmissionNotice(`正在探测 ${Math.min(selectedSamples.length, 3)} 个公开样例；结果会显示 backend/fallback、Provider 成功数和失败原因。`)
     try {
@@ -299,6 +393,10 @@ export function ModelHub() {
 
   const runProviderSelfTest = async (includeImage = false) => {
     if (isRunningSelfTest || isRunningAdmission) return
+    if (providerActionBlocked) {
+      setSelfTestNotice(providerPreflightIssue)
+      return
+    }
     const sampleId = includeImage ? selectedSamples[0] : undefined
     setIsRunningSelfTest(true)
     setSelfTestMode(includeImage ? 'visual' : 'text')
@@ -396,8 +494,13 @@ export function ModelHub() {
 
   const providerSuccessCount = result?.provider_status.provider_success_count
   const providerSampleCount = result?.provider_status.sample_count || result?.evidence.length || 0
-  const canRunAdmission = Boolean(selectedSamples.length && focus.length && !isRunningAdmission && !isRunningSelfTest)
   const requestProviderActive = Boolean(apiBase.trim() || apiKey.trim())
+  const providerPreflightRequired = Boolean(requestProviderActive || providerStatus?.base_url_configured || providerStatus?.api_key_configured)
+  const providerActionBlocked = Boolean(providerPreflightRequired && (isCheckingPreflight || !preflight?.ok))
+  const providerPreflightIssue = isCheckingPreflight
+    ? 'Base URL 预检仍在进行；请等待安全策略检查完成后再发起 Provider 自检或准入。'
+    : `Base URL 预检未通过：${preflight?.blocked_reason || 'unknown'}。请先修正 API Base，或清空临时配置回到规则草案模式。`
+  const canRunAdmission = Boolean(selectedSamples.length && focus.length && !isRunningAdmission && !isRunningSelfTest && !providerActionBlocked)
   const resultSource = result?.api_source === 'fallback' ? 'frontend fallback' : result ? 'backend live' : 'not run'
   const selfTestSource = selfTest?.api_source === 'fallback' ? 'frontend fallback' : selfTest ? 'backend live' : 'not run'
 
@@ -524,6 +627,8 @@ export function ModelHub() {
             <KeyRound size={20} />
             <p>临时密钥只随本次准入请求发送到后端，不会写入仓库、文档或审计日志。API Base 兼容根地址、/v1 或完整 /chat/completions；只填域名会按 https 处理，本地地址按 http 处理。</p>
           </div>
+          <ProviderPreflightPanel preflight={preflight} loading={isCheckingPreflight} />
+          {providerActionBlocked ? <div className="source-note">{providerPreflightIssue}</div> : null}
           <div className={`admission-run-strip provider-self-test-strip ${isRunningSelfTest ? 'running' : selfTest?.api_source === 'fallback' || (selfTest && !selfTest.provider_called) ? 'fallback' : selfTest?.provider_called ? 'synced' : ''}`}>
             {isRunningSelfTest ? <LoaderCircle className="spin-icon" size={18} /> : selfTest && !selfTest.provider_called ? <AlertTriangle size={18} /> : <PlugZap size={18} />}
             <div>
@@ -549,11 +654,11 @@ export function ModelHub() {
             title="后端 Provider 自检收据"
           />
           <div className="self-test-actions">
-            <button className="button secondary" type="button" onClick={() => runProviderSelfTest(false)} disabled={isRunningSelfTest || isRunningAdmission}>
+            <button className="button secondary" type="button" onClick={() => runProviderSelfTest(false)} disabled={isRunningSelfTest || isRunningAdmission || providerActionBlocked}>
               {isRunningSelfTest && selfTestMode === 'text' ? <LoaderCircle className="spin-icon" size={17} /> : <PlugZap size={17} />}
               {isRunningSelfTest && selfTestMode === 'text' ? '文本自检中...' : '文本轻量自检'}
             </button>
-            <button className="button secondary" type="button" onClick={() => runProviderSelfTest(true)} disabled={isRunningSelfTest || isRunningAdmission || !selectedSamples.length}>
+            <button className="button secondary" type="button" onClick={() => runProviderSelfTest(true)} disabled={isRunningSelfTest || isRunningAdmission || !selectedSamples.length || providerActionBlocked}>
               {isRunningSelfTest && selfTestMode === 'visual' ? <LoaderCircle className="spin-icon" size={17} /> : <Database size={17} />}
               {isRunningSelfTest && selfTestMode === 'visual' ? '视觉自检中...' : '视觉通道自检'}
             </button>

@@ -39,7 +39,7 @@
 5. 报告修改训练提交后会回灌林知远医师画像，更新训练记录、能力分和弱项标签，并返回下一步专项训练入口。
 6. 考试模式是一个全局 session：12 分钟倒计时不会因单题提交重置，页面会累计已答题、正确率、平均分、错题 strip；交卷复盘会调用后端写入整场考试摘要、医师画像和审计日志，并通过 `/feedback?session=...` 按本场考试恢复错题队列；首页和画像页会同步展示最近一场考试的可复盘收据。
 7. 报告页上传图片会保存到 `backend/runtime/uploads`，该目录已加入 `.gitignore`；科普卡片页优先从 `/api/knowledge/real-samples` 读取公开样例图像池，本地上传图只做当前浏览器预览，不写入后端卡片记录。
-8. 模型准入页先看 Provider 联调状态检查：它只返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要和下一步动作，不返回 API key、API base 明文或完整模型回复。随后可做 Provider 文本轻量自检或视觉通道自检，只写摘要审计、不更新准入状态；视觉自检会附加一张公开内镜图片和问题，但不发送参考标注，不代表临床诊断。自检后会展示 `self_test_receipt`、`provider_self_test` 审计 ID、输入来源、Provider 来源和隐私边界。最后可使用后端 `.env` 或页面临时配置做最多 3 个公开样例的 blind probe 准入检查，并展示 `admission_receipt` 与 `model_admission` 审计 ID。模型卡片默认只是能力看板；只有最近准入摘要满足真实 Provider 调用、公开标注对齐和安全阈值，且目标不是 mock 模型时，才允许写入“待人工复核候选”。临时 key 不保存，只有填写临时 base 或 key 时页面模型名才会覆盖后端默认值。
+8. 模型准入页先看 Provider 联调状态检查：它只返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要和下一步动作，不返回 API key、API base 明文或完整模型回复。随后看 Base URL 预检：它不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 chat completions path、安全拦截原因和下一步动作；非本机 `http`、metadata、内网/保留地址、非法端口、loopback 低端口和带凭据 URL 会被拒绝。真实 Provider 调用层也不会自动跟随 30x 重定向，并会使用重新校验后的连接地址，降低密钥被跳转或 DNS 变化带走的风险。预检通过后可做 Provider 文本轻量自检或视觉通道自检，只写摘要审计、不更新准入状态；视觉自检会附加一张公开内镜图片和问题，但不发送参考标注，不代表临床诊断。自检后会展示 `self_test_receipt`、`provider_self_test` 审计 ID、输入来源、Provider 来源和隐私边界。最后可使用后端 `.env` 或页面临时配置做最多 3 个公开样例的 blind probe 准入检查，并展示 `admission_receipt` 与 `model_admission` 审计 ID。模型卡片默认只是能力看板；只有最近准入摘要满足真实 Provider 调用、公开标注对齐和安全阈值，且目标不是 mock 模型时，才允许写入“待人工复核候选”。临时 key 不保存，只有填写临时 base 或 key 时页面模型名才会覆盖后端默认值。
 9. 科普卡片页已加入医生审核闸门：草稿默认锁定打印/分享，医生勾选审核项并对当前 `card_id` 提交后才会解锁，并写入 `patient_card_approve` 审计日志。
 10. 真实性说明见 `docs/V2_AUTHENTICITY_MATRIX.md`，接口见 `GET /api/platform/readiness`。
 

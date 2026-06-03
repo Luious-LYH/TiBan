@@ -25,9 +25,10 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力的后端 |
+| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider Base URL 预检、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力的后端 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
 | GET | `/provider/diagnostics` | Provider 联调状态检查；返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要、准入状态和下一步动作，不返回 key/base 明文或完整模型回复 |
+| POST | `/provider/preflight` | Provider Base URL 安全预检；不需要 key，不发送模型请求，不写审计；返回规范化预览、会尝试的 chat completions path、安全拦截原因和下一步动作 |
 | POST | `/provider/self-test` | Provider 文本/视觉通道自检；视觉模式可附加一张公开样例图片，但不发送参考标注，不更新模型准入状态，不保存 key/base/完整回复；返回 `audit_log_id` 和 `self_test_receipt` |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
 | GET | `/platform/readiness` | 平台就绪度、真实性矩阵和建议演示路线 |
@@ -331,6 +332,32 @@ POST /api/patient-card/card_xxx/approve
   "doctor_review_required": true
 }
 ```
+
+Provider Base URL 安全预检：
+
+```json
+{
+  "api_base": "provider.example.com/v1?token=wrong-place"
+}
+```
+
+预检不需要 API key，不发送 Provider 请求，不写入审计或状态文件；它只复用后端 URL 安全策略，返回规范化预览、将要尝试的 endpoint path 和拦截原因。外部域名未写协议时按 `https://` 处理，本机 `localhost` / `127.0.0.1` 按 `http://` 处理；query/fragment 会被丢弃；URL 中误带的用户名/密码不会回显到前端。核心返回字段：
+
+```json
+{
+  "ok": true,
+  "safety_status": "allowed",
+  "mode": "temporary_base",
+  "normalized_preview": "https://provider.example.com/v1",
+  "endpoint_paths": ["/v1/chat/completions"],
+  "blocked_reason": null,
+  "request_sent": false,
+  "key_persisted": false,
+  "next_actions": ["确认临时 key 或后端 .env key 可用后，再运行文本轻量自检。"]
+}
+```
+
+若填写非本机 `http`、metadata、内网/保留地址、非法端口、loopback 低端口或带凭据 URL，会返回 `ok=false` 和 `blocked_reason`，例如 `non_loopback_http_blocked`、`metadata_host_blocked`、`private_or_reserved_ip_blocked`、`resolves_to_private_or_reserved_ip`、`invalid_port`、`loopback_port_blocked`、`credentials_in_url`。真实 Provider 调用层不自动跟随 30x 重定向，并会使用重新校验后的连接地址，避免通过跳转或 DNS 变化把临时 key 带向未授权地址。
 
 Provider 文本/视觉通道自检：
 

@@ -64,6 +64,22 @@ export type ProviderDiagnostics = {
   api_source?: 'backend' | 'fallback'
 }
 
+export type ProviderPreflight = {
+  ok: boolean
+  safety_status: string
+  mode: string
+  normalized_preview?: string | null
+  endpoint_paths: string[]
+  blocked_reason?: string | null
+  warnings: string[]
+  next_actions: string[]
+  key_required_for_call: boolean
+  request_sent: boolean
+  key_persisted: boolean
+  safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
 export type SourceTraceItem = {
   source_type: string
   label: string

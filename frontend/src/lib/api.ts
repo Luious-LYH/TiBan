@@ -27,6 +27,7 @@ import type {
   ProviderAuditSummary,
   ProviderDiagnostics,
   ProviderEvidenceReceipt,
+  ProviderPreflight,
   PlatformReadiness,
   PlatformReadinessModule,
   ProviderSelfTestResult,
@@ -52,6 +53,7 @@ const requiredApiCapabilities = [
   'provider_visual_self_test',
   'provider_self_test_receipt',
   'provider_diagnostics',
+  'provider_preflight',
   'model_admission_receipt',
   'knowledge_source_chain',
   'demo_check_sandbox',
@@ -317,6 +319,31 @@ function normalizeProviderDiagnostics(value: unknown, fallback: ProviderDiagnost
     privacy_notice: asString(record.privacy_notice, fallback.privacy_notice),
     safety_notice: asString(record.safety_notice, fallback.safety_notice),
     created_at: asString(record.created_at, fallback.created_at),
+    api_source: record.api_source as ApiSource | undefined,
+  }
+}
+
+function normalizeProviderPreflight(value: unknown, fallback: ProviderPreflight): ProviderPreflight {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    ok: asBoolean(record.ok, fallback.ok),
+    safety_status: asString(record.safety_status, fallback.safety_status),
+    mode: asString(record.mode, fallback.mode),
+    normalized_preview: typeof record.normalized_preview === 'string' || record.normalized_preview === null
+      ? record.normalized_preview
+      : fallback.normalized_preview,
+    endpoint_paths: asStringArray(record.endpoint_paths, fallback.endpoint_paths),
+    blocked_reason: typeof record.blocked_reason === 'string' || record.blocked_reason === null
+      ? record.blocked_reason
+      : fallback.blocked_reason,
+    warnings: asStringArray(record.warnings, fallback.warnings),
+    next_actions: asStringArray(record.next_actions, fallback.next_actions),
+    key_required_for_call: asBoolean(record.key_required_for_call, fallback.key_required_for_call),
+    request_sent: asBoolean(record.request_sent, fallback.request_sent),
+    key_persisted: asBoolean(record.key_persisted, fallback.key_persisted),
+    safety_notice: asString(record.safety_notice, fallback.safety_notice),
     api_source: record.api_source as ApiSource | undefined,
   }
 }
@@ -1437,6 +1464,32 @@ export const api = {
     }
     const response = await request<ProviderDiagnostics>('/api/provider/diagnostics', undefined, fallback)
     return normalizeProviderDiagnostics(response, fallback)
+  },
+
+  async providerPreflight(apiBase: string): Promise<ProviderPreflight> {
+    const fallback: ProviderPreflight = {
+      ok: false,
+      safety_status: 'frontend_fallback',
+      mode: 'fallback',
+      normalized_preview: null,
+      endpoint_paths: [],
+      blocked_reason: 'backend_unavailable',
+      warnings: ['后端暂不可用，前端不能证明 API Base 是否会被安全策略允许。'],
+      next_actions: ['启动 FastAPI 后端，再查看 Base URL 安全预检。'],
+      key_required_for_call: true,
+      request_sent: false,
+      key_persisted: false,
+      safety_notice: safetyNotice,
+    }
+    const response = await request<ProviderPreflight>(
+      '/api/provider/preflight',
+      {
+        method: 'POST',
+        body: JSON.stringify({ api_base: apiBase }),
+      },
+      fallback,
+    )
+    return normalizeProviderPreflight(response, fallback)
   },
 
   async providerSelfTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string; includeImage?: boolean; sampleId?: string }): Promise<ProviderSelfTestResult> {

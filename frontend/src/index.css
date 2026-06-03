@@ -4412,6 +4412,116 @@ textarea {
   line-height: 1.5;
 }
 
+.provider-preflight-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(239, 246, 255, 0.88));
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.provider-preflight-panel.synced {
+  border-color: #99f6e4;
+  background: linear-gradient(135deg, rgba(240, 253, 250, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+.provider-preflight-panel.blocked,
+.provider-preflight-panel.fallback {
+  border-color: #fed7aa;
+  background: linear-gradient(135deg, rgba(255, 247, 237, 0.95), rgba(255, 255, 255, 0.98));
+}
+
+.provider-preflight-head {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.provider-preflight-head svg {
+  color: var(--teal);
+}
+
+.provider-preflight-panel.blocked .provider-preflight-head svg,
+.provider-preflight-panel.fallback .provider-preflight-head svg {
+  color: #ea580c;
+}
+
+.provider-preflight-head strong,
+.provider-preflight-head p,
+.provider-preflight-grid span,
+.provider-preflight-grid strong,
+.provider-preflight-paths span,
+.provider-preflight-paths strong,
+.provider-preflight-list span,
+.provider-preflight-list p {
+  display: block;
+}
+
+.provider-preflight-head strong {
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.provider-preflight-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.provider-preflight-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.provider-preflight-grid div {
+  min-width: 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 8px;
+}
+
+.provider-preflight-grid span,
+.provider-preflight-paths span,
+.provider-preflight-list span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.provider-preflight-grid strong,
+.provider-preflight-paths strong {
+  margin-top: 3px;
+  color: var(--text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.provider-preflight-paths,
+.provider-preflight-list {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+}
+
+.provider-preflight-list p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.provider-preflight-list.next {
+  background: rgba(240, 253, 250, 0.72);
+}
+
 .active-training-agent {
   border-color: #bfdbfe;
 }
@@ -5237,6 +5347,7 @@ textarea {
   .report-workflow-strip,
   .profile-provenance,
   .credential-policy-card,
+  .provider-preflight-grid,
   .provider-diagnostic-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5420,6 +5531,8 @@ textarea {
   .readiness-summary,
   .readiness-grid,
   .provider-receipt-metrics,
+  .provider-preflight-head,
+  .provider-preflight-grid,
   .provider-diagnostics-grid,
   .provider-diagnostic-actions,
   .provider-diagnostic-audits,
