@@ -100,11 +100,11 @@ export function ReportDraft() {
   }
 
   const providerReady = Boolean(providerStatus?.configured || providerStatus?.ok)
-  const requestProviderActive = Boolean(apiKey.trim() || apiBase.trim() || providerModel.trim())
-  const requestKeyMode = apiKey.trim() ? '页面临时 key' : requestProviderActive ? '请求级 base/model' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'
+  const requestProviderActive = Boolean(apiKey.trim() || apiBase.trim())
+  const requestKeyMode = apiKey.trim() ? '页面临时 key' : apiBase.trim() ? '请求级 base 覆盖' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'
   const providerMode = providerReady ? 'provider' : providerStatus?.mode || 'rule'
   const dataMode = selectedSample ? `${selectedSample.source_dataset} · public sample` : imageName.startsWith('uploads/') ? 'uploaded image' : 'local preview'
-  const activeProviderMode = draft?.generation_mode || judge?.generation_mode || (requestProviderActive || providerReady ? 'provider-ready' : providerMode)
+  const activeProviderMode = draft?.generation_mode || judge?.generation_mode || (requestProviderActive ? 'request-provider-pending' : providerReady ? 'provider-ready' : providerMode)
   const workflowSteps = activeTab === 'draft'
     ? [
         { label: '图像/所见', detail: selectedSample ? selectedSample.source_dataset : imageName ? '已选择图片' : '待选择', done: Boolean(imageName || findingText.trim()) },
@@ -120,7 +120,7 @@ export function ReportDraft() {
     providerName: requestProviderActive ? providerName.trim() || undefined : undefined,
     apiBase: apiBase.trim() || undefined,
     apiKey: apiKey.trim() || undefined,
-    model: providerModel.trim() || undefined,
+    model: requestProviderActive ? providerModel.trim() || undefined : undefined,
   })
 
   return (
@@ -196,7 +196,7 @@ export function ReportDraft() {
         <details className="provider-credential-drawer">
           <summary>
             <span>配置本次请求 Provider</span>
-            <strong>{requestProviderActive ? '已启用请求级覆盖' : '可选，不配置则走后端 .env 或规则模式'}</strong>
+            <strong>{requestProviderActive ? '已启用请求级覆盖' : '可选；仅填写模型名不会触发临时 Provider'}</strong>
           </summary>
           <div className="form-row report-provider-form">
             <label>
@@ -281,7 +281,7 @@ export function ReportDraft() {
               </div>
               <textarea value={findingText} onChange={(event) => setFindingText(event.target.value)} rows={7} />
               <button className="button primary" type="button" onClick={generate} disabled={loading}>
-                <WandSparkles size={17} /> {requestProviderActive || providerReady ? '生成并尝试 Provider 推理' : '生成结构化报告'}
+                <WandSparkles size={17} /> {requestProviderActive || providerReady ? '生成并按真实配置尝试 Provider' : '生成结构化报告'}
               </button>
             </Card>
 
@@ -419,7 +419,7 @@ export function ReportDraft() {
             <textarea value={revisedReport} onChange={(event) => setRevisedReport(event.target.value)} rows={5} />
           </label>
           <button className="button primary" type="button" onClick={runJudge} disabled={loading}>
-            <ShieldCheck size={17} /> {requestProviderActive || providerReady ? '评分并尝试 Provider 评阅' : 'AI judge 评分'}
+            <ShieldCheck size={17} /> {requestProviderActive || providerReady ? '评分并按真实配置尝试 Provider' : 'AI judge 评分'}
           </button>
         </Card>
 

@@ -26,7 +26,7 @@ flowchart TD
 - `llm_provider`: OpenAI-compatible `/chat/completions` 适配器；只允许公开样例图片和 `runtime/uploads` 受控图片进入视觉输入。
 - `skill_registry`: 受控技能注册和调用。
 - `memory_service`: 学员画像、错题、能力分更新。
-- `model_service`: 模型库与样例级准入检查；最多 3 个公开样例逐条返回 evidence，真实 Provider 成功调用时 `provider_called=true`，否则为规则草案。
+- `model_service`: 模型库与样例级 blind probe 准入检查；最多 3 个公开样例逐条返回 evidence，Provider prompt 不包含参考标注，返回后再做粗粒度公开标注对齐。
 - `audit_service`: 关键事件持久化到 JSON。
 - `safety_service`: 越界和敏感表达规则检查。
 
@@ -38,7 +38,7 @@ flowchart TD
 - `/false-premise`: 错误前提训练
 - `/report`: 报告中心，支持公开样例、图片上传、结构化草稿、来源追踪和报告修改评分
 - `/card`: 科普卡片，支持草稿生成、医生审核闸门、审核后打印/分享解锁
-- `/models`: 模型准入与测试中心，展示后端 Provider 状态、样例级 Provider evidence 和规则草案
+- `/models`: 模型准入与测试中心，展示后端 Provider 状态、样例级 blind probe evidence、对齐状态和规则草案
 - `/skills`: Skills 中心
 - `/audit`: 审计日志
 
@@ -60,5 +60,5 @@ flowchart TD
 
 - 所有模型输出都是医生审核前教学辅助，不签发最终诊断。
 - 公开样例标注不写入“医生输入所见”，只作为 `public_sample_annotation` 来源。
-- 上传图片保存到 `backend/runtime/uploads`，不会提交 git；Provider 只读取受控目录中的图片。
+- 报告页上传图片保存到 `backend/runtime/uploads`，不会提交 git；Provider 只读取受控目录中的图片。科普卡片页本机上传图只做浏览器预览，不写入后端卡片记录。
 - 模型准入不保存 API key，不在审计日志输出密钥。

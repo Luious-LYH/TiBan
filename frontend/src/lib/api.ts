@@ -111,6 +111,8 @@ function normalizeProviderStatus(value: unknown, fallback: ProviderStatus = {
     latency_ms: record.latency_ms === null ? null : asNumber(record.latency_ms, fallback.latency_ms ?? 0),
     sample_count: asNumber(record.sample_count, fallback.sample_count ?? 0),
     provider_success_count: asNumber(record.provider_success_count, fallback.provider_success_count ?? 0),
+    reference_aligned_count: asNumber(record.reference_aligned_count, fallback.reference_aligned_count ?? 0),
+    blind_probe: asBoolean(record.blind_probe, fallback.blind_probe ?? false),
     configured: typeof record.configured === 'boolean' ? record.configured : fallback.configured,
     base_url_configured: typeof record.base_url_configured === 'boolean' ? record.base_url_configured : fallback.base_url_configured,
     api_key_configured: typeof record.api_key_configured === 'boolean' ? record.api_key_configured : fallback.api_key_configured,
@@ -285,6 +287,7 @@ function normalizeAdmissionState(value: unknown, fallback: ModelAdmissionState =
     tested_samples: asStringArray(record.tested_samples, fallback.tested_samples),
     risk_items: asStringArray(record.risk_items, fallback.risk_items),
     recommendation: asString(record.recommendation, fallback.recommendation),
+    reference_aligned_count: asNumber(record.reference_aligned_count, fallback.reference_aligned_count ?? 0),
     safe_for_training: asBoolean(record.safe_for_training, fallback.safe_for_training),
   }
 }
@@ -595,6 +598,10 @@ function normalizeModelAdmission(value: unknown, fallback: ModelAdmissionResult)
             source_dataset: asString(evidence.source_dataset, ''),
             question: asString(evidence.question, ''),
             reference_annotation: asString(evidence.reference_annotation, ''),
+            provider_answer: asString(evidence.provider_answer, ''),
+            blind_probe: asBoolean(evidence.blind_probe, false),
+            reference_match: asString(evidence.reference_match, ''),
+            answer_overlap: asNumber(evidence.answer_overlap, 0),
             provider_called: asBoolean(evidence.provider_called, false),
             provider_mode: asString(evidence.provider_mode, ''),
             latency_ms: evidence.latency_ms === null ? null : asNumber(evidence.latency_ms, 0),

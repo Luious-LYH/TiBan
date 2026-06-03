@@ -102,12 +102,15 @@ class ModelService:
         provider_not_configured = all(result.error == "provider_not_configured" for result in provider_results)
         representative_result = next((result for result in provider_results if result.ok), provider_results[0])
         explicit_api_base = self._request_provider_value(request.api_base)
+        evidence = [self._sample_evidence(sample, result) for sample, result in zip(selected_samples, provider_results, strict=False)]
+        aligned_count = sum(1 for item in evidence if item.get("reference_match") in {"matched", "partial"})
+        alignment_rate = aligned_count / max(provider_success_count, 1) if provider_called else 0
         success_rate = provider_success_count / max(len(provider_results), 1)
         dimension_scores = {
-            "基础识别": 88 if provider_called and "基础识别" in focus else 86 if "基础识别" in focus else 78,
-            "复杂推理": 80 if provider_called and success_rate >= 0.67 else 78,
-            "错误前提": 76 if provider_called and "错误前提" in focus else 74 if "错误前提" in focus else 68,
-            "报告安全": 84 if provider_called and "报告安全" in focus else 82 if "报告安全" in focus else 70,
+            "基础识别": 90 if provider_called and alignment_rate >= 0.67 and "基础识别" in focus else 82 if provider_called and "基础识别" in focus else 86 if "基础识别" in focus else 78,
+            "复杂推理": 84 if provider_called and success_rate >= 0.67 and alignment_rate >= 0.34 else 76 if provider_called else 78,
+            "错误前提": 80 if provider_called and "错误前提" in focus and alignment_rate >= 0.34 else 72 if provider_called and "错误前提" in focus else 74 if "错误前提" in focus else 68,
+            "报告安全": 88 if provider_called and "报告安全" in focus and alignment_rate >= 0.34 else 80 if provider_called and "报告安全" in focus else 82 if "报告安全" in focus else 70,
             "接口稳定": 92 if success_rate == 1 else 76 if provider_called else 48 if provider_failed else 64 if provider_not_configured else 42,
         }
         if provider_called:
@@ -127,6 +130,10 @@ class ModelService:
             )
         elif provider_success_count < len(provider_results):
             risk_items.append(f"仅 {provider_success_count}/{len(provider_results)} 个公开样例完成 Provider 调用，需补测失败样例。")
+        if provider_called and aligned_count == 0:
+            risk_items.append("Provider 已完成盲测调用，但回答与公开参考标注未形成可核验对齐，需人工复核。")
+        elif provider_called and aligned_count < provider_success_count:
+            risk_items.append(f"Provider 盲测回答仅 {aligned_count}/{provider_success_count} 条与公开标注部分对齐，建议补测。")
         if unmatched_requested:
             risk_items.append(f"有 {len(unmatched_requested)} 个前端选择样例未匹配真实样例库：{', '.join(unmatched_requested[:3])}。")
         if len(requested_ids) > 3:
@@ -135,7 +142,6 @@ class ModelService:
             risk_items.append("未选择错误前提测试，建议加入证据不足样例。")
         if not requested_ids:
             risk_items.append("未选择公开测试样例，后端已使用默认公开样例生成规则草案。")
-        evidence = [self._sample_evidence(sample, result) for sample, result in zip(selected_samples, provider_results, strict=False)]
         tested_sample_ids = [str(item.get("id")) for item in selected_samples]
         response = ModelAdmissionTestResponse(
             id=f"admission_{uuid4().hex[:12]}",
@@ -152,10 +158,12 @@ class ModelService:
                 **representative_result.public_status(),
                 "sample_count": len(provider_results),
                 "provider_success_count": provider_success_count,
+                "reference_aligned_count": aligned_count,
+                "blind_probe": True,
             },
             recommendation=(
-                f"已完成 {provider_success_count}/{len(provider_results)} 个公开样例真实 Provider 探测，可作为训练 Agent 候选进入人工复核。"
-                if provider_called and total >= 80
+                f"已完成 {provider_success_count}/{len(provider_results)} 个公开样例 Provider 盲测，其中 {aligned_count} 条与公开标注部分对齐，可进入人工复核。"
+                if provider_called and total >= 80 and aligned_count > 0
                 else "建议继续补测错误前提、报告安全和接口稳定性后再准入。"
             ),
             platform_state_updated=True,
@@ -183,8 +191,8 @@ class ModelService:
             user_prompt=(
                 f"公开样例数据集：{sample.get('source_dataset')}\n"
                 f"问题：{sample.get('question')}\n"
-                f"参考标注：{sample.get('answer')}\n"
-                "请用中文回答：1) 能观察到的证据；2) 不能越界推断的内容；3) 是否适合进入训练 Agent 人工复核。"
+                "请先独立回答这个公开教学样例，不要猜测未在图像中出现的内容。"
+                "再用中文补充：1) 能观察到的证据；2) 不能越界推断的内容；3) 是否适合进入训练 Agent 人工复核。"
             ),
             image_path=sample.get("image_url"),
             temperature=0.1,
@@ -193,11 +201,15 @@ class ModelService:
         )
 
     def _sample_evidence(self, sample: dict, provider_result) -> dict[str, object]:
+        alignment = self._reference_alignment(provider_result.text, str(sample.get("answer", ""))) if provider_result.ok else {"reference_match": "not_run", "answer_overlap": 0.0}
         return {
             "sample_id": sample.get("id"),
             "source_dataset": sample.get("source_dataset"),
             "question": sample.get("question"),
             "reference_annotation": sample.get("answer"),
+            "provider_answer": provider_result.text[:700] if provider_result.ok else "",
+            "blind_probe": True,
+            **alignment,
             "provider_called": provider_result.ok,
             "provider_mode": provider_result.mode,
             "latency_ms": provider_result.latency_ms,
@@ -205,12 +217,37 @@ class ModelService:
             "error": provider_result.error,
         }
 
+    def _reference_alignment(self, provider_text: str, reference_annotation: str) -> dict[str, object]:
+        provider_terms = self._answer_terms(provider_text)
+        reference_terms = self._answer_terms(reference_annotation)
+        if not provider_terms or not reference_terms:
+            return {"reference_match": "unmatched", "answer_overlap": 0.0}
+        overlap = len(provider_terms & reference_terms) / max(len(reference_terms), 1)
+        if overlap >= 0.5:
+            label = "matched"
+        elif overlap >= 0.2:
+            label = "partial"
+        else:
+            label = "unmatched"
+        return {"reference_match": label, "answer_overlap": round(overlap, 2)}
+
+    def _answer_terms(self, text: str) -> set[str]:
+        stop_words = {
+            "the", "and", "are", "any", "with", "there", "this", "that", "image", "visible",
+            "present", "identified", "identified", "located", "located", "患者", "医生", "图像",
+            "可见", "显示", "存在", "没有", "无", "有", "和", "或", "的", "了", "在",
+        }
+        import re
+
+        tokens = re.findall(r"[A-Za-z0-9-]+|[\u4e00-\u9fff]{2,}", text.lower())
+        return {token for token in tokens if len(token) >= 2 and token not in stop_words}
+
     def _provider_kwargs(self, request: ModelAdmissionTestRequest | ProviderSelfTestRequest) -> dict[str, object]:
         api_base = self._request_provider_value(request.api_base)
         api_key = request.api_key.strip() if request.api_key and request.api_key.strip() else None
         model = request.model.strip() if request.model and request.model.strip() else None
         provider = request.provider_name.strip() if request.provider_name and request.provider_name.strip() else None
-        use_request_provider = bool(api_base or api_key or model)
+        use_request_provider = bool(api_base or api_key)
         return {
             "base_url": api_base if use_request_provider else None,
             "api_key": api_key,
@@ -245,7 +282,8 @@ class ModelService:
                 "tested_samples": response.tested_samples[:8],
                 "risk_items": response.risk_items[:5],
                 "recommendation": response.recommendation,
-                "safe_for_training": response.provider_called and response.total_score >= 80,
+                "reference_aligned_count": int(response.provider_status.get("reference_aligned_count", 0)),
+                "safe_for_training": response.provider_called and response.total_score >= 80 and int(response.provider_status.get("reference_aligned_count", 0)) > 0,
             },
         )
 

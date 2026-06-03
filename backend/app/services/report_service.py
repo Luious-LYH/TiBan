@@ -185,6 +185,7 @@ class ReportService:
     def generate_patient_card(self, request: PatientCardRequest) -> PatientCard:
         summary = safety_service.redact_sensitive_text(request.diagnosis_summary.strip())
         template = self._card_template(request.template_id)
+        image_url = self._card_image_url(request.image_url)
         card = PatientCard(
             id=f"card_{uuid4().hex[:12]}",
             card_title="内镜检查结果说明卡（医生审核前草稿）",
@@ -206,7 +207,7 @@ class ReportService:
             disclaimer="本卡片为医生审核前沟通草稿；如输入尚未审核，必须先由医生确认后才能用于患者沟通。",
             template_id=request.template_id,
             visual_tone=template.get("tone", "稳健、清楚、适合打印"),
-            image_url=request.image_url,
+            image_url=image_url,
             review_status="doctor_review_pending",
             share_status="locked_pending_review",
             reviewer_name=None,
@@ -323,6 +324,16 @@ class ReportService:
         cards = [item for item in self._load_patient_cards() if item.get("id") != card.id]
         cards.insert(0, card.model_dump())
         self._save_patient_cards(cards)
+
+    def _card_image_url(self, image_url: str | None) -> str | None:
+        if not image_url:
+            return None
+        cleaned = image_url.strip()
+        if cleaned.startswith("blob:") or cleaned.startswith("data:") or cleaned.startswith("file:"):
+            return None
+        if cleaned.startswith("/assets/real_samples/") or cleaned.startswith("uploads/"):
+            return cleaned
+        return None
 
     def _split_findings(self, text: str) -> list[str]:
         separators = ["。", "；", ";", "\n"]
@@ -474,8 +485,7 @@ class ReportService:
         if sample:
             sample_text = (
                 f"\n公开样例问题：{sample.get('question', '')}"
-                f"\n公开样例参考标注：{sample.get('answer', '')}"
-                "\n这些标注只能作为教学上下文，不可直接当作临床诊断。"
+                "\n公开样例参考标注不会发送给 Provider，只保留在来源台账中供医生复核。"
             )
         return llm_provider.chat(
             system_prompt=(
@@ -557,7 +567,7 @@ class ReportService:
         api_key = request.api_key.strip() if request.api_key and request.api_key.strip() else None
         model = request.model.strip() if request.model and request.model.strip() else None
         provider = request.provider_name.strip() if request.provider_name and request.provider_name.strip() else None
-        use_request_provider = bool(api_base or api_key or model or provider)
+        use_request_provider = bool(api_base or api_key)
         return {
             "base_url": api_base if use_request_provider else None,
             "api_key": api_key,

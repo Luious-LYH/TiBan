@@ -13,6 +13,8 @@ export type ProviderStatus = {
   latency_ms?: number | null
   sample_count?: number
   provider_success_count?: number
+  reference_aligned_count?: number
+  blind_probe?: boolean
   base_url_configured?: boolean
   api_key_configured?: boolean
   safety_notice?: string
@@ -289,6 +291,7 @@ export type ModelAdmissionState = {
   tested_samples: string[]
   risk_items: string[]
   recommendation: string
+  reference_aligned_count?: number
   safe_for_training: boolean
 }
 
@@ -427,6 +430,10 @@ export type ModelAdmissionResult = {
     source_dataset?: string
     question?: string
     reference_annotation?: string
+    provider_answer?: string
+    blind_probe?: boolean
+    reference_match?: string
+    answer_overlap?: number
     provider_called?: boolean
     provider_mode?: string
     latency_ms?: number | null

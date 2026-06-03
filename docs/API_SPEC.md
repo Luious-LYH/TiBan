@@ -291,7 +291,7 @@ Provider 轻量自检：
 }
 ```
 
-模型准入会对最多 3 个公开样例逐条返回 evidence；检查清单分只服务训练 Agent 接入，不代表临床模型评测：
+模型准入会对最多 3 个公开样例逐条返回 evidence；Provider prompt 只包含图片和问题，不包含公开参考标注。检查清单分只服务训练 Agent 接入，不代表临床模型评测：
 
 ```json
 {
@@ -299,14 +299,19 @@ Provider 轻量自检：
   "provider_status": {
     "mode": "provider",
     "sample_count": 3,
-    "provider_success_count": 3
+    "provider_success_count": 3,
+    "reference_aligned_count": 2,
+    "blind_probe": true
   },
   "evidence": [
     {
       "sample_id": "real_x1_0",
       "provider_called": true,
       "latency_ms": 1240,
-      "observation_excerpt": "模型返回的教学观察摘要..."
+      "blind_probe": true,
+      "provider_answer": "模型盲测返回的教学观察摘要...",
+      "reference_match": "partial",
+      "answer_overlap": 0.33
     }
   ],
   "platform_state_updated": true,
@@ -314,7 +319,7 @@ Provider 轻量自检：
 }
 ```
 
-最近准入摘要只保存 `provider_name`、`grade`、`total_score`、`mode`、`tested_samples`、`risk_items` 和 `recommendation`，不保存 API key、API base 或完整模型回复。请求级 `api_base`、`model` 可以覆盖后端 `.env` 默认值；`https://api.example.com/v1` 这类示例地址会被视为未配置。
+最近准入摘要只保存 `provider_name`、`grade`、`total_score`、`mode`、`tested_samples`、`risk_items`、`reference_aligned_count` 和 `recommendation`，不保存 API key、API base 或完整模型回复。只有请求级 `api_base` 或 `api_key` 存在时，`model` 才作为本次请求覆盖项；`https://api.example.com/v1` 这类示例地址会被视为未配置。
 
 平台就绪度：
 

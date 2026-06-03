@@ -24,7 +24,7 @@ export function ModelHub() {
   const [models, setModels] = useState<ModelProfile[]>(mockModels)
   const [samples, setSamples] = useState<Question[]>([])
   const [providerName, setProviderName] = useState('自定义多模态 API')
-  const [apiBase, setApiBase] = useState('https://api.example.com/v1')
+  const [apiBase, setApiBase] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('')
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
@@ -68,14 +68,15 @@ export function ModelHub() {
         providerName,
         apiBase,
         apiKey: apiKey.trim() || undefined,
-        model: model.trim() || undefined,
+        model: requestProviderActive ? model.trim() || undefined : undefined,
         sampleIds: selectedSamples,
         focus,
       })
       setResult(admission)
       const source = admission.api_source === 'fallback' ? 'frontend fallback' : 'backend live'
+      const alignedCount = admission.provider_status.reference_aligned_count || 0
       const providerText = admission.provider_called
-        ? `真实 Provider 成功 ${admission.provider_status.provider_success_count || 0}/${admission.provider_status.sample_count || admission.evidence.length} 个样例。`
+        ? `真实 Provider 盲测成功 ${admission.provider_status.provider_success_count || 0}/${admission.provider_status.sample_count || admission.evidence.length} 个样例，${alignedCount} 条与公开标注部分对齐。`
         : `未完成真实 Provider 调用：${admission.provider_status.error || 'provider_not_configured'}。`
       setAdmissionNotice(`${source} 返回 ${admission.id}；${providerText}${admission.platform_state_updated ? ' 平台准入摘要已写入后端。' : ' 未写入后端平台状态。'}`)
       if (admission.platform_state_updated) {
@@ -91,7 +92,8 @@ export function ModelHub() {
           tested_samples: admission.tested_samples,
           risk_items: admission.risk_items,
           recommendation: admission.recommendation,
-          safe_for_training: admission.provider_called && admission.total_score >= 80,
+          reference_aligned_count: alignedCount,
+          safe_for_training: admission.provider_called && admission.total_score >= 80 && alignedCount > 0,
         })
       }
     } catch (error) {
@@ -110,7 +112,7 @@ export function ModelHub() {
         providerName,
         apiBase,
         apiKey: apiKey.trim() || undefined,
-        model: model.trim() || undefined,
+        model: requestProviderActive ? model.trim() || undefined : undefined,
       })
       setSelfTest(response)
       const source = response.api_source === 'fallback' ? 'frontend fallback' : 'backend live'
@@ -152,6 +154,7 @@ export function ModelHub() {
   const providerSuccessCount = result?.provider_status.provider_success_count
   const providerSampleCount = result?.provider_status.sample_count || result?.evidence.length || 0
   const canRunAdmission = Boolean(selectedSamples.length && focus.length && !isRunningAdmission && !isRunningSelfTest)
+  const requestProviderActive = Boolean(apiBase.trim() || apiKey.trim())
   const resultSource = result?.api_source === 'fallback' ? 'frontend fallback' : result ? 'backend live' : 'not run'
   const selfTestSource = selfTest?.api_source === 'fallback' ? 'frontend fallback' : selfTest ? 'backend live' : 'not run'
 
@@ -185,7 +188,7 @@ export function ModelHub() {
           <KeyRound size={19} />
           <span>凭据处理</span>
           <strong>{apiKey.trim() ? '页面临时 key' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'}</strong>
-          <p>临时 key 只随本次准入请求发送，不写入审计日志、状态文件或 git；base/model 可临时覆盖后端默认配置。</p>
+          <p>临时 key 只随本次准入请求发送；只有填写 base 或 key 时，页面模型名才会作为本次请求覆盖。</p>
         </div>
         <div>
           <Database size={19} />
@@ -252,7 +255,7 @@ export function ModelHub() {
             </label>
             <label>
               <span>API Base URL</span>
-              <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="留空或示例地址则使用后端 .env" />
+              <input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="例如 https://your-provider.example/v1；留空则使用后端 .env" />
             </label>
             <label>
               <span>模型名称</span>
@@ -265,7 +268,7 @@ export function ModelHub() {
           </div>
           <div className="notice-card">
             <KeyRound size={20} />
-            <p>临时密钥只随本次准入请求发送到后端，不会写入仓库、文档或审计日志。正式演示建议使用后端 .env 配置；页面 base/model 可覆盖后端默认值。</p>
+            <p>临时密钥只随本次准入请求发送到后端，不会写入仓库、文档或审计日志。正式演示建议使用后端 .env；只填模型名不会触发临时 Provider。</p>
           </div>
           <div className={`admission-run-strip provider-self-test-strip ${isRunningSelfTest ? 'running' : selfTest?.api_source === 'fallback' || (selfTest && !selfTest.provider_called) ? 'fallback' : selfTest?.provider_called ? 'synced' : ''}`}>
             {isRunningSelfTest ? <LoaderCircle className="spin-icon" size={18} /> : selfTest && !selfTest.provider_called ? <AlertTriangle size={18} /> : <PlugZap size={18} />}
@@ -352,13 +355,17 @@ export function ModelHub() {
               Provider {providerSuccessCount ?? 0}/{providerSampleCount}
             </Tag>
           </div>
-          <div className="source-note">该分数是训练准入检查清单分，基于接口连通、样例 evidence、安全边界和规则项汇总，不代表临床模型评测。</div>
+          <div className="source-note">该分数是训练准入检查清单分，Provider 样例为盲测：请求不包含参考标注，后端只在返回后做公开标注对齐，不代表临床模型评测。</div>
           <div className="provider-evidence-list">
             {result.evidence.map((item, itemIndex) => (
               <div key={`${item.sample_id || 'sample'}_${itemIndex}`}>
                 <span>{item.source_dataset || '公开样例'} · {item.provider_mode || result.provider_status.mode}</span>
-                <strong>{item.provider_called ? `已调用 Provider${item.latency_ms ? ` · ${item.latency_ms}ms` : ''}` : '未完成 Provider 调用'}</strong>
-                <p>{item.observation_excerpt || item.error || item.question || '暂无样例级证据。'}</p>
+                <strong>
+                  {item.provider_called
+                    ? `盲测 Provider${item.latency_ms ? ` · ${item.latency_ms}ms` : ''} · ${item.reference_match || '待对齐'}`
+                    : '未完成 Provider 调用'}
+                </strong>
+                <p>{item.provider_answer || item.observation_excerpt || item.error || item.question || '暂无样例级证据。'}</p>
               </div>
             ))}
           </div>

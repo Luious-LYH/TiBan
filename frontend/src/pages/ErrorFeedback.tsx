@@ -42,6 +42,7 @@ export function ErrorFeedback({
     buildReviewSnapshot(activeQuestion)
   const isRestoredReview = !submission
   const sourceText = submission ? '来自本轮提交' : restoreSource || '直接打开页面时自动展示最近错题复盘快照，不写入后端。'
+  const selectedAnswerLabel = isRestoredReview ? '复盘示例答案' : '用户答案'
 
   return (
     <div className="page-stack">
@@ -50,7 +51,7 @@ export function ErrorFeedback({
         <div>
           <span className="eyebrow">Feedback source</span>
           <strong>{sourceText}</strong>
-          <p>{isRestoredReview ? '这是复盘视图，基于题目标准答案和原子事实生成，不会重复计入训练记录。' : '本次提交已由训练中心写入医师画像和审计日志。'}</p>
+          <p>{isRestoredReview ? '这是复盘视图，基于题目标准答案和原子事实生成示例错误答案，不会伪装成真实提交或重复计入训练记录。' : '本次提交已由训练中心写入医师画像和审计日志。'}</p>
         </div>
       </Card>
 
@@ -63,7 +64,7 @@ export function ErrorFeedback({
           />
           <div className="answer-compare">
             <div>
-              <span>用户答案</span>
+              <span>{selectedAnswerLabel}</span>
               <strong>{activeSubmission.selected_answer}</strong>
             </div>
             <div>
@@ -84,7 +85,7 @@ export function ErrorFeedback({
             {activeQuestion.teaching_tags.map((tag) => <Tag key={tag} tone="blue">{tag}</Tag>)}
           </div>
           <EmptyState>
-            <RotateCcw size={16} /> 原子事实表会随每次提交或错题恢复更新，用来解释“错在哪里”而不是只给分。
+            <RotateCcw size={16} /> 原子事实表会随真实提交或复盘快照更新，用来解释“错在哪里”而不是只给分。
           </EmptyState>
         </Card>
       </div>

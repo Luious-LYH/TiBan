@@ -48,10 +48,15 @@ export function PatientCard() {
   const generate = async () => {
     setCardStatus('正在生成医生审核前科普卡片...')
     try {
-      const generated = await api.patientCard(summary, { templateId, imageUrl })
+      const persistedImageUrl = imageUrl.startsWith('blob:') ? undefined : imageUrl
+      const generated = await api.patientCard(summary, { templateId, imageUrl: persistedImageUrl })
       setCard(generated)
       setReviewChecks({ summaryMatched: false, noUnsupportedClaim: false, disclaimerKept: false })
-      setCardStatus(`已生成 ${generated.review_status === 'doctor_review_pending' ? '医生待审核' : '医生已审核'} 卡片草稿。`)
+      setCardStatus(
+        imageUrl.startsWith('blob:')
+          ? `已生成 ${generated.review_status === 'doctor_review_pending' ? '医生待审核' : '医生已审核'} 卡片草稿；本地上传图仅保留当前浏览器预览，不写入后端卡片记录。`
+          : `已生成 ${generated.review_status === 'doctor_review_pending' ? '医生待审核' : '医生已审核'} 卡片草稿。`,
+      )
     } catch {
       setCardStatus('卡片接口暂不可用，请稍后重试；当前仍保留本地预览草稿。')
     }
@@ -182,7 +187,7 @@ export function PatientCard() {
               <ImagePlus size={18} />
             </label>
           </div>
-          {uploadedImageName ? <div className="source-note">本地上传预览：{uploadedImageName}</div> : null}
+          {uploadedImageName ? <div className="source-note">本地上传预览：{uploadedImageName}。未接入受控上传前，该图片不会写入后端卡片记录。</div> : null}
           <button className="button primary" type="button" onClick={generate}>
             <WandSparkles size={17} /> 生成浮动科普卡片
           </button>

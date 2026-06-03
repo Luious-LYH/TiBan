@@ -372,36 +372,6 @@ a {
   line-height: 1.5;
 }
 
-.route-loading {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  gap: 16px;
-  align-items: center;
-  min-height: 180px;
-  max-width: 760px;
-  padding: 24px;
-}
-
-.route-loading h2 {
-  margin: 0;
-  color: var(--text);
-  font-size: 22px;
-}
-
-.route-loading p {
-  margin: 8px 0 0;
-  color: var(--muted);
-  line-height: 1.55;
-}
-
-.loading-pulse {
-  width: 42px;
-  height: 42px;
-  background: radial-gradient(circle at 50% 50%, #14b8a6 0 34%, rgba(20, 184, 166, 0.2) 35% 62%, transparent 63%);
-  border-radius: 999px;
-  animation: pulseLoad 1.25s ease-in-out infinite;
-}
-
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -3436,18 +3406,6 @@ textarea {
   }
 }
 
-@keyframes pulseLoad {
-  0%,
-  100% {
-    opacity: 0.62;
-    transform: scale(0.92);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.06);
-  }
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -3890,12 +3848,81 @@ textarea {
   }
 
   .sidebar {
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 30;
     height: auto;
+    gap: 10px;
+    max-height: 46vh;
+    overflow: auto;
+    padding: 14px 12px 12px;
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.22);
+  }
+
+  .brand {
+    padding: 2px 4px 10px;
+  }
+
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+
+  .brand strong {
+    font-size: 15px;
+  }
+
+  .brand span,
+  .sidebar-note {
+    display: none;
   }
 
   .nav-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 7px;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .nav-group {
+    flex: 1 1 calc(50% - 7px);
+    gap: 4px;
+  }
+
+  .nav-group:has(.nav-item.active) {
+    order: -1;
+    flex-basis: 100%;
+  }
+
+  .nav-group summary {
+    min-height: 32px;
+    padding: 6px 9px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+  }
+
+  .nav-group:not(:has(.nav-item.active)) .nav-group-items {
+    display: none;
+  }
+
+  .nav-group:not(:has(.nav-item.active)) summary {
+    white-space: nowrap;
+  }
+
+  .nav-item {
+    min-height: 34px;
+    padding: 7px 9px;
+    font-size: 14px;
+  }
+
+  .topbar h1 {
+    max-width: 100%;
+    font-size: 26px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .main-area {
