@@ -116,7 +116,7 @@ function AuditMetric({ icon, label, value, tone = 'green' }: { icon: ReactNode; 
 function auditMatches(log: AuditLog, filter: AuditFilter): boolean {
   if (filter === 'all') return true
   if (filter === 'high') return log.risk_level === 'high'
-  if (filter === 'training') return ['question_view', 'answer_submit', 'exam_session', 'tutor_reply', 'favorite_update'].includes(log.event_type)
+  if (filter === 'training') return ['question_view', 'answer_submit', 'exam_session', 'tutor_reply', 'challenge_benchmark', 'favorite_update'].includes(log.event_type)
   if (filter === 'report') return ['report_draft', 'report_judge', 'patient_card', 'patient_card_approve', 'image_upload'].includes(log.event_type)
   if (filter === 'model') return ['model_select', 'provider_self_test', 'model_admission'].includes(log.event_type)
   if (filter === 'skills') return log.event_type === 'skill_run'
@@ -129,6 +129,7 @@ function eventLabel(type: AuditLog['event_type']): string {
     answer_submit: '提交答案',
     exam_session: '考试交卷',
     tutor_reply: 'Agent辅导',
+    challenge_benchmark: '挑战基准',
     report_draft: '报告草稿',
     patient_card: '科普卡片',
     patient_card_approve: '卡片审核',

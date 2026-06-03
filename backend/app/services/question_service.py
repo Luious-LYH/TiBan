@@ -41,15 +41,16 @@ class QuestionService:
             items = [q for q in items if q.review_status == "待复盘"]
         return self._public_first(items)
 
-    def get_question(self, question_id: str, user_id: str = "demo_learner") -> Question:
+    def get_question(self, question_id: str, user_id: str = "demo_learner", *, record_view: bool = True) -> Question:
         for question in self.list_questions():
             if question.id == question_id:
-                audit_service.log(
-                    "question_view",
-                    user_id=user_id,
-                    entity_id=question_id,
-                    summary=f"查看题目：{question.title}",
-                )
+                if record_view:
+                    audit_service.log(
+                        "question_view",
+                        user_id=user_id,
+                        entity_id=question_id,
+                        summary=f"查看题目：{question.title}",
+                    )
                 return question
         raise KeyError(f"Question not found: {question_id}")
 

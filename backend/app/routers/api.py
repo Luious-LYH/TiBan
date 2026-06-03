@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.core.config import APP_NAME, SAFETY_NOTICE, UPLOAD_DIR
 from app.schemas import (
+    ChallengeBenchmarkRequest,
     ExamSessionRequest,
     FavoriteRequest,
     ImageUploadRequest,
@@ -125,6 +126,14 @@ def tutor_explain(request: TutorExplainRequest) -> dict[str, object]:
 def tutor_chat(request: TutorChatRequest) -> dict[str, object]:
     try:
         return tutor_orchestrator.chat(request)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/tutor/challenge-benchmark")
+def challenge_benchmark(request: ChallengeBenchmarkRequest) -> dict[str, object]:
+    try:
+        return tutor_orchestrator.challenge_benchmark(request)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

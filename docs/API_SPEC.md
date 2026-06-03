@@ -11,7 +11,7 @@ Base URL: `http://127.0.0.1:8000/api`
 }
 ```
 
-当前 `/submit`、`/learner/exam-session`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/report-draft`、`/report/judge`、`/patient-card`、`/provider/self-test`、`/models/admission-test` 和高风险 `/skills/run` 输出均遵循该契约。
+当前 `/submit`、`/learner/exam-session`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/tutor/challenge-benchmark`、`/report-draft`、`/report/judge`、`/patient-card`、`/provider/self-test`、`/models/admission-test` 和高风险 `/skills/run` 输出均遵循该契约。
 
 v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mode` / `provider_status` / `provider_called`：
 
@@ -34,6 +34,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | POST | `/tutor/hint` | 生成不泄露答案的提示 |
 | POST | `/tutor/explain` | 生成答案讲解和 atomic feedback |
 | POST | `/tutor/chat` | 当前题范围内的辅导回复 |
+| POST | `/tutor/challenge-benchmark` | 医师提交后同步后端挑战基准；Provider 可用时独立作答，否则公开标注 fallback；只写 `challenge_benchmark` 审计，不重复更新画像 |
 | GET | `/learner/profile` | 学员画像 |
 | GET | `/learner/recommendations` | 推荐训练 |
 | POST | `/learner/exam-session` | 写入整场考试 Session 摘要、错题摘要和审计事件 |
@@ -86,6 +87,36 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
   "interaction_tags": ["证据不足", "病灶识别", "rule"],
   "profile_updated": true,
   "memory_summary": "已记录 Agent 辅导事件：...；未保存追问原文。"
+}
+```
+
+挑战基准只应在医师先提交答案后调用；它会尝试让 Provider 在不读取公开答案的前提下独立选择一个选项。Provider 未配置或失败时回退公开标注 fallback；该接口不更新 `learner_profile.json`，只写 `challenge_benchmark` 审计：
+
+```json
+{
+  "question_id": "public_real_x1_0",
+  "learner_id": "demo_learner",
+  "selected_answer": "z-line"
+}
+```
+
+核心返回字段：
+
+```json
+{
+  "benchmark_name": "Provider 挑战基准 | 挑战基准（公开标注 fallback）",
+  "benchmark_answer": "z-line",
+  "benchmark_correct": true,
+  "doctor_selected_answer": "z-line",
+  "same_as_doctor": true,
+  "generation_mode": "provider | public_annotation",
+  "provider_status": {
+    "mode": "provider | rule",
+    "ok": false,
+    "error": "provider_not_configured"
+  },
+  "audit_logged": true,
+  "profile_updated": false
 }
 ```
 

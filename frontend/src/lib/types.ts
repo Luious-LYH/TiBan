@@ -164,6 +164,7 @@ export type AuditLog = {
     | 'question_view'
     | 'answer_submit'
     | 'tutor_reply'
+    | 'challenge_benchmark'
     | 'exam_session'
     | 'report_draft'
     | 'patient_card'
@@ -302,6 +303,25 @@ export type ProviderSelfTestResult = {
   admission_state_updated: boolean
   recommendation: string
   doctor_review_required: true
+  safety_notice: string
+  created_at: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type ChallengeBenchmarkResult = {
+  id: string
+  question_id: string
+  benchmark_name: string
+  benchmark_answer: string
+  benchmark_correct: boolean
+  doctor_selected_answer: string
+  same_as_doctor: boolean
+  generation_mode: GenerationMode | 'public_annotation' | string
+  provider_status: ProviderStatus
+  rationale: string
+  audit_logged: boolean
+  profile_updated: boolean
+  doctor_review_required: boolean
   safety_notice: string
   created_at: string
   api_source?: 'backend' | 'fallback'

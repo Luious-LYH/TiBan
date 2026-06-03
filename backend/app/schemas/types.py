@@ -151,6 +151,30 @@ class TutorChatResponse(BaseModel):
     safety_notice: str
 
 
+class ChallengeBenchmarkRequest(BaseModel):
+    question_id: str
+    selected_answer: str
+    learner_id: str = "demo_learner"
+
+
+class ChallengeBenchmarkResponse(BaseModel):
+    id: str
+    question_id: str
+    benchmark_name: str
+    benchmark_answer: str
+    benchmark_correct: bool
+    doctor_selected_answer: str
+    same_as_doctor: bool
+    generation_mode: str = "public_annotation"
+    provider_status: dict[str, Any] = Field(default_factory=dict)
+    rationale: str
+    audit_logged: bool = True
+    profile_updated: bool = False
+    doctor_review_required: bool = True
+    safety_notice: str
+    created_at: str
+
+
 class LearnerProfile(BaseModel):
     learner_id: str
     name: str
@@ -389,6 +413,7 @@ class AuditLog(BaseModel):
         "question_view",
         "answer_submit",
         "tutor_reply",
+        "challenge_benchmark",
         "exam_session",
         "report_draft",
         "report_judge",

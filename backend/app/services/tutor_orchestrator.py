@@ -1,5 +1,8 @@
+from uuid import uuid4
+
 from app.core.config import SAFETY_NOTICE
-from app.schemas import SubmissionRequest, TutorChatRequest, TutorChatResponse, TutorExplainRequest, TutorHintRequest
+from app.schemas import ChallengeBenchmarkRequest, ChallengeBenchmarkResponse, SubmissionRequest, TutorChatRequest, TutorChatResponse, TutorExplainRequest, TutorHintRequest
+from app.services.audit_service import now_iso
 from app.services.audit_service import audit_service
 from app.services.grading_service import grading_service
 from app.services.llm_provider import llm_provider
@@ -116,6 +119,73 @@ class TutorOrchestrator:
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
         ).model_dump()
+
+    def challenge_benchmark(self, request: ChallengeBenchmarkRequest) -> dict[str, object]:
+        question = question_service.get_question(request.question_id, request.learner_id, record_view=False)
+        provider_result = llm_provider.chat(
+            system_prompt=(
+                "你是内镜医师训练平台的挑战基准 Agent。"
+                "只在题目给定选项中选择一个答案，并用一句话解释证据边界。"
+                "不要输出诊断、治疗建议或患者身份信息。"
+            ),
+            user_prompt=(
+                f"题目标题：{question.title}\n"
+                f"题干：{question.question}\n"
+                f"可选答案：{' | '.join(question.options)}\n"
+                "不要使用公开标注、标准答案或训练反馈；只根据题干、选项和随请求提供的图像判断。\n"
+                "请严格按格式回答：答案=<从可选答案中原样复制一个>; 理由=<一句中文证据边界说明>。"
+            ),
+            image_path=question.image_url,
+            temperature=0.0,
+            max_tokens=180,
+        )
+        generation_mode = "public_annotation"
+        benchmark_answer = question.ai_benchmark_answer or question.answer
+        rationale = "当前未调用独立模型，使用公开标注作为挑战基准。"
+        benchmark_name = "挑战基准（公开标注 fallback）"
+        if provider_result.ok:
+            parsed_answer = self._parse_provider_choice(provider_result.text, question.options)
+            if parsed_answer:
+                generation_mode = "provider"
+                benchmark_answer = parsed_answer
+                benchmark_name = "Provider 挑战基准"
+                rationale = provider_result.text[:220]
+            else:
+                rationale = f"Provider 已返回但未能严格映射到题目选项，已回退公开标注：{provider_result.text[:160]}"
+                benchmark_name = "挑战基准（Provider 未能映射，公开标注 fallback）"
+        elif provider_result.error and provider_result.error != "provider_not_configured":
+            rationale = f"Provider 挑战基准调用失败，已回退公开标注：{provider_result.error}。"
+        response = ChallengeBenchmarkResponse(
+            id=f"challenge_{uuid4().hex[:12]}",
+            question_id=question.id,
+            benchmark_name=benchmark_name,
+            benchmark_answer=benchmark_answer,
+            benchmark_correct=benchmark_answer == question.answer,
+            doctor_selected_answer=request.selected_answer,
+            same_as_doctor=benchmark_answer == request.selected_answer,
+            generation_mode=generation_mode,
+            provider_status=provider_result.public_status(),
+            rationale=rationale,
+            audit_logged=True,
+            profile_updated=False,
+            doctor_review_required=True,
+            safety_notice=SAFETY_NOTICE,
+            created_at=now_iso(),
+        )
+        audit_service.log(
+            "challenge_benchmark",
+            user_id=request.learner_id,
+            entity_id=question.id,
+            summary=f"挑战基准完成；模式 {generation_mode}；不回灌医师画像。",
+            risk_level="medium",
+        )
+        return response.model_dump()
+
+    def _parse_provider_choice(self, text: str, options: list[str]) -> str | None:
+        for option in options:
+            if option in text:
+                return option
+        return None
 
 
 tutor_orchestrator = TutorOrchestrator()

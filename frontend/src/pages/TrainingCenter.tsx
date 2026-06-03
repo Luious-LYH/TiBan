@@ -4,7 +4,7 @@ import { ActivitySquare, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, Data
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
-import type { ExamSessionAttempt, ProviderStatus, Question, SubmissionResponse } from '../lib/types'
+import type { ChallengeBenchmarkResult, ExamSessionAttempt, ProviderStatus, Question, SubmissionResponse } from '../lib/types'
 
 type ChatMessage = {
   role: 'agent' | 'doctor'
@@ -72,6 +72,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [examSessionSaved, setExamSessionSaved] = useState(false)
   const [memorySync, setMemorySync] = useState('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
   const [challengeStats, setChallengeStats] = useState<ChallengeStats>(emptyChallengeStats)
+  const [challengeBenchmark, setChallengeBenchmark] = useState<ChallengeBenchmarkResult | null>(null)
+  const [challengeBenchmarkLoading, setChallengeBenchmarkLoading] = useState(false)
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
   const [chat, setChat] = useState<ChatMessage[]>([
     { role: 'agent', text: '林知远医师，先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。', mode: 'rule' },
@@ -104,9 +106,11 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setExamSessionId(createExamSessionId())
       setExamSessionSaved(false)
       setExamSyncing(false)
-      setMemorySync(view === 'challenge' ? '比拼模式只记录正式提交结果，不提前泄露公开标注基准。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-      setHint(view === 'challenge' ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+      setMemorySync(view === 'challenge' ? '比拼模式只记录正式提交结果；后端挑战基准提交后才调用，只写审计。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
+      setHint(view === 'challenge' ? '比拼模式已隐藏提示。请先独立作答，提交后再同步后端挑战基准。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
       setChallengeStats(emptyChallengeStats)
+      setChallengeBenchmark(null)
+      setChallengeBenchmarkLoading(false)
     }).catch(() => setQuestions(mockQuestions))
   }, [mode, source, view])
 
@@ -138,7 +142,12 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const aiAnswer = question.ai_benchmark_answer || question.answer
   const aiCorrect = aiAnswer === question.answer
   const providerConfigured = Boolean(providerStatus?.configured || providerStatus?.ok)
-  const benchmarkLabel = providerConfigured ? '公开标注基准（Provider 已配置但本回合未调用）' : '公开标注基准（未调用独立模型）'
+  const currentChallengeBenchmark = challengeBenchmark?.question_id === question.id ? challengeBenchmark : null
+  const benchmarkAnswer = currentChallengeBenchmark?.benchmark_answer || aiAnswer
+  const benchmarkCorrect = currentChallengeBenchmark?.benchmark_correct ?? aiCorrect
+  const benchmarkLabel = currentChallengeBenchmark
+    ? `${currentChallengeBenchmark.benchmark_name}（${currentChallengeBenchmark.generation_mode}${currentChallengeBenchmark.api_source === 'fallback' ? ' · frontend fallback' : ''}）`
+    : providerConfigured ? '提交后调用 Provider 挑战基准；失败时回退公开标注' : '后端挑战基准 fallback（未配置独立 Provider）'
   const examAnsweredCount = examAttempts.length
   const examCorrectCount = examAttempts.filter((attempt) => attempt.isCorrect).length
   const examWrongAttempts = examAttempts.filter((attempt) => !attempt.isCorrect)
@@ -153,11 +162,11 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const examExpired = mode === 'exam' && examSeconds <= 0
   const formattedExamTime = `${String(Math.floor(examSeconds / 60)).padStart(2, '0')}:${String(examSeconds % 60).padStart(2, '0')}`
   const challengeDelta = canRevealBenchmark
-    ? challengeMessage(Boolean(submission?.is_correct), aiCorrect, selected === aiAnswer)
-    : '提交答案后解锁医生作答与公开标注基准对照'
+    ? challengeBenchmarkLoading ? '正在同步后端挑战基准，本轮比分稍后更新。' : challengeMessage(Boolean(submission?.is_correct), benchmarkCorrect, selected === benchmarkAnswer)
+    : '提交答案后解锁医生作答与挑战基准对照'
   const challengeLeader = challengeStats.doctor === challengeStats.benchmark
     ? '暂时平手'
-    : challengeStats.doctor > challengeStats.benchmark ? '医生领先' : '标注基准领先'
+    : challengeStats.doctor > challengeStats.benchmark ? '医生领先' : '挑战基准领先'
   const isPublicSample = publicDatasets.has(question.source_dataset)
   const canUseTutorChat = mode !== 'exam' && (!isChallenge || Boolean(submission))
   const imageSourceLabel = isPublicSample ? '真实公开样例' : '教学合成图'
@@ -189,8 +198,10 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setExamSessionSaved(false)
     setExamSyncing(false)
     setMemorySync('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再同步后端挑战基准。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
     setChallengeStats(emptyChallengeStats)
+    setChallengeBenchmark(null)
+    setChallengeBenchmarkLoading(false)
   }
 
   useEffect(() => {
@@ -204,8 +215,9 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const submit = async () => {
     if (!selected || examClosed || currentQuestionAnswered || submission) return
     setLoading(true)
+    const selectedAnswer = selected
     try {
-      const result = await api.submit(question, selected)
+      const result = await api.submit(question, selectedAnswer)
       setSubmission(result)
       if (mode === 'exam') {
         const attempt: ExamAttempt = {
@@ -220,24 +232,37 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
         setExamAttempts((current) => current.some((item) => item.questionId === question.id) ? current : [...current, attempt])
         if (examAttempts.length + 1 >= filteredQuestions.length) setExamFinished(true)
       }
-      if (isChallenge) {
-        const benchmarkCorrect = (question.ai_benchmark_answer || question.answer) === question.answer
-        setChallengeStats((current) => ({
-          rounds: current.rounds + 1,
-          doctor: current.doctor + (result.is_correct ? 1 : 0),
-          benchmark: current.benchmark + (benchmarkCorrect ? 1 : 0),
-          ties: current.ties + (result.is_correct === benchmarkCorrect ? 1 : 0),
-        }))
-      }
       onSubmission(result, question)
       setChat((items) => [
         ...items,
-        { role: 'doctor', text: `我选择：${selected}` },
+        { role: 'doctor', text: `我选择：${selectedAnswer}` },
         { role: 'agent', text: `${result.is_correct ? '回答正确。' : '这题需要复盘。'}${result.explanation} 下一步：${result.next_recommendation}`, mode: 'rule' },
       ])
       setTutorTab('compare')
+      if (isChallenge) {
+        syncChallengeBenchmark(question, selectedAnswer, result)
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  const syncChallengeBenchmark = async (activeQuestion: Question, selectedAnswer: string, result: SubmissionResponse) => {
+    setChallengeBenchmark(null)
+    setChallengeBenchmarkLoading(true)
+    setMemorySync('挑战基准正在同步：提交结果已写入画像，基准对照只写审计，不重复回灌医师画像。')
+    try {
+      const benchmark = await api.challengeBenchmark(activeQuestion, selectedAnswer)
+      setChallengeBenchmark(benchmark)
+      setChallengeStats((current) => ({
+        rounds: current.rounds + 1,
+        doctor: current.doctor + (result.is_correct ? 1 : 0),
+        benchmark: current.benchmark + (benchmark.benchmark_correct ? 1 : 0),
+        ties: current.ties + (result.is_correct === benchmark.benchmark_correct ? 1 : 0),
+      }))
+      setMemorySync(`${benchmark.benchmark_name}已返回：${benchmark.generation_mode}；审计${benchmark.audit_logged ? '已写入' : '未写入'}，画像${benchmark.profile_updated ? '已更新' : '未重复更新'}。`)
+    } finally {
+      setChallengeBenchmarkLoading(false)
     }
   }
 
@@ -348,8 +373,10 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setSubmission(null)
     setTutorTab('agent')
     setAgentMode('rule')
-    setMemorySync(isChallenge ? '比拼模式只记录正式提交结果，不提前泄露公开标注基准。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再查看公开标注基准对照。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+    setMemorySync(isChallenge ? '比拼模式只记录正式提交结果；后端挑战基准提交后才调用，只写审计。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
+    setHint(mode === 'exam' ? '考试模式已隐藏提示，结束后统一复盘。' : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再同步后端挑战基准。' : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
+    setChallengeBenchmark(null)
+    setChallengeBenchmarkLoading(false)
   }
 
   return (
@@ -357,8 +384,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       <Card className="qbank-toolbar">
         <div>
           <span className="eyebrow">Endoscopy Qbank</span>
-          <h2>{mode === 'exam' ? '考试模式' : view === 'wrong' ? '错题本复盘' : view === 'favorite' ? '收藏题训练' : view === 'challenge' ? '医生 vs 标注基准' : '题库刷题中心'}</h2>
-          <p>{isChallenge ? '当前使用真实公开样例进行回合制比拼：医师先独立作答，提交后才解锁公开标注基准和证据讨论；此模式会明确标注是否调用独立模型。' : source === 'public' ? '当前优先加载本地真实公开图文样本：Kvasir-VQA-x1、Kvasir-VQA 与 EndoBench。' : '借鉴 Study/Exam Mode、Tutor Mode、错题复盘和性能分析的训练闭环，默认优先展示真实公开图文样本。'}</p>
+          <h2>{mode === 'exam' ? '考试模式' : view === 'wrong' ? '错题本复盘' : view === 'favorite' ? '收藏题训练' : view === 'challenge' ? '医生 vs 挑战基准' : '题库刷题中心'}</h2>
+          <p>{isChallenge ? '当前使用真实公开样例进行回合制比拼：医师先独立作答，提交后才调用后端挑战基准并解锁证据讨论；若 Provider 未打通，系统会明确回退公开标注 fallback。' : source === 'public' ? '当前优先加载本地真实公开图文样本：Kvasir-VQA-x1、Kvasir-VQA 与 EndoBench。' : '借鉴 Study/Exam Mode、Tutor Mode、错题复盘和性能分析的训练闭环，默认优先展示真实公开图文样本。'}</p>
         </div>
         <div className="mode-switch">
           <Tag tone={mode === 'exam' || isChallenge ? 'amber' : 'green'}>{mode === 'exam' ? '计时考试' : isChallenge ? '比拼模式' : '练习辅导'}</Tag>
@@ -373,13 +400,13 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
             <div>
               <span className="eyebrow">Doctor vs Benchmark</span>
               <h3>{challengeLeader}</h3>
-              <p>正式提交会写入医师训练记录；当前对照为{benchmarkLabel}，提交后才显示。</p>
+              <p>正式提交会写入医师训练记录；挑战基准提交后才调用，只写审计，不重复写医师画像。</p>
             </div>
           </div>
           <div className="challenge-score-grid">
             <div><span>回合</span><strong>{challengeStats.rounds}</strong></div>
             <div><span>林医师</span><strong>{challengeStats.doctor}</strong></div>
-            <div><span>标注基准</span><strong>{challengeStats.benchmark}</strong></div>
+            <div><span>挑战基准</span><strong>{challengeStats.benchmark}</strong></div>
             <div><span>同判</span><strong>{challengeStats.ties}</strong></div>
           </div>
         </Card>
@@ -499,7 +526,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               <button className="button primary" type="button" onClick={submit} disabled={!selected || loading || examClosed || currentQuestionAnswered || Boolean(submission)}>
                 <Send size={17} /> {isChallenge ? '锁定本轮' : '提交答案'}
               </button>
-              <button className="icon-button" type="button" onClick={next} title="下一题" disabled={mode === 'exam' && examClosed}>
+              <button className="icon-button" type="button" onClick={next} title="下一题" disabled={(mode === 'exam' && examClosed) || challengeBenchmarkLoading}>
                 <RotateCcw size={17} />
               </button>
             </div>
@@ -532,7 +559,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
             ) : (
               <div className="tutor-review-lock">
                 <strong>{isChallenge ? '比拼进行中' : mode === 'exam' ? '考试进行中' : '专注作答中'}</strong>
-                <span>{isChallenge || mode === 'exam' ? '提交前隐藏提示、证据和公开标注基准。' : '提交前只开放非泄题辅导；证据与对照将在提交后展开。'}</span>
+                <span>{isChallenge || mode === 'exam' ? '提交前隐藏提示、证据和挑战基准。' : '提交前只开放非泄题辅导；证据与对照将在提交后展开。'}</span>
               </div>
             )}
             {mode === 'exam' && !submission ? (
@@ -546,8 +573,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                   <Trophy size={17} />
                   <strong>独立作答锁定</strong>
                 </div>
-                <p>本轮提交前不开放 Agent 追问、证据页或公开标注基准；提交后自动进入对照复盘。</p>
-                <span>{benchmarkLabel}，避免伪装成实时模型比赛。</span>
+                <p>本轮提交前不开放 Agent 追问、证据页或挑战基准；提交后自动进入对照复盘并同步后端基准。</p>
+                <span>{benchmarkLabel}。</span>
               </div>
             ) : tutorTab === 'agent' ? (
               <>
@@ -600,15 +627,17 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               <div className="challenge-box">
                 <div>
                   <Trophy size={17} />
-                  <strong>医生 vs 公开标注基准</strong>
+                  <strong>医生 vs 挑战基准</strong>
                 </div>
                 <p>{challengeDelta}</p>
                 {canRevealBenchmark ? (
                   <div className="challenge-round-grid">
                     <span>林医师：{submission?.is_correct ? '本轮正确' : '本轮失分'} · {selected}</span>
-                    <span>{benchmarkLabel}：{aiCorrect ? '基准正确' : '基准待复核'} · {aiAnswer}</span>
+                    <span>{benchmarkLabel}：{challengeBenchmarkLoading ? '同步中' : benchmarkCorrect ? '基准正确' : '基准待复核'} · {challengeBenchmarkLoading ? '等待后端返回' : benchmarkAnswer}</span>
+                    {currentChallengeBenchmark ? <span>理由：{currentChallengeBenchmark.rationale}</span> : null}
+                    {currentChallengeBenchmark ? <span>审计：{currentChallengeBenchmark.audit_logged ? '已记录 challenge_benchmark' : '未写入审计'} · 画像：{currentChallengeBenchmark.profile_updated ? '已更新' : '未重复更新'}</span> : null}
                   </div>
-                ) : <span>未提交前隐藏公开标注基准，避免破坏练习闭环。</span>}
+                ) : <span>未提交前隐藏挑战基准，避免破坏练习闭环。</span>}
               </div>
             )}
             <div className="safety-mini">{safetyNotice}</div>
@@ -632,10 +661,10 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
 }
 
 function challengeMessage(doctorCorrect: boolean, benchmarkCorrect: boolean, sameAnswer: boolean): string {
-  if (doctorCorrect && benchmarkCorrect && sameAnswer) return '本轮同判正确：医师答案与公开标注基准一致。'
+  if (doctorCorrect && benchmarkCorrect && sameAnswer) return '本轮同判正确：医师答案与挑战基准一致。'
   if (doctorCorrect && benchmarkCorrect) return '本轮都命中参考结论，但表达不同，适合复盘证据措辞。'
-  if (doctorCorrect && !benchmarkCorrect) return '本轮医师领先：公开基准需要复核或不适合作为最终判断。'
-  if (!doctorCorrect && benchmarkCorrect) return '本轮公开标注基准领先：建议复盘可观察证据和题干边界。'
+  if (doctorCorrect && !benchmarkCorrect) return '本轮医师领先：挑战基准需要复核或不适合作为最终判断。'
+  if (!doctorCorrect && benchmarkCorrect) return '本轮挑战基准领先：建议复盘可观察证据和题干边界。'
   return '本轮双方都需复核：请回到证据标签逐条检查。'
 }
 

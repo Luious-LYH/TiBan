@@ -9,6 +9,7 @@ import {
 import type {
   AtomicFact,
   AuditLog,
+  ChallengeBenchmarkResult,
   DashboardPayload,
   ExamSessionAttempt,
   ExamSessionResponse,
@@ -629,6 +630,29 @@ function normalizeProviderSelfTest(value: unknown, fallback: ProviderSelfTestRes
   }
 }
 
+function normalizeChallengeBenchmark(value: unknown, fallback: ChallengeBenchmarkResult): ChallengeBenchmarkResult {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id),
+    question_id: asString(record.question_id, fallback.question_id),
+    benchmark_name: asString(record.benchmark_name, fallback.benchmark_name),
+    benchmark_answer: asString(record.benchmark_answer, fallback.benchmark_answer),
+    benchmark_correct: asBoolean(record.benchmark_correct, fallback.benchmark_correct),
+    doctor_selected_answer: asString(record.doctor_selected_answer, fallback.doctor_selected_answer),
+    same_as_doctor: asBoolean(record.same_as_doctor, fallback.same_as_doctor),
+    generation_mode: asString(record.generation_mode, fallback.generation_mode),
+    provider_status: normalizeProviderStatus(record.provider_status, fallback.provider_status),
+    rationale: asString(record.rationale, fallback.rationale),
+    audit_logged: asBoolean(record.audit_logged, fallback.audit_logged),
+    profile_updated: asBoolean(record.profile_updated, fallback.profile_updated),
+    doctor_review_required: asBoolean(record.doctor_review_required, fallback.doctor_review_required),
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    created_at: asString(record.created_at, fallback.created_at),
+  }
+}
+
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -954,6 +978,46 @@ export const api = {
       doctor_review_required: true,
       safety_notice: asString(response.safety_notice, safetyNotice),
     }
+  },
+
+  async challengeBenchmark(question: Question, selectedAnswer: string): Promise<ChallengeBenchmarkResult> {
+    const publicAnswer = question.ai_benchmark_answer || question.answer
+    const fallback: ChallengeBenchmarkResult = {
+      id: `challenge_local_${Date.now()}`,
+      question_id: question.id,
+      benchmark_name: '挑战基准（公开标注 fallback）',
+      benchmark_answer: publicAnswer,
+      benchmark_correct: publicAnswer === question.answer,
+      doctor_selected_answer: selectedAnswer,
+      same_as_doctor: publicAnswer === selectedAnswer,
+      generation_mode: 'fallback',
+      provider_status: {
+        provider: 'frontend_fallback',
+        model: 'none',
+        mode: 'fallback',
+        ok: false,
+        error: 'backend_unavailable',
+      },
+      rationale: '后端挑战基准接口不可用，前端仅展示公开标注 fallback；未写入审计。',
+      audit_logged: false,
+      profile_updated: false,
+      doctor_review_required: true,
+      safety_notice: safetyNotice,
+      created_at: new Date().toISOString(),
+    }
+    const response = await request<ChallengeBenchmarkResult>(
+      '/api/tutor/challenge-benchmark',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          question_id: question.id,
+          learner_id: 'demo_learner',
+          selected_answer: selectedAnswer,
+        }),
+      },
+      fallback,
+    )
+    return normalizeChallengeBenchmark(response, fallback)
   },
 
   async explain(question: Question, selectedAnswer: string) {
