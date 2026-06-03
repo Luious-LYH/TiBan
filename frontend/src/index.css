@@ -3459,6 +3459,102 @@ textarea {
   border-bottom: 1px solid var(--line);
 }
 
+.profile-exam-session-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr) auto;
+  gap: 16px;
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 48%, #f0fdfa 100%);
+  border-color: #bfdbfe;
+}
+
+.profile-exam-session-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.profile-exam-session-main svg {
+  flex: 0 0 auto;
+  color: var(--blue);
+}
+
+.profile-exam-session-main strong,
+.profile-exam-session-main p {
+  display: block;
+}
+
+.profile-exam-session-main strong {
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.profile-exam-session-main p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.profile-exam-session-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.profile-exam-session-metrics div {
+  min-width: 0;
+  padding: 11px 12px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.profile-exam-session-metrics span,
+.profile-exam-session-metrics strong {
+  display: block;
+}
+
+.profile-exam-session-metrics span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.profile-exam-session-metrics strong {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-exam-session-queue {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(226, 232, 240, 0.86);
+}
+
+.profile-exam-session-queue span {
+  padding: 7px 9px;
+  color: var(--blue);
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.profile-exam-session-card .button {
+  justify-self: end;
+  white-space: nowrap;
+}
+
 .skill-plan-list,
 .memory-replay-list,
 .quest-list {
@@ -5080,6 +5176,7 @@ textarea {
   .filter-panel,
   .qbank-source-ledger,
   .feedback-session-card,
+  .profile-exam-session-card,
   .admission-grid,
   .challenge-scoreboard,
   .premise-scoreboard,
@@ -5103,6 +5200,14 @@ textarea {
 
   .feedback-session-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-exam-session-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-exam-session-card .button {
+    justify-self: start;
   }
 
   .card-media,
@@ -5261,7 +5366,8 @@ textarea {
   .qbank-ledger-metrics,
   .public-sample-jump-row,
   .current-source-grid,
-  .feedback-session-metrics {
+  .feedback-session-metrics,
+  .profile-exam-session-metrics {
     grid-template-columns: 1fr;
   }
 

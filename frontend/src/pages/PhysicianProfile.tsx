@@ -27,6 +27,7 @@ export function PhysicianProfile() {
   const badges = useMemo(() => buildBadges(profile), [profile])
   const earnedBadges = badges.filter((badge) => badge.earned).length
   const updatedAt = formatUpdatedAt(profile.updated_at)
+  const latestExamSession = profile.exam_sessions[0] || null
 
   return (
     <div className="page-stack">
@@ -166,6 +167,32 @@ export function PhysicianProfile() {
             <MetricCard label="Agent 辅导" value={`${recordStats.agent} 次`} />
             <MetricCard label="待复盘" value={`${recordStats.review} 项`} />
           </div>
+          {latestExamSession ? (
+            <Card className="profile-exam-session-card">
+              <div className="profile-exam-session-main">
+                <ClipboardList size={22} />
+                <div>
+                  <span className="eyebrow">Latest exam session</span>
+                  <strong>{latestExamSession.session_id}</strong>
+                  <p>本场考试摘要已写入 {profile.name} 的画像；错题队列可直接进入复盘，不重复增加单题训练记录。</p>
+                </div>
+              </div>
+              <div className="profile-exam-session-metrics">
+                <div><span>题量</span><strong>{latestExamSession.answered_count}</strong></div>
+                <div><span>正确率</span><strong>{latestExamSession.accuracy}%</strong></div>
+                <div><span>平均分</span><strong>{latestExamSession.average_score}</strong></div>
+                <div><span>错题</span><strong>{latestExamSession.wrong_questions.length}</strong></div>
+              </div>
+              <Link className="button primary" to={`/feedback?session=${encodeURIComponent(latestExamSession.session_id)}`}>
+                <ArrowRight size={16} /> 复盘本场考试
+              </Link>
+              <div className="profile-exam-session-queue">
+                {latestExamSession.wrong_questions.length
+                  ? latestExamSession.wrong_questions.map((item) => <span key={item}>{item}</span>)
+                  : <span>本场无错题，保持公开样例训练节奏。</span>}
+              </div>
+            </Card>
+          ) : null}
           <div className="grid two">
             <Card>
               <SectionTitle eyebrow="Records" title="训练事件流水" action={<ClipboardList size={20} />} />
@@ -281,7 +308,7 @@ function summarizeRecords(profile: LearnerProfile) {
     },
     { answer: 0, exam: 0, agent: 0, report: 0, review: 0 },
   )
-  return { ...summary, review: Math.max(summary.review, profile.wrong_questions.length) }
+  return { ...summary, exam: Math.max(summary.exam, profile.exam_sessions.length), review: Math.max(summary.review, profile.wrong_questions.length) }
 }
 
 function buildBadges(profile: LearnerProfile) {
