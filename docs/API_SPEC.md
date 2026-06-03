@@ -182,6 +182,25 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
 
 前端错因复盘页支持 `/feedback?session=exam_abc123`，会按该 session 恢复错题队列并显示“Exam session replay”证据卡；该复盘视图不重复写入答题记录。
 
+`GET /api/platform/readiness` 也会同步返回最近一场考试复盘摘要，首页据此展示“最近考试 Session”卡片和复盘入口：
+
+```json
+{
+  "exam_session_count": 1,
+  "latest_exam_replay": {
+    "session_id": "exam_abc123",
+    "answered_count": 3,
+    "accuracy": 67,
+    "average_score": 67,
+    "wrong_count": 1,
+    "wrong_questions": ["q004"],
+    "profile_updated": true,
+    "href": "/feedback?session=exam_abc123",
+    "profile_href": "/profile?tab=records"
+  }
+}
+```
+
 报告输出核心字段：
 
 ```json

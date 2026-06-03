@@ -17,6 +17,7 @@ import type {
   ExamSessionResponse,
   ImageUploadResponse,
   KnowledgeSourceChainItem,
+  LatestExamReplay,
   KnowledgeBase,
   LearnerProfile,
   ModelAdmissionResult,
@@ -583,6 +584,34 @@ function normalizeKnowledgeSourceChainItem(value: unknown, fallback: KnowledgeSo
   }
 }
 
+function normalizeLatestExamReplay(value: unknown, fallback?: LatestExamReplay | null): LatestExamReplay | null {
+  const record = asRecord(value)
+  if (!Object.keys(record).length) return fallback || null
+  const sessionId = asString(record.session_id, asString(record.id, fallback?.session_id || 'exam_session'))
+  const wrongQuestions = asStringArray(record.wrong_questions, fallback?.wrong_questions || [])
+  const answeredCount = asNumber(record.answered_count, fallback?.answered_count || 0)
+  const accuracy = asNumber(record.accuracy, fallback?.accuracy || 0)
+  const wrongCount = asNumber(record.wrong_count, fallback?.wrong_count ?? wrongQuestions.length)
+  return {
+    id: asString(record.id, fallback?.id || sessionId),
+    session_id: sessionId,
+    date: asString(record.date, fallback?.date || ''),
+    answered_count: answeredCount,
+    correct_count: asNumber(record.correct_count, fallback?.correct_count || 0),
+    accuracy,
+    average_score: asNumber(record.average_score, fallback?.average_score || 0),
+    wrong_count: wrongCount,
+    wrong_questions: wrongQuestions,
+    elapsed_seconds: asNumber(record.elapsed_seconds, fallback?.elapsed_seconds || 0),
+    profile_updated: asBoolean(record.profile_updated, fallback?.profile_updated || false),
+    created_at: asString(record.created_at, fallback?.created_at || ''),
+    href: asString(record.href, fallback?.href || `/feedback?session=${encodeURIComponent(sessionId)}`),
+    profile_href: asString(record.profile_href, fallback?.profile_href || '/profile?tab=records'),
+    status: asString(record.status, fallback?.status || '待核查'),
+    detail: asString(record.detail, fallback?.detail || `本场考试 ${answeredCount} 题，正确率 ${accuracy}%，错题 ${wrongCount} 题。`),
+  }
+}
+
 function normalizePlatformReadiness(value: unknown, fallback: PlatformReadiness = mockDashboard.platform_readiness): PlatformReadiness {
   const record = asRecord(value)
   const fallbackModules = fallback.modules.length ? fallback.modules : mockDashboard.platform_readiness.modules
@@ -620,6 +649,8 @@ function normalizePlatformReadiness(value: unknown, fallback: PlatformReadiness 
     real_sample_count: asNumber(record.real_sample_count, fallback.real_sample_count),
     report_template_count: asNumber(record.report_template_count, fallback.report_template_count),
     training_record_count: asNumber(record.training_record_count, fallback.training_record_count),
+    exam_session_count: asNumber(record.exam_session_count, fallback.exam_session_count),
+    latest_exam_replay: normalizeLatestExamReplay(record.latest_exam_replay, fallback.latest_exam_replay),
     audit_log_count: asNumber(record.audit_log_count, fallback.audit_log_count),
     admission_grade: asString(record.admission_grade, fallback.admission_grade),
     admission_provider_called: asBoolean(record.admission_provider_called, fallback.admission_provider_called),

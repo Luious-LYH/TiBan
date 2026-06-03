@@ -542,7 +542,7 @@ a {
 
 .readiness-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -576,6 +576,87 @@ a {
   display: block;
   min-width: 0;
   line-height: 1.35;
+}
+
+.dashboard-exam-replay {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.9fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.97), rgba(239, 246, 255, 0.92)),
+    linear-gradient(90deg, rgba(37, 99, 235, 0.12), rgba(20, 184, 166, 0.1));
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.08);
+}
+
+.dashboard-exam-replay.empty {
+  grid-template-columns: minmax(0, 1fr) auto;
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+.dashboard-exam-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.dashboard-exam-main svg {
+  flex: 0 0 auto;
+  color: var(--blue);
+}
+
+.dashboard-exam-main strong {
+  display: block;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.dashboard-exam-main p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.dashboard-exam-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dashboard-exam-metrics div {
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(191, 219, 254, 0.8);
+  border-radius: 8px;
+}
+
+.dashboard-exam-metrics span,
+.dashboard-exam-metrics strong {
+  display: block;
+}
+
+.dashboard-exam-metrics span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-exam-metrics strong {
+  margin-top: 3px;
+  font-size: 18px;
+}
+
+.dashboard-exam-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .readiness-grid {
@@ -5175,6 +5256,7 @@ textarea {
 
   .filter-panel,
   .qbank-source-ledger,
+  .dashboard-exam-replay,
   .feedback-session-card,
   .profile-exam-session-card,
   .admission-grid,
@@ -5200,6 +5282,14 @@ textarea {
 
   .feedback-session-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-exam-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-exam-actions {
+    justify-content: flex-start;
   }
 
   .profile-exam-session-metrics {
@@ -5324,6 +5414,8 @@ textarea {
   .report-provider-console.compact .report-provider-grid,
   .profile-provenance,
   .credential-policy-card,
+  .dashboard-exam-replay,
+  .dashboard-exam-replay.empty,
   .demo-check-console,
   .readiness-summary,
   .readiness-grid,
@@ -5366,6 +5458,7 @@ textarea {
   .qbank-ledger-metrics,
   .public-sample-jump-row,
   .current-source-grid,
+  .dashboard-exam-metrics,
   .feedback-session-metrics,
   .profile-exam-session-metrics {
     grid-template-columns: 1fr;

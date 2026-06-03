@@ -47,6 +47,7 @@ export function Dashboard() {
   const readiness = data.platform_readiness
   const readinessSource = readiness.api_source || data.api_source || 'backend'
   const challengeVerified = Boolean(demoCheck?.audit_event_types?.includes('challenge_benchmark'))
+  const latestExamReplay = readiness.latest_exam_replay || null
 
   return (
     <div className="page-stack">
@@ -117,11 +118,56 @@ export function Dashboard() {
             <strong>{readiness.training_record_count} 条训练记录</strong>
           </div>
           <div>
+            <ClipboardList size={20} />
+            <span>考试复盘</span>
+            <strong>{latestExamReplay ? `${latestExamReplay.session_id} · ${latestExamReplay.wrong_count} 题` : '等待交卷'}</strong>
+          </div>
+          <div>
             <ShieldCheck size={20} />
             <span>模型准入</span>
             <strong>Grade {readiness.admission_grade} · {readiness.admission_provider_called ? 'provider' : 'rule'}</strong>
           </div>
         </div>
+        {latestExamReplay ? (
+          <div className="dashboard-exam-replay">
+            <div className="dashboard-exam-main">
+              <ClipboardList size={22} />
+              <div>
+                <span className="eyebrow">Latest exam session</span>
+                <strong>{latestExamReplay.session_id}</strong>
+                <p>{latestExamReplay.detail} {latestExamReplay.profile_updated ? '已沉淀到医师画像，复盘不会重复增加单题计数。' : '画像回灌状态待核查。'}</p>
+              </div>
+            </div>
+            <div className="dashboard-exam-metrics">
+              <div><span>题量</span><strong>{latestExamReplay.answered_count}</strong></div>
+              <div><span>正确率</span><strong>{latestExamReplay.accuracy}%</strong></div>
+              <div><span>平均分</span><strong>{latestExamReplay.average_score}</strong></div>
+              <div><span>错题</span><strong>{latestExamReplay.wrong_count}</strong></div>
+            </div>
+            <div className="dashboard-exam-actions">
+              <Link className="button primary" to={latestExamReplay.href}>
+                <Target size={16} /> 复盘本场考试
+              </Link>
+              <Link className="button secondary" to={latestExamReplay.profile_href}>
+                <UserRound size={16} /> 查看画像记录
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="dashboard-exam-replay empty">
+            <div className="dashboard-exam-main">
+              <ClipboardList size={22} />
+              <div>
+                <span className="eyebrow">Latest exam session</span>
+                <strong>尚未生成考试复盘收据</strong>
+                <p>进入考试模式并交卷后，系统会把整场摘要写入画像，并在这里展示 session 级错题复盘入口。</p>
+              </div>
+            </div>
+            <Link className="button secondary" to="/training?mode=exam">
+              <ArrowRight size={16} /> 开始考试模式
+            </Link>
+          </div>
+        )}
         <div className={`demo-check-console ${demoCheckStatus}`}>
           <div className="demo-check-main">
             <ActivitySquare size={22} />

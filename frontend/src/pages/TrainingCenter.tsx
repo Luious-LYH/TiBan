@@ -608,7 +608,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
           <div>
             <span className="eyebrow">Source ledger</span>
             <h3>题库来源总账</h3>
-            <p>{currentSourceAssurance} 当前筛选命中 {filteredPublicCount} 条公开样例，演示时可一键切到纯公开样例训练。</p>
+            <p>{currentSourceAssurance} 当前筛选命中 {filteredPublicCount} 条公开样例，可一键切到纯公开样例训练。</p>
           </div>
         </div>
         <div className="qbank-ledger-metrics">

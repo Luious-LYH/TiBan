@@ -97,6 +97,7 @@ class DashboardService:
         audit_logs = read_json("audit_logs.json")
         challenge_logs = [item for item in audit_logs if item.get("event_type") == "challenge_benchmark"]
         provider_self_tests = [item for item in audit_logs if item.get("event_type") == "provider_self_test"]
+        latest_exam_replay = self._latest_exam_replay(profile)
         modules = [
             self._module(
                 "backend_api",
@@ -121,6 +122,18 @@ class DashboardService:
                 f"{profile.name} 当前有 {len(profile.training_records)} 条训练/Agent/报告记录。",
                 "/profile",
                 "green" if profile.training_records else "amber",
+            ),
+            self._module(
+                "exam_replay",
+                "考试 Session 复盘",
+                "ready" if latest_exam_replay else "not_run",
+                (
+                    f"{latest_exam_replay['session_id']} · 错题 {latest_exam_replay['wrong_count']} 题，可直接复盘。"
+                    if latest_exam_replay
+                    else "尚未写入考试 Session；可从考试模式交卷生成复盘队列。"
+                ),
+                latest_exam_replay["href"] if latest_exam_replay else "/training?mode=exam",
+                "green" if latest_exam_replay else "blue",
             ),
             self._module(
                 "report_kb",
@@ -179,6 +192,8 @@ class DashboardService:
             "real_sample_count": len(public_questions),
             "report_template_count": len(report_kb.get("templates", [])),
             "training_record_count": len(profile.training_records),
+            "exam_session_count": len(profile.exam_sessions or []),
+            "latest_exam_replay": latest_exam_replay,
             "audit_log_count": len(audit_logs),
             "admission_grade": admission_state.get("grade", "NA"),
             "admission_provider_called": bool(admission_state.get("provider_called")),
@@ -191,6 +206,18 @@ class DashboardService:
                     f"{len(public_questions)} 条公开图文题已由 real_sample_knowledge.json 映射到题库。",
                     "/training?source=public",
                     "green" if public_questions else "amber",
+                ),
+                self._receipt(
+                    "exam_replay",
+                    "考试 Session 复盘",
+                    "ready" if latest_exam_replay else "not_run",
+                    (
+                        f"{latest_exam_replay['session_id']} 已写入画像；错题队列 {latest_exam_replay['wrong_count']} 题，复盘不会重复计数。"
+                        if latest_exam_replay
+                        else "尚未产生考试 Session；从考试模式交卷后会生成可复盘收据。"
+                    ),
+                    latest_exam_replay["href"] if latest_exam_replay else "/training?mode=exam",
+                    "green" if latest_exam_replay else "blue",
                 ),
                 self._receipt(
                     "report_kb",
@@ -273,20 +300,27 @@ class DashboardService:
                 },
                 {
                     "step": 3,
+                    "title": "考试 Session 复盘",
+                    "detail": "交卷后按 session 恢复本场错题队列，复盘视图不重复增加训练计数。",
+                    "href": latest_exam_replay["href"] if latest_exam_replay else "/training?mode=exam",
+                    "expected_state": "exam_session + wrong queue + profile updated",
+                },
+                {
+                    "step": 4,
                     "title": "边刷边问 Agent",
                     "detail": "围绕当前题追问证据链，系统记录训练标签但不保存自由文本。",
                     "href": "/training",
                     "expected_state": "Tutor chat + memory summary",
                 },
                 {
-                    "step": 4,
+                    "step": 5,
                     "title": "报告生成与修改",
                     "detail": "用同一批公开样例生成报告草稿，再用 AI judge 评分改写。",
                     "href": "/report",
                     "expected_state": "来源追踪 + 幻觉审查 + 画像回灌",
                 },
                 {
-                    "step": 5,
+                    "step": 6,
                     "title": "模型准入探测",
                     "detail": "用公开样例测试用户自带 Provider，结果同步到首页和模型中心。",
                     "href": "/models",
@@ -295,6 +329,32 @@ class DashboardService:
             ],
             "gaps": gaps,
             "safety_notice": SAFETY_NOTICE,
+        }
+
+    def _latest_exam_replay(self, profile) -> dict[str, object] | None:
+        sessions = profile.exam_sessions or []
+        if not sessions:
+            return None
+        session = sessions[0]
+        session_id = str(session.get("session_id") or session.get("id") or "exam_session")
+        wrong_questions = [str(item) for item in session.get("wrong_questions", [])]
+        return {
+            "id": str(session.get("id", session_id)),
+            "session_id": session_id,
+            "date": str(session.get("date", "")),
+            "answered_count": int(session.get("answered_count", 0) or 0),
+            "correct_count": int(session.get("correct_count", 0) or 0),
+            "accuracy": int(session.get("accuracy", 0) or 0),
+            "average_score": int(session.get("average_score", 0) or 0),
+            "wrong_count": len(wrong_questions),
+            "wrong_questions": wrong_questions,
+            "elapsed_seconds": int(session.get("elapsed_seconds", 0) or 0),
+            "profile_updated": bool(session.get("profile_updated", False)),
+            "created_at": str(session.get("created_at", "")),
+            "href": f"/feedback?session={session_id}",
+            "profile_href": "/profile?tab=records",
+            "status": "已写入画像" if session.get("profile_updated", False) else "待核查",
+            "detail": f"本场考试 {session.get('answered_count', 0)} 题，正确率 {session.get('accuracy', 0)}%，错题 {len(wrong_questions)} 题。",
         }
 
     def _knowledge_source_chain(

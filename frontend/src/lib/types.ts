@@ -448,6 +448,25 @@ export type KnowledgeSourceChainItem = {
   tone: ReadinessTone
 }
 
+export type LatestExamReplay = {
+  id: string
+  session_id: string
+  date: string
+  answered_count: number
+  correct_count: number
+  accuracy: number
+  average_score: number
+  wrong_count: number
+  wrong_questions: string[]
+  elapsed_seconds: number
+  profile_updated: boolean
+  created_at: string
+  href: string
+  profile_href: string
+  status: string
+  detail: string
+}
+
 export type DemoPathStep = {
   step: number
   title: string
@@ -468,6 +487,8 @@ export type PlatformReadiness = {
   real_sample_count: number
   report_template_count: number
   training_record_count: number
+  exam_session_count: number
+  latest_exam_replay?: LatestExamReplay | null
   audit_log_count: number
   admission_grade: string
   admission_provider_called: boolean
