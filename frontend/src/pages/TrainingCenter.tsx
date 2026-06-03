@@ -4,7 +4,7 @@ import { ActivitySquare, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, Data
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockQuestions, safetyNotice } from '../lib/mock'
-import type { ChallengeBenchmarkResult, ExamSessionAttempt, ProviderStatus, Question, SubmissionResponse } from '../lib/types'
+import type { AuditLog, ChallengeBenchmarkResult, ExamSessionAttempt, ProviderStatus, Question, SubmissionResponse } from '../lib/types'
 
 type ChatMessage = {
   role: 'agent' | 'doctor'
@@ -74,6 +74,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [challengeStats, setChallengeStats] = useState<ChallengeStats>(emptyChallengeStats)
   const [challengeBenchmark, setChallengeBenchmark] = useState<ChallengeBenchmarkResult | null>(null)
   const [challengeBenchmarkLoading, setChallengeBenchmarkLoading] = useState(false)
+  const [lastChallengeAudit, setLastChallengeAudit] = useState<AuditLog | null>(null)
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
   const [chat, setChat] = useState<ChatMessage[]>([
     { role: 'agent', text: '林知远医师，先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。', mode: 'rule' },
@@ -87,6 +88,13 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   useEffect(() => {
     api.providerStatus().then(setProviderStatus).catch(() => undefined)
   }, [])
+
+  useEffect(() => {
+    if (!isChallenge) return
+    api.challengeAuditReceipt()
+      .then(setLastChallengeAudit)
+      .catch(() => setLastChallengeAudit(null))
+  }, [isChallenge])
 
   useEffect(() => {
     api.qbank({
@@ -261,6 +269,18 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
         ties: current.ties + (result.is_correct === benchmark.benchmark_correct ? 1 : 0),
       }))
       setMemorySync(`${benchmark.benchmark_name}已返回：${benchmark.generation_mode}；审计${benchmark.audit_logged ? '已写入' : '未写入'}，画像${benchmark.profile_updated ? '已更新' : '未重复更新'}。`)
+      if (benchmark.audit_logged) {
+        setLastChallengeAudit({
+          id: benchmark.id,
+          event_type: 'challenge_benchmark',
+          user_id: 'demo_learner',
+          entity_id: activeQuestion.id,
+          summary: `挑战基准完成：${benchmark.benchmark_name} · ${benchmark.generation_mode}；不重复回灌医师画像。`,
+          risk_level: 'medium',
+          doctor_review_required: true,
+          created_at: benchmark.created_at,
+        })
+      }
     } finally {
       setChallengeBenchmarkLoading(false)
     }
@@ -408,6 +428,17 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
             <div><span>林医师</span><strong>{challengeStats.doctor}</strong></div>
             <div><span>挑战基准</span><strong>{challengeStats.benchmark}</strong></div>
             <div><span>同判</span><strong>{challengeStats.ties}</strong></div>
+          </div>
+          <div className={`challenge-audit-receipt ${lastChallengeAudit ? 'synced' : 'pending'}`}>
+            <ActivitySquare size={18} />
+            <div>
+              <strong>{lastChallengeAudit ? '最近挑战基准审计已连接' : '等待挑战基准审计'}</strong>
+              <span>
+                {lastChallengeAudit
+                  ? `${formatAuditTime(lastChallengeAudit.created_at)} · ${lastChallengeAudit.entity_id || '样例'} · ${lastChallengeAudit.summary}`
+                  : '提交一轮后会写入 challenge_benchmark 审计；该审计不重复更新医师画像。'}
+              </span>
+            </div>
           </div>
         </Card>
       ) : null}
@@ -666,6 +697,17 @@ function challengeMessage(doctorCorrect: boolean, benchmarkCorrect: boolean, sam
   if (doctorCorrect && !benchmarkCorrect) return '本轮医师领先：挑战基准需要复核或不适合作为最终判断。'
   if (!doctorCorrect && benchmarkCorrect) return '本轮挑战基准领先：建议复盘可观察证据和题干边界。'
   return '本轮双方都需复核：请回到证据标签逐条检查。'
+}
+
+function formatAuditTime(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return date.toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function nextQuestionIndex(currentIndex: number, questions: Question[], attempts: ExamAttempt[], examMode: boolean): number {

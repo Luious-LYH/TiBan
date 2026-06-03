@@ -1383,4 +1383,13 @@ export const api = {
     })
     return response.items
   },
+
+  async challengeAuditReceipt(): Promise<AuditLog | null> {
+    const response = await request<{ items: AuditLog[]; total: number; api_source?: ApiSource }>('/api/audit', undefined, {
+      items: [],
+      total: 0,
+    })
+    if (response.api_source === 'fallback') return null
+    return response.items.find((item) => item.event_type === 'challenge_benchmark') || null
+  },
 }

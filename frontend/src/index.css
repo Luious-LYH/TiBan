@@ -1652,6 +1652,46 @@ input {
   font-size: 24px;
 }
 
+.challenge-audit-receipt {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.challenge-audit-receipt.synced {
+  color: var(--teal);
+  background: rgba(240, 253, 250, 0.76);
+  border-color: #99f6e4;
+}
+
+.challenge-audit-receipt.pending {
+  color: var(--amber);
+  background: rgba(255, 251, 235, 0.76);
+  border-color: #fde68a;
+}
+
+.challenge-audit-receipt strong,
+.challenge-audit-receipt span {
+  display: block;
+}
+
+.challenge-audit-receipt strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.challenge-audit-receipt span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .challenge-box div {
   display: flex;
   gap: 8px;

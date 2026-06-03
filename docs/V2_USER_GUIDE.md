@@ -71,7 +71,7 @@ LLM_TIMEOUT_SECONDS=25
    从训练中心提交后进入时显示本轮提交；直接打开或刷新时会从后端错题本恢复最近复盘题，并标注为“复盘快照”，不会重复写入医师画像。
 
 5. 医生 vs 后端挑战基准 `/training?view=challenge`
-   先独立作答。提交前右侧证据页和基准答案不会泄露；医师提交后，前端才调用 `/api/tutor/challenge-benchmark` 同步挑战基准。Provider 可用时由 Provider 独立选择答案；不可用或调用失败时明确显示“公开标注 fallback”。该基准只写 `challenge_benchmark` 审计，不重复更新林知远医师画像。
+   先独立作答。提交前右侧证据页和基准答案不会泄露；医师提交后，前端才调用 `/api/tutor/challenge-benchmark` 同步挑战基准。Provider 可用时由 Provider 独立选择答案；不可用或调用失败时明确显示“公开标注 fallback”。该基准只写 `challenge_benchmark` 审计，不重复更新林知远医师画像。比分板会展示最近一条真实后端 `challenge_benchmark` 审计收据；后端不可用或只有前端 fallback 时，不会伪造“已连接”。
 
 6. 错误前提训练 `/false-premise`
    让医生判断题干假设是否成立。提交前只显示原则提示；提交后解锁证据不足事实、原子证据、得分和下一步复盘建议。这个页面同时服务医师训练和模型准入边界展示。
