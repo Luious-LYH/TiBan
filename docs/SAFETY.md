@@ -17,7 +17,7 @@
 - 报告草稿会对姓名、身份证、住院号、就诊卡号、电话等敏感标记做演示级脱敏后再回显。
 - `ReportService` 和 `PatientEducationAgent` 输出 `doctor_review_required=true`。
 - `SkillRegistry` 将 high risk skill 自动标记为医生审核。
-- `AuditService` 记录题目查看、答题提交、辅导回复、报告草稿、科普卡片、skill 调用和模型选择。
+- `AuditService` 记录题目查看、答题提交、辅导回复、报告草稿、科普卡片草稿、科普卡片审核、skill 调用和模型选择。
 
 ## Mock 数据策略
 

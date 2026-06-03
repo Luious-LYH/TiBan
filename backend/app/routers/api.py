@@ -12,6 +12,7 @@ from app.schemas import (
     ImageUploadResponse,
     ModelAdmissionTestRequest,
     ModelSelectRequest,
+    PatientCardApproveRequest,
     PatientCardRequest,
     ReportDraftRequest,
     ReportJudgeRequest,
@@ -237,6 +238,16 @@ def real_samples() -> dict[str, object]:
 @router.post("/patient-card")
 def patient_card(request: PatientCardRequest) -> dict[str, object]:
     return report_service.generate_patient_card(request).model_dump()
+
+
+@router.post("/patient-card/{card_id}/approve")
+def approve_patient_card(card_id: str, request: PatientCardApproveRequest) -> dict[str, object]:
+    try:
+        return report_service.approve_patient_card(card_id, request).model_dump()
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Patient card not found: {card_id}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/models")

@@ -117,7 +117,7 @@ function auditMatches(log: AuditLog, filter: AuditFilter): boolean {
   if (filter === 'all') return true
   if (filter === 'high') return log.risk_level === 'high'
   if (filter === 'training') return ['question_view', 'answer_submit', 'exam_session', 'tutor_reply', 'favorite_update'].includes(log.event_type)
-  if (filter === 'report') return ['report_draft', 'report_judge', 'patient_card', 'image_upload'].includes(log.event_type)
+  if (filter === 'report') return ['report_draft', 'report_judge', 'patient_card', 'patient_card_approve', 'image_upload'].includes(log.event_type)
   if (filter === 'model') return ['model_select', 'model_admission'].includes(log.event_type)
   if (filter === 'skills') return log.event_type === 'skill_run'
   return true
@@ -131,6 +131,7 @@ function eventLabel(type: AuditLog['event_type']): string {
     tutor_reply: 'Agent辅导',
     report_draft: '报告草稿',
     patient_card: '科普卡片',
+    patient_card_approve: '卡片审核',
     report_judge: '报告评分',
     skill_run: 'Skill运行',
     model_select: '模型选择',

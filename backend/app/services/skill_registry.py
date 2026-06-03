@@ -79,9 +79,8 @@ class SkillRegistry:
         elif skill.id == "patient_card":
             card = report_service.generate_patient_card(
                 PatientCardRequest(
-                    diagnosis_summary=str(payload.get("diagnosis_summary", "胃黏膜炎症样改变，医生已审核。")),
+                    diagnosis_summary=str(payload.get("diagnosis_summary", "胃黏膜炎症样改变，等待医生审核。")),
                     audience="patient",
-                    reviewed_by_doctor=bool(payload.get("reviewed_by_doctor", False)),
                 )
             )
             result = {"card": card.model_dump()}

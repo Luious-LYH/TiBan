@@ -276,11 +276,14 @@ class ReportJudgeResponse(BaseModel):
 class PatientCardRequest(BaseModel):
     diagnosis_summary: str
     audience: str = "patient"
-    reviewed_by_doctor: bool = False
     template_id: str = "calm_blue"
     image_url: str | None = None
-    reviewer_name: str | None = None
+
+
+class PatientCardApproveRequest(BaseModel):
+    reviewer_name: str
     review_notes: str | None = None
+    review_checks: dict[str, bool] = Field(default_factory=dict)
 
 
 class PatientCard(BaseModel):
@@ -298,6 +301,7 @@ class PatientCard(BaseModel):
     share_status: Literal["locked_pending_review", "reviewed_ready_to_share"] = "locked_pending_review"
     reviewer_name: str | None = None
     review_notes: str | None = None
+    reviewed_at: str | None = None
     review_steps: list[dict[str, Any]] = Field(default_factory=list)
     doctor_review_required: bool = True
     safety_notice: str
@@ -366,6 +370,7 @@ class AuditLog(BaseModel):
         "report_draft",
         "report_judge",
         "patient_card",
+        "patient_card_approve",
         "skill_run",
         "model_select",
         "model_admission",

@@ -69,7 +69,7 @@ LLM_TIMEOUT_SECONDS=25
 | 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 流程工作台展示数据/Provider/模板状态；报告生成显示 `source_trace`、Provider 状态和 `evidence_ledger`；报告评分返回画像回灌与 `recommended_drills` |
 | Skills 中心 | backend rule | `skills.json` + 当前题/报告/卡片服务 | 页面展示运行摘要、审核状态和工作区跳转；完整 JSON 仅放在开发细节折叠项 |
 | 模型准入 | provider probe / rule draft | 公开样例 + 可选 Provider | 逐样例返回 evidence；真实调用成功才标记 `provider_called=true`；最近准入摘要会写入平台状态，不保存 key/base |
-| 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB | 默认锁定打印/分享；医生完成审核清单后才解锁，并写入审计日志 |
+| 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB | 默认锁定打印/分享；医生完成审核清单后通过同一 `card_id` 解锁，并写入 `patient_card_approve` 审计日志 |
 | Memory | rule persistence | `learner_profile.json` | 提交题目、考试 Session、报告 judge 和 Agent 追问都会更新训练记录、能力分与弱项标签；考试汇总不重复增加单题题量 |
 | 审计日志 | backend persistence | `audit_logs.json` | 记录题目、辅导、报告、上传、准入等事件 |
 

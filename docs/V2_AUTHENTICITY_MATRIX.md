@@ -38,4 +38,4 @@
 
 本平台不是把所有能力伪装成“已完成临床级 AI”。v2.0 的核心进步是：每个输出都能说明它来自真实 Provider、后端规则，还是 fallback；训练中心提交前不泄露参考答案，挑战模式提交前锁住证据页；报告中心能追踪医生输入、公开样例来源台账、模板知识库、Provider 观察、Provider 评阅和评分后的推荐专项训练；模型准入会逐公开样例返回 evidence 和 Provider 调用状态，但完整临床评测流水线仍按需求暂缓。
 
-科普卡片的打印/分享不是自由按钮：草稿生成后默认 `share_status=locked_pending_review`，医生完成审核清单并再次请求后端确认后才变为 `reviewed_ready_to_share`，同时写入 `patient_card` 审计事件。
+科普卡片的打印/分享不是自由按钮：草稿生成后默认 `share_status=locked_pending_review`，医生完成审核清单后调用 `/patient-card/{card_id}/approve` 审核同一张草稿，后端返回 `reviewed_ready_to_share` 才会解锁，同时写入 `patient_card_approve` 审计事件。

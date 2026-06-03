@@ -1,9 +1,11 @@
-from uuid import uuid4
 import re
+import json
+from uuid import uuid4
 
-from app.core.config import SAFETY_NOTICE
+from app.core.config import BACKEND_DIR, SAFETY_NOTICE
 from app.schemas import (
     PatientCard,
+    PatientCardApproveRequest,
     PatientCardRequest,
     ReportDraft,
     ReportDraftRequest,
@@ -27,6 +29,7 @@ UNSUPPORTED_SINGLE_FRAME_PATTERNS = [
     r"已行.*切除",
     r"已取.*活检",
 ]
+PATIENT_CARD_STORE = BACKEND_DIR / "runtime" / "patient_cards.json"
 
 
 class ReportService:
@@ -182,17 +185,11 @@ class ReportService:
     def generate_patient_card(self, request: PatientCardRequest) -> PatientCard:
         summary = safety_service.redact_sensitive_text(request.diagnosis_summary.strip())
         template = self._card_template(request.template_id)
-        review_status = "doctor_reviewed_input" if request.reviewed_by_doctor else "doctor_review_pending"
-        review_phrase = "医生已审核输入" if request.reviewed_by_doctor else "医生待审核输入"
-        share_status = "reviewed_ready_to_share" if request.reviewed_by_doctor else "locked_pending_review"
-        reviewer_name = request.reviewer_name.strip() if request.reviewer_name and request.reviewer_name.strip() else None
-        review_notes = safety_service.redact_sensitive_text(request.review_notes.strip()) if request.review_notes else None
-        reviewed_card = bool(request.reviewed_by_doctor)
         card = PatientCard(
             id=f"card_{uuid4().hex[:12]}",
-            card_title=f"内镜检查结果说明卡（{'医生已审核' if reviewed_card else '医生审核前草稿'}）",
+            card_title="内镜检查结果说明卡（医生审核前草稿）",
             plain_language_explanation=(
-                f"根据{review_phrase}，本卡片将“{summary}”转写为更容易理解的说明。"
+                f"根据医生待审核输入，本卡片将“{summary}”转写为更容易理解的说明。"
                 "它只帮助沟通检查发现，不替代医生面对面解释。"
             ),
             what_it_means=[
@@ -210,19 +207,20 @@ class ReportService:
             template_id=request.template_id,
             visual_tone=template.get("tone", "稳健、清楚、适合打印"),
             image_url=request.image_url,
-            review_status=review_status,
-            share_status=share_status,
-            reviewer_name=reviewer_name if reviewed_card else None,
-            review_notes=review_notes if reviewed_card else None,
+            review_status="doctor_review_pending",
+            share_status="locked_pending_review",
+            reviewer_name=None,
+            review_notes=None,
+            reviewed_at=None,
             review_steps=[
                 {
                     "label": "摘要来自医生确认的报告或训练输入",
-                    "checked": reviewed_card,
+                    "checked": False,
                     "detail": "未确认前，卡片只能用于教学预览。",
                 },
                 {
                     "label": "未加入未提供的病理、治疗或疗效承诺",
-                    "checked": reviewed_card,
+                    "checked": False,
                     "detail": "高风险医学表述保持解释性和复核边界。",
                 },
                 {
@@ -235,24 +233,96 @@ class ReportService:
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
         )
+        self._upsert_patient_card(card)
         audit_service.log(
             "patient_card",
             user_id="doctor_demo",
             entity_id=card.id,
-            summary=(
-                f"生成患者科普卡片；分享状态 {share_status}；审核人 {reviewer_name or '未确认'}。"
-                if reviewed_card
-                else "生成患者科普卡片草稿；分享和打印保持锁定，等待医生审核。"
-            ),
+            summary="生成患者科普卡片草稿；分享和打印保持锁定，等待医生审核。",
             risk_level="high",
         )
         return card
+
+    def approve_patient_card(self, card_id: str, request: PatientCardApproveRequest) -> PatientCard:
+        reviewer_name = request.reviewer_name.strip()
+        if not reviewer_name:
+            raise ValueError("reviewer_name_required")
+        required_checks = ("summaryMatched", "noUnsupportedClaim", "disclaimerKept")
+        if not all(bool(request.review_checks.get(item)) for item in required_checks):
+            raise ValueError("review_checks_incomplete")
+        cards = self._load_patient_cards()
+        card_index = next((index for index, item in enumerate(cards) if item.get("id") == card_id), -1)
+        if card_index < 0:
+            raise KeyError(card_id)
+        card = PatientCard(**cards[card_index])
+        review_notes = safety_service.redact_sensitive_text(request.review_notes.strip()) if request.review_notes else None
+        now = now_iso()
+        approved = card.model_copy(
+            update={
+                "card_title": "内镜检查结果说明卡（医生已审核）",
+                "plain_language_explanation": card.plain_language_explanation.replace("医生待审核输入", "医生已审核输入"),
+                "review_status": "doctor_reviewed_input",
+                "share_status": "reviewed_ready_to_share",
+                "reviewer_name": reviewer_name,
+                "review_notes": review_notes,
+                "reviewed_at": now,
+                "review_steps": self._approved_review_steps(request.review_checks),
+            }
+        )
+        cards[card_index] = approved.model_dump()
+        self._save_patient_cards(cards)
+        audit_service.log(
+            "patient_card_approve",
+            user_id="doctor_demo",
+            entity_id=approved.id,
+            summary=f"医生审核通过科普卡片 {approved.id}；审核人 {reviewer_name}；分享和打印已解锁。",
+            risk_level="high",
+        )
+        return approved
 
     def report_knowledge_base(self) -> dict:
         return read_json("report_knowledge_base.json")
 
     def card_template_knowledge_base(self) -> dict:
         return read_json("card_template_knowledge.json")
+
+    def _approved_review_steps(self, review_checks: dict[str, bool]) -> list[dict[str, object]]:
+        return [
+            {
+                "label": "摘要来自医生确认的报告或训练输入",
+                "checked": bool(review_checks.get("summaryMatched", True)),
+                "detail": "审核通过后，卡片可用于患者沟通前说明。",
+            },
+            {
+                "label": "未加入未提供的病理、治疗或疗效承诺",
+                "checked": bool(review_checks.get("noUnsupportedClaim", True)),
+                "detail": "高风险医学表述保持解释性和复核边界。",
+            },
+            {
+                "label": "患者沟通前保留免责声明和复诊提醒",
+                "checked": bool(review_checks.get("disclaimerKept", True)),
+                "detail": "卡片始终提示不替代医生面对面解释。",
+            },
+        ]
+
+    def _load_patient_cards(self) -> list[dict[str, object]]:
+        if not PATIENT_CARD_STORE.exists():
+            return []
+        with PATIENT_CARD_STORE.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        return payload if isinstance(payload, list) else []
+
+    def _save_patient_cards(self, cards: list[dict[str, object]]) -> None:
+        PATIENT_CARD_STORE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = PATIENT_CARD_STORE.with_suffix(".json.tmp")
+        with tmp.open("w", encoding="utf-8") as f:
+            json.dump(cards[:80], f, ensure_ascii=False, indent=2)
+        tmp.replace(PATIENT_CARD_STORE)
+
+    def _upsert_patient_card(self, card: PatientCard) -> None:
+        cards = [item for item in self._load_patient_cards() if item.get("id") != card.id]
+        cards.insert(0, card.model_dump())
+        self._save_patient_cards(cards)
 
     def _split_findings(self, text: str) -> list[str]:
         separators = ["。", "；", ";", "\n"]

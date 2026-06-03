@@ -22,7 +22,7 @@ flowchart TD
 - `question_service`: 题库读取和筛选。
 - `grading_service`: 规则评分、错因标签、atomic feedback、下一题推荐。
 - `tutor_orchestrator`: 提示、讲解、当前题 chat；可选调用 Provider，失败后规则兜底。
-- `report_service`: 报告草稿、报告修改评分和科普卡片；报告输出 `source_trace`、`evidence_ledger`、`generation_mode`，科普卡片输出 `review_status`、`share_status` 和审核步骤。
+- `report_service`: 报告草稿、报告修改评分和科普卡片；报告输出 `source_trace`、`evidence_ledger`、`generation_mode`，科普卡片生成草稿并通过同一 `card_id` 审核解锁，输出 `review_status`、`share_status` 和审核步骤。
 - `llm_provider`: OpenAI-compatible `/chat/completions` 适配器；只允许公开样例图片和 `runtime/uploads` 受控图片进入视觉输入。
 - `skill_registry`: 受控技能注册和调用。
 - `memory_service`: 学员画像、错题、能力分更新。

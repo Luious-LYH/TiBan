@@ -58,19 +58,17 @@ export function PatientCard() {
   }
 
   const approveCard = async () => {
-    if (!canApprove) return
+    if (!canApprove || !card) return
     setReviewing(true)
-    setCardStatus('正在提交医生审核确认，并重新生成可沟通版本...')
+    setCardStatus(`正在审核当前草稿 ${card.id}，不会重新生成新卡片...`)
     try {
-      const reviewed = await api.patientCard(summary, {
-        templateId,
-        imageUrl,
-        reviewedByDoctor: true,
+      const reviewed = await api.approvePatientCard(card, {
         reviewerName,
         reviewNotes,
+        reviewChecks,
       })
       setCard(reviewed)
-      setCardStatus(`已由 ${reviewed.reviewer_name || reviewerName} 完成审核；分享和打印已解锁，并写入审计日志。`)
+      setCardStatus(`已由 ${reviewed.reviewer_name || reviewerName} 审核通过草稿 ${reviewed.id}；分享和打印已解锁，并写入审计日志。`)
     } catch {
       setCardStatus('审核确认提交失败，请确认后端在线后重试。')
     } finally {
@@ -271,10 +269,17 @@ export function PatientCard() {
               {isReviewed ? <CheckCircle2 size={17} /> : <LockKeyhole size={17} />}
               <span>
                 {isReviewed
-                  ? `${card?.reviewer_name || reviewerName} 已确认，可打印或分享文案。`
+                  ? `${card?.reviewer_name || reviewerName} 已确认 ${card?.id || '当前卡片'}，可打印或分享文案。`
                   : '打印和分享锁定，等待医生完成审核确认。'}
               </span>
             </div>
+            {card ? (
+              <div className="card-trace-row">
+                <span>Card ID</span>
+                <strong>{card.id}</strong>
+                <em>{card.reviewed_at ? `审核时间 ${new Date(card.reviewed_at).toLocaleString()}` : '等待医生审核'}</em>
+              </div>
+            ) : null}
             <div className="card-info-grid">
               <InfoBlock title="这意味着什么" items={card?.what_it_means || ['内镜描述反映检查中看到的黏膜外观。', '部分表现需要结合病史和病理。']} />
               <InfoBlock title="需要关注什么" items={card?.what_to_watch || ['按医生要求复诊或进一步检查。', '症状变化时及时联系医疗机构。']} />

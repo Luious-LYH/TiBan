@@ -167,6 +167,7 @@ export type AuditLog = {
     | 'exam_session'
     | 'report_draft'
     | 'patient_card'
+    | 'patient_card_approve'
     | 'report_judge'
     | 'skill_run'
     | 'model_select'
@@ -266,6 +267,7 @@ export type PatientCard = {
   share_status?: 'locked_pending_review' | 'reviewed_ready_to_share'
   reviewer_name?: string | null
   review_notes?: string | null
+  reviewed_at?: string | null
   review_steps?: { label: string; checked: boolean; detail: string }[]
   doctor_review_required: true
   safety_notice: string
