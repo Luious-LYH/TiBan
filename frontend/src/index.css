@@ -2668,6 +2668,12 @@ textarea {
   margin: 0 0 12px;
 }
 
+.self-test-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .self-test-detail-grid div {
   padding: 10px;
   background: var(--panel-soft);
@@ -4027,6 +4033,7 @@ textarea {
   .readiness-summary,
   .readiness-grid,
   .self-test-detail-grid,
+  .self-test-actions,
   .form-row,
   .rubric-grid,
   .card-info-grid,

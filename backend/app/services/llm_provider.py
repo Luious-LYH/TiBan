@@ -19,6 +19,7 @@ class LLMResult:
     model: str
     error: str | None = None
     latency_ms: int | None = None
+    image_attached: bool = False
 
     def public_status(self) -> dict[str, Any]:
         return {
@@ -28,6 +29,7 @@ class LLMResult:
             "ok": self.ok,
             "error": self.error,
             "latency_ms": self.latency_ms,
+            "image_attached": self.image_attached,
         }
 
 
@@ -61,12 +63,13 @@ class LLMProvider:
         effective_base_url = (base_url if base_url is not None else config.LLM_BASE_URL).rstrip("/")
         effective_api_key = api_key if api_key is not None else config.LLM_API_KEY
         effective_model = model or config.LLM_MODEL
+        image_data = self._image_data_url(image_path) if image_path else None
+        image_attached = bool(image_data)
         if not (effective_base_url and effective_api_key and effective_provider != "mock"):
-            return LLMResult(False, "", "rule", effective_provider, effective_model, "provider_not_configured")
+            return LLMResult(False, "", "rule", effective_provider, effective_model, "provider_not_configured", image_attached=image_attached)
 
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
         user_content: str | list[dict[str, Any]]
-        image_data = self._image_data_url(image_path) if image_path else None
         if image_data:
             user_content = [
                 {"type": "text", "text": user_prompt},
@@ -103,13 +106,13 @@ class LLMProvider:
             text = payload.get("choices", [{}])[0].get("message", {}).get("content", "")
             text = self._clean_text(str(text))
             if not text:
-                return LLMResult(False, "", "provider", effective_provider, effective_model, "empty_response", latency_ms)
-            return LLMResult(True, text, "provider", effective_provider, effective_model, None, latency_ms)
+                return LLMResult(False, "", "provider", effective_provider, effective_model, "empty_response", latency_ms, image_attached)
+            return LLMResult(True, text, "provider", effective_provider, effective_model, None, latency_ms, image_attached)
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="ignore")[:240]
-            return LLMResult(False, "", "provider", effective_provider, effective_model, f"http_{exc.code}: {detail}")
+            return LLMResult(False, "", "provider", effective_provider, effective_model, f"http_{exc.code}: {detail}", image_attached=image_attached)
         except Exception as exc:
-            return LLMResult(False, "", "provider", effective_provider, effective_model, type(exc).__name__)
+            return LLMResult(False, "", "provider", effective_provider, effective_model, type(exc).__name__, image_attached=image_attached)
 
     def _image_data_url(self, image_path: str | None) -> str | None:
         if not image_path:

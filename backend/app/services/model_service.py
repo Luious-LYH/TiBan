@@ -41,45 +41,93 @@ class ModelService:
         return read_json("model_admission_state.json")
 
     def provider_self_test(self, request: ProviderSelfTestRequest) -> ProviderSelfTestResponse:
+        visual_sample = self._self_test_visual_sample(request) if request.include_image else None
+        visual_probe = request.include_image
         provider_result = llm_provider.chat(
             system_prompt=(
                 "你是内镜医师培训平台的 Provider 连通性自检探针。"
                 "只确认接口可用性和安全边界，不输出诊断、治疗建议或患者信息。"
             ),
-            user_prompt=(
-                "请用中文用一句话回复：Provider 自检已收到。"
-                "不要包含任何 API key、患者身份信息或临床诊断。"
-            ),
+            user_prompt=self._self_test_prompt(visual_sample, visual_probe),
+            image_path=visual_sample.get("image_url") if visual_sample else None,
             temperature=0.0,
-            max_tokens=80,
+            max_tokens=140 if visual_probe else 80,
             **self._provider_kwargs(request),
         )
+        provider_status = provider_result.public_status()
+        image_attached = bool(provider_status.get("image_attached"))
+        recommendation = self._self_test_recommendation(provider_result.error, provider_result.ok, image_attached, visual_probe)
         response = ProviderSelfTestResponse(
             id=f"provider_selftest_{uuid4().hex[:12]}",
             provider_name=request.provider_name,
             provider_called=provider_result.ok,
-            provider_status=provider_result.public_status(),
+            provider_status=provider_status,
             probe_excerpt=provider_result.text[:160] if provider_result.ok else None,
+            image_attached=image_attached,
+            image_sample_id=str(visual_sample.get("id")) if visual_sample else None,
+            image_source_dataset=str(visual_sample.get("source_dataset")) if visual_sample else None,
+            visual_probe=visual_probe,
             audit_logged=True,
             key_persisted=False,
             admission_state_updated=False,
-            recommendation=(
-                "Provider 线路已打通；如需进入训练 Agent 候选，请继续运行公开样例级准入探测。"
-                if provider_result.ok
-                else f"Provider 自检未通过：{provider_result.error or 'unknown_error'}。请检查 base URL、模型名、key 或后端 .env。"
-            ),
+            recommendation=recommendation,
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
         )
+        test_label = "视觉通道自检" if visual_probe else "文本轻量自检"
         audit_service.log(
             "provider_self_test",
             user_id="admin_demo",
             entity_id=response.id,
-            summary=f"执行 Provider 轻量自检：{request.provider_name}；结果 {'ok' if provider_result.ok else provider_result.error or 'failed'}；未保存 key，未更新准入状态。",
+            summary=(
+                f"执行 Provider {test_label}：{request.provider_name}；"
+                f"图片附加 {'yes' if image_attached else 'no'}；"
+                f"结果 {'ok' if provider_result.ok else provider_result.error or 'failed'}；"
+                "未保存 key/base/完整回复，未更新准入状态。"
+            ),
             risk_level="medium",
         )
         return response
+
+    def _self_test_prompt(self, visual_sample: dict | None, visual_probe: bool) -> str:
+        if not visual_probe:
+            return (
+                "请用中文用一句话回复：Provider 自检已收到。"
+                "不要包含任何 API key、患者身份信息或临床诊断。"
+            )
+        if not visual_sample:
+            return (
+                "这是 Provider 视觉通道自检的资源异常保护提示。"
+                "后端未匹配到公开样例图片，请只用一句中文确认收到自检请求。"
+                "不要输出诊断结论、治疗建议、API key 或患者身份信息。"
+            )
+        return (
+            "这是 Provider 视觉通道自检，不是模型准入评分或临床诊断。"
+            f"公开样例数据集：{visual_sample.get('source_dataset')}。\n"
+            f"公开样例问题：{visual_sample.get('question')}。\n"
+            "请只用一句中文确认你已收到图片和问题，并说明仍需医生复核。"
+            "不要输出参考答案、诊断结论、治疗建议、API key 或患者身份信息。"
+        )
+
+    def _self_test_visual_sample(self, request: ProviderSelfTestRequest) -> dict | None:
+        samples = read_json("real_sample_knowledge.json")
+        sample_by_id = {str(item.get("id")): item for item in samples if item.get("image_url")}
+        requested_id = self._normalize_sample_id(request.sample_id) if request.sample_id else ""
+        if requested_id and requested_id in sample_by_id:
+            return sample_by_id[requested_id]
+        return next((item for item in samples if item.get("image_url")), None)
+
+    def _self_test_recommendation(self, error: str | None, ok: bool, image_attached: bool, visual_prompt: bool) -> str:
+        if visual_prompt and image_attached and ok:
+            return "Provider 视觉通道已打通，后端已将公开样例图片随请求发送；如需进入训练 Agent 候选，请继续运行公开样例级准入探测。"
+        if visual_prompt and image_attached:
+            return f"后端已构造并附加公开样例图片，但 Provider 自检未通过：{error or 'unknown_error'}。请检查 base URL、模型名、key 或后端 .env。"
+        if visual_prompt:
+            return f"视觉自检未能附加公开样例图片，且 Provider 自检未通过：{error or 'unknown_error'}。请检查样例资源路径和 Provider 配置。"
+        if ok:
+            return "Provider 文本通道已打通；如需验证多模态链路，可继续运行视觉通道自检或公开样例级准入探测。"
+        return f"Provider 文本自检未通过：{error or 'unknown_error'}。请检查 base URL、模型名、key 或后端 .env。"
 
     def admission_test(self, request: ModelAdmissionTestRequest) -> ModelAdmissionTestResponse:
         samples = read_json("real_sample_knowledge.json")

@@ -114,6 +114,7 @@ function normalizeProviderStatus(value: unknown, fallback: ProviderStatus = {
     provider_success_count: asNumber(record.provider_success_count, fallback.provider_success_count ?? 0),
     reference_aligned_count: asNumber(record.reference_aligned_count, fallback.reference_aligned_count ?? 0),
     blind_probe: asBoolean(record.blind_probe, fallback.blind_probe ?? false),
+    image_attached: asBoolean(record.image_attached, fallback.image_attached ?? false),
     configured: typeof record.configured === 'boolean' ? record.configured : fallback.configured,
     base_url_configured: typeof record.base_url_configured === 'boolean' ? record.base_url_configured : fallback.base_url_configured,
     api_key_configured: typeof record.api_key_configured === 'boolean' ? record.api_key_configured : fallback.api_key_configured,
@@ -631,6 +632,10 @@ function normalizeProviderSelfTest(value: unknown, fallback: ProviderSelfTestRes
     provider_called: asBoolean(record.provider_called, fallback.provider_called),
     provider_status: normalizeProviderStatus(record.provider_status, fallback.provider_status),
     probe_excerpt: typeof record.probe_excerpt === 'string' ? record.probe_excerpt : fallback.probe_excerpt,
+    image_attached: asBoolean(record.image_attached, fallback.image_attached),
+    image_sample_id: typeof record.image_sample_id === 'string' || record.image_sample_id === null ? record.image_sample_id : fallback.image_sample_id,
+    image_source_dataset: typeof record.image_source_dataset === 'string' || record.image_source_dataset === null ? record.image_source_dataset : fallback.image_source_dataset,
+    visual_probe: asBoolean(record.visual_probe, fallback.visual_probe),
     audit_logged: asBoolean(record.audit_logged, fallback.audit_logged),
     key_persisted: asBoolean(record.key_persisted, fallback.key_persisted),
     admission_state_updated: asBoolean(record.admission_state_updated, fallback.admission_state_updated),
@@ -899,7 +904,7 @@ export const api = {
     return normalizeProviderStatus(response)
   },
 
-  async providerSelfTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string }): Promise<ProviderSelfTestResult> {
+  async providerSelfTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string; includeImage?: boolean; sampleId?: string }): Promise<ProviderSelfTestResult> {
     const fallback: ProviderSelfTestResult = {
       id: `provider_selftest_local_${Date.now()}`,
       provider_name: payload.providerName,
@@ -910,12 +915,19 @@ export const api = {
         mode: 'fallback',
         ok: false,
         error: 'backend_unavailable',
+        image_attached: false,
       },
       probe_excerpt: null,
+      image_attached: false,
+      image_sample_id: payload.includeImage ? payload.sampleId || null : null,
+      image_source_dataset: null,
+      visual_probe: Boolean(payload.includeImage),
       audit_logged: false,
       key_persisted: false,
       admission_state_updated: false,
-      recommendation: '后端不可用，未完成 Provider 轻量自检；请先启动 FastAPI，再运行完整准入探测。',
+      recommendation: payload.includeImage
+        ? '后端不可用，未完成 Provider 视觉通道自检；请先启动 FastAPI，再确认公开样例图片是否能附加到请求。'
+        : '后端不可用，未完成 Provider 文本轻量自检；请先启动 FastAPI，再运行完整准入探测。',
       doctor_review_required: true,
       safety_notice: safetyNotice,
       created_at: new Date().toISOString(),
@@ -930,6 +942,8 @@ export const api = {
           api_key_masked: payload.apiKey ? payload.apiKey.replace(/(.{4}).+(.{2})/, '$1****$2') : '',
           api_key: payload.apiKey || undefined,
           model: payload.model || undefined,
+          include_image: Boolean(payload.includeImage),
+          sample_id: payload.sampleId || undefined,
         }),
       },
       fallback,

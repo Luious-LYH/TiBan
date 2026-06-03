@@ -364,6 +364,8 @@ class ProviderSelfTestRequest(BaseModel):
     api_key_masked: str = "sk-****"
     api_key: str | None = None
     model: str | None = None
+    include_image: bool = False
+    sample_id: str | None = None
 
 
 class ProviderSelfTestResponse(BaseModel):
@@ -372,6 +374,10 @@ class ProviderSelfTestResponse(BaseModel):
     provider_called: bool = False
     provider_status: dict[str, Any] = Field(default_factory=dict)
     probe_excerpt: str | None = None
+    image_attached: bool = False
+    image_sample_id: str | None = None
+    image_source_dataset: str | None = None
+    visual_probe: bool = False
     audit_logged: bool = False
     key_persisted: bool = False
     admission_state_updated: bool = False

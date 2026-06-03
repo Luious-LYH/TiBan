@@ -38,6 +38,7 @@ export function ModelHub() {
   const [admissionNotice, setAdmissionNotice] = useState('等待运行：请选择公开样例和测试维度，再启动样例级准入探测。')
   const [selfTest, setSelfTest] = useState<ProviderSelfTestResult | null>(null)
   const [isRunningSelfTest, setIsRunningSelfTest] = useState(false)
+  const [selfTestMode, setSelfTestMode] = useState<'text' | 'visual' | null>(null)
   const [selfTestNotice, setSelfTestNotice] = useState('可先做轻量自检：只验证 Provider 通道，不读取公开样例，不写入模型准入状态。')
 
   useEffect(() => {
@@ -103,27 +104,37 @@ export function ModelHub() {
     }
   }
 
-  const runProviderSelfTest = async () => {
+  const runProviderSelfTest = async (includeImage = false) => {
     if (isRunningSelfTest || isRunningAdmission) return
+    const sampleId = includeImage ? selectedSamples[0] : undefined
     setIsRunningSelfTest(true)
-    setSelfTestNotice('正在发送一条安全短提示词；本次只验证 Provider 通道，不会保存 key/base 或更新模型准入摘要。')
+    setSelfTestMode(includeImage ? 'visual' : 'text')
+    setSelfTestNotice(includeImage
+      ? `正在发送视觉通道自检；后端只附加公开样例 ${sampleId || '默认样例'} 的图片和问题，不发送参考答案。`
+      : '正在发送一条安全短提示词；本次只验证 Provider 文本通道，不会保存 key/base 或更新模型准入摘要。')
     try {
       const response = await api.providerSelfTest({
         providerName,
         apiBase,
         apiKey: apiKey.trim() || undefined,
         model: requestProviderActive ? model.trim() || undefined : undefined,
+        includeImage,
+        sampleId,
       })
       setSelfTest(response)
       const source = response.api_source === 'fallback' ? 'frontend fallback' : 'backend live'
+      const visualText = response.visual_probe
+        ? `图片附加：${response.image_attached ? '是' : '否'}；视觉样例：${response.image_source_dataset || '公开样例'} / ${response.image_sample_id || sampleId || '默认样例'}；`
+        : '文本通道；'
       const providerText = response.provider_called
         ? `Provider 已返回：${response.probe_excerpt || '连通成功'}`
         : `Provider 未打通：${response.provider_status.error || 'provider_not_configured'}`
-      setSelfTestNotice(`${source} 返回 ${response.id}；${providerText}；${response.admission_state_updated ? '异常：已触碰准入状态。' : '未更新准入状态。'}`)
+      setSelfTestNotice(`${source} 返回 ${response.id}；${visualText}${providerText}；${response.admission_state_updated ? '异常：已触碰准入状态。' : '未更新准入状态。'}`)
     } catch (error) {
       setSelfTestNotice(`Provider 自检失败：${error instanceof Error ? error.message : '未知错误'}。请确认 FastAPI 在线、Provider 配置无误。`)
     } finally {
       setIsRunningSelfTest(false)
+      setSelfTestMode(null)
     }
   }
 
@@ -273,22 +284,33 @@ export function ModelHub() {
           <div className={`admission-run-strip provider-self-test-strip ${isRunningSelfTest ? 'running' : selfTest?.api_source === 'fallback' || (selfTest && !selfTest.provider_called) ? 'fallback' : selfTest?.provider_called ? 'synced' : ''}`}>
             {isRunningSelfTest ? <LoaderCircle className="spin-icon" size={18} /> : selfTest && !selfTest.provider_called ? <AlertTriangle size={18} /> : <PlugZap size={18} />}
             <div>
-              <strong>{isRunningSelfTest ? '正在轻量自检' : selfTest ? `最近自检：${selfTestSource}` : 'Provider 轻量自检'}</strong>
+              <strong>{isRunningSelfTest ? (selfTestMode === 'visual' ? '正在视觉通道自检' : '正在文本轻量自检') : selfTest ? `最近自检：${selfTest.visual_probe ? '视觉通道' : '文本通道'} · ${selfTestSource}` : 'Provider 通道自检'}</strong>
               <span>{selfTestNotice}</span>
             </div>
           </div>
           {selfTest ? (
             <div className="self-test-detail-grid">
               <div><span>Provider 调用</span><strong>{selfTest.provider_called ? '成功' : '未成功'}</strong></div>
+              <div><span>自检模式</span><strong>{selfTest.visual_probe ? '视觉通道' : '文本通道'}</strong></div>
+              <div><span>图片附加</span><strong>{selfTest.image_attached ? '是' : '否'}</strong></div>
+              <div><span>视觉样例</span><strong>{selfTest.image_sample_id || '未使用'}</strong></div>
+              <div><span>数据集</span><strong>{selfTest.image_source_dataset || '无'}</strong></div>
               <div><span>审计写入</span><strong>{selfTest.audit_logged ? '已写摘要' : '未写入'}</strong></div>
-              <div><span>保存 key</span><strong>{selfTest.key_persisted ? '异常' : '否'}</strong></div>
+              <div><span>保存 key/base</span><strong>{selfTest.key_persisted ? '异常' : '否'}</strong></div>
               <div><span>准入状态</span><strong>{selfTest.admission_state_updated ? '已更新' : '未更新'}</strong></div>
             </div>
           ) : null}
-          <button className="button secondary full-width" type="button" onClick={runProviderSelfTest} disabled={isRunningSelfTest || isRunningAdmission}>
-            {isRunningSelfTest ? <LoaderCircle className="spin-icon" size={17} /> : <PlugZap size={17} />}
-            {isRunningSelfTest ? '正在自检...' : '先做 Provider 轻量自检'}
-          </button>
+          <div className="self-test-actions">
+            <button className="button secondary" type="button" onClick={() => runProviderSelfTest(false)} disabled={isRunningSelfTest || isRunningAdmission}>
+              {isRunningSelfTest && selfTestMode === 'text' ? <LoaderCircle className="spin-icon" size={17} /> : <PlugZap size={17} />}
+              {isRunningSelfTest && selfTestMode === 'text' ? '文本自检中...' : '文本轻量自检'}
+            </button>
+            <button className="button secondary" type="button" onClick={() => runProviderSelfTest(true)} disabled={isRunningSelfTest || isRunningAdmission || !selectedSamples.length}>
+              {isRunningSelfTest && selfTestMode === 'visual' ? <LoaderCircle className="spin-icon" size={17} /> : <Database size={17} />}
+              {isRunningSelfTest && selfTestMode === 'visual' ? '视觉自检中...' : '视觉通道自检'}
+            </button>
+          </div>
+          <div className="source-note">视觉通道自检只证明后端已将公开样例图片以多模态请求附加到 Provider；它不发送参考标注，不更新准入状态，也不代表模型完成临床诊断。</div>
         </Card>
 
         <Card>

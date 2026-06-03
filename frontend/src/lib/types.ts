@@ -15,6 +15,7 @@ export type ProviderStatus = {
   provider_success_count?: number
   reference_aligned_count?: number
   blind_probe?: boolean
+  image_attached?: boolean
   base_url_configured?: boolean
   api_key_configured?: boolean
   safety_notice?: string
@@ -302,6 +303,10 @@ export type ProviderSelfTestResult = {
   provider_called: boolean
   provider_status: ProviderStatus
   probe_excerpt?: string | null
+  image_attached: boolean
+  image_sample_id?: string | null
+  image_source_dataset?: string | null
+  visual_probe: boolean
   audit_logged: boolean
   key_persisted: boolean
   admission_state_updated: boolean
