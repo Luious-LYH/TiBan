@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import type { ChangeEvent, ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ActivitySquare, ArrowRight, CheckCircle2, ClipboardCheck, FileImage, FileText, Gauge, KeyRound, ListChecks, PlugZap, ShieldAlert, ShieldCheck, WandSparkles, Workflow } from 'lucide-react'
+import { ProviderPreflightPanel } from '../components/ProviderPreflightPanel'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
-import type { KnowledgeBase, ProviderStatus, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
+import type { KnowledgeBase, ProviderPreflight, ProviderStatus, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
 
 export function ReportDraft() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -24,6 +25,8 @@ export function ReportDraft() {
   const [apiBase, setApiBase] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [providerModel, setProviderModel] = useState('')
+  const [preflight, setPreflight] = useState<ProviderPreflight | null>(null)
+  const [isCheckingPreflight, setIsCheckingPreflight] = useState(false)
   const [originalReport, setOriginalReport] = useState('本图明确证明患者患胃癌，建议立即治疗。')
   const [revisedReport, setRevisedReport] = useState('胃窦局部黏膜异常表现，建议医生结合完整检查、病史及必要病理结果复核。')
   const [judge, setJudge] = useState<ReportJudge | null>(null)
@@ -61,6 +64,43 @@ export function ReportDraft() {
     }).catch(() => undefined)
   }, [])
 
+  useEffect(() => {
+    let mounted = true
+    const timer = window.setTimeout(() => {
+      setIsCheckingPreflight(true)
+      api.providerPreflight(apiBase)
+        .then((result) => {
+          if (mounted) setPreflight(result)
+        })
+        .catch(() => {
+          if (mounted) {
+            setPreflight({
+              ok: false,
+              safety_status: 'frontend_error',
+              mode: 'fallback',
+              normalized_preview: null,
+              endpoint_paths: [],
+              blocked_reason: 'frontend_error',
+              warnings: ['前端未能读取后端预检结果，不能证明 API Base 可用于报告 Provider 调用。'],
+              next_actions: ['确认 FastAPI 后端在线，再重新检查 API Base。'],
+              key_required_for_call: true,
+              request_sent: false,
+              key_persisted: false,
+              safety_notice: '仅供教学训练或医生审核前辅助，不作为独立诊断依据。',
+              api_source: 'fallback',
+            })
+          }
+        })
+        .finally(() => {
+          if (mounted) setIsCheckingPreflight(false)
+        })
+    }, 350)
+    return () => {
+      mounted = false
+      window.clearTimeout(timer)
+    }
+  }, [apiBase])
+
   const onImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -82,6 +122,7 @@ export function ReportDraft() {
   }
 
   const generate = async () => {
+    if (providerActionBlocked) return
     setLoading(true)
     try {
       setDraft(await api.reportDraft(findingText, { examType, imageName, templateName, ...providerOptions() }))
@@ -91,6 +132,7 @@ export function ReportDraft() {
   }
 
   const runJudge = async () => {
+    if (providerActionBlocked) return
     setLoading(true)
     try {
       setJudge(await api.reportJudge(originalReport, revisedReport, providerOptions()))
@@ -101,6 +143,11 @@ export function ReportDraft() {
 
   const providerReady = Boolean(providerStatus?.configured || providerStatus?.ok)
   const requestProviderActive = Boolean(apiKey.trim() || apiBase.trim())
+  const providerPreflightRequired = Boolean(requestProviderActive || providerStatus?.base_url_configured || providerStatus?.api_key_configured)
+  const providerActionBlocked = Boolean(providerPreflightRequired && (isCheckingPreflight || !preflight?.ok))
+  const providerPreflightIssue = isCheckingPreflight
+    ? 'Base URL 预检仍在进行；请等待安全策略检查完成后再生成报告或运行 AI judge。'
+    : `Base URL 预检未通过：${preflight?.blocked_reason || 'unknown'}。请先修正 API Base，或清空临时 Provider 配置回到规则草案模式。`
   const requestKeyMode = apiKey.trim() ? '页面临时 key' : apiBase.trim() ? '请求级 base 覆盖' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'
   const providerMode = providerReady ? 'provider' : providerStatus?.mode || 'rule'
   const dataMode = selectedSample ? `${selectedSample.source_dataset} · public sample` : imageName.startsWith('uploads/') ? 'uploaded image' : 'local preview'
@@ -193,6 +240,8 @@ export function ReportDraft() {
             <p>生成结果会显示 provider/rule/fallback、延迟和来源台账。</p>
           </div>
         </div>
+        <ProviderPreflightPanel preflight={preflight} loading={isCheckingPreflight} />
+        {providerActionBlocked ? <div className="source-note">{providerPreflightIssue}</div> : null}
         <details className="provider-credential-drawer">
           <summary>
             <span>配置本次请求 Provider</span>
@@ -280,7 +329,7 @@ export function ReportDraft() {
                 </label>
               </div>
               <textarea value={findingText} onChange={(event) => setFindingText(event.target.value)} rows={7} />
-              <button className="button primary" type="button" onClick={generate} disabled={loading}>
+              <button className="button primary" type="button" onClick={generate} disabled={loading || providerActionBlocked}>
                 <WandSparkles size={17} /> {requestProviderActive || providerReady ? '生成并按真实配置尝试 Provider' : '生成结构化报告'}
               </button>
             </Card>
@@ -418,7 +467,7 @@ export function ReportDraft() {
             <span>医师修改稿</span>
             <textarea value={revisedReport} onChange={(event) => setRevisedReport(event.target.value)} rows={5} />
           </label>
-          <button className="button primary" type="button" onClick={runJudge} disabled={loading}>
+          <button className="button primary" type="button" onClick={runJudge} disabled={loading || providerActionBlocked}>
             <ShieldCheck size={17} /> {requestProviderActive || providerReady ? '评分并按真实配置尝试 Provider' : 'AI judge 评分'}
           </button>
         </Card>
