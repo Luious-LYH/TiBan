@@ -179,3 +179,19 @@ assert r.json()["write_verified"] is True
 assert r.json()["restored_after_run"] is True
 '@ | python -
 ```
+
+Provider Base URL 预检和自检 smoke：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code
+python scripts\provider_smoke.py --api-base http://127.0.0.1:9999/v1
+```
+
+该命令只调用后端 `/api/provider/preflight`，不需要 key、不发送模型请求、不写审计。预检通过并准备真实联调时，再设置本地环境变量运行自检：
+
+```powershell
+$env:LLM_API_KEY="your-local-key"
+python scripts\provider_smoke.py --api-base https://your-provider.example/v1 --model your-model --self-test
+```
+
+脚本不会打印 API key；如要使用后端 `.env` 中的 key，可加 `--use-backend-env-key`。

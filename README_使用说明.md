@@ -54,6 +54,7 @@
 - 模型准入已从单样例探测升级为“文本/视觉自检 -> 样例级准入检查清单”：自检不触碰准入状态，视觉自检只证明公开图片已附加到 Provider 请求；每个公开样例准入会返回 evidence、Provider 调用状态、错误原因和后端审计收据；分数只代表训练接入检查，不代表临床评测。
 - 前端 API 层已加入分级超时保护：健康/状态/诊断类接口会快速失败并显示 fallback 或不可用原因，真实 Provider 推理、报告生成、准入探测保留更长等待时间，避免演示时页面长期卡在加载状态。
 - Provider API Base 支持根地址、`/v1` 或完整 `/chat/completions`；后端会优先尝试 `/v1/chat/completions` 并拒绝非本机 `http`、metadata、内网/保留地址，避免临时 key 外发。
+- 新增 `scripts/provider_smoke.py` 作为终端联调入口：先调用后端 `/api/provider/preflight`，只在预检通过且明确提供 key 或使用后端 `.env` key 时才运行 Provider 自检；脚本不会打印 API key。
 - 科普卡片已从单纯预览升级为“公开样例图像池 -> 草稿生成 -> 同一 `card_id` 医生审核 -> 分享/打印解锁 -> 审计记录”的受控流程。
 - Skills 中心展示受控运行摘要、医生复核状态和工作区跳转，完整 JSON 只放在开发细节折叠项中。
 - 首页闭环自检对应 `POST /api/platform/demo-check?persist=false|true`。默认 `persist=false` 会真实写入后自动恢复，用于答辩前安全确认训练链路；`persist=true` 才会保留 `learner_profile.json` 和 `audit_logs.json` 的演示留痕。
