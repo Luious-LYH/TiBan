@@ -2523,15 +2523,57 @@ textarea {
   border-color: #fde68a;
 }
 
+.admission-run-strip {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  margin: 12px 0;
+  padding: 12px;
+  color: var(--blue);
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.admission-run-strip.running {
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: #99f6e4;
+}
+
+.admission-run-strip.fallback {
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-color: #fde68a;
+}
+
+.admission-run-strip.synced {
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: #99f6e4;
+}
+
 .memory-sync-card strong,
-.memory-sync-card span {
+.memory-sync-card span,
+.admission-run-strip strong,
+.admission-run-strip span {
   display: block;
 }
 
-.memory-sync-card span {
+.memory-sync-card span,
+.admission-run-strip span {
   margin-top: 3px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.button svg {
+  flex-shrink: 0;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
 }
 
 .report-drill-list {
@@ -3314,6 +3356,12 @@ textarea {
   50% {
     opacity: 1;
     transform: scale(1.06);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

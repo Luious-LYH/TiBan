@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { ActivitySquare, CheckCircle2, Database, KeyRound, PlugZap, ShieldAlert, ShieldCheck, TestTube2 } from 'lucide-react'
+import { ActivitySquare, AlertTriangle, CheckCircle2, Database, KeyRound, LoaderCircle, PlugZap, ShieldAlert, ShieldCheck, TestTube2 } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
@@ -16,6 +16,10 @@ const scoreLabels: Record<string, string> = {
 
 const focusItems = ['基础识别', '复杂推理', '错误前提', '报告安全', '接口稳定']
 
+function admissionSampleId(sampleId: string): string {
+  return sampleId.startsWith('public_') ? sampleId.slice('public_'.length) : sampleId
+}
+
 export function ModelHub() {
   const [models, setModels] = useState<ModelProfile[]>(mockModels)
   const [samples, setSamples] = useState<Question[]>([])
@@ -30,6 +34,8 @@ export function ModelHub() {
   const [admissionState, setAdmissionState] = useState<ModelAdmissionState | null>(null)
   const [selectingModelId, setSelectingModelId] = useState('')
   const [selectionNotice, setSelectionNotice] = useState('当前训练 Agent 会写入后端 models.json，并同步影响首页当前模型展示。')
+  const [isRunningAdmission, setIsRunningAdmission] = useState(false)
+  const [admissionNotice, setAdmissionNotice] = useState('等待运行：请选择公开样例和测试维度，再启动样例级准入探测。')
 
   useEffect(() => {
     api.models().then((items) => {
@@ -42,38 +48,53 @@ export function ModelHub() {
       setProviderStatus(status)
       if (status.model) setModel((current) => current || status.model)
     }).catch(() => undefined)
-    api.qbank({ sourceDataset: 'Kvasir-VQA-x1' }).then((items) => {
+    api.realSamples().then((items) => {
       const publicItems = items.filter((item) => ['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'].includes(item.source_dataset)).slice(0, 6)
       setSamples(publicItems)
-      setSelectedSamples(publicItems.slice(0, 3).map((item) => item.id.replace('public_', '')))
-    })
+      setSelectedSamples(publicItems.slice(0, 3).map((item) => admissionSampleId(item.id)))
+      setAdmissionNotice(publicItems.length ? `已载入 ${publicItems.length} 个真实公开样例；准入会按样例 ID 写入 evidence。` : '真实样例接口返回为空，请先检查后端知识库。')
+    }).catch(() => setAdmissionNotice('真实样例接口暂不可用；页面将无法证明选中样例与后端准入样例一致。'))
   }, [])
 
   const runAdmission = async () => {
-    const admission = await api.modelAdmissionTest({
-      providerName,
-      apiBase,
-      apiKey: apiKey.trim() || undefined,
-      model: model.trim() || undefined,
-      sampleIds: selectedSamples,
-      focus,
-    })
-    setResult(admission)
-    if (admission.platform_state_updated) {
-      setAdmissionState({
-        updated_at: admission.created_at,
-        last_admission_id: admission.id,
-        provider_name: admission.provider_name,
-        grade: admission.grade,
-        total_score: admission.total_score,
-        mode: admission.provider_status.mode || (admission.provider_called ? 'provider' : 'rule'),
-        provider_called: admission.provider_called,
-        is_mock: admission.is_mock,
-        tested_samples: admission.tested_samples,
-        risk_items: admission.risk_items,
-        recommendation: admission.recommendation,
-        safe_for_training: admission.provider_called && admission.total_score >= 80,
+    if (isRunningAdmission || !selectedSamples.length || !focus.length) return
+    setIsRunningAdmission(true)
+    setAdmissionNotice(`正在探测 ${Math.min(selectedSamples.length, 3)} 个公开样例；结果会显示 backend/fallback、Provider 成功数和失败原因。`)
+    try {
+      const admission = await api.modelAdmissionTest({
+        providerName,
+        apiBase,
+        apiKey: apiKey.trim() || undefined,
+        model: model.trim() || undefined,
+        sampleIds: selectedSamples,
+        focus,
       })
+      setResult(admission)
+      const source = admission.api_source === 'fallback' ? 'frontend fallback' : 'backend live'
+      const providerText = admission.provider_called
+        ? `真实 Provider 成功 ${admission.provider_status.provider_success_count || 0}/${admission.provider_status.sample_count || admission.evidence.length} 个样例。`
+        : `未完成真实 Provider 调用：${admission.provider_status.error || 'provider_not_configured'}。`
+      setAdmissionNotice(`${source} 返回 ${admission.id}；${providerText}${admission.platform_state_updated ? ' 平台准入摘要已写入后端。' : ' 未写入后端平台状态。'}`)
+      if (admission.platform_state_updated) {
+        setAdmissionState({
+          updated_at: admission.created_at,
+          last_admission_id: admission.id,
+          provider_name: admission.provider_name,
+          grade: admission.grade,
+          total_score: admission.total_score,
+          mode: admission.provider_status.mode || (admission.provider_called ? 'provider' : 'rule'),
+          provider_called: admission.provider_called,
+          is_mock: admission.is_mock,
+          tested_samples: admission.tested_samples,
+          risk_items: admission.risk_items,
+          recommendation: admission.recommendation,
+          safe_for_training: admission.provider_called && admission.total_score >= 80,
+        })
+      }
+    } catch (error) {
+      setAdmissionNotice(`准入探测失败：${error instanceof Error ? error.message : '未知错误'}。请确认 FastAPI 在线、Provider 配置无误。`)
+    } finally {
+      setIsRunningAdmission(false)
     }
   }
 
@@ -82,7 +103,7 @@ export function ModelHub() {
   }
 
   const toggleSample = (sampleId: string) => {
-    const normalized = sampleId.replace('public_', '')
+    const normalized = admissionSampleId(sampleId)
     setSelectedSamples((current) => current.includes(normalized) ? current.filter((value) => value !== normalized) : [...current, normalized])
   }
 
@@ -103,6 +124,8 @@ export function ModelHub() {
   const activeModel = models.find((item) => item.is_active) || models[0]
   const providerSuccessCount = result?.provider_status.provider_success_count
   const providerSampleCount = result?.provider_status.sample_count || result?.evidence.length || 0
+  const canRunAdmission = Boolean(selectedSamples.length && focus.length && !isRunningAdmission)
+  const resultSource = result?.api_source === 'fallback' ? 'frontend fallback' : result ? 'backend live' : 'not run'
 
   return (
     <div className="page-stack">
@@ -229,7 +252,7 @@ export function ModelHub() {
           </div>
           <div className="sample-list">
             {samples.map((sample) => {
-              const normalized = sample.id.replace('public_', '')
+              const normalized = admissionSampleId(sample.id)
               return (
                 <label key={sample.id}>
                   <input checked={selectedSamples.includes(normalized)} type="checkbox" onChange={() => toggleSample(sample.id)} />
@@ -239,8 +262,16 @@ export function ModelHub() {
               )
             })}
           </div>
-          <button className="button primary" type="button" onClick={runAdmission}>
-            <ShieldAlert size={17} /> 运行样例级准入探测
+          <div className={`admission-run-strip ${isRunningAdmission ? 'running' : result?.api_source === 'fallback' ? 'fallback' : result?.provider_called ? 'synced' : ''}`}>
+            {isRunningAdmission ? <LoaderCircle className="spin-icon" size={18} /> : result?.api_source === 'fallback' ? <AlertTriangle size={18} /> : <ActivitySquare size={18} />}
+            <div>
+              <strong>{isRunningAdmission ? '正在联调 Provider' : result ? `最近结果：${resultSource}` : '准入运行状态'}</strong>
+              <span>{admissionNotice}</span>
+            </div>
+          </div>
+          <button className="button primary" type="button" onClick={runAdmission} disabled={!canRunAdmission}>
+            {isRunningAdmission ? <LoaderCircle className="spin-icon" size={17} /> : <ShieldAlert size={17} />}
+            {isRunningAdmission ? '正在探测...' : selectedSamples.length ? '运行样例级准入探测' : '请先选择公开样例'}
           </button>
         </Card>
       </div>
@@ -268,6 +299,7 @@ export function ModelHub() {
             </div>
           </div>
           <div className="tag-row">
+            <Tag tone={result.api_source === 'fallback' ? 'amber' : 'green'}>{resultSource}</Tag>
             {result.tested_samples.map((sample) => <Tag key={sample} tone="blue">{sample}</Tag>)}
             <Tag tone={result.provider_called ? 'green' : 'amber'}>
               Provider {providerSuccessCount ?? 0}/{providerSampleCount}

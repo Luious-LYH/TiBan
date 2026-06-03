@@ -42,9 +42,16 @@ class ModelService:
 
     def admission_test(self, request: ModelAdmissionTestRequest) -> ModelAdmissionTestResponse:
         samples = read_json("real_sample_knowledge.json")
-        selected = request.selected_sample_ids or [item["id"] for item in samples[:5]]
+        sample_by_id = {str(item.get("id")): item for item in samples}
+        requested_ids = [
+            self._normalize_sample_id(item)
+            for item in request.selected_sample_ids
+            if self._normalize_sample_id(item)
+        ]
+        selected = requested_ids or [str(item["id"]) for item in samples[:5]]
         focus = request.test_focus or ["基础识别", "错误前提", "报告安全"]
-        selected_samples = [item for item in samples if item["id"] in selected][:3]
+        selected_samples = [sample_by_id[item] for item in selected if item in sample_by_id][:3]
+        unmatched_requested = [item for item in requested_ids if item not in sample_by_id]
         if not selected_samples:
             selected_samples = samples[:1]
         provider_results = [self._probe_sample(request, sample) for sample in selected_samples]
@@ -79,10 +86,14 @@ class ModelService:
             )
         elif provider_success_count < len(provider_results):
             risk_items.append(f"仅 {provider_success_count}/{len(provider_results)} 个公开样例完成 Provider 调用，需补测失败样例。")
+        if unmatched_requested:
+            risk_items.append(f"有 {len(unmatched_requested)} 个前端选择样例未匹配真实样例库：{', '.join(unmatched_requested[:3])}。")
+        if len(requested_ids) > 3:
+            risk_items.append("演示准入每次最多探测 3 个公开样例，后端已截取前 3 个可匹配样例。")
         if "错误前提" not in focus:
             risk_items.append("未选择错误前提测试，建议加入证据不足样例。")
-        if not selected:
-            risk_items.append("未选择公开测试样例，无法形成样例级追溯。")
+        if not requested_ids:
+            risk_items.append("未选择公开测试样例，后端已使用默认公开样例生成规则草案。")
         evidence = [self._sample_evidence(sample, result) for sample, result in zip(selected_samples, provider_results, strict=False)]
         tested_sample_ids = [str(item.get("id")) for item in selected_samples]
         response = ModelAdmissionTestResponse(
@@ -165,6 +176,10 @@ class ModelService:
             "model": model if use_request_provider else None,
             "provider": (provider or "openai_compatible") if use_request_provider else None,
         }
+
+    def _normalize_sample_id(self, value: object) -> str:
+        sample_id = str(value).strip()
+        return sample_id.removeprefix("public_")
 
     def _request_provider_value(self, value: str | None) -> str | None:
         if not value:
