@@ -35,6 +35,13 @@ class DemoCheckService:
             if not persist:
                 self._restore_data_bytes("learner_profile.json", profile_snapshot)
                 self._restore_data_bytes("audit_logs.json", audit_snapshot)
+        if not persist:
+            result["restore_verified"] = (
+                self._read_data_bytes("learner_profile.json") == profile_snapshot
+                and self._read_data_bytes("audit_logs.json") == audit_snapshot
+            )
+        else:
+            result["restore_verified"] = False
         return result
 
     def _read_data_bytes(self, name: str) -> bytes:
@@ -118,6 +125,7 @@ class DemoCheckService:
             "persisted": persist,
             "write_verified": profile_changed and audit_delta >= 6 and challenge_logged,
             "restored_after_run": not persist,
+            "restore_verified": False,
             "question_id": question.id,
             "question_title": question.title,
             "source_dataset": question.source_dataset,

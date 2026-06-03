@@ -532,6 +532,7 @@ export type DemoCheckResult = {
   persisted: boolean
   write_verified: boolean
   restored_after_run: boolean
+  restore_verified?: boolean
   question_id: string
   question_title: string
   source_dataset: string

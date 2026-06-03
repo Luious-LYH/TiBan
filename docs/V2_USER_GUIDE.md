@@ -40,7 +40,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code\backend
 python -m uvicorn app.main:app --reload --port 8001
 ```
 
-前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 联调状态检查、Provider Base URL 预检、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
+前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 联调状态检查、Provider Base URL 预检、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核和 Skill 运行收据能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
 
 ## 2. 可选真实 Provider
 
@@ -179,6 +179,15 @@ assert r.json()["write_verified"] is True
 assert r.json()["restored_after_run"] is True
 '@ | python -
 ```
+
+演示闭环一键 smoke：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code
+python scripts\demo_smoke.py
+```
+
+该命令会自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并以 `persist=false` 沙盒模式触发首页同款闭环自检：真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、审计收据都会被检查；写入验证完成后会自动恢复画像和审计数据，并二次确认 readiness 摘要未变化。它覆盖训练/Agent/挑战/报告闭环；科普卡片审核和考试 Session 仍建议按上方演示顺序进入页面验证。只有需要保留演示留痕时才使用 `--persist --yes`，不要在多人并发演示时运行会写入状态的自检。
 
 Provider Base URL 预检和自检 smoke：
 

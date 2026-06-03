@@ -28,18 +28,28 @@ export function Dashboard() {
 
   const runDemoCheck = async (persist = false) => {
     if (demoCheckStatus === 'running') return
+    if (persist) {
+      const confirmed = window.confirm('写入演示画像会保留 learner_profile.json 与 audit_logs.json 的训练/审计记录。确认要留下正式演示留痕吗？')
+      if (!confirmed) return
+    }
     setDemoCheckIntent(persist ? 'persisted' : 'sandbox')
     setDemoCheckStatus('running')
     try {
       const result = await api.platformDemoCheck(persist)
       setDemoCheck(result)
-      setDemoCheckStatus('done')
+      setDemoCheckStatus(isDemoCheckPassed(result) ? 'done' : 'failed')
       const nextDashboard = await api.dashboard()
       setData(nextDashboard)
       setStatus(nextDashboard.api_source === 'fallback' ? '本地 fallback' : '后端在线')
     } catch {
       setDemoCheckStatus('failed')
     }
+  }
+
+  const isDemoCheckPassed = (result: DemoCheckResult) => {
+    const challengeLogged = Boolean(result.audit_event_types?.includes('challenge_benchmark'))
+    const restoreOk = result.persisted ? true : result.restored_after_run && result.restore_verified !== false
+    return Boolean(result.write_verified && challengeLogged && restoreOk)
   }
 
   const completion = Math.round((data.today_training.completed / Math.max(data.today_training.target, 1)) * 100)
@@ -177,7 +187,13 @@ export function Dashboard() {
               <strong>{demoCheck ? `${demoCheck.source_dataset} · ${demoCheck.question_title}` : '一键跑通医生训练闭环'}</strong>
               <p>
                 {demoCheck
-                  ? `${demoCheck.persisted ? '正式留痕' : '沙盒验证'} · 写入验证 ${demoCheck.write_verified ? '通过' : '待核查'} · 挑战基准 ${challengeVerified ? '已验证' : '待核查'} · ${demoCheck.restored_after_run ? '已自动恢复数据' : '已保留画像/审计'} · Provider ${demoCheck.provider_ready ? '真实可用' : `${demoCheck.provider_mode} 模式`}`
+                  ? `${demoCheck.persisted ? '正式留痕' : '沙盒验证'} · 写入验证 ${demoCheck.write_verified ? '通过' : '待核查'} · 挑战基准 ${challengeVerified ? '已验证' : '待核查'} · ${
+                      demoCheck.restored_after_run
+                        ? demoCheck.restore_verified === false
+                          ? '恢复待核查'
+                          : '已校验恢复'
+                        : '已保留画像/审计'
+                    } · Provider ${demoCheck.provider_ready ? '真实可用' : `${demoCheck.provider_mode} 模式`}`
                   : '默认沙盒触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、画像回灌和审计收据；写入后自动恢复。'}
               </p>
             </div>
@@ -210,7 +226,11 @@ export function Dashboard() {
               <ShieldCheck size={17} /> {demoCheckStatus === 'running' && demoCheckIntent === 'persisted' ? '写入中' : '写入演示画像'}
             </button>
           </div>
-          {demoCheckStatus === 'failed' ? <span className="demo-check-error">后端自检未完成，请确认 FastAPI 在线后重试。</span> : null}
+          {demoCheckStatus === 'failed' ? (
+            <span className="demo-check-error">
+              {demoCheck ? '自检返回但关键收据未全部通过，请核查写入验证、挑战基准和沙盒恢复状态。' : '后端自检未完成，请确认 FastAPI 在线后重试。'}
+            </span>
+          ) : null}
           {readinessSource === 'fallback' ? <span className="demo-check-error">当前为前端 fallback，不能伪造自检通过。</span> : null}
           {demoCheck ? (
             <div className="demo-check-receipts">
