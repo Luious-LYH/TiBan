@@ -268,7 +268,7 @@ class DashboardService:
                     (
                         f"已有 {len(challenge_logs)} 条 challenge_benchmark 审计；基准不重复回灌画像。"
                         if challenge_logs
-                        else "尚未产生 challenge_benchmark 审计；可进入比拼模式提交一题。"
+                        else "暂无持久 challenge_benchmark 审计；点击首页沙盒自检可即时验证挑战基准并自动恢复数据，或进入比拼模式提交一题保留审计。"
                     ),
                     "/training?view=challenge",
                     "green" if challenge_logs else "blue",

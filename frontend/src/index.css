@@ -714,6 +714,51 @@ a {
   line-height: 1.5;
 }
 
+.challenge-proof-strip {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 8px;
+}
+
+.challenge-proof-strip svg {
+  color: var(--blue);
+}
+
+.challenge-proof-strip.verified,
+.challenge-proof-strip.persisted {
+  border-color: rgba(20, 184, 166, 0.35);
+  background: rgba(240, 253, 250, 0.76);
+}
+
+.challenge-proof-strip.verified svg,
+.challenge-proof-strip.persisted svg {
+  color: var(--teal);
+}
+
+.challenge-proof-strip strong,
+.challenge-proof-strip span {
+  display: block;
+  min-width: 0;
+}
+
+.challenge-proof-strip strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.challenge-proof-strip span {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .demo-check-error {
   grid-column: 1 / -1;
   color: var(--red);

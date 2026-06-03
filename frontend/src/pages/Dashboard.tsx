@@ -47,6 +47,7 @@ export function Dashboard() {
   const readiness = data.platform_readiness
   const readinessSource = readiness.api_source || data.api_source || 'backend'
   const challengeVerified = Boolean(demoCheck?.audit_event_types?.includes('challenge_benchmark'))
+  const challengeReceipt = readiness.evidence_receipts.find((item) => item.id === 'challenge_audit') || null
   const latestExamReplay = readiness.latest_exam_replay || null
 
   return (
@@ -180,6 +181,26 @@ export function Dashboard() {
                   : '默认沙盒触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、画像回灌和审计收据；写入后自动恢复。'}
               </p>
             </div>
+          </div>
+          <div className={`challenge-proof-strip ${challengeVerified ? 'verified' : challengeReceipt?.status === 'audited' ? 'persisted' : 'pending'}`}>
+            <ShieldCheck size={18} />
+            <div>
+              <strong>
+                {challengeVerified
+                  ? '本轮沙盒已验证 challenge_benchmark'
+                  : challengeReceipt?.status === 'audited'
+                    ? '已有持久挑战基准审计'
+                    : '挑战基准可用沙盒即时验证'}
+              </strong>
+              <span>
+                {challengeVerified
+                  ? '本次自检已真实触发挑战基准、写入摘要审计并按沙盒策略恢复数据；需要留痕时可点击“写入演示画像”。'
+                  : challengeReceipt?.detail || '沙盒自检会真实触发 challenge_benchmark，但返回前恢复 audit_logs.json。'}
+              </span>
+            </div>
+            <Link className="button secondary" to="/training?view=challenge">
+              <ArrowRight size={15} /> 比拼模式
+            </Link>
           </div>
           <div className="demo-check-actions">
             <button className="button primary" type="button" onClick={() => runDemoCheck(false)} disabled={demoCheckStatus === 'running' || readinessSource === 'fallback'}>
