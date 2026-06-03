@@ -361,6 +361,7 @@ export type PlatformReadiness = {
   audit_log_count: number
   admission_grade: string
   admission_provider_called: boolean
+  evidence_receipts: PlatformReadinessModule[]
   modules: PlatformReadinessModule[]
   demo_path: DemoPathStep[]
   gaps: string[]

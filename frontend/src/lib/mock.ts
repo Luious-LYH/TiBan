@@ -223,6 +223,14 @@ export const mockDashboard: DashboardPayload = {
     audit_log_count: 1,
     admission_grade: 'A',
     admission_provider_called: false,
+    evidence_receipts: [
+      { id: 'real_sample_kb', label: '真实公开样例库', status: '待联通', detail: '后端联通后会显示 real_sample_knowledge.json 映射结果。', href: '/training?source=public', tone: 'amber' },
+      { id: 'report_kb', label: '报告/科普知识库', status: 'ready', detail: 'fallback 中保留报告模板和卡片模板演示结构。', href: '/report', tone: 'green' },
+      { id: 'provider_status', label: 'Provider 通道', status: 'fallback', detail: '当前为前端 fallback，真实 Provider 状态需后端返回。', href: '/models', tone: 'amber' },
+      { id: 'provider_self_test', label: 'Provider 轻量自检', status: 'not_run', detail: '启动后端后可在模型页运行，不更新准入状态。', href: '/models', tone: 'blue' },
+      { id: 'challenge_audit', label: '训练挑战基准', status: 'not_run', detail: '提交比拼题后会写入 challenge_benchmark 审计。', href: '/training?view=challenge', tone: 'blue' },
+      { id: 'audit_log', label: '审计日志', status: 'seed', detail: '本地仅显示种子审计记录。', href: '/audit', tone: 'blue' },
+    ],
     modules: [
       { id: 'backend_api', label: '后端 API', status: 'fallback', detail: '后端断连时前端使用本地 mock 兜底。', href: '/', tone: 'amber' },
       { id: 'real_samples', label: '真实公开样例', status: '待联通', detail: '后端联通后会加载 Kvasir/EndoBench 公开图文样例。', href: '/training?source=public', tone: 'amber' },

@@ -566,6 +566,56 @@ a {
   box-shadow: 0 14px 34px rgba(15, 118, 110, 0.1);
 }
 
+.evidence-receipts {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.receipt-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(170px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.receipt-tile {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-height: 118px;
+  padding: 12px;
+  color: var(--text);
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.receipt-tile strong,
+.receipt-tile em {
+  display: block;
+}
+
+.receipt-tile em {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.receipt-tile p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .readiness-tile p,
 .demo-step p,
 .gap-strip span {

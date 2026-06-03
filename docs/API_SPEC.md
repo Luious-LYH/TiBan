@@ -323,6 +323,22 @@ Provider 轻量自检：
   "overall_score": 71,
   "provider_mode": "rule",
   "real_sample_count": 10,
+  "evidence_receipts": [
+    {
+      "label": "真实公开样例库",
+      "status": "ready",
+      "detail": "10 条公开图文题已由 real_sample_knowledge.json 映射到题库。",
+      "href": "/training?source=public",
+      "tone": "green"
+    },
+    {
+      "label": "训练挑战基准",
+      "status": "audited",
+      "detail": "已有 challenge_benchmark 审计；基准不重复回灌画像。",
+      "href": "/training?view=challenge",
+      "tone": "green"
+    }
+  ],
   "modules": [
     {
       "label": "真实公开样例",

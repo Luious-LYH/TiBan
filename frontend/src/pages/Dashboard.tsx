@@ -115,6 +115,24 @@ export function Dashboard() {
             </Link>
           ))}
         </div>
+        <div className="evidence-receipts">
+          <div className="demo-path-title">
+            <ShieldCheck size={18} />
+            <strong>可核验证据收据</strong>
+          </div>
+          <div className="receipt-grid">
+            {readiness.evidence_receipts.map((item) => (
+              <Link className="receipt-tile" key={item.id} to={item.href}>
+                <span className={`status-dot tone-${item.tone}`} />
+                <div>
+                  <strong>{item.label}</strong>
+                  <em>{item.status}</em>
+                  <p>{item.detail}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
         <div className="demo-path">
           <div className="demo-path-title">
             <Route size={18} />

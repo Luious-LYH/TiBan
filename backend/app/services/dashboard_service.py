@@ -94,6 +94,8 @@ class DashboardService:
         report_kb = read_json("report_knowledge_base.json")
         card_kb = read_json("card_template_knowledge.json")
         audit_logs = read_json("audit_logs.json")
+        challenge_logs = [item for item in audit_logs if item.get("event_type") == "challenge_benchmark"]
+        provider_self_tests = [item for item in audit_logs if item.get("event_type") == "provider_self_test"]
         modules = [
             self._module(
                 "backend_api",
@@ -179,6 +181,78 @@ class DashboardService:
             "audit_log_count": len(audit_logs),
             "admission_grade": admission_state.get("grade", "NA"),
             "admission_provider_called": bool(admission_state.get("provider_called")),
+            "evidence_receipts": [
+                self._receipt(
+                    "real_sample_kb",
+                    "真实公开样例库",
+                    "ready" if public_questions else "missing",
+                    f"{len(public_questions)} 条公开图文题已由 real_sample_knowledge.json 映射到题库。",
+                    "/training?source=public",
+                    "green" if public_questions else "amber",
+                ),
+                self._receipt(
+                    "report_kb",
+                    "报告/科普知识库",
+                    "ready" if report_kb.get("templates") and card_kb.get("templates") else "partial",
+                    f"报告模板 {len(report_kb.get('templates', []))} 个，卡片模板 {len(card_kb.get('templates', []))} 个。",
+                    "/report",
+                    "green" if report_kb.get("templates") and card_kb.get("templates") else "amber",
+                ),
+                self._receipt(
+                    "provider_status",
+                    "Provider 通道",
+                    "provider" if provider_status.get("configured") else "rule",
+                    (
+                        f"{provider_status.get('provider')} · {provider_status.get('model')} 已由后端 .env 配置。"
+                        if provider_status.get("configured")
+                        else "后端未配置真实 Provider；页面和接口会显式标注 rule/fallback。"
+                    ),
+                    "/models",
+                    "green" if provider_status.get("configured") else "amber",
+                ),
+                self._receipt(
+                    "provider_self_test",
+                    "Provider 轻量自检",
+                    "logged" if provider_self_tests else "not_run",
+                    (
+                        f"最近已有 {len(provider_self_tests)} 条 provider_self_test 摘要审计。"
+                        if provider_self_tests
+                        else "尚未运行轻量自检；可在模型页验证通道且不更新准入状态。"
+                    ),
+                    "/models",
+                    "green" if provider_self_tests else "blue",
+                ),
+                self._receipt(
+                    "model_admission",
+                    "样例级模型准入",
+                    "provider_called" if admission_state.get("provider_called") else "rule_draft",
+                    (
+                        f"最近准入 {admission_state.get('provider_name', 'Provider')} · Grade {admission_state.get('grade', 'NA')} · {'provider called' if admission_state.get('provider_called') else 'rule draft'}。"
+                    ),
+                    "/models",
+                    "green" if admission_state.get("provider_called") else "blue",
+                ),
+                self._receipt(
+                    "challenge_audit",
+                    "训练挑战基准",
+                    "audited" if challenge_logs else "not_run",
+                    (
+                        f"已有 {len(challenge_logs)} 条 challenge_benchmark 审计；基准不重复回灌画像。"
+                        if challenge_logs
+                        else "尚未产生 challenge_benchmark 审计；可进入比拼模式提交一题。"
+                    ),
+                    "/training?view=challenge",
+                    "green" if challenge_logs else "blue",
+                ),
+                self._receipt(
+                    "audit_log",
+                    "审计日志",
+                    "ready" if audit_logs else "empty",
+                    f"当前 audit_logs.json 保存 {len(audit_logs)} 条摘要事件，不保存 API key 或自由追问原文。",
+                    "/audit",
+                    "green" if audit_logs else "amber",
+                ),
+            ],
             "modules": modules,
             "demo_path": [
                 {
@@ -232,6 +306,24 @@ class DashboardService:
     ) -> dict[str, str]:
         return {
             "id": module_id,
+            "label": label,
+            "status": status,
+            "detail": detail,
+            "href": href,
+            "tone": tone,
+        }
+
+    def _receipt(
+        self,
+        receipt_id: str,
+        label: str,
+        status: str,
+        detail: str,
+        href: str,
+        tone: str,
+    ) -> dict[str, str]:
+        return {
+            "id": receipt_id,
             "label": label,
             "status": status,
             "detail": detail,

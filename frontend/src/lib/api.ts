@@ -307,6 +307,8 @@ function normalizePlatformReadiness(value: unknown, fallback: PlatformReadiness 
   const record = asRecord(value)
   const fallbackModules = fallback.modules.length ? fallback.modules : mockDashboard.platform_readiness.modules
   const modules = Array.isArray(record.modules) ? record.modules : fallbackModules
+  const fallbackReceipts = fallback.evidence_receipts.length ? fallback.evidence_receipts : fallbackModules
+  const receipts = Array.isArray(record.evidence_receipts) ? record.evidence_receipts : fallbackReceipts
   const fallbackPath = fallback.demo_path.length ? fallback.demo_path : mockDashboard.platform_readiness.demo_path
   const demoPath = Array.isArray(record.demo_path) ? record.demo_path : fallbackPath
   return {
@@ -326,6 +328,7 @@ function normalizePlatformReadiness(value: unknown, fallback: PlatformReadiness 
     audit_log_count: asNumber(record.audit_log_count, fallback.audit_log_count),
     admission_grade: asString(record.admission_grade, fallback.admission_grade),
     admission_provider_called: asBoolean(record.admission_provider_called, fallback.admission_provider_called),
+    evidence_receipts: receipts.map((item, index) => normalizeReadinessModule(item, fallbackReceipts[index] || fallbackReceipts[0], index)),
     modules: modules.map((item, index) => normalizeReadinessModule(item, fallbackModules[index] || fallbackModules[0], index)),
     demo_path: demoPath.map((item, index) => {
       const step = asRecord(item)
