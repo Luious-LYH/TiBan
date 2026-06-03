@@ -215,7 +215,7 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
 }
 ```
 
-科普卡片默认生成待审核草稿，打印/分享保持锁定。医生确认审核后，对同一张草稿卡调用 approve 接口才会解锁；平台不再通过“重新生成一张已审核卡”伪装审核闭环。
+科普卡片默认生成待审核草稿，打印/分享保持锁定。`POST /patient-card` 会返回草稿生成收据：`generation_mode`、`source_trace`、`knowledge_base_id`、`audit_logged` 和 `audit_log_id`，用于证明后端已经用卡片模板知识库生成草稿并写入 `patient_card` 审计。该收据不代表医生审核通过。医生确认审核后，对同一张草稿卡调用 approve 接口才会解锁；平台不再通过“重新生成一张已审核卡”伪装审核闭环。
 
 ```json
 {
@@ -223,6 +223,26 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
   "audience": "patient",
   "template_id": "calm_blue",
   "image_url": "/assets/real_samples/kv_cla820gl0s3nv071u4fgd7xgq.jpg"
+}
+```
+
+草稿生成核心返回字段：
+
+```json
+{
+  "id": "card_xxx",
+  "review_status": "doctor_review_pending",
+  "share_status": "locked_pending_review",
+  "generation_mode": "rule",
+  "knowledge_base_id": "card_template_kb_v1_1",
+  "audit_logged": true,
+  "audit_log_id": "audit_xxx",
+  "source_trace": [
+    { "source_type": "doctor_input", "label": "医生审核前摘要", "used": true },
+    { "source_type": "card_template_kb", "label": "清爽蓝-门诊沟通", "used": true },
+    { "source_type": "audit", "label": "生成审计收据", "used": true }
+  ],
+  "doctor_review_required": true
 }
 ```
 

@@ -141,6 +141,7 @@ export function PatientCard() {
         { label: '未加入未提供的病理、治疗或疗效承诺', checked: Boolean(reviewChecks.noUnsupportedClaim), detail: '高风险医学表述保持解释性和复核边界。' },
         { label: '患者沟通前保留免责声明和复诊提醒', checked: Boolean(reviewChecks.disclaimerKept), detail: '卡片始终提示不替代医生面对面解释。' },
       ]
+  const cardSourceTrace = card?.source_trace || []
 
   return (
     <div className="page-stack card-studio">
@@ -216,6 +217,31 @@ export function PatientCard() {
             <WandSparkles size={17} /> 生成浮动科普卡片
           </button>
           <div className="card-status-line">{cardStatus}</div>
+          {card ? (
+            <div className={`card-generation-receipt ${card.audit_logged ? 'synced' : 'fallback'}`}>
+              <div className="receipt-head">
+                <CheckCircle2 size={18} />
+                <div>
+                  <strong>{card.audit_logged ? '后端草稿收据' : '本地预览收据'}</strong>
+                  <span>{card.audit_logged ? '已写入 patient_card 审计；仍需医生审核后才可分享。' : '后端不可用时的前端预览；未写入审计。'}</span>
+                </div>
+              </div>
+              <div className="receipt-metrics">
+                <div><span>生成模式</span><strong>{card.generation_mode || card.api_source || 'rule'}</strong></div>
+                <div><span>模板知识库</span><strong>{card.knowledge_base_id || '未连接'}</strong></div>
+                <div><span>审计 ID</span><strong>{card.audit_log_id || '未写入'}</strong></div>
+              </div>
+              {cardSourceTrace.length ? (
+                <div className="card-source-trace">
+                  {cardSourceTrace.map((source) => (
+                    <span className={source.used ? 'used' : ''} key={`${source.source_type}_${source.label}`}>
+                      {source.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </Card>
 
         <Card>

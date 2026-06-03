@@ -327,6 +327,11 @@ class PatientCard(BaseModel):
     review_notes: str | None = None
     reviewed_at: str | None = None
     review_steps: list[dict[str, Any]] = Field(default_factory=list)
+    generation_mode: str = "rule"
+    source_trace: list[dict[str, Any]] = Field(default_factory=list)
+    knowledge_base_id: str | None = None
+    audit_logged: bool = False
+    audit_log_id: str | None = None
     doctor_review_required: bool = True
     safety_notice: str
     created_at: str

@@ -3244,6 +3244,113 @@ textarea {
   font-weight: 650;
 }
 
+.card-generation-receipt {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8fbff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.card-generation-receipt.synced {
+  background: linear-gradient(135deg, var(--teal-soft), #ffffff);
+  border-color: #99f6e4;
+}
+
+.card-generation-receipt.fallback {
+  background: linear-gradient(135deg, #fff7ed, #ffffff);
+  border-color: #fed7aa;
+}
+
+.receipt-head {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 9px;
+  align-items: flex-start;
+}
+
+.receipt-head svg {
+  color: var(--teal);
+}
+
+.card-generation-receipt.fallback .receipt-head svg {
+  color: #ea580c;
+}
+
+.receipt-head strong,
+.receipt-head span {
+  display: block;
+}
+
+.receipt-head strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.receipt-head span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.receipt-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.receipt-metrics div {
+  min-width: 0;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 8px;
+}
+
+.receipt-metrics span,
+.receipt-metrics strong {
+  display: block;
+}
+
+.receipt-metrics span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.receipt-metrics strong {
+  overflow: hidden;
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-source-trace {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.card-source-trace span {
+  padding: 5px 8px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.card-source-trace span.used {
+  color: var(--teal);
+  border-color: #99f6e4;
+}
+
 .review-gate-panel {
   border-color: #fecaca;
   background: linear-gradient(135deg, var(--red-soft), #ffffff);

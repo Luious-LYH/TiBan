@@ -184,8 +184,30 @@ class ReportService:
 
     def generate_patient_card(self, request: PatientCardRequest) -> PatientCard:
         summary = safety_service.redact_sensitive_text(request.diagnosis_summary.strip())
+        kb = self.card_template_knowledge_base()
         template = self._card_template(request.template_id)
         image_url = self._card_image_url(request.image_url)
+        template_name = template.get("name", "科普卡片模板")
+        source_trace = [
+            {
+                "source_type": "doctor_input",
+                "label": "医生审核前摘要",
+                "used": bool(summary),
+                "detail": "已脱敏后用于生成患者沟通草稿；仍需医生审核。",
+            },
+            {
+                "source_type": "card_template_kb",
+                "label": template_name,
+                "used": True,
+                "detail": kb.get("id", "card_template_knowledge.json"),
+            },
+            {
+                "source_type": "image",
+                "label": "卡片图像",
+                "used": bool(image_url),
+                "detail": image_url or "未写入后端图片；本机上传仅用于浏览器预览。",
+            },
+        ]
         card = PatientCard(
             id=f"card_{uuid4().hex[:12]}",
             card_title="内镜检查结果说明卡（医生审核前草稿）",
@@ -230,18 +252,38 @@ class ReportService:
                     "detail": "卡片始终提示不替代医生面对面解释。",
                 },
             ],
+            generation_mode="rule",
+            source_trace=source_trace,
+            knowledge_base_id=kb.get("id", "card_template_knowledge.json"),
+            audit_logged=False,
+            audit_log_id=None,
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
             created_at=now_iso(),
         )
-        self._upsert_patient_card(card)
-        audit_service.log(
+        audit = audit_service.log(
             "patient_card",
             user_id="doctor_demo",
             entity_id=card.id,
             summary="生成患者科普卡片草稿；分享和打印保持锁定，等待医生审核。",
             risk_level="high",
         )
+        card = card.model_copy(
+            update={
+                "audit_logged": True,
+                "audit_log_id": audit.id,
+                "source_trace": [
+                    *source_trace,
+                    {
+                        "source_type": "audit",
+                        "label": "生成审计收据",
+                        "used": True,
+                        "detail": f"已写入 patient_card 审计：{audit.id}",
+                    },
+                ],
+            }
+        )
+        self._upsert_patient_card(card)
         return card
 
     def approve_patient_card(self, card_id: str, request: PatientCardApproveRequest) -> PatientCard:

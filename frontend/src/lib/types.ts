@@ -275,6 +275,11 @@ export type PatientCard = {
   review_notes?: string | null
   reviewed_at?: string | null
   review_steps?: { label: string; checked: boolean; detail: string }[]
+  generation_mode?: GenerationMode | string
+  source_trace?: SourceTraceItem[]
+  knowledge_base_id?: string | null
+  audit_logged?: boolean
+  audit_log_id?: string | null
   doctor_review_required: true
   safety_notice: string
   created_at: string

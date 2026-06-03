@@ -40,7 +40,7 @@ const apiBaseCandidates = configuredApiBase
   ? [configuredApiBase]
   : ['http://127.0.0.1:8000', 'http://127.0.0.1:8001']
 const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
-const requiredApiCapabilities = ['provider_self_test', 'provider_visual_self_test', 'demo_check_sandbox', 'challenge_benchmark', 'challenge_audit_receipt']
+const requiredApiCapabilities = ['provider_self_test', 'provider_visual_self_test', 'demo_check_sandbox', 'challenge_benchmark', 'challenge_audit_receipt', 'patient_card_generation_receipt']
 let activeApiBase = apiBaseCandidates[0]
 let apiBaseProbe: Promise<boolean> | null = null
 
@@ -630,6 +630,48 @@ function normalizeReportJudge(value: unknown, fallback: ReportJudge): ReportJudg
     source_trace: normalizeSourceTrace(record.source_trace, fallback.source_trace),
     profile_updated: asBoolean(record.profile_updated, fallback.profile_updated),
     memory_summary: typeof record.memory_summary === 'string' ? record.memory_summary : fallback.memory_summary,
+    doctor_review_required: true,
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    created_at: asString(record.created_at, fallback.created_at),
+  }
+}
+
+function normalizePatientCard(value: unknown, fallback: PatientCard): PatientCard {
+  const record = asRecord(value)
+  const reviewSteps = Array.isArray(record.review_steps)
+    ? record.review_steps.map((item) => {
+        const step = asRecord(item)
+        return {
+          label: asString(step.label, '医生审核步骤'),
+          checked: asBoolean(step.checked, false),
+          detail: asString(step.detail, '等待医生确认。'),
+        }
+      })
+    : fallback.review_steps
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id),
+    card_title: asString(record.card_title, fallback.card_title),
+    plain_language_explanation: asString(record.plain_language_explanation, fallback.plain_language_explanation),
+    what_it_means: asStringArray(record.what_it_means, fallback.what_it_means),
+    what_to_watch: asStringArray(record.what_to_watch, fallback.what_to_watch),
+    follow_up_reminder: asString(record.follow_up_reminder, fallback.follow_up_reminder),
+    disclaimer: asString(record.disclaimer, fallback.disclaimer),
+    template_id: asString(record.template_id, fallback.template_id),
+    visual_tone: asString(record.visual_tone, fallback.visual_tone),
+    image_url: typeof record.image_url === 'string' || record.image_url === null ? record.image_url : fallback.image_url,
+    review_status: asString(record.review_status, fallback.review_status) as PatientCard['review_status'],
+    share_status: asString(record.share_status, fallback.share_status || 'locked_pending_review') as PatientCard['share_status'],
+    reviewer_name: typeof record.reviewer_name === 'string' || record.reviewer_name === null ? record.reviewer_name : fallback.reviewer_name,
+    review_notes: typeof record.review_notes === 'string' || record.review_notes === null ? record.review_notes : fallback.review_notes,
+    reviewed_at: typeof record.reviewed_at === 'string' || record.reviewed_at === null ? record.reviewed_at : fallback.reviewed_at,
+    review_steps: reviewSteps,
+    generation_mode: asString(record.generation_mode, fallback.generation_mode || 'fallback'),
+    source_trace: normalizeSourceTrace(record.source_trace, fallback.source_trace || []),
+    knowledge_base_id: typeof record.knowledge_base_id === 'string' || record.knowledge_base_id === null ? record.knowledge_base_id : fallback.knowledge_base_id,
+    audit_logged: asBoolean(record.audit_logged, fallback.audit_logged || false),
+    audit_log_id: typeof record.audit_log_id === 'string' || record.audit_log_id === null ? record.audit_log_id : fallback.audit_log_id,
     doctor_review_required: true,
     safety_notice: asString(record.safety_notice, safetyNotice),
     created_at: asString(record.created_at, fallback.created_at),
@@ -1232,7 +1274,50 @@ export const api = {
     summary: string,
     options: { templateId?: string; imageUrl?: string } = {},
   ): Promise<PatientCard> {
-    return request<PatientCard>(
+    const fallback: PatientCard = {
+      id: `card_local_${Date.now()}`,
+      card_title: '内镜检查结果说明卡（医生审核前草稿）',
+      plain_language_explanation: `这张卡片把医生待审核输入“${summary}”转写为更容易理解的说明。`,
+      what_it_means: ['内镜描述反映检查中看到的黏膜外观。', '部分表现需要结合病史和病理。'],
+      what_to_watch: ['是否有持续或加重不适。', '是否需要按医嘱复诊。'],
+      follow_up_reminder: '请按照医生给出的复诊或检查安排执行。',
+      disclaimer: '本卡片为医生审核前沟通草稿；如输入尚未审核，必须先由医生确认后才能用于患者沟通。',
+      template_id: options.templateId || 'calm_blue',
+      visual_tone: '稳健、清楚、适合打印',
+      image_url: options.imageUrl,
+      review_status: 'doctor_review_pending',
+      share_status: 'locked_pending_review',
+      reviewer_name: null,
+      review_notes: null,
+      reviewed_at: null,
+      review_steps: [
+        { label: '摘要来自医生确认的报告或训练输入', checked: false, detail: '未确认前，卡片只能用于教学预览。' },
+        { label: '未加入未提供的病理、治疗或疗效承诺', checked: false, detail: '高风险医学表述保持解释性和复核边界。' },
+        { label: '患者沟通前保留免责声明和复诊提醒', checked: true, detail: '卡片始终提示不替代医生面对面解释。' },
+      ],
+      generation_mode: 'fallback',
+      source_trace: [
+        {
+          source_type: 'frontend_fallback',
+          label: '本地预览草稿',
+          used: true,
+          detail: '后端不可用时仅在前端生成预览；未写入 patient_card 审计。',
+        },
+        {
+          source_type: 'card_template_kb',
+          label: '卡片模板',
+          used: false,
+          detail: '未连接后端 card_template_knowledge.json。',
+        },
+      ],
+      knowledge_base_id: null,
+      audit_logged: false,
+      audit_log_id: null,
+      doctor_review_required: true,
+      safety_notice: safetyNotice,
+      created_at: new Date().toISOString(),
+    }
+    const response = await request<PatientCard>(
       '/api/patient-card',
       {
         method: 'POST',
@@ -1243,32 +1328,9 @@ export const api = {
           image_url: options.imageUrl,
         }),
       },
-      {
-        id: `card_local_${Date.now()}`,
-        card_title: '内镜检查结果说明卡（医生审核前草稿）',
-        plain_language_explanation: `这张卡片把医生待审核输入“${summary}”转写为更容易理解的说明。`,
-        what_it_means: ['内镜描述反映检查中看到的黏膜外观。', '部分表现需要结合病史和病理。'],
-        what_to_watch: ['是否有持续或加重不适。', '是否需要按医嘱复诊。'],
-        follow_up_reminder: '请按照医生给出的复诊或检查安排执行。',
-        disclaimer: '本卡片为医生审核前沟通草稿；如输入尚未审核，必须先由医生确认后才能用于患者沟通。',
-        template_id: options.templateId || 'calm_blue',
-        visual_tone: '稳健、清楚、适合打印',
-        image_url: options.imageUrl,
-        review_status: 'doctor_review_pending',
-        share_status: 'locked_pending_review',
-        reviewer_name: null,
-        review_notes: null,
-        reviewed_at: null,
-        review_steps: [
-          { label: '摘要来自医生确认的报告或训练输入', checked: false, detail: '未确认前，卡片只能用于教学预览。' },
-          { label: '未加入未提供的病理、治疗或疗效承诺', checked: false, detail: '高风险医学表述保持解释性和复核边界。' },
-          { label: '患者沟通前保留免责声明和复诊提醒', checked: true, detail: '卡片始终提示不替代医生面对面解释。' },
-        ],
-        doctor_review_required: true,
-        safety_notice: safetyNotice,
-        created_at: new Date().toISOString(),
-      },
+      fallback,
     )
+    return normalizePatientCard(response, fallback)
   },
 
   async approvePatientCard(
@@ -1276,7 +1338,7 @@ export const api = {
     options: { reviewerName: string; reviewNotes?: string; reviewChecks: Record<string, boolean> },
   ): Promise<PatientCard> {
     // 审核解锁必须写入后端审计；离线时宁可失败，也不能前端伪造已审核状态。
-    return request<PatientCard>(
+    const response = await request<PatientCard>(
       `/api/patient-card/${encodeURIComponent(card.id)}/approve`,
       {
         method: 'POST',
@@ -1287,6 +1349,7 @@ export const api = {
         }),
       },
     )
+    return normalizePatientCard(response, card)
   },
 
   async models(): Promise<ModelProfile[]> {
