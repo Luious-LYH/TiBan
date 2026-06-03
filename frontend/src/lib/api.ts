@@ -62,6 +62,14 @@ let activeApiBase = apiBaseCandidates[0]
 let apiBaseProbe: Promise<boolean> | null = null
 
 type ApiSource = 'backend' | 'fallback'
+type RequestTimeoutProfile = 'probe' | 'status' | 'standard' | 'provider'
+
+const requestTimeoutMs: Record<RequestTimeoutProfile, number> = {
+  probe: 1800,
+  status: 5000,
+  standard: 12000,
+  provider: 65000,
+}
 
 function markSource<T extends object>(payload: T, source: ApiSource): T {
   return { ...payload, api_source: source }
@@ -79,8 +87,51 @@ class ApiRequestError extends Error {
 function shouldTryNextApiBase(error: unknown): boolean {
   if (configuredApiBase) return false
   if (error instanceof TypeError) return true
+  if (isAbortError(error)) return true
   if (error instanceof ApiRequestError) return error.status === 404 || error.status === 405
   return false
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
+function timeoutProfileFor(path: string, init?: RequestInit): RequestTimeoutProfile {
+  if (path === '/api/health' || path.endsWith('/api/health')) return 'probe'
+  if (
+    path.includes('/provider/status') ||
+    path.includes('/provider/diagnostics') ||
+    path.includes('/models/admission-state') ||
+    path.includes('/platform/readiness')
+  ) {
+    return 'status'
+  }
+  const method = init?.method?.toUpperCase() || 'GET'
+  if (
+    method !== 'GET' &&
+    (
+      path.includes('/provider/self-test') ||
+      path.includes('/models/admission-test') ||
+      path.includes('/report-draft') ||
+      path.includes('/report/judge') ||
+      path.includes('/tutor/chat') ||
+      path.includes('/tutor/challenge-benchmark') ||
+      path.includes('/patient-card')
+    )
+  ) {
+    return 'provider'
+  }
+  return method === 'GET' ? 'status' : 'standard'
+}
+
+async function fetchWithTimeout(input: string, init: RequestInit | undefined, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    window.clearTimeout(timer)
+  }
 }
 
 function orderedApiBaseCandidates(): string[] {
@@ -97,7 +148,11 @@ async function ensureCapableApiBase(): Promise<void> {
 async function probeApiBases(): Promise<boolean> {
   for (const apiBase of apiBaseCandidates) {
     try {
-      const response = await fetch(`${apiBase}/api/health`, { headers: { 'Content-Type': 'application/json' } })
+      const response = await fetchWithTimeout(
+        `${apiBase}/api/health`,
+        { headers: { 'Content-Type': 'application/json' } },
+        requestTimeoutMs.probe,
+      )
       if (!response.ok) continue
       const health = asRecord(await response.json())
       const capabilities = asStringArray(health.capabilities)
@@ -115,12 +170,17 @@ async function probeApiBases(): Promise<boolean> {
 async function request<T extends object>(path: string, init?: RequestInit, fallback?: T): Promise<T> {
   await ensureCapableApiBase()
   let lastError: unknown
+  const timeoutMs = requestTimeoutMs[timeoutProfileFor(path, init)]
   for (const apiBase of orderedApiBaseCandidates()) {
     try {
-      const response = await fetch(`${apiBase}${path}`, {
-        headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-        ...init,
-      })
+      const response = await fetchWithTimeout(
+        `${apiBase}${path}`,
+        {
+          ...init,
+          headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
+        },
+        timeoutMs,
+      )
       if (!response.ok) {
         let detail = ''
         try {
