@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent } from 'react'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, ImagePlus, LockKeyhole, Printer, Share2, Sparkles, WandSparkles } from 'lucide-react'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
@@ -12,15 +13,29 @@ const sampleImages = [
 ]
 
 export function PatientCard() {
-  const [summary, setSummary] = useState('胃窦黏膜炎症样改变，需结合完整报告和医生复核后用于患者解释。')
+  const [searchParams] = useSearchParams()
+  const location = useLocation()
+  const locationState = location.state as { reportSummary?: string; source?: string; summarySource?: 'judge_suggestion' | 'doctor_revision' } | null
+  const incomingSummary = locationState?.reportSummary || searchParams.get('summary') || ''
+  const isReportJudgeImport = locationState?.source === 'report_judge' && Boolean(locationState?.reportSummary?.trim())
+  const isJudgeSuggestion = isReportJudgeImport && locationState?.summarySource !== 'doctor_revision'
+  const defaultSummary = '胃窦黏膜炎症样改变，需结合完整报告和医生复核后用于患者解释。'
+  const defaultStatus = '选择模板和图像后，可生成医生审核前科普卡片草稿。'
+  const importedStatus = isReportJudgeImport
+    ? '已接收报告修改训练摘要；请生成科普卡片草稿，并完成医生审核闸门。'
+    : '已接收外部摘要；请生成科普卡片草稿，并完成医生审核闸门。'
+  const importedReviewNotes = isReportJudgeImport
+    ? `${isJudgeSuggestion ? '摘要来自报告修改训练评分后的安全改写' : '摘要来自报告修改训练中的医生修改稿'}，生成卡片后仍需逐项审核。`
+    : '摘要来自外部入口，生成卡片后仍需医生审核。'
+  const [summary, setSummary] = useState(() => incomingSummary || defaultSummary)
   const [templateId, setTemplateId] = useState('calm_blue')
   const [imageUrl, setImageUrl] = useState(sampleImages[0])
   const [card, setCard] = useState<PatientCardType | null>(null)
   const [knowledge, setKnowledge] = useState<KnowledgeBase | null>(null)
-  const [cardStatus, setCardStatus] = useState('选择模板和图像后，可生成医生审核前科普卡片草稿。')
+  const [cardStatus, setCardStatus] = useState(() => incomingSummary ? importedStatus : defaultStatus)
   const [uploadedImageName, setUploadedImageName] = useState('')
   const [reviewerName, setReviewerName] = useState('林知远医师')
-  const [reviewNotes, setReviewNotes] = useState('摘要与报告训练输入一致，可作为患者沟通前说明草稿。')
+  const [reviewNotes, setReviewNotes] = useState(() => incomingSummary ? importedReviewNotes : '摘要与报告训练输入一致，可作为患者沟通前说明草稿。')
   const [reviewChecks, setReviewChecks] = useState({
     summaryMatched: false,
     noUnsupportedClaim: false,
@@ -141,6 +156,15 @@ export function PatientCard() {
       <div className="grid two card-builder">
         <Card>
           <SectionTitle eyebrow="Input" title="卡片内容与模板" />
+          {isReportJudgeImport ? (
+            <div className="report-card-source">
+              <CheckCircle2 size={18} />
+              <div>
+                <strong>来源：报告修改训练</strong>
+                <span>已带入{isJudgeSuggestion ? ' AI judge 建议改写摘要' : '医生修改稿摘要'}；分享/打印仍需医生完成审核清单。</span>
+              </div>
+            </div>
+          ) : null}
           <textarea
             value={summary}
             onChange={(event) => {

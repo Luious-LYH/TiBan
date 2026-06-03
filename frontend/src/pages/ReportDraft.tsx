@@ -476,6 +476,22 @@ export function ReportDraft() {
                   <span>下一步专项训练</span>
                   <strong>{judge.recommended_drills.length} 个推荐</strong>
                 </div>
+                <Link
+                  className="report-to-card-link"
+                  to="/card?source=report_judge"
+                  state={{
+                    source: 'report_judge',
+                    reportSummary: judge.suggested_revision || revisedReport,
+                    summarySource: judge.suggested_revision ? 'judge_suggestion' : 'doctor_revision',
+                  }}
+                >
+                  <div>
+                    <strong>生成患者沟通卡片草稿</strong>
+                    <span>{judge.suggested_revision ? 'AI judge 建议改写' : '医生修改稿摘要'} · 医生审核闸门仍保持锁定</span>
+                    <p>把已评分的摘要带到科普卡片工作室，继续完成患者沟通前审核。</p>
+                  </div>
+                  <ArrowRight size={17} />
+                </Link>
                 {judge.recommended_drills.map((drill) => (
                   <Link to={drill.href} key={`${drill.label}_${drill.rubric || 'report'}`}>
                     <div>

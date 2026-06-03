@@ -2793,6 +2793,15 @@ textarea {
   transform: translateY(-1px);
 }
 
+.report-drill-list a.report-to-card-link {
+  background: linear-gradient(135deg, #f0fdfa, #f8fbff);
+  border-color: #99f6e4;
+}
+
+.report-drill-list a.report-to-card-link span {
+  color: var(--teal);
+}
+
 .report-drill-list a strong,
 .report-drill-list a span {
   display: block;
@@ -3191,6 +3200,36 @@ textarea {
   color: var(--teal);
   border-color: #5eead4 !important;
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+}
+
+.report-card-source {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  padding: 12px;
+  color: var(--teal);
+  background: var(--teal-soft);
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+}
+
+.report-card-source strong,
+.report-card-source span {
+  display: block;
+}
+
+.report-card-source strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.report-card-source span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .card-status-line {
