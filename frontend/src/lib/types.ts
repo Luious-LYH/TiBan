@@ -178,6 +178,7 @@ export type AuditLog = {
     | 'model_admission'
     | 'favorite_update'
     | 'image_upload'
+    | 'demo_check'
     | 'safety_warning'
   user_id: string
   entity_id?: string | null
@@ -369,6 +370,45 @@ export type PlatformReadiness = {
   demo_path: DemoPathStep[]
   gaps: string[]
   safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type DemoCheckReceipt = {
+  id: string
+  label: string
+  status: string
+  detail: string
+  tone: ReadinessTone
+}
+
+export type DemoCheckResult = {
+  id: string
+  learner_id: string
+  question_id: string
+  question_title: string
+  source_dataset: string
+  provider_mode: string
+  provider_ready: boolean
+  profile_before: {
+    total_questions: number
+    training_records: number
+    completed_today: number
+  }
+  profile_after: {
+    total_questions: number
+    training_records: number
+    completed_today: number
+    updated_at: string
+  }
+  audit_before_count: number
+  audit_after_count: number
+  audit_delta: number
+  receipts: DemoCheckReceipt[]
+  profile_updated: boolean
+  audit_logged: boolean
+  doctor_review_required: boolean
+  safety_notice: string
+  created_at: string
   api_source?: 'backend' | 'fallback'
 }
 

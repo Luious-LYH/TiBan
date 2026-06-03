@@ -26,6 +26,7 @@ from app.schemas import (
 )
 from app.services.audit_service import audit_service
 from app.services.dashboard_service import dashboard_service
+from app.services.demo_check_service import demo_check_service
 from app.services.grading_service import grading_service
 from app.services.llm_provider import llm_provider
 from app.services.memory_service import memory_service
@@ -61,6 +62,11 @@ def dashboard() -> dict[str, object]:
 @router.get("/platform/readiness")
 def platform_readiness() -> dict[str, object]:
     return dashboard_service.get_readiness()
+
+
+@router.post("/platform/demo-check")
+def platform_demo_check(learner_id: str = "demo_learner") -> dict[str, object]:
+    return demo_check_service.run(learner_id=learner_id)
 
 
 @router.get("/questions")

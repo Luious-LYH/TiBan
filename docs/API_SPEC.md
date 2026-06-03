@@ -11,7 +11,7 @@ Base URL: `http://127.0.0.1:8000/api`
 }
 ```
 
-当前 `/submit`、`/learner/exam-session`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/tutor/challenge-benchmark`、`/report-draft`、`/report/judge`、`/patient-card`、`/provider/self-test`、`/models/admission-test` 和高风险 `/skills/run` 输出均遵循该契约。
+当前 `/submit`、`/learner/exam-session`、`/tutor/hint`、`/tutor/explain`、`/tutor/chat`、`/tutor/challenge-benchmark`、`/platform/demo-check`、`/report-draft`、`/report/judge`、`/patient-card`、`/provider/self-test`、`/models/admission-test` 和高风险 `/skills/run` 输出均遵循该契约。
 
 v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mode` / `provider_status` / `provider_called`：
 
@@ -28,6 +28,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | POST | `/provider/self-test` | Provider 轻量连通自检；不读取公开样例，不更新模型准入状态，不保存 key/base/完整回复 |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
 | GET | `/platform/readiness` | 平台就绪度、真实性矩阵和建议演示路线 |
+| POST | `/platform/demo-check` | 手动触发一次公开样例演示闭环自检；真实写入画像和审计，后端不可用时前端不伪造通过 |
 | GET | `/questions` | 题库列表，支持 `question_class`、`difficulty`、`false_premise` |
 | GET | `/questions/{id}` | 单题详情 |
 | POST | `/submit` | 提交答案并生成错因反馈 |
@@ -362,6 +363,39 @@ Provider 轻量自检：
     }
   ],
   "gaps": ["未配置 Provider 时会显式显示 rule/fallback。"]
+}
+```
+
+演示闭环自检：
+
+```http
+POST /api/platform/demo-check?learner_id=demo_learner
+```
+
+该接口用于答辩前确认平台不是静态页面。它会选择一条公开样例题，真实触发 `/submit`、`/tutor/chat`、`/report-draft`、`/report/judge` 及 `demo_check` 审计摘要，并返回证据收据。它不会保存 API key 或自由追问原文；若 Provider 未配置，结果会明确显示 `rule` 模式。因为它会写入 `learner_profile.json` 和 `audit_logs.json`，开发 smoke 时建议先备份再运行。
+
+核心返回字段：
+
+```json
+{
+  "question_id": "public_real_x1_0",
+  "source_dataset": "Kvasir-VQA-x1",
+  "provider_mode": "rule",
+  "profile_updated": true,
+  "audit_delta": 7,
+  "receipts": [
+    {
+      "label": "公开样例提交",
+      "status": "correct",
+      "detail": "Kvasir-VQA-x1 · 100 分 · 已写入训练画像。"
+    },
+    {
+      "label": "审计链路",
+      "status": "+7",
+      "detail": "已记录 question_view、answer_submit、tutor_reply、report_draft、report_judge 与 demo_check 摘要事件。"
+    }
+  ],
+  "doctor_review_required": true
 }
 ```
 

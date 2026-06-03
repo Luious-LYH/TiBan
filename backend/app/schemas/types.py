@@ -425,6 +425,7 @@ class AuditLog(BaseModel):
         "model_admission",
         "favorite_update",
         "image_upload",
+        "demo_check",
         "safety_warning",
     ]
     user_id: str

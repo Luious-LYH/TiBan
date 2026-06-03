@@ -11,6 +11,7 @@ import type {
   AuditLog,
   ChallengeBenchmarkResult,
   DashboardPayload,
+  DemoCheckResult,
   ExamSessionAttempt,
   ExamSessionResponse,
   ImageUploadResponse,
@@ -703,6 +704,13 @@ export const api = {
   async platformReadiness(): Promise<PlatformReadiness> {
     const response = await request<PlatformReadiness>('/api/platform/readiness', undefined, mockDashboard.platform_readiness)
     return normalizePlatformReadiness(response)
+  },
+
+  async platformDemoCheck(): Promise<DemoCheckResult> {
+    return request<DemoCheckResult>(
+      '/api/platform/demo-check?learner_id=demo_learner',
+      { method: 'POST' },
+    )
   },
 
   async questions(params: { falsePremise?: boolean } = {}): Promise<Question[]> {

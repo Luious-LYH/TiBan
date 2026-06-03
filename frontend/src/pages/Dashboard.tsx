@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ArrowRight, BookOpenCheck, Bot, CheckCircle2, ClipboardList, DatabaseZap, Gauge, Route, ShieldCheck, Star, Target, UserRound } from 'lucide-react'
+import { ActivitySquare, ArrowRight, BookOpenCheck, Bot, CheckCircle2, ClipboardList, DatabaseZap, Gauge, Route, ShieldCheck, Star, Target, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, SafetyNotice, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockDashboard } from '../lib/mock'
-import type { DashboardPayload } from '../lib/types'
+import type { DashboardPayload, DemoCheckResult } from '../lib/types'
 
 export function Dashboard() {
   const [data, setData] = useState<DashboardPayload>(mockDashboard)
   const [status, setStatus] = useState('连接后端中')
+  const [demoCheck, setDemoCheck] = useState<DemoCheckResult | null>(null)
+  const [demoCheckStatus, setDemoCheckStatus] = useState<'idle' | 'running' | 'done' | 'failed'>('idle')
 
   useEffect(() => {
     api.dashboard()
@@ -22,6 +24,21 @@ export function Dashboard() {
         setStatus('本地 fallback')
       })
   }, [])
+
+  const runDemoCheck = async () => {
+    if (demoCheckStatus === 'running') return
+    setDemoCheckStatus('running')
+    try {
+      const result = await api.platformDemoCheck()
+      setDemoCheck(result)
+      setDemoCheckStatus('done')
+      const nextDashboard = await api.dashboard()
+      setData(nextDashboard)
+      setStatus(nextDashboard.api_source === 'fallback' ? '本地 fallback' : '后端在线')
+    } catch {
+      setDemoCheckStatus('failed')
+    }
+  }
 
   const completion = Math.round((data.today_training.completed / Math.max(data.today_training.target, 1)) * 100)
   const profile = data.learner_profile
@@ -101,6 +118,39 @@ export function Dashboard() {
             <span>模型准入</span>
             <strong>Grade {readiness.admission_grade} · {readiness.admission_provider_called ? 'provider' : 'rule'}</strong>
           </div>
+        </div>
+        <div className={`demo-check-console ${demoCheckStatus}`}>
+          <div className="demo-check-main">
+            <ActivitySquare size={22} />
+            <div>
+              <span className="eyebrow">Verifiable loop check</span>
+              <strong>{demoCheck ? `${demoCheck.source_dataset} · ${demoCheck.question_title}` : '一键跑通医生训练闭环'}</strong>
+              <p>
+                {demoCheck
+                  ? `本次写入画像：${demoCheck.profile_updated ? '是' : '否'} · 审计新增 ${demoCheck.audit_delta} 条 · Provider ${demoCheck.provider_ready ? '真实可用' : `${demoCheck.provider_mode} 模式`}`
+                  : '手动触发公开样例提交、Agent 辅导、报告草稿、报告修改评分、画像回灌和审计收据。'}
+              </p>
+            </div>
+          </div>
+          <button className="button primary" type="button" onClick={runDemoCheck} disabled={demoCheckStatus === 'running' || readinessSource === 'fallback'}>
+            <ActivitySquare size={17} /> {demoCheckStatus === 'running' ? '自检运行中' : demoCheck ? '再次运行自检' : '运行闭环自检'}
+          </button>
+          {demoCheckStatus === 'failed' ? <span className="demo-check-error">后端自检未完成，请确认 FastAPI 在线后重试。</span> : null}
+          {readinessSource === 'fallback' ? <span className="demo-check-error">当前为前端 fallback，不能伪造自检通过。</span> : null}
+          {demoCheck ? (
+            <div className="demo-check-receipts">
+              {demoCheck.receipts.map((item) => (
+                <div className="receipt-tile compact-receipt" key={item.id}>
+                  <span className={`status-dot tone-${item.tone}`} />
+                  <div>
+                    <strong>{item.label}</strong>
+                    <em>{item.status}</em>
+                    <p>{item.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="readiness-grid">
           {readiness.modules.map((item) => (

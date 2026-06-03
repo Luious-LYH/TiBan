@@ -14,6 +14,7 @@
 
 | 模块 | 当前实现 | 真实来源 | Provider 使用 | 仍需改进 |
 |---|---|---|---|---|
+| 首页闭环自检 | 手动点击“运行闭环自检”后，后端选择公开样例，串联提交答案、Agent 辅导、报告草稿、报告修改评分、画像回灌和审计摘要，并返回 5 张证据收据 | `real_sample_knowledge.json`, `learner_profile.json`, `audit_logs.json`, 现有训练/报告服务 | 不额外伪造 Provider；各子链路按自身配置返回 `provider`/`rule`/`fallback`，后端不可用时前端不伪造通过 | 该接口会写入演示画像和审计；开发 smoke 时应先备份数据文件，后续可增加独立 demo sandbox profile |
 | 训练题库 | 公开样例优先、支持筛选/收藏/错题；考试模式已升级为全局 session、累计战报、交卷复盘入口，交卷后持久化整场摘要；挑战模式医师提交后才同步后端基准 | `questions.json`, `real_sample_knowledge.json`, `learner_profile.json`, `audit_logs.json` | 右侧 chat 可调用 Provider，失败后规则辅导；考试中隐藏提示和自由追问；挑战基准 Provider 可用时独立作答，失败时公开标注 fallback | 后续可扩展多医师考试表、班级排名和正式试卷管理 |
 | 右侧 Agent | `辅导/证据/对照` 三段式面板，提交前隐藏参考答案；挑战模式提交前锁住证据页和基准；追问回灌训练事件 | 当前题、atomic facts、公开图片 URL | `tutor_orchestrator.chat` 调用 Provider；`tutor_orchestrator.challenge_benchmark` 只在提交后调用 Provider/公开标注 fallback | chat 仅保存题号/标签/模式，不保存医师追问原文；挑战基准只写 `challenge_benchmark` 审计，不重复写医师画像 |
 | 错因复盘 | 本轮提交进入时显示真实提交；直接打开时从后端错题本恢复最近复盘题并标注为 review snapshot，错误答案显示为“复盘示例答案” | `learner_profile.json` wrong/recent errors、`questions` API、atomic facts | 不调用 Provider | 复盘快照不伪装成真实用户提交，不重复写入画像；后续可加正式 submission history 表 |
@@ -33,6 +34,7 @@
   - `/assets/real_samples/...`
   - `backend/runtime/uploads/...`
 - 上传图片只用于教学演示和医生审核前辅助，不应包含真实患者身份信息。
+- `/api/platform/demo-check` 只保存事件摘要和训练标签，不保存 API key 或医师自由追问原文；它会真实更新演示画像和审计，因此不应在无人知情时自动触发。
 
 ## 答辩时建议说法
 

@@ -516,6 +516,74 @@ a {
   gap: 10px;
 }
 
+.demo-check-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(240, 253, 250, 0.92)),
+    linear-gradient(90deg, rgba(20, 184, 166, 0.12), rgba(37, 99, 235, 0.1));
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  box-shadow: 0 14px 32px rgba(15, 118, 110, 0.08);
+}
+
+.demo-check-console.running {
+  border-color: #bfdbfe;
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.1);
+}
+
+.demo-check-console.failed {
+  border-color: #fecaca;
+  background: linear-gradient(135deg, #ffffff, #fff7ed);
+}
+
+.demo-check-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.demo-check-main svg {
+  flex: 0 0 auto;
+  color: var(--teal);
+}
+
+.demo-check-main strong {
+  display: block;
+  font-size: 17px;
+  line-height: 1.35;
+}
+
+.demo-check-main p,
+.demo-check-error {
+  margin: 4px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.demo-check-error {
+  grid-column: 1 / -1;
+  color: var(--red);
+  font-weight: 750;
+}
+
+.demo-check-receipts {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(170px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-top: 2px;
+}
+
+.compact-receipt {
+  min-height: 104px;
+}
+
 .readiness-tile {
   display: grid;
   grid-template-columns: 10px minmax(0, 1fr) 16px;
@@ -3944,6 +4012,7 @@ textarea {
   .report-provider-console.compact .report-provider-grid,
   .profile-provenance,
   .credential-policy-card,
+  .demo-check-console,
   .readiness-summary,
   .readiness-grid,
   .self-test-detail-grid,
@@ -3953,6 +4022,10 @@ textarea {
   .badge-row,
   .check-grid {
     grid-template-columns: 1fr;
+  }
+
+  .demo-check-console .button {
+    justify-self: start;
   }
 
   .hero-metrics {

@@ -1,0 +1,144 @@
+from uuid import uuid4
+
+from app.core.config import SAFETY_NOTICE
+from app.schemas import ReportDraftRequest, ReportJudgeRequest, SubmissionRequest, TutorChatRequest
+from app.services.audit_service import audit_service, now_iso
+from app.services.grading_service import grading_service
+from app.services.llm_provider import llm_provider
+from app.services.memory_service import memory_service
+from app.services.question_service import question_service
+from app.services.report_service import report_service
+from app.services.tutor_orchestrator import tutor_orchestrator
+
+
+PUBLIC_DATASETS = {"Kvasir-VQA-x1", "Kvasir-VQA", "EndoBench"}
+
+
+class DemoCheckService:
+    def run(self, learner_id: str = "demo_learner") -> dict[str, object]:
+        before_profile = memory_service.get_profile()
+        before_logs = audit_service.list_logs()
+        before_audit_count = len(before_logs)
+        before_audit_ids = {item.id for item in before_logs}
+        question = self._select_public_question()
+
+        submission = grading_service.grade(
+            SubmissionRequest(question_id=question.id, learner_id=learner_id, selected_answer=question.answer)
+        )
+        tutor = tutor_orchestrator.chat(
+            TutorChatRequest(
+                question_id=question.id,
+                learner_id=learner_id,
+                message="请用证据边界提醒我如何复盘这张公开样例图像，不要泄露额外诊断结论。",
+            )
+        )
+        draft = report_service.generate_report_draft(
+            ReportDraftRequest(
+                finding_text="公开样例单帧内镜图像训练：请整理可观察结构、异常线索和证据不足边界，避免直接形成最终诊断。",
+                exam_type="colonoscopy" if question.body_part == "结直肠" else "gastroscopy",
+                image_name=question.id,
+                template_name="胃镜结构化训练模板",
+            )
+        )
+        judge = report_service.judge_report_revision(
+            ReportJudgeRequest(
+                learner_id=learner_id,
+                original_report="本图明确证明患者患胃癌，建议立即治疗。",
+                revised_report="单帧公开内镜图像可提示局部黏膜异常表现，性质、范围和处理意见仍需医生结合完整检查、病史及必要病理结果复核。",
+            )
+        )
+
+        audit_service.log(
+            "demo_check",
+            user_id=learner_id,
+            entity_id=question.id,
+            summary=(
+                "演示闭环自检完成：公开样例提交、Agent 辅导、报告草稿、报告修改评分、"
+                "画像回灌和审计链路均已触发。"
+            ),
+            risk_level="medium",
+        )
+        after_profile = memory_service.get_profile()
+        after_logs = audit_service.list_logs()
+        after_audit_count = len(after_logs)
+        audit_delta = sum(1 for item in after_logs if item.id not in before_audit_ids)
+        provider_status = llm_provider.status()
+        receipts = self._receipts(question, submission, tutor, draft, judge, audit_delta)
+
+        return {
+            "id": f"demo_check_{uuid4().hex[:12]}",
+            "learner_id": learner_id,
+            "question_id": question.id,
+            "question_title": question.title,
+            "source_dataset": question.source_dataset,
+            "provider_mode": provider_status.get("mode", "rule"),
+            "provider_ready": bool(provider_status.get("configured")),
+            "profile_before": {
+                "total_questions": before_profile.total_questions,
+                "training_records": len(before_profile.training_records),
+                "completed_today": before_profile.completed_today,
+            },
+            "profile_after": {
+                "total_questions": after_profile.total_questions,
+                "training_records": len(after_profile.training_records),
+                "completed_today": after_profile.completed_today,
+                "updated_at": after_profile.updated_at,
+            },
+            "audit_before_count": before_audit_count,
+            "audit_after_count": after_audit_count,
+            "audit_delta": audit_delta,
+            "receipts": receipts,
+            "profile_updated": after_profile.updated_at != before_profile.updated_at,
+            "audit_logged": True,
+            "doctor_review_required": True,
+            "safety_notice": SAFETY_NOTICE,
+            "created_at": now_iso(),
+        }
+
+    def _select_public_question(self):
+        questions = question_service.list_questions()
+        public_questions = [question for question in questions if question.source_dataset in PUBLIC_DATASETS]
+        return public_questions[0] if public_questions else questions[0]
+
+    def _receipts(self, question, submission, tutor, draft, judge, audit_delta: int) -> list[dict[str, object]]:
+        tutor_mode = str(tutor.get("generation_mode", "rule"))
+        return [
+            {
+                "id": "answer_submit",
+                "label": "公开样例提交",
+                "status": "correct" if submission.is_correct else "review",
+                "detail": f"{question.source_dataset} · {submission.score} 分 · 已写入训练画像。",
+                "tone": "green" if submission.is_correct else "amber",
+            },
+            {
+                "id": "tutor_agent",
+                "label": "Agent 辅导",
+                "status": tutor_mode,
+                "detail": str(tutor.get("memory_summary") or "已记录训练标签，不保存追问原文。"),
+                "tone": "green" if tutor.get("profile_updated") else "blue",
+            },
+            {
+                "id": "report_draft",
+                "label": "报告草稿",
+                "status": draft.generation_mode,
+                "detail": f"{len(draft.evidence_ledger)} 条证据台账 · {len(draft.review_tasks)} 项医师复核任务。",
+                "tone": "green" if draft.generation_mode == "provider" else "blue",
+            },
+            {
+                "id": "report_judge",
+                "label": "修改评分",
+                "status": f"{judge.score}分",
+                "detail": judge.memory_summary or "报告修改训练已完成。",
+                "tone": "green" if judge.profile_updated else "amber",
+            },
+            {
+                "id": "audit_log",
+                "label": "审计链路",
+                "status": f"+{audit_delta}",
+                "detail": "已记录 question_view、answer_submit、tutor_reply、report_draft、report_judge 与 demo_check 等摘要事件。",
+                "tone": "green" if audit_delta >= 5 else "amber",
+            },
+        ]
+
+
+demo_check_service = DemoCheckService()
