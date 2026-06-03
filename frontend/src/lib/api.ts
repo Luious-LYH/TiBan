@@ -15,6 +15,7 @@ import type {
   ExamSessionAttempt,
   ExamSessionResponse,
   ImageUploadResponse,
+  KnowledgeSourceChainItem,
   KnowledgeBase,
   LearnerProfile,
   ModelAdmissionResult,
@@ -47,6 +48,7 @@ const requiredApiCapabilities = [
   'provider_visual_self_test',
   'provider_self_test_receipt',
   'model_admission_receipt',
+  'knowledge_source_chain',
   'demo_check_sandbox',
   'challenge_benchmark',
   'challenge_audit_receipt',
@@ -416,12 +418,44 @@ function normalizeReadinessModule(value: unknown, fallback: PlatformReadinessMod
   }
 }
 
+function normalizeKnowledgeSourceChainItem(value: unknown, fallback: KnowledgeSourceChainItem, index: number): KnowledgeSourceChainItem {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id || `knowledge_source_${index}`),
+    label: asString(record.label, fallback.label),
+    source_file: asString(record.source_file, fallback.source_file),
+    record_count: asNumber(record.record_count, fallback.record_count),
+    sample_ids: asStringArray(record.sample_ids, fallback.sample_ids),
+    used_by: asStringArray(record.used_by, fallback.used_by),
+    proof: asString(record.proof, fallback.proof),
+    href: asString(record.href, fallback.href || '/'),
+    tone: asString(record.tone, fallback.tone) as KnowledgeSourceChainItem['tone'],
+  }
+}
+
 function normalizePlatformReadiness(value: unknown, fallback: PlatformReadiness = mockDashboard.platform_readiness): PlatformReadiness {
   const record = asRecord(value)
   const fallbackModules = fallback.modules.length ? fallback.modules : mockDashboard.platform_readiness.modules
   const modules = Array.isArray(record.modules) ? record.modules : fallbackModules
   const fallbackReceipts = fallback.evidence_receipts.length ? fallback.evidence_receipts : fallbackModules
   const receipts = Array.isArray(record.evidence_receipts) ? record.evidence_receipts : fallbackReceipts
+  const defaultKnowledgeChainItem: KnowledgeSourceChainItem = {
+    id: 'knowledge_source_empty',
+    label: '知识库来源链',
+    source_file: 'backend data',
+    record_count: 0,
+    sample_ids: [],
+    used_by: [],
+    proof: '后端联通后显示本地知识库来源和消费链路。',
+    href: '/',
+    tone: 'neutral',
+  }
+  const fallbackKnowledgeChain = fallback.knowledge_source_chain.length
+    ? fallback.knowledge_source_chain
+    : mockDashboard.platform_readiness.knowledge_source_chain
+  const knowledgeSourceChain = Array.isArray(record.knowledge_source_chain) ? record.knowledge_source_chain : fallbackKnowledgeChain
   const fallbackPath = fallback.demo_path.length ? fallback.demo_path : mockDashboard.platform_readiness.demo_path
   const demoPath = Array.isArray(record.demo_path) ? record.demo_path : fallbackPath
   return {
@@ -441,6 +475,7 @@ function normalizePlatformReadiness(value: unknown, fallback: PlatformReadiness 
     audit_log_count: asNumber(record.audit_log_count, fallback.audit_log_count),
     admission_grade: asString(record.admission_grade, fallback.admission_grade),
     admission_provider_called: asBoolean(record.admission_provider_called, fallback.admission_provider_called),
+    knowledge_source_chain: knowledgeSourceChain.map((item, index) => normalizeKnowledgeSourceChainItem(item, fallbackKnowledgeChain[index] || fallbackKnowledgeChain[0] || defaultKnowledgeChainItem, index)),
     evidence_receipts: receipts.map((item, index) => normalizeReadinessModule(item, fallbackReceipts[index] || fallbackReceipts[0], index)),
     modules: modules.map((item, index) => normalizeReadinessModule(item, fallbackModules[index] || fallbackModules[0], index)),
     demo_path: demoPath.map((item, index) => {

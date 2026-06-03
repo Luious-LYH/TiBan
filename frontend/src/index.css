@@ -665,6 +665,95 @@ a {
   line-height: 1.45;
 }
 
+.knowledge-source-chain {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.knowledge-chain-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.knowledge-chain-note {
+  margin: 0;
+  max-width: 920px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.knowledge-chain-card {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 18px;
+  gap: 10px;
+  align-items: start;
+  min-height: 178px;
+  padding: 13px;
+  color: var(--text);
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.knowledge-chain-card:hover {
+  transform: translateY(-2px);
+  border-color: #99f6e4;
+  box-shadow: 0 14px 34px rgba(15, 118, 110, 0.1);
+}
+
+.knowledge-chain-card strong,
+.knowledge-chain-card em {
+  display: block;
+}
+
+.knowledge-chain-card em {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.knowledge-chain-card p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.knowledge-chain-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.knowledge-chain-tags span {
+  max-width: 100%;
+  padding: 4px 7px;
+  color: #0f766e;
+  background: #ccfbf1;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.knowledge-chain-tags.muted span {
+  color: #475569;
+  background: #f1f5f9;
+  border-color: var(--line);
+}
+
 .readiness-tile p,
 .demo-step p,
 .gap-strip span {
@@ -4346,6 +4435,7 @@ textarea {
   .premise-training-grid,
   .grid.three,
   .grid.four,
+  .knowledge-chain-grid,
   .model-grid,
   .skills-grid {
     grid-template-columns: 1fr;

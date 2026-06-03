@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Area, AreaChart, Bar, BarChart, PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { ActivitySquare, ArrowRight, BookOpenCheck, Bot, CheckCircle2, ClipboardList, DatabaseZap, Gauge, Route, ShieldCheck, Star, Target, UserRound } from 'lucide-react'
+import { ActivitySquare, ArrowRight, BookOpenCheck, Bot, CheckCircle2, ClipboardList, DatabaseZap, FileStack, Gauge, Route, ShieldCheck, Star, Target, UserRound } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, SafetyNotice, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
@@ -186,6 +186,32 @@ export function Dashboard() {
                   <em>{item.status}</em>
                   <p>{item.detail}</p>
                 </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className="knowledge-source-chain">
+          <div className="demo-path-title">
+            <FileStack size={18} />
+            <strong>真实数据来源链</strong>
+          </div>
+          <p className="knowledge-chain-note">来源链只证明本地公开教学样例和模板知识库被平台功能消费，不代表批量临床评测或自动诊断。</p>
+          <div className="knowledge-chain-grid">
+            {readiness.knowledge_source_chain.map((item) => (
+              <Link className="knowledge-chain-card" key={item.id} to={item.href}>
+                <span className={`status-dot tone-${item.tone}`} />
+                <div>
+                  <strong>{item.label}</strong>
+                  <em>{item.source_file} · {item.record_count} 条</em>
+                  <p>{item.proof}</p>
+                  <div className="knowledge-chain-tags">
+                    {item.sample_ids.slice(0, 4).map((sampleId) => <span key={`${item.id}_${sampleId}`}>{sampleId}</span>)}
+                  </div>
+                  <div className="knowledge-chain-tags muted">
+                    {item.used_by.map((target) => <span key={`${item.id}_${target}`}>{target}</span>)}
+                  </div>
+                </div>
+                <ArrowRight size={15} />
               </Link>
             ))}
           </div>

@@ -91,6 +91,7 @@ class DashboardService:
         public_questions = [q for q in questions if q.source_dataset in {"Kvasir-VQA-x1", "Kvasir-VQA", "EndoBench"}]
         admission_state = model_service.admission_state()
         provider_status = llm_provider.status()
+        real_sample_kb = read_json("real_sample_knowledge.json")
         report_kb = read_json("report_knowledge_base.json")
         card_kb = read_json("card_template_knowledge.json")
         audit_logs = read_json("audit_logs.json")
@@ -181,6 +182,7 @@ class DashboardService:
             "audit_log_count": len(audit_logs),
             "admission_grade": admission_state.get("grade", "NA"),
             "admission_provider_called": bool(admission_state.get("provider_called")),
+            "knowledge_source_chain": self._knowledge_source_chain(real_sample_kb, public_questions, report_kb, card_kb),
             "evidence_receipts": [
                 self._receipt(
                     "real_sample_kb",
@@ -294,6 +296,52 @@ class DashboardService:
             "gaps": gaps,
             "safety_notice": SAFETY_NOTICE,
         }
+
+    def _knowledge_source_chain(
+        self,
+        real_sample_kb: list[dict],
+        public_questions: list,
+        report_kb: dict,
+        card_kb: dict,
+    ) -> list[dict[str, object]]:
+        sample_ids = [str(item.get("id")) for item in real_sample_kb[:4] if item.get("id")]
+        report_templates = [str(item.get("name")) for item in report_kb.get("templates", []) if item.get("name")]
+        card_templates = [str(item.get("name")) for item in card_kb.get("templates", []) if item.get("name")]
+        return [
+            {
+                "id": "real_sample_knowledge",
+                "label": "真实公开图文样例",
+                "source_file": "real_sample_knowledge.json",
+                "record_count": len(real_sample_kb),
+                "sample_ids": sample_ids,
+                "used_by": ["题库训练", "报告中心", "模型准入"],
+                "proof": f"{len(public_questions)} 道训练题由公开样例映射生成；模型准入和报告页复用同一批样例 ID。公开教学样例不代表批量临床评测。",
+                "href": "/training?source=public",
+                "tone": "green" if real_sample_kb and public_questions else "amber",
+            },
+            {
+                "id": "report_knowledge_base",
+                "label": "诊断报告知识库",
+                "source_file": "report_knowledge_base.json",
+                "record_count": len(report_templates),
+                "sample_ids": report_templates[:4],
+                "used_by": ["报告草稿", "报告修改评分", "幻觉审查"],
+                "proof": "模板、证据等级和审查规则会进入报告草稿 source_trace 与 judge rubric。",
+                "href": "/report",
+                "tone": "green" if report_templates else "amber",
+            },
+            {
+                "id": "card_template_knowledge",
+                "label": "科普卡片模板库",
+                "source_file": "card_template_knowledge.json",
+                "record_count": len(card_templates),
+                "sample_ids": card_templates[:4],
+                "used_by": ["科普卡片草稿", "医生审核闸门", "分享/打印锁"],
+                "proof": "模板 ID、视觉规则和免责声明会写入 patient_card 收据，审核通过后才解锁分享。",
+                "href": "/card",
+                "tone": "green" if card_templates else "amber",
+            },
+        ]
 
     def _module(
         self,

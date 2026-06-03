@@ -40,7 +40,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code\backend
 python -m uvicorn app.main:app --reload --port 8001
 ```
 
-前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 视觉自检、Provider 自检收据、模型准入收据、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
+前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
 
 ## 2. 可选真实 Provider
 
@@ -59,7 +59,7 @@ LLM_TIMEOUT_SECONDS=25
 ## 3. 推荐演示顺序
 
 1. 训练驾驶舱 `/`
-   先看“平台真实性与演示路径”和“可核验证据收据”，说明后端、公开样例、报告/科普知识库、Provider、自检/准入、训练挑战基准审计、Memory 和 Audit 的状态。这里适合回答“哪些是真的，哪些是规则草案”。首页的“沙盒自检”会真实跑通训练/Agent/报告/judge/审计链路并自动恢复数据；需要在审计页留下演示证据时，再点击“写入演示画像”。
+   先看“平台真实性与演示路径”“可核验证据收据”和“真实数据来源链”，说明后端、公开样例、报告/科普知识库、Provider、自检/准入、训练挑战基准审计、Memory 和 Audit 的状态。来源链来自 `/api/platform/readiness.knowledge_source_chain`，会列出本地 JSON 知识库文件名、记录数、样例 ID 和消费页面。这里适合回答“哪些是真的，哪些是规则草案”。首页的“沙盒自检”会真实跑通训练/Agent/报告/judge/审计链路并自动恢复数据；需要在审计页留下演示证据时，再点击“写入演示画像”。
 
 2. 题库刷题 `/training`
    展示公开样例图像、病例摘要、题目和右侧 Agent。练习模式可以点“提示一下”，Agent 只追问证据，不直接给答案。提交后显示得分、错因标签、解释和对照。
@@ -102,6 +102,7 @@ LLM_TIMEOUT_SECONDS=25
 | 能力 | 已实现 | 边界 |
 |---|---|---|
 | 公开样例题库 | 从 `real_sample_knowledge.json` 和公开图像资产加载 | 只抽取部分本地真实数据用于演示，不等同完整数据集训练 |
+| 首页来源链 | `/api/platform/readiness` 返回 `knowledge_source_chain`，展示真实样例库、报告知识库、卡片模板库被哪些页面消费 | 证明本地知识库被平台引用，不代表已经完成批量临床评测 |
 | 医师训练闭环 | 答题、收藏、错题、考试 session、比拼、错误前提训练 | 当前只有 `demo_learner` 单医师画像；单题提交单独更新题量和能力分，考试 session 交卷会持久化整场题量、正确率、平均分和错题摘要，不重复增加单题题量 |
 | 首页闭环自检 | 沙盒自检和正式写入两种模式 | `persist=false` 真实写入后自动恢复，适合反复演示前 smoke；`persist=true` 才保留演示画像和审计 |
 | Agent 辅导 | 后端 tutor 编排，可接 Provider，也有规则兜底 | 不保存自由追问原文，只记录训练标签和模式 |

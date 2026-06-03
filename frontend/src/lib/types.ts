@@ -376,6 +376,18 @@ export type PlatformReadinessModule = {
   tone: ReadinessTone
 }
 
+export type KnowledgeSourceChainItem = {
+  id: string
+  label: string
+  source_file: string
+  record_count: number
+  sample_ids: string[]
+  used_by: string[]
+  proof: string
+  href: string
+  tone: ReadinessTone
+}
+
 export type DemoPathStep = {
   step: number
   title: string
@@ -399,6 +411,7 @@ export type PlatformReadiness = {
   audit_log_count: number
   admission_grade: string
   admission_provider_called: boolean
+  knowledge_source_chain: KnowledgeSourceChainItem[]
   evidence_receipts: PlatformReadinessModule[]
   modules: PlatformReadinessModule[]
   demo_path: DemoPathStep[]
