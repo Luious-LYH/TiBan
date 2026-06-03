@@ -22,6 +22,8 @@ import type {
   ModelAdmissionState,
   ModelProfile,
   PatientCard,
+  ProviderAuditSummary,
+  ProviderDiagnostics,
   ProviderEvidenceReceipt,
   PlatformReadiness,
   PlatformReadinessModule,
@@ -47,6 +49,7 @@ const requiredApiCapabilities = [
   'provider_self_test',
   'provider_visual_self_test',
   'provider_self_test_receipt',
+  'provider_diagnostics',
   'model_admission_receipt',
   'knowledge_source_chain',
   'demo_check_sandbox',
@@ -191,6 +194,62 @@ function normalizeProviderStatus(value: unknown, fallback: ProviderStatus = {
     base_url_configured: typeof record.base_url_configured === 'boolean' ? record.base_url_configured : fallback.base_url_configured,
     api_key_configured: typeof record.api_key_configured === 'boolean' ? record.api_key_configured : fallback.api_key_configured,
     safety_notice: asString(record.safety_notice, fallback.safety_notice || ''),
+  }
+}
+
+function normalizeProviderAuditSummary(value: unknown): ProviderAuditSummary | null {
+  const record = asRecord(value)
+  if (!Object.keys(record).length) return null
+  return {
+    id: typeof record.id === 'string' || record.id === null ? record.id : null,
+    event_type: typeof record.event_type === 'string' || record.event_type === null ? record.event_type : null,
+    summary: typeof record.summary === 'string' || record.summary === null ? record.summary : null,
+    risk_level: typeof record.risk_level === 'string' || record.risk_level === null ? record.risk_level : null,
+    created_at: typeof record.created_at === 'string' || record.created_at === null ? record.created_at : null,
+  }
+}
+
+function normalizeProviderDiagnostics(value: unknown, fallback: ProviderDiagnostics): ProviderDiagnostics {
+  const record = asRecord(value)
+  const state = asRecord(record.admission_state)
+  return {
+    ...fallback,
+    ...record,
+    ready_level: asString(record.ready_level, fallback.ready_level),
+    provider_configured: asBoolean(record.provider_configured, fallback.provider_configured),
+    provider_mode: asString(record.provider_mode, fallback.provider_mode),
+    provider: asString(record.provider, fallback.provider),
+    model: asString(record.model, fallback.model),
+    base_url_configured: asBoolean(record.base_url_configured, fallback.base_url_configured),
+    api_key_configured: asBoolean(record.api_key_configured, fallback.api_key_configured),
+    missing: asStringArray(record.missing, fallback.missing),
+    public_sample_count: asNumber(record.public_sample_count, fallback.public_sample_count),
+    latest_self_test: normalizeProviderAuditSummary(record.latest_self_test) || fallback.latest_self_test,
+    latest_admission: normalizeProviderAuditSummary(record.latest_admission) || fallback.latest_admission,
+    admission_state: {
+      provider_name: asString(state.provider_name, fallback.admission_state.provider_name),
+      grade: asString(state.grade, fallback.admission_state.grade),
+      total_score: asNumber(state.total_score, fallback.admission_state.total_score),
+      provider_called: asBoolean(state.provider_called, fallback.admission_state.provider_called),
+      safe_for_training: asBoolean(state.safe_for_training, fallback.admission_state.safe_for_training),
+      recommendation: asString(state.recommendation, fallback.admission_state.recommendation),
+    },
+    blocking_reason: asString(record.blocking_reason, fallback.blocking_reason),
+    next_actions: Array.isArray(record.next_actions)
+      ? record.next_actions.map((item) => {
+          const action = asRecord(item)
+          return {
+            label: asString(action.label, '下一步'),
+            detail: asString(action.detail, ''),
+            href: asString(action.href, '/models'),
+            done: asBoolean(action.done, false),
+          }
+        })
+      : fallback.next_actions,
+    privacy_notice: asString(record.privacy_notice, fallback.privacy_notice),
+    safety_notice: asString(record.safety_notice, fallback.safety_notice),
+    created_at: asString(record.created_at, fallback.created_at),
+    api_source: record.api_source as ApiSource | undefined,
   }
 }
 
@@ -1214,6 +1273,41 @@ export const api = {
       safety_notice: safetyNotice,
     })
     return normalizeProviderStatus(response)
+  },
+
+  async providerDiagnostics(): Promise<ProviderDiagnostics> {
+    const fallbackCreatedAt = new Date().toISOString()
+    const fallback: ProviderDiagnostics = {
+      ready_level: 'frontend_fallback',
+      provider_configured: false,
+      provider_mode: 'fallback',
+      provider: 'frontend_fallback',
+      model: 'none',
+      base_url_configured: false,
+      api_key_configured: false,
+      missing: ['backend_api'],
+      public_sample_count: 0,
+      latest_self_test: null,
+      latest_admission: null,
+      admission_state: {
+        provider_name: '未连接后端',
+        grade: 'NA',
+        total_score: 0,
+        provider_called: false,
+        safe_for_training: false,
+        recommendation: '请先启动 FastAPI 后端，再查看 Provider 联调状态检查。',
+      },
+      blocking_reason: '前端无法连接后端联调状态检查接口；不能证明 Provider 状态。',
+      next_actions: [
+        { label: '启动 FastAPI 后端', detail: '建议使用 127.0.0.1:8001。', href: '/models', done: false },
+        { label: '运行 Provider 自检', detail: '后端在线后再运行文本/视觉自检。', href: '/models', done: false },
+      ],
+      privacy_notice: 'frontend fallback 不读取或保存 key/base。',
+      safety_notice: safetyNotice,
+      created_at: fallbackCreatedAt,
+    }
+    const response = await request<ProviderDiagnostics>('/api/provider/diagnostics', undefined, fallback)
+    return normalizeProviderDiagnostics(response, fallback)
   },
 
   async providerSelfTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string; includeImage?: boolean; sampleId?: string }): Promise<ProviderSelfTestResult> {

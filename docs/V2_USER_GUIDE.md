@@ -40,7 +40,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code\backend
 python -m uvicorn app.main:app --reload --port 8001
 ```
 
-前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
+前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 联调状态检查、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、挑战基准、挑战审计收据、科普卡片收据和 Skill 运行收据能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
 
 ## 2. 可选真实 Provider
 
@@ -54,7 +54,7 @@ LLM_MODEL=your-model-name
 LLM_TIMEOUT_SECONDS=25
 ```
 
-不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页的一次性 key 可用于文本/视觉自检或样例级准入检查，不会保存到数据文件；只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
+不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页会先显示 Provider 联调状态检查，确认 `.env` 缺失项、公开样例数量、最近自检/准入审计和下一步动作，但不会返回 key/base 明文或完整模型回复。一次性 key 可用于文本/视觉自检或样例级准入检查，不会保存到数据文件；只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
 
 ## 3. 推荐演示顺序
 
@@ -92,7 +92,7 @@ LLM_TIMEOUT_SECONDS=25
    选择当前题运行受控技能。页面展示运行摘要、审核要求、闭环入口和后端 `skill_run_receipt`：包括 `skill_run` 审计 ID、风险等级、输入来源、执行来源、收据时间和下一步动作。完整 JSON 放在开发细节折叠项，避免把平台展示成调试台；若后端不可用，只显示本地技能预览且审计 ID 为空。
 
 12. 模型准入 `/models`
-    先做 Provider 文本轻量自检或视觉通道自检：文本自检只发送一条安全短提示词；视觉自检会附加一张公开内镜图片和问题，但不读取/发送参考标注，不保存 key/base/完整回复，也不更新模型准入状态。自检后页面会展示“后端 Provider 自检收据”，包括 `provider_self_test` 审计 ID、输入来源、Provider 调用来源和隐私边界。随后用最多 3 个公开样例和可选 Provider 做样例级准入检查；Provider 收到的是图片和问题，不包含参考标注，后端只在返回后做公开标注粗粒度对齐。准入结果会展示“后端模型准入收据”，包括 `model_admission` 审计 ID、blind probe 来源、平台状态是否更新和隐私边界。只有真实调用成功才显示 `provider_called=true`；只有调用成功且至少一条盲测回答与公开标注部分对齐，最近准入状态才会标为可进入人工复核。
+    先看“Provider 联调状态检查”：它来自 `/api/provider/diagnostics`，只读展示 Provider 模式、`.env` 缺失项、公开样例数、最近 `provider_self_test` / `model_admission` 审计摘要、最近准入状态和下一步动作。状态检查不能证明模型临床能力，只证明当前平台能否进入自检/准入流程。随后做 Provider 文本轻量自检或视觉通道自检：文本自检只发送一条安全短提示词；视觉自检会附加一张公开内镜图片和问题，但不读取/发送参考标注，不保存 key/base/完整回复，也不更新模型准入状态。自检后页面会展示“后端 Provider 自检收据”，包括 `provider_self_test` 审计 ID、输入来源、Provider 调用来源和隐私边界。随后用最多 3 个公开样例和可选 Provider 做样例级准入检查；Provider 收到的是图片和问题，不包含参考标注，后端只在返回后做公开标注粗粒度对齐。准入结果会展示“后端模型准入收据”，包括 `model_admission` 审计 ID、blind probe 来源、平台状态是否更新和隐私边界。只有真实调用成功才显示 `provider_called=true`；只有调用成功且至少一条盲测回答与公开标注部分对齐，最近准入状态才会标为可进入人工复核。
 
 13. 审计日志 `/audit`
     查看审计驾驶舱：事件总量、高风险、医生复核负载、最近写入时间、分类筛选和完整日志表。日志只保存事件摘要、风险等级和审核状态。
@@ -110,7 +110,7 @@ LLM_TIMEOUT_SECONDS=25
 | 报告 judge | 规则 rubric + 可选 Provider 评阅，并回灌画像与推荐专项训练 | Provider 反馈仅作训练建议；后续可接真实专家评分 |
 | 报告到卡片闭环 | 报告 judge 建议改写或医生修改稿摘要可带入科普卡片输入区，并显示后端生成收据 | 只生成医生审核前卡片草稿；不会绕过审核清单、分享锁或打印锁 |
 | 卡片公开样例配图 | 科普卡片页优先从 `/api/knowledge/real-samples` 读取公开样例图像池，并显示样例 ID/数据集 | 图像仅作医生审核前患者沟通卡片配图，不代表自动诊断；本机上传图不写入后端 |
-| 模型准入 | OpenAI-compatible Provider 文本/视觉自检 + 公开样例 blind probe 准入检查，并展示 `self_test_receipt` / `admission_receipt` | 文本自检只验证文字通道；视觉自检只证明公开图片已附加到 Provider 请求并写摘要审计，不发送参考标注；样例准入不向 Provider 泄露参考标注；收据只证明后端编排、审计 ID、输入来源和隐私边界；检查清单分只服务训练 Agent 接入，不是完整临床评测，不包含批量统计置信区间 |
+| 模型准入 | Provider 联调状态检查 + OpenAI-compatible Provider 文本/视觉自检 + 公开样例 blind probe 准入检查，并展示 `self_test_receipt` / `admission_receipt` | 状态检查只证明配置状态、公开样例数和审计摘要，不返回 key/base 明文；文本自检只验证文字通道；视觉自检只证明公开图片已附加到 Provider 请求并写摘要审计，不发送参考标注；样例准入不向 Provider 泄露参考标注；收据只证明后端编排、审计 ID、输入来源和隐私边界；检查清单分只服务训练 Agent 接入，不是完整临床评测，不包含批量统计置信区间 |
 | Skills | 训练、反馈、报告、卡片、安全、审计技能可运行；运行后展示 `skill_run_receipt`、输入来源、执行来源、审计 ID 和下一步动作 | 面向受控编排，不允许自由越权调用；前端 fallback 不伪造后端审计 ID |
 
 ## 5. 常见问题

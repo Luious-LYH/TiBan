@@ -21,6 +21,49 @@ export type ProviderStatus = {
   safety_notice?: string
 }
 
+export type ProviderAuditSummary = {
+  id?: string | null
+  event_type?: string | null
+  summary?: string | null
+  risk_level?: RiskLevel | string | null
+  created_at?: string | null
+}
+
+export type ProviderDiagnosticAction = {
+  label: string
+  detail: string
+  href: string
+  done: boolean
+}
+
+export type ProviderDiagnostics = {
+  ready_level: string
+  provider_configured: boolean
+  provider_mode: string
+  provider: string
+  model: string
+  base_url_configured: boolean
+  api_key_configured: boolean
+  missing: string[]
+  public_sample_count: number
+  latest_self_test?: ProviderAuditSummary | null
+  latest_admission?: ProviderAuditSummary | null
+  admission_state: {
+    provider_name: string
+    grade: string
+    total_score: number
+    provider_called: boolean
+    safe_for_training: boolean
+    recommendation: string
+  }
+  blocking_reason: string
+  next_actions: ProviderDiagnosticAction[]
+  privacy_notice: string
+  safety_notice: string
+  created_at: string
+  api_source?: 'backend' | 'fallback'
+}
+
 export type SourceTraceItem = {
   source_type: string
   label: string

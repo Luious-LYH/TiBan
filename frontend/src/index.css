@@ -4147,6 +4147,158 @@ textarea {
   border-color: #bfdbfe;
 }
 
+.provider-diagnostics-card {
+  display: grid;
+  gap: 13px;
+  overflow: hidden;
+  border-color: #99f6e4;
+  background:
+    linear-gradient(135deg, rgba(240, 253, 250, 0.92), rgba(255, 255, 255, 0.98) 45%, rgba(239, 246, 255, 0.94)),
+    #ffffff;
+}
+
+.provider-diagnostics-card.fallback {
+  border-color: #fed7aa;
+  background:
+    linear-gradient(135deg, rgba(255, 247, 237, 0.95), rgba(255, 255, 255, 0.98) 48%, rgba(239, 246, 255, 0.82)),
+    #ffffff;
+}
+
+.provider-diagnostics-main {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 11px;
+  align-items: flex-start;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+}
+
+.provider-diagnostics-main svg {
+  color: var(--teal);
+}
+
+.provider-diagnostics-card.fallback .provider-diagnostics-main svg {
+  color: #ea580c;
+}
+
+.provider-diagnostics-main strong,
+.provider-diagnostics-main span {
+  display: block;
+}
+
+.provider-diagnostics-main strong {
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.provider-diagnostics-main span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.provider-diagnostics-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.provider-diagnostic-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.provider-diagnostic-actions a {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 8px;
+}
+
+.provider-diagnostic-actions a.done {
+  border-color: #99f6e4;
+  background: rgba(240, 253, 250, 0.82);
+}
+
+.provider-diagnostic-actions span,
+.provider-diagnostic-actions strong,
+.provider-diagnostic-actions small,
+.provider-diagnostic-audits span,
+.provider-diagnostic-audits strong,
+.provider-diagnostic-audits small {
+  display: block;
+}
+
+.provider-diagnostic-actions span {
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.provider-diagnostic-actions a.done span {
+  color: var(--teal);
+}
+
+.provider-diagnostic-actions strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.provider-diagnostic-actions small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.provider-diagnostic-audits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.provider-diagnostic-audits div {
+  min-width: 0;
+  padding: 11px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 8px;
+}
+
+.provider-diagnostic-audits div.synced {
+  border-color: #bfdbfe;
+  background: rgba(239, 246, 255, 0.78);
+}
+
+.provider-diagnostic-audits span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.provider-diagnostic-audits strong {
+  overflow: hidden;
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.provider-diagnostic-audits small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .model-grid,
 .skills-grid {
   display: grid;
@@ -4467,7 +4619,8 @@ textarea {
   .report-source-status,
   .report-workflow-strip,
   .profile-provenance,
-  .credential-policy-card {
+  .credential-policy-card,
+  .provider-diagnostic-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -4611,6 +4764,9 @@ textarea {
   .readiness-summary,
   .readiness-grid,
   .provider-receipt-metrics,
+  .provider-diagnostics-grid,
+  .provider-diagnostic-actions,
+  .provider-diagnostic-audits,
   .self-test-detail-grid,
   .self-test-actions,
   .form-row,

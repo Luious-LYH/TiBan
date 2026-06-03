@@ -28,7 +28,6 @@ from app.services.audit_service import audit_service
 from app.services.dashboard_service import dashboard_service
 from app.services.demo_check_service import demo_check_service
 from app.services.grading_service import grading_service
-from app.services.llm_provider import llm_provider
 from app.services.memory_service import memory_service
 from app.services.model_service import model_service
 from app.services.question_service import question_service
@@ -49,6 +48,7 @@ def health() -> dict[str, object]:
             "provider_self_test",
             "provider_visual_self_test",
             "provider_self_test_receipt",
+            "provider_diagnostics",
             "model_admission_receipt",
             "knowledge_source_chain",
             "demo_check_sandbox",
@@ -63,7 +63,12 @@ def health() -> dict[str, object]:
 
 @router.get("/provider/status")
 def provider_status() -> dict[str, object]:
-    return llm_provider.status()
+    return model_service.provider_status()
+
+
+@router.get("/provider/diagnostics")
+def provider_diagnostics() -> dict[str, object]:
+    return model_service.provider_diagnostics()
 
 
 @router.post("/provider/self-test")

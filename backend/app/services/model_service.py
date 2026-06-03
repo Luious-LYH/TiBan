@@ -41,6 +41,100 @@ class ModelService:
     def admission_state(self) -> dict[str, object]:
         return read_json("model_admission_state.json")
 
+    def provider_status(self) -> dict[str, object]:
+        return self._public_provider_status(llm_provider.status())
+
+    def provider_diagnostics(self) -> dict[str, object]:
+        provider_status = llm_provider.status()
+        admission_state = self.admission_state()
+        audit_logs = read_json("audit_logs.json")
+        self_tests = [item for item in audit_logs if item.get("event_type") == "provider_self_test"]
+        admissions = [item for item in audit_logs if item.get("event_type") == "model_admission"]
+        samples = read_json("real_sample_knowledge.json")
+        configured = bool(provider_status.get("configured"))
+        ready_level = "provider_ready" if configured else "rule_mode"
+        if configured and not self_tests:
+            ready_level = "provider_configured_not_verified"
+        if configured and self_tests and not admission_state.get("provider_called"):
+            ready_level = "self_test_only"
+        missing: list[str] = []
+        if not provider_status.get("base_url_configured"):
+            missing.append("LLM_BASE_URL")
+        if not provider_status.get("api_key_configured"):
+            missing.append("LLM_API_KEY")
+        if provider_status.get("provider") == "mock":
+            missing.append("LLM_PROVIDER")
+        if not samples:
+            missing.append("real_sample_knowledge.json")
+        blocking_reason = (
+            "Provider 已配置，可运行文本/视觉自检和样例级准入探测。"
+            if configured
+            else f"当前缺少 {', '.join(missing) if missing else '有效 Provider 配置'}；平台会明确保持 rule 模式。"
+        )
+        return {
+            "ready_level": ready_level,
+            "provider_configured": configured,
+            "provider_mode": provider_status.get("mode", "rule"),
+            "provider": self._public_provider_label(provider_status.get("provider", "mock"), "mock"),
+            "model": self._public_model_label(provider_status.get("model", "unconfigured"), "unconfigured"),
+            "base_url_configured": bool(provider_status.get("base_url_configured")),
+            "api_key_configured": bool(provider_status.get("api_key_configured")),
+            "missing": missing,
+            "public_sample_count": len(samples),
+            "latest_self_test": self._latest_audit_summary(self_tests),
+            "latest_admission": self._latest_audit_summary(admissions),
+            "admission_state": {
+                "provider_name": admission_state.get("provider_name", "未记录"),
+                "grade": admission_state.get("grade", "NA"),
+                "total_score": admission_state.get("total_score", 0),
+                "provider_called": bool(admission_state.get("provider_called")),
+                "safe_for_training": bool(admission_state.get("safe_for_training")),
+                "recommendation": admission_state.get("recommendation", "尚未形成准入建议。"),
+            },
+            "blocking_reason": blocking_reason,
+            "next_actions": [
+                {
+                    "label": "配置后端 .env",
+                    "detail": "设置 LLM_PROVIDER、LLM_BASE_URL、LLM_API_KEY 和 LLM_MODEL；不要提交 .env。",
+                    "href": "/models",
+                    "done": configured,
+                },
+                {
+                    "label": "运行 Provider 自检",
+                    "detail": "先做文本轻量自检，再做视觉通道自检；自检不更新准入状态。",
+                    "href": "/models",
+                    "done": bool(self_tests),
+                },
+                {
+                    "label": "运行公开样例准入",
+                    "detail": "使用最多 3 个公开样例做 blind probe；Provider 不接收参考答案。",
+                    "href": "/models",
+                    "done": bool(admission_state.get("provider_called")),
+                },
+                {
+                    "label": "查看审计日志",
+                    "detail": "确认 provider_self_test 与 model_admission 是否有后端审计 ID。",
+                    "href": "/audit",
+                    "done": bool(self_tests or admissions),
+                },
+            ],
+            "privacy_notice": "Provider 联调状态检查只返回配置布尔值、模式、审计摘要和下一步动作；不返回 API key、API base 明文或完整模型回复。",
+            "safety_notice": SAFETY_NOTICE,
+            "created_at": now_iso(),
+        }
+
+    def _latest_audit_summary(self, logs: list[dict]) -> dict[str, object] | None:
+        if not logs:
+            return None
+        latest = logs[0]
+        return {
+            "id": latest.get("id"),
+            "event_type": latest.get("event_type"),
+            "summary": latest.get("summary"),
+            "risk_level": latest.get("risk_level"),
+            "created_at": latest.get("created_at"),
+        }
+
     def provider_self_test(self, request: ProviderSelfTestRequest) -> ProviderSelfTestResponse:
         visual_sample = self._self_test_visual_sample(request) if request.include_image else None
         visual_probe = request.include_image

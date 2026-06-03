@@ -5,7 +5,7 @@ import { ActivitySquare, AlertTriangle, ArrowRight, CheckCircle2, Database, File
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
-import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderEvidenceReceipt, ProviderSelfTestResult, ProviderStatus, Question } from '../lib/types'
+import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderDiagnostics, ProviderEvidenceReceipt, ProviderSelfTestResult, ProviderStatus, Question } from '../lib/types'
 
 const scoreLabels: Record<string, string> = {
   basic_recognition: '基础识别',
@@ -132,6 +132,77 @@ function ProviderReceiptPanel({
   )
 }
 
+function ProviderDiagnosticsCard({ diagnostics }: { diagnostics: ProviderDiagnostics }) {
+  const configured = diagnostics.provider_configured
+  const fallback = diagnostics.api_source === 'fallback'
+  const auditRows = [
+    { label: '最近自检', item: diagnostics.latest_self_test },
+    { label: '最近准入', item: diagnostics.latest_admission },
+  ]
+  return (
+    <Card className={`provider-diagnostics-card ${configured ? 'synced' : 'fallback'}`}>
+      <SectionTitle
+        eyebrow="Provider check"
+        title="Provider 联调状态检查"
+        action={<Tag tone={configured ? 'green' : fallback ? 'red' : 'amber'}>{configured ? 'provider configured' : fallback ? 'frontend fallback' : diagnostics.provider_mode}</Tag>}
+      />
+      <div className="provider-diagnostics-main">
+        {configured ? <ShieldCheck size={24} /> : <AlertTriangle size={24} />}
+        <div>
+          <strong>{diagnostics.blocking_reason}</strong>
+          <span>
+            缺失项：{diagnostics.missing.length ? diagnostics.missing.join(' / ') : '无'}。{diagnostics.privacy_notice}
+          </span>
+        </div>
+      </div>
+      <div className="status-grid provider-diagnostics-grid">
+        <div><span>公开样例</span><strong>{diagnostics.public_sample_count}</strong></div>
+        <div><span>Base</span><strong>{diagnostics.base_url_configured ? '已配置' : '未配置'}</strong></div>
+        <div><span>Key</span><strong>{diagnostics.api_key_configured ? '已配置' : '未配置'}</strong></div>
+        <div><span>准入摘要</span><strong>{diagnostics.admission_state.provider_called ? 'provider called' : 'rule draft'}</strong></div>
+      </div>
+      <div className="provider-diagnostic-actions">
+        {diagnostics.next_actions.map((action) => (
+          <Link className={action.done ? 'done' : ''} to={action.href || '/models'} key={`${action.label}_${action.href}`}>
+            <span>{action.done ? '已完成' : '待处理'}</span>
+            <strong>{action.label}</strong>
+            <small>{action.detail}</small>
+          </Link>
+        ))}
+      </div>
+      <div className="provider-diagnostic-audits">
+        {auditRows.map(({ label, item }) => (
+          <div className={item?.id ? 'synced' : ''} key={label}>
+            <span>{label}</span>
+            <strong>{item?.summary || '未记录后端审计'}</strong>
+            <small>{item?.id || 'audit_id: -'} · {receiptTimeLabel(item?.created_at || undefined)}</small>
+          </div>
+        ))}
+      </div>
+      <div className="source-note">{diagnostics.admission_state.recommendation} {diagnostics.safety_notice}</div>
+    </Card>
+  )
+}
+
+function ProviderDiagnosticsLoadingCard() {
+  return (
+    <Card className="provider-diagnostics-card loading">
+      <SectionTitle
+        eyebrow="Provider check"
+        title="Provider 联调状态检查"
+        action={<Tag tone="amber">checking</Tag>}
+      />
+      <div className="provider-diagnostics-main">
+        <LoaderCircle className="spin-icon" size={24} />
+        <div>
+          <strong>正在读取后端 Provider 联调状态检查</strong>
+          <span>页面会确认当前是 provider、rule 还是 fallback，并展示缺失配置、公开样例数量、最近审计摘要和隐私边界。</span>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 export function ModelHub() {
   const [models, setModels] = useState<ModelProfile[]>(mockModels)
   const [samples, setSamples] = useState<Question[]>([])
@@ -140,30 +211,34 @@ export function ModelHub() {
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState('')
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
+  const [diagnostics, setDiagnostics] = useState<ProviderDiagnostics | null>(null)
   const [focus, setFocus] = useState<string[]>(['基础识别', '错误前提', '报告安全'])
   const [selectedSamples, setSelectedSamples] = useState<string[]>([])
   const [result, setResult] = useState<ModelAdmissionResult | null>(null)
   const [admissionState, setAdmissionState] = useState<ModelAdmissionState | null>(null)
   const [selectingModelId, setSelectingModelId] = useState('')
-  const [selectionNotice, setSelectionNotice] = useState('当前训练 Agent 会写入后端 models.json，并同步影响首页当前模型展示。')
+  const [selectionNotice, setSelectionNotice] = useState('当前训练候选会写入后端 models.json，并同步影响首页当前模型展示；未通过真实 Provider 准入前仅作演示候选。')
   const [isRunningAdmission, setIsRunningAdmission] = useState(false)
   const [admissionNotice, setAdmissionNotice] = useState('等待运行：请选择公开样例和测试维度，再启动样例级准入探测。')
   const [selfTest, setSelfTest] = useState<ProviderSelfTestResult | null>(null)
   const [isRunningSelfTest, setIsRunningSelfTest] = useState(false)
   const [selfTestMode, setSelfTestMode] = useState<'text' | 'visual' | null>(null)
   const [selfTestNotice, setSelfTestNotice] = useState('可先做轻量自检：只验证 Provider 通道，不读取公开样例，不写入模型准入状态。')
+  const trainingAgentLabel = '当前训练候选'
+  const inactiveAgentLabel = '设为展示候选'
 
   useEffect(() => {
     api.models().then((items) => {
       setModels(items)
       const active = items.find((item) => item.is_active)
-      if (active) setSelectionNotice(`当前训练 Agent：${active.name}。可切换候选模型，但所有输出仍需医生审核。`)
+      if (active) setSelectionNotice(`当前训练候选：${active.name}。可切换候选模型，但所有输出仍需医生审核；未通过真实 Provider 准入前仅作演示候选。`)
     })
     api.modelAdmissionState().then(setAdmissionState).catch(() => undefined)
     api.providerStatus().then((status) => {
       setProviderStatus(status)
       if (status.model) setModel((current) => current || status.model)
     }).catch(() => undefined)
+    api.providerDiagnostics().then(setDiagnostics).catch(() => undefined)
     api.realSamples().then((items) => {
       const publicItems = items.filter((item) => ['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'].includes(item.source_dataset)).slice(0, 6)
       setSamples(publicItems)
@@ -191,7 +266,12 @@ export function ModelHub() {
       const providerText = admission.provider_called
         ? `真实 Provider 盲测成功 ${admission.provider_status.provider_success_count || 0}/${admission.provider_status.sample_count || admission.evidence.length} 个样例，${alignedCount} 条与公开标注部分对齐。`
         : `未完成真实 Provider 调用：${admission.provider_status.error || 'provider_not_configured'}。`
-      setAdmissionNotice(`${source} 返回 ${admission.id}；${providerText}${admission.platform_state_updated ? ' 平台准入摘要已写入后端。' : ' 未写入后端平台状态。'}`)
+      const stateText = admission.platform_state_updated
+        ? admission.provider_called
+          ? ' 真实 Provider 准入摘要已写入后端。'
+          : ' 规则草案摘要已写入后端，不代表真实 Provider 准入。'
+        : ' 未写入后端平台状态。'
+      setAdmissionNotice(`${source} 返回 ${admission.id}；${providerText}${stateText}`)
       if (admission.platform_state_updated) {
         setAdmissionState({
           updated_at: admission.created_at,
@@ -213,6 +293,7 @@ export function ModelHub() {
       setAdmissionNotice(`准入探测失败：${error instanceof Error ? error.message : '未知错误'}。请确认 FastAPI 在线、Provider 配置无误。`)
     } finally {
       setIsRunningAdmission(false)
+      api.providerDiagnostics().then(setDiagnostics).catch(() => undefined)
     }
   }
 
@@ -247,6 +328,7 @@ export function ModelHub() {
     } finally {
       setIsRunningSelfTest(false)
       setSelfTestMode(null)
+      api.providerDiagnostics().then(setDiagnostics).catch(() => undefined)
     }
   }
 
@@ -265,7 +347,7 @@ export function ModelHub() {
     try {
       const selected = await api.selectModel(modelId)
       setModels((items) => items.map((item) => ({ ...item, is_active: item.id === selected.id })))
-      setSelectionNotice(`已切换当前训练 Agent：${selected.name}。Dashboard 会从后端 active_model 读取该状态。`)
+      setSelectionNotice(`已切换当前训练候选：${selected.name}。Dashboard 会从后端 active_model 读取该状态；未通过真实 Provider 准入前仅作演示候选。`)
     } catch {
       setSelectionNotice('模型选择接口暂不可用；当前只保留页面状态，未写入后端。')
     } finally {
@@ -305,6 +387,8 @@ export function ModelHub() {
           <div><span>密钥状态</span><strong>{providerStatus?.api_key_configured ? '后端已配置' : '页面临时输入或未配置'}</strong></div>
         </div>
       </Card>
+
+      {diagnostics ? <ProviderDiagnosticsCard diagnostics={diagnostics} /> : <ProviderDiagnosticsLoadingCard />}
 
       <Card className="credential-policy-card">
         <div>
@@ -347,7 +431,7 @@ export function ModelHub() {
       <Card className="provider-status-card active-training-agent">
         <SectionTitle
           eyebrow="Training agent"
-          title="当前训练 Agent"
+          title="当前训练候选 Agent"
           action={<Tag tone={activeModel?.provider_type === 'mock' ? 'amber' : 'green'}>{activeModel?.provider_type || 'mock'}</Tag>}
         />
         <div className="active-agent-strip">
@@ -528,7 +612,7 @@ export function ModelHub() {
           const chartData = Object.entries(model.ability_scores).map(([key, value]) => ({ dimension: scoreLabels[key] || key, score: value }))
           return (
             <Card key={model.id} className={model.is_active ? 'active-model' : ''}>
-              <SectionTitle eyebrow={model.model_family} title={model.name} action={<Tag tone={model.is_active ? 'green' : 'neutral'}>{model.is_active ? '当前训练 Agent' : `Grade ${model.grade}`}</Tag>} />
+              <SectionTitle eyebrow={model.model_family} title={model.name} action={<Tag tone={model.is_active ? 'green' : 'neutral'}>{model.is_active ? trainingAgentLabel : `Grade ${model.grade}`}</Tag>} />
               <div className="chart-box small">
                 <ResponsiveContainer width="100%" height={210}>
                   <RadarChart data={chartData}>
@@ -550,7 +634,7 @@ export function ModelHub() {
                   disabled={model.is_active || Boolean(selectingModelId)}
                 >
                   <CheckCircle2 size={16} />
-                  {model.is_active ? '当前训练 Agent' : selectingModelId === model.id ? '正在切换...' : '设为训练 Agent'}
+                  {model.is_active ? trainingAgentLabel : selectingModelId === model.id ? '正在切换...' : inactiveAgentLabel}
                 </button>
               </div>
             </Card>
