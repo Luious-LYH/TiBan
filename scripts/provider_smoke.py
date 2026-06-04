@@ -14,6 +14,7 @@ REQUIRED_CAPABILITIES = {
     "provider_diagnostics",
     "provider_preflight",
     "provider_request_preview",
+    "report_upload_receipt",
     "provider_self_test",
     "provider_visual_self_test",
     "provider_self_test_receipt",

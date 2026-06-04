@@ -25,6 +25,7 @@ STATE_FILES = [
     "backend/app/data/learner_profile.json",
     "backend/runtime/patient_cards.json",
 ]
+UPLOAD_DIR = ROOT / "backend/runtime/uploads"
 NOISE_LINE_PATTERNS = [
     re.compile(r"^warning: in the working copy of .+ LF will be replaced by CRLF the next time Git touches it$"),
 ]
@@ -186,6 +187,16 @@ def snapshot_state_files() -> dict[str, str]:
     return {relative: file_fingerprint(ROOT / relative) for relative in STATE_FILES}
 
 
+def snapshot_upload_files() -> dict[str, str]:
+    if not UPLOAD_DIR.exists():
+        return {}
+    return {
+        str(path.relative_to(ROOT)): file_fingerprint(path)
+        for path in sorted(UPLOAD_DIR.iterdir())
+        if path.is_file()
+    }
+
+
 def ensure_state_files_clean(before: dict[str, str]) -> None:
     print_section("State file diff")
     after = snapshot_state_files()
@@ -198,6 +209,29 @@ def ensure_state_files_clean(before: dict[str, str]) -> None:
     print("No learner/audit/card state file content drift.")
 
 
+def ensure_upload_files_clean(before: dict[str, str]) -> None:
+    print_section("Upload directory diff")
+    after = snapshot_upload_files()
+    added = sorted(set(after) - set(before))
+    removed = sorted(set(before) - set(after))
+    changed = sorted(path for path in set(before) & set(after) if before[path] != after[path])
+    if added or removed or changed:
+        if added:
+            print("Upload files added:")
+            for item in added:
+                print(f"- {item}: {after[item]}")
+        if removed:
+            print("Upload files removed:")
+            for item in removed:
+                print(f"- {item}: {before[item]}")
+        if changed:
+            print("Upload files changed:")
+            for item in changed:
+                print(f"- {item}: {before[item]} -> {after[item]}")
+        raise RuntimeError("Upload runtime files changed during verification.")
+    print("No backend/runtime/uploads file drift.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run ARIS v2.0 backend, Provider, UI, lint/build, and safety verification.")
     parser.add_argument("--frontend", default=os.getenv("ARIS_FRONTEND_URL", "http://127.0.0.1:5173"))
@@ -208,11 +242,13 @@ def main() -> int:
 
     git_bin = resolve_binary("git")
     state_before = snapshot_state_files()
+    uploads_before = snapshot_upload_files()
     command_error: RuntimeError | None = None
 
     try:
         run_command("Backend compile", [sys.executable, "-m", "compileall", "backend/app"])
         run_command("Demo sandbox smoke", [sys.executable, "scripts/demo_smoke.py"])
+        run_command("Report upload receipt smoke", [sys.executable, "scripts/report_upload_smoke.py"])
         run_command("Provider preflight smoke", [sys.executable, "scripts/provider_smoke.py", "--api-base", args.provider_api_base])
         run_command("Provider readiness doctor", [sys.executable, "scripts/provider_doctor.py"])
         run_command("Delivery evidence report export", [sys.executable, "scripts/export_delivery_report.py", "--output", "runtime_logs/delivery_evidence_report.md"])
@@ -231,6 +267,7 @@ def main() -> int:
     finally:
         try:
             ensure_state_files_clean(state_before)
+            ensure_upload_files_clean(uploads_before)
         except RuntimeError as state_exc:
             if command_error:
                 raise RuntimeError(f"{command_error}\nState guard also failed: {state_exc}") from state_exc
@@ -238,12 +275,12 @@ def main() -> int:
     if command_error:
         raise command_error
 
-    checked_parts = ["core backend loop", "Provider preflight", "Provider readiness doctor", "delivery evidence report"]
+    checked_parts = ["core backend loop", "report upload receipt", "Provider preflight", "Provider readiness doctor", "delivery evidence report"]
     if not args.skip_ui:
         checked_parts.append("UI routes")
     if not args.skip_build:
         checked_parts.append("lint/build")
-    checked_parts.extend(["git diff check", "real-sample assets", "secret scan", "state-file guard"])
+    checked_parts.extend(["git diff check", "real-sample assets", "secret scan", "state/upload guard"])
     print(f"\nARIS verification passed. Checked: {', '.join(checked_parts)}.")
     return 0
 

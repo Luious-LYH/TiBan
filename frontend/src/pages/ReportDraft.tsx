@@ -5,7 +5,7 @@ import { ActivitySquare, ArrowRight, CheckCircle2, ClipboardCheck, FileImage, Fi
 import { ProviderPreflightPanel } from '../components/ProviderPreflightPanel'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
-import type { KnowledgeBase, ProviderPreflight, ProviderStatus, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
+import type { ImageUploadResponse, KnowledgeBase, ProviderPreflight, ProviderStatus, Question, ReportDraft as ReportDraftType, ReportJudge } from '../lib/types'
 
 export function ReportDraft() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -18,6 +18,7 @@ export function ReportDraft() {
   const [selectedSampleId, setSelectedSampleId] = useState('public_real_x1_0')
   const [selectedSample, setSelectedSample] = useState<Question | null>(null)
   const [uploadStatus, setUploadStatus] = useState('')
+  const [uploadReceipt, setUploadReceipt] = useState<ImageUploadResponse | null>(null)
   const [draft, setDraft] = useState<ReportDraftType | null>(null)
   const [knowledge, setKnowledge] = useState<KnowledgeBase | null>(null)
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
@@ -43,6 +44,7 @@ export function ReportDraft() {
     setImageName(sample.id)
     setImagePreview(sample.image_url || '')
     setUploadStatus('已载入公开图像样例；VQA 标注仅作为来源台账，默认不直接写入医生所见文本。')
+    setUploadReceipt(null)
     setFindingText('请基于单帧公开图像、医生补充所见与模板知识库生成医生审核前结构化报告训练草稿，不补充未提供的病史、病理或完整检查范围。')
     setExamType(sample.body_part === '结直肠' ? 'colonoscopy' : 'gastroscopy')
   }
@@ -106,15 +108,18 @@ export function ReportDraft() {
     if (!file) return
     setLoading(true)
     setUploadStatus('正在上传图片到后端受控目录...')
+    setUploadReceipt(null)
     setImagePreview(URL.createObjectURL(file))
     setSelectedSampleId('')
     setSelectedSample(null)
     try {
       const uploaded = await api.uploadReportImage(file)
       setImageName(uploaded.image_name)
-      setUploadStatus(`已上传至后端：${uploaded.original_filename}，${Math.round(uploaded.bytes / 1024)} KB。Provider 配置后可用于视觉观察摘要。`)
+      setUploadReceipt(uploaded)
+      setUploadStatus(`已上传至后端：${uploaded.original_filename}，${formatBytes(uploaded.bytes)}。Provider 配置后可用于视觉观察摘要。`)
     } catch {
-      setImageName(file.name)
+      setImageName('')
+      setUploadReceipt(null)
       setUploadStatus('后端上传失败；当前仅保留前端预览，生成报告时不会把图片当作视觉证据。')
     } finally {
       setLoading(false)
@@ -151,6 +156,7 @@ export function ReportDraft() {
   const requestKeyMode = apiKey.trim() ? '页面临时 key' : apiBase.trim() ? '请求级 base 覆盖' : providerStatus?.api_key_configured ? '后端 .env key' : '未提供 key'
   const providerMode = providerReady ? 'provider' : providerStatus?.mode || 'rule'
   const dataMode = selectedSample ? `${selectedSample.source_dataset} · public sample` : imageName.startsWith('uploads/') ? 'uploaded image' : 'local preview'
+  const uploadReceiptDimensions = uploadReceipt ? formatImageDimensions(uploadReceipt) : ''
   const activeProviderMode = draft?.generation_mode || judge?.generation_mode || (requestProviderActive ? 'request-provider-pending' : providerReady ? 'provider-ready' : providerMode)
   const workflowSteps = activeTab === 'draft'
     ? [
@@ -309,6 +315,32 @@ export function ReportDraft() {
                 <span>{selectedSampleId ? '已载入本地真实公开图文样例，可切换或上传自定义图片' : imageName || '上传内镜图片到后端受控目录'}</span>
               </label>
               {uploadStatus ? <div className="source-note">{uploadStatus}</div> : null}
+              {uploadReceipt ? (
+                <div
+                  className="upload-receipt-card"
+                  data-report-upload-receipt="true"
+                  data-report-upload-audit={uploadReceipt.audit_logged ? 'true' : 'false'}
+                  data-report-upload-dimensions={uploadReceiptDimensions}
+                  data-report-upload-provider-input={uploadReceipt.provider_input_allowed ? 'true' : 'false'}
+                >
+                  <div className="upload-receipt-head">
+                    <FileImage size={18} />
+                    <div>
+                      <span>图像证据收据</span>
+                      <strong title={uploadReceipt.original_filename}>{uploadReceipt.original_filename}</strong>
+                    </div>
+                    <Tag tone={uploadReceipt.audit_logged ? 'green' : 'amber'}>{uploadReceipt.audit_logged ? 'audit logged' : 'audit pending'}</Tag>
+                  </div>
+                  <div className="upload-receipt-grid">
+                    <div><span>MIME</span><strong>{uploadReceipt.mime_type}</strong></div>
+                    <div><span>大小</span><strong>{formatBytes(uploadReceipt.bytes)}</strong></div>
+                    <div><span>尺寸</span><strong>{uploadReceiptDimensions}</strong></div>
+                    <div><span>SHA256</span><strong>{uploadReceipt.sha256_prefix}</strong></div>
+                    <div><span>审计 ID</span><strong>{uploadReceipt.audit_log_id || 'pending'}</strong></div>
+                    <div><span>Provider 输入</span><strong>{uploadReceipt.provider_input_allowed ? '受控目录允许' : '未允许'}</strong></div>
+                  </div>
+                </div>
+              ) : null}
               {selectedSample ? (
                 <details className="sample-annotation-card sample-ledger-card">
                   <summary>
@@ -586,4 +618,15 @@ function DraftList({ title, items, icon }: { title: string; items: string[]; ico
       </ul>
     </div>
   )
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes < 0) return 'unknown'
+  if (bytes < 1024) return `${bytes} B`
+  const kilobytes = bytes / 1024
+  return `${kilobytes >= 100 ? Math.round(kilobytes) : kilobytes.toFixed(1)} KB`
+}
+
+function formatImageDimensions(receipt: ImageUploadResponse) {
+  return receipt.width && receipt.height ? `${receipt.width} x ${receipt.height}` : 'unknown'
 }

@@ -11,6 +11,7 @@ DEFAULT_BACKENDS = ("http://127.0.0.1:8000/api", "http://127.0.0.1:8001/api")
 REQUIRED_CAPABILITIES = {
     "provider_preflight",
     "provider_request_preview",
+    "report_upload_receipt",
     "real_sample_coverage",
     "demo_check_sandbox",
     "demo_check_restore_verified",

@@ -1,5 +1,7 @@
 import base64
+import hashlib
 import re
+import struct
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
@@ -26,7 +28,7 @@ from app.schemas import (
     TutorExplainRequest,
     TutorHintRequest,
 )
-from app.services.audit_service import audit_service
+from app.services.audit_service import audit_service, now_iso
 from app.services.dashboard_service import dashboard_service
 from app.services.demo_check_service import demo_check_service
 from app.services.grading_service import grading_service
@@ -53,6 +55,7 @@ def health() -> dict[str, object]:
             "provider_diagnostics",
             "provider_preflight",
             "provider_request_preview",
+            "report_upload_receipt",
             "model_admission_receipt",
             "knowledge_source_chain",
             "real_sample_coverage",
@@ -251,28 +254,125 @@ def upload_report_image(request: ImageUploadRequest) -> dict[str, object]:
         raise HTTPException(status_code=400, detail="Invalid base64 image payload.") from exc
     if not payload or len(payload) > 2_500_000:
         raise HTTPException(status_code=400, detail="Image must be between 1 byte and 2.5 MB.")
-    suffix = { "image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp" }[mime]
+    width, height = _image_dimensions(payload, mime)
+    if width is None or height is None:
+        raise HTTPException(status_code=400, detail="Image header does not match the declared MIME type or dimensions are unsupported.")
+    suffix = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/webp": ".webp"}[mime]
     safe_stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", request.filename.rsplit(".", 1)[0])[:40] or "endoscopy_upload"
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     output_name = f"{uuid4().hex[:12]}_{safe_stem}{suffix}"
     output_path = UPLOAD_DIR / output_name
-    output_path.write_bytes(payload)
+    sha256_prefix = hashlib.sha256(payload).hexdigest()[:16]
     response = ImageUploadResponse(
         image_name=f"uploads/{output_name}",
         original_filename=request.filename,
         bytes=len(payload),
+        mime_type=mime,
+        width=width,
+        height=height,
+        sha256_prefix=sha256_prefix,
         source_type="uploaded_image",
+        provider_input_allowed=True,
+        audit_logged=False,
+        audit_log_id=None,
         doctor_review_required=True,
         safety_notice=SAFETY_NOTICE,
+        created_at=now_iso(),
     )
-    audit_service.log(
-        "image_upload",
-        user_id=request.learner_id,
-        entity_id=response.image_name,
-        summary="上传内镜教学图片至后端受控目录；未包含真实身份字段。",
-        risk_level="medium",
-    )
-    return response.model_dump()
+    try:
+        output_path.write_bytes(payload)
+        audit = audit_service.log(
+            "image_upload",
+            user_id=request.learner_id,
+            entity_id=response.image_name,
+            summary=(
+                "上传内镜教学图片至后端受控目录；"
+                f"尺寸 {width}x{height}；"
+                "未包含真实身份字段。"
+            ),
+            risk_level="medium",
+            metadata={
+                "image_name": response.image_name,
+                "mime_type": mime,
+                "bytes": len(payload),
+                "width": width,
+                "height": height,
+                "sha256_prefix": response.sha256_prefix,
+                "provider_input_allowed": True,
+            },
+        )
+    except Exception as exc:
+        output_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=500, detail="Failed to persist image upload receipt.") from exc
+    return response.model_copy(update={"audit_logged": True, "audit_log_id": audit.id}).model_dump()
+
+
+def _image_dimensions(payload: bytes, mime: str) -> tuple[int | None, int | None]:
+    if mime == "image/png" and payload.startswith(b"\x89PNG\r\n\x1a\n") and len(payload) >= 24 and payload[12:16] == b"IHDR":
+        return struct.unpack(">II", payload[16:24])
+    if mime in {"image/jpeg", "image/jpg"} and payload.startswith(b"\xff\xd8"):
+        return _jpeg_dimensions(payload)
+    if mime == "image/webp":
+        return _webp_dimensions(payload)
+    return None, None
+
+
+def _jpeg_dimensions(payload: bytes) -> tuple[int | None, int | None]:
+    index = 2
+    while index + 9 < len(payload):
+        if payload[index] != 0xFF:
+            index += 1
+            continue
+        while index < len(payload) and payload[index] == 0xFF:
+            index += 1
+        if index >= len(payload):
+            return None, None
+        marker = payload[index]
+        index += 1
+        if marker in {0xD8, 0xD9, 0x01} or 0xD0 <= marker <= 0xD7:
+            continue
+        if index + 2 > len(payload):
+            return None, None
+        segment_length = int.from_bytes(payload[index:index + 2], "big")
+        if segment_length < 2 or index + segment_length > len(payload):
+            return None, None
+        if marker in {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}:
+            if segment_length >= 7:
+                height = int.from_bytes(payload[index + 3:index + 5], "big")
+                width = int.from_bytes(payload[index + 5:index + 7], "big")
+                return width, height
+            return None, None
+        index += segment_length
+    return None, None
+
+
+def _webp_dimensions(payload: bytes) -> tuple[int | None, int | None]:
+    if len(payload) < 20 or not payload.startswith(b"RIFF") or payload[8:12] != b"WEBP":
+        return None, None
+    index = 12
+    while index + 8 <= len(payload):
+        chunk = payload[index:index + 4]
+        chunk_size = int.from_bytes(payload[index + 4:index + 8], "little")
+        data_start = index + 8
+        data_end = data_start + chunk_size
+        if data_end > len(payload):
+            return None, None
+        chunk_data = payload[data_start:data_end]
+        if chunk == b"VP8X" and len(chunk_data) >= 10:
+            width = int.from_bytes(chunk_data[4:7] + b"\x00", "little") + 1
+            height = int.from_bytes(chunk_data[7:10] + b"\x00", "little") + 1
+            return width, height
+        if chunk == b"VP8L" and len(chunk_data) >= 5 and chunk_data[0] == 0x2F:
+            packed = int.from_bytes(chunk_data[1:5], "little")
+            width = (packed & 0x3FFF) + 1
+            height = ((packed >> 14) & 0x3FFF) + 1
+            return width, height
+        if chunk == b"VP8 " and len(chunk_data) >= 10 and chunk_data[3:6] == b"\x9d\x01\x2a":
+            width = int.from_bytes(chunk_data[6:8], "little") & 0x3FFF
+            height = int.from_bytes(chunk_data[8:10], "little") & 0x3FFF
+            return width, height
+        index = data_end + (chunk_size % 2)
+    return None, None
 
 
 @router.post("/report/judge")

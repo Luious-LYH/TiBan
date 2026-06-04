@@ -324,6 +324,7 @@ export type AuditLog = {
   summary: string
   risk_level: RiskLevel
   doctor_review_required: boolean
+  metadata?: Record<string, unknown>
   created_at: string
 }
 
@@ -350,6 +351,10 @@ export type ReportDraft = {
     source_type: string
     source_ref: string
     supports: string[]
+    audit_log_id?: string | null
+    sha256_prefix?: string | null
+    width?: number | null
+    height?: number | null
   }[]
   hallucination_audit: {
     audit_passed?: boolean
@@ -836,8 +841,16 @@ export type ImageUploadResponse = {
   image_name: string
   original_filename: string
   bytes: number
+  mime_type: string
+  width?: number | null
+  height?: number | null
+  sha256_prefix: string
   source_type: 'uploaded_image'
+  provider_input_allowed: boolean
+  audit_logged: boolean
+  audit_log_id?: string | null
   doctor_review_required: boolean
   safety_notice: string
+  created_at: string
   api_source?: 'backend' | 'fallback'
 }

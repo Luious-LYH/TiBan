@@ -88,9 +88,10 @@ def resolve_backend(explicit_backend: str | None, timeout: float) -> tuple[str, 
             errors.append(f"{api_base}: {exc}")
             continue
         capabilities = set(health.get("capabilities", []))
-        if health.get("status") == "ok" and "delivery_report" in capabilities:
+        if health.get("status") == "ok" and {"delivery_report", "report_upload_receipt"}.issubset(capabilities):
             return api_base, health
-        errors.append(f"{api_base}: missing delivery_report capability")
+        missing = sorted({"delivery_report", "report_upload_receipt"} - capabilities)
+        errors.append(f"{api_base}: missing capabilities: {', '.join(missing) or 'status_not_ok'}")
     raise RuntimeError("No compatible ARIS backend found. Tried: " + " | ".join(errors))
 
 

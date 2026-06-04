@@ -3951,6 +3951,71 @@ textarea {
   backdrop-filter: blur(8px);
 }
 
+.upload-receipt-card {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px;
+  background: linear-gradient(135deg, #ffffff, #ecfeff 52%, #eff6ff);
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+}
+
+.upload-receipt-head {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+}
+
+.upload-receipt-head svg {
+  color: var(--teal);
+}
+
+.upload-receipt-head span,
+.upload-receipt-head strong {
+  display: block;
+  min-width: 0;
+}
+
+.upload-receipt-head span,
+.upload-receipt-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.upload-receipt-head strong,
+.upload-receipt-grid strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-receipt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.upload-receipt-grid div {
+  min-width: 0;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 8px;
+}
+
+.upload-receipt-grid strong {
+  display: block;
+  margin-top: 3px;
+}
+
 .knowledge-list div,
 .record-list div,
 .rubric-grid div,
@@ -6627,6 +6692,7 @@ textarea {
   .grid.two,
   .draft-grid,
   .report-status-grid,
+  .upload-receipt-grid,
   .report-source-status,
   .report-workflow-strip,
   .workflow-steps,

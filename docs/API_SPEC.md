@@ -25,7 +25,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力的后端 |
+| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、报告图像上传收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力的后端 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
 | GET | `/provider/diagnostics` | Provider 联调状态检查；返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要、准入状态和下一步动作，不返回 key/base 明文或完整模型回复 |
 | POST | `/provider/preflight` | Provider Base URL 安全预检；不需要 key，不发送模型请求，不写审计；返回规范化预览、会尝试的 chat completions path、安全拦截原因和下一步动作 |
@@ -46,7 +46,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | GET | `/learner/recommendations` | 推荐训练 |
 | POST | `/learner/exam-session` | 写入整场考试 Session 摘要、错题摘要和审计事件 |
 | POST | `/report-draft` | 结构化报告草稿 |
-| POST | `/report/image-upload` | 上传教学图片到后端受控目录，返回 `uploads/...` 引用 |
+| POST | `/report/image-upload` | 上传教学图片到后端受控目录，校验 PNG/JPEG/WebP 头与尺寸，返回 `uploads/...` 引用、尺寸/hash 和 `image_upload` 审计收据 |
 | POST | `/report/judge` | 报告修改训练评分 |
 | POST | `/patient-card` | 科普卡片草稿 |
 | POST | `/patient-card/{card_id}/approve` | 审核同一张科普卡片草稿并解锁分享 |
@@ -84,6 +84,36 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
   "model": "可选模型名"
 }
 ```
+
+报告图像上传收据：
+
+```json
+{
+  "filename": "teaching_case.png",
+  "data_url": "data:image/png;base64,...",
+  "learner_id": "demo_learner"
+}
+```
+
+`/report/image-upload` 只接受 PNG/JPEG/WebP data URL，大小限制 2.5MB。后端会先校验声明 MIME 与图片头/尺寸，再写入 `backend/runtime/uploads` 并生成 `image_upload` 审计；若审计写入失败，会删除本轮上传文件并返回错误。返回核心字段：
+
+```json
+{
+  "image_name": "uploads/abc123_teaching_case.png",
+  "original_filename": "teaching_case.png",
+  "bytes": 10240,
+  "mime_type": "image/png",
+  "width": 1280,
+  "height": 720,
+  "sha256_prefix": "0123abcd4567ef89",
+  "provider_input_allowed": true,
+  "audit_logged": true,
+  "audit_log_id": "audit_xxx",
+  "doctor_review_required": true
+}
+```
+
+同一 `uploads/...` 后续进入 `/report-draft` 时，报告 `evidence_ledger` 会回填 `audit_log_id`、`sha256_prefix` 和尺寸；这证明报告草稿绑定的是后端受控上传文件，而不是前端本地预览。`original_filename` 会回显给当前页面，请不要使用含患者身份信息的文件名；`backend/runtime/uploads` 与验证导出的 `runtime_logs` 均不提交 git。
 
 Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原文：
 

@@ -240,9 +240,17 @@ class ImageUploadResponse(BaseModel):
     image_name: str
     original_filename: str
     bytes: int
+    mime_type: str
+    width: int | None = None
+    height: int | None = None
+    sha256_prefix: str
     source_type: Literal["uploaded_image"]
+    provider_input_allowed: bool = True
+    audit_logged: bool = False
+    audit_log_id: str | None = None
     doctor_review_required: bool = True
     safety_notice: str
+    created_at: str
 
 
 class ReportDraft(BaseModel):

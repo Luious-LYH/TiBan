@@ -22,7 +22,7 @@ flowchart TD
 - `question_service`: 题库读取和筛选。
 - `grading_service`: 规则评分、错因标签、atomic feedback、下一题推荐。
 - `tutor_orchestrator`: 提示、讲解、当前题 chat 和挑战基准；chat 可选调用 Provider 并回灌训练标签，`challenge_benchmark` 只在医师提交后调用，Provider 失败时回退公开标注 fallback，只写审计不重复更新画像。
-- `report_service`: 报告草稿、报告修改评分和科普卡片；报告输出 `source_trace`、`evidence_ledger`、`generation_mode`，科普卡片生成草稿并通过同一 `card_id` 审核解锁，输出 `review_status`、`share_status` 和审核步骤。
+- `report_service`: 报告草稿、报告修改评分和科普卡片；报告输出 `source_trace`、`evidence_ledger`、`generation_mode`，上传图片会把 `image_upload` 审计 ID/hash/尺寸绑定回报告证据台账，科普卡片生成草稿并通过同一 `card_id` 审核解锁，输出 `review_status`、`share_status` 和审核步骤。
 - `llm_provider`: OpenAI-compatible `/chat/completions` 适配器；只允许公开样例图片和 `runtime/uploads` 受控图片进入视觉输入。
 - `skill_registry`: 受控技能注册和调用。
 - `memory_service`: 学员画像、错题、能力分更新。
@@ -60,5 +60,5 @@ flowchart TD
 
 - 所有模型输出都是医生审核前教学辅助，不签发最终诊断。
 - 公开样例标注不写入“医生输入所见”，只作为 `public_sample_annotation` 来源。
-- 报告页上传图片保存到 `backend/runtime/uploads`，不会提交 git；Provider 只读取受控目录中的图片。科普卡片页本机上传图只做浏览器预览，不写入后端卡片记录。
+- 报告页上传图片保存到 `backend/runtime/uploads`，不会提交 git；Provider 只读取受控目录中的图片。上传成功会写 `image_upload` 审计收据，报告生成会回填同一 `audit_log_id`/hash/尺寸；科普卡片页本机上传图只做浏览器预览，不写入后端卡片记录。
 - 模型准入不保存 API key，不在审计日志输出密钥。

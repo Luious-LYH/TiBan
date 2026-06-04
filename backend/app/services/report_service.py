@@ -38,6 +38,7 @@ class ReportService:
         kb = self.report_knowledge_base()
         text = safety_service.redact_sensitive_text(raw_text)
         sample = self._sample_from_image_name(request.image_name)
+        upload_receipt = self._upload_receipt(request.image_name)
         image_path = self._provider_image_path(request.image_name, sample)
         provider_result = self._provider_observation(request, text, sample, image_path)
         model_observation = provider_result.text if provider_result.ok else None
@@ -71,10 +72,10 @@ class ReportService:
         exam_context = self._exam_context(request.exam_type, request.image_name)
         draft_impression = self._draft_impression(findings)
         audit = self._hallucination_audit([*findings, *draft_impression], single_frame=single_frame)
-        evidence_ledger = self._evidence_ledger(request, findings, draft_impression, sample, provider_result.ok)
+        evidence_ledger = self._evidence_ledger(request, findings, draft_impression, sample, upload_receipt, provider_result.ok)
         review_tasks = self._review_tasks(audit, request.image_name)
         generation_mode = "provider" if provider_result.ok else "fallback" if provider_result.error and provider_result.error != "provider_not_configured" else "rule"
-        source_trace = self._source_trace(request, sample, provider_result)
+        source_trace = self._source_trace(request, sample, upload_receipt, provider_result)
         draft = ReportDraft(
             id=f"report_{uuid4().hex[:12]}",
             input_finding_text=text,
@@ -109,6 +110,12 @@ class ReportService:
             entity_id=draft.id,
             summary=f"生成结构化报告草稿；模式 {generation_mode}；医生审核必需。" if review["passed"] else "报告草稿触发安全审查提醒。",
             risk_level="high",
+            metadata={
+                "image_name": request.image_name,
+                "upload_audit_log_id": upload_receipt.get("audit_log_id") if upload_receipt else None,
+                "upload_sha256_prefix": upload_receipt.get("sha256_prefix") if upload_receipt else None,
+                "generation_mode": generation_mode,
+            },
         )
         return draft
 
@@ -430,6 +437,7 @@ class ReportService:
         findings: list[str],
         impressions: list[str],
         sample: dict | None,
+        upload_receipt: dict[str, object] | None,
         provider_called: bool,
     ) -> list[dict[str, object]]:
         ledger = [
@@ -450,17 +458,32 @@ class ReportService:
                 }
             )
         elif request.image_name and request.image_name.startswith("uploads/"):
+            receipt_supports = ["Provider 已生成视觉观察摘要"] if provider_called else ["仅保存上传图片供预览/后续人工复核；未作为图像诊断证据"]
+            if upload_receipt:
+                receipt_supports.extend(
+                    [
+                        f"上传审计：{upload_receipt.get('audit_log_id')}",
+                        f"SHA256 前缀：{upload_receipt.get('sha256_prefix')}",
+                        f"尺寸：{upload_receipt.get('width') or 'unknown'} x {upload_receipt.get('height') or 'unknown'}",
+                    ]
+                )
+            else:
+                receipt_supports.append("未找到对应 image_upload 审计收据；仅保留受控路径引用。")
             ledger.append(
                 {
                     "evidence_id": "upload_001",
                     "source_type": "provider_image_observation" if provider_called else "image_preview_only",
                     "source_ref": request.image_name,
-                    "supports": ["Provider 已生成视觉观察摘要"] if provider_called else ["仅保存上传图片供预览/后续人工复核；未作为图像诊断证据"],
+                    "supports": receipt_supports,
+                    "audit_log_id": upload_receipt.get("audit_log_id") if upload_receipt else None,
+                    "sha256_prefix": upload_receipt.get("sha256_prefix") if upload_receipt else None,
+                    "width": upload_receipt.get("width") if upload_receipt else None,
+                    "height": upload_receipt.get("height") if upload_receipt else None,
                 }
             )
         return ledger
 
-    def _source_trace(self, request: ReportDraftRequest, sample: dict | None, provider_result) -> list[dict[str, object]]:
+    def _source_trace(self, request: ReportDraftRequest, sample: dict | None, upload_receipt: dict[str, object] | None, provider_result) -> list[dict[str, object]]:
         trace = [
             {
                 "source_type": "doctor_input" if request.finding_text.strip() else "template_kb",
@@ -493,16 +516,43 @@ class ReportService:
                 },
             )
         elif request.image_name:
+            detail = request.image_name
+            if request.image_name.startswith("uploads/") and upload_receipt:
+                detail = (
+                    f"{request.image_name} · audit {upload_receipt.get('audit_log_id')} · "
+                    f"sha256 {upload_receipt.get('sha256_prefix')}"
+                )
             trace.insert(
                 1,
                 {
                     "source_type": "uploaded_image" if request.image_name.startswith("uploads/") else "image_reference",
                     "label": "图片输入",
                     "used": bool(provider_result.ok),
-                    "detail": request.image_name,
+                    "detail": detail,
                 },
             )
         return trace
+
+    def _upload_receipt(self, image_name: str | None) -> dict[str, object] | None:
+        if not image_name or not image_name.startswith("uploads/"):
+            return None
+        for item in read_json("audit_logs.json"):
+            if item.get("event_type") != "image_upload":
+                continue
+            metadata = item.get("metadata") if isinstance(item.get("metadata"), dict) else {}
+            if item.get("entity_id") == image_name or metadata.get("image_name") == image_name:
+                return {
+                    "audit_log_id": item.get("id"),
+                    "image_name": image_name,
+                    "mime_type": metadata.get("mime_type"),
+                    "bytes": metadata.get("bytes"),
+                    "width": metadata.get("width"),
+                    "height": metadata.get("height"),
+                    "sha256_prefix": metadata.get("sha256_prefix"),
+                    "provider_input_allowed": metadata.get("provider_input_allowed", True),
+                    "created_at": item.get("created_at"),
+                }
+        return None
 
     def _sample_from_image_name(self, image_name: str | None) -> dict | None:
         if not image_name:

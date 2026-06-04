@@ -291,7 +291,7 @@ async function fetchDeliveryBackendReport(frontend, timeoutMs) {
     try {
       const health = await fetchJson(`${apiBase}/api/health`, Math.min(timeoutMs, 5000))
       const capabilities = Array.isArray(health.capabilities) ? health.capabilities : []
-      if (!capabilities.includes('delivery_report')) continue
+      if (!capabilities.includes('delivery_report') || !capabilities.includes('report_upload_receipt')) continue
       const report = await fetchJson(`${apiBase}/api/platform/delivery-report`, Math.min(timeoutMs, 9000))
       return { apiBase, report }
     } catch (error) {

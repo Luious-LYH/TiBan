@@ -42,7 +42,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code\backend
 python -m uvicorn app.main:app --reload --port 8001
 ```
 
-前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 联调状态检查、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
+前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 联调状态检查、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、报告图像上传收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
 
 版本与提交证据：
 
@@ -158,7 +158,7 @@ python scripts\provider_doctor.py --self-test --include-image
 
 ### 上传图片保存在哪里？
 
-报告页上传图片保存到 `backend/runtime/uploads`，该目录不提交 git。报告修改训练带入科普卡片的摘要通过前端路由状态传递，URL 不展示报告文本；科普卡片页上传只做本机预览，不自动写入后端；卡片分享/打印需要医生审核闸门通过。
+报告页上传图片保存到 `backend/runtime/uploads`，该目录不提交 git。上传接口会校验 PNG/JPEG/WebP data URL、2.5MB 大小限制和图片头尺寸，成功后返回图像证据收据：`image_name`、MIME、bytes、宽高、SHA256 前缀、`image_upload` 审计 ID 和 Provider 输入边界。报告生成会把同一上传的 `audit_log_id`、hash 和尺寸写回 `evidence_ledger` 与 `source_trace`；上传失败时只保留前端预览，不把本地文件名当作视觉证据发送。文件名会回显在当前页面，请不要包含患者身份信息。报告修改训练带入科普卡片的摘要通过前端路由状态传递，URL 不展示报告文本；科普卡片页上传只做本机预览，不自动写入后端；卡片分享/打印需要医生审核闸门通过。
 
 ### 如何恢复干净演示状态？
 

@@ -65,6 +65,7 @@ const requiredApiCapabilities = [
   'provider_diagnostics',
   'provider_preflight',
   'provider_request_preview',
+  'report_upload_receipt',
   'model_admission_receipt',
   'knowledge_source_chain',
   'real_sample_coverage',
@@ -1249,6 +1250,10 @@ function normalizeReportDraft(value: unknown, fallback: ReportDraft): ReportDraf
             source_type: asString(ledger.source_type, 'unknown'),
             source_ref: asString(ledger.source_ref, 'unknown'),
             supports: asStringArray(ledger.supports, []),
+            audit_log_id: typeof ledger.audit_log_id === 'string' || ledger.audit_log_id === null ? ledger.audit_log_id : undefined,
+            sha256_prefix: typeof ledger.sha256_prefix === 'string' || ledger.sha256_prefix === null ? ledger.sha256_prefix : undefined,
+            width: ledger.width === null ? null : asNumber(ledger.width, 0) || undefined,
+            height: ledger.height === null ? null : asNumber(ledger.height, 0) || undefined,
           }
         })
       : fallback.evidence_ledger,
