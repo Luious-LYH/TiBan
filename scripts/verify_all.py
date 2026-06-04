@@ -1,5 +1,6 @@
 import argparse
 import hashlib
+import json
 import locale
 import os
 import re
@@ -138,6 +139,42 @@ def scan_secrets() -> None:
     print("No secret-like sk-* tokens found in workspace files.")
 
 
+def ensure_real_sample_assets() -> None:
+    print_section("Real sample assets")
+    knowledge_path = ROOT / "backend/app/data/real_sample_knowledge.json"
+    if not knowledge_path.exists():
+        raise RuntimeError("Missing backend/app/data/real_sample_knowledge.json.")
+    try:
+        items = json.loads(knowledge_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Invalid real_sample_knowledge.json: {exc}") from exc
+    if not isinstance(items, list) or not items:
+        raise RuntimeError("real_sample_knowledge.json has no sample records.")
+    missing: list[str] = []
+    checked = 0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        image_url = str(item.get("image_url") or "")
+        if not image_url:
+            missing.append(f"{item.get('id', '<unknown>')}: missing image_url")
+            continue
+        if not image_url.startswith("/assets/real_samples/"):
+            missing.append(f"{item.get('id', '<unknown>')}: unsupported image_url {image_url}")
+            continue
+        asset_path = ROOT / "frontend/public" / image_url.lstrip("/")
+        if not asset_path.exists() or not asset_path.is_file() or asset_path.stat().st_size <= 0:
+            missing.append(f"{item.get('id', '<unknown>')}: {image_url}")
+            continue
+        checked += 1
+    if missing:
+        print("Missing or invalid real sample image assets:")
+        for item in missing:
+            print(f"- {item}")
+        raise RuntimeError("Real sample asset check failed.")
+    print(f"All {checked} real sample image assets are present under frontend/public/assets/real_samples.")
+
+
 def file_fingerprint(path: Path) -> str:
     if not path.exists():
         return "<missing>"
@@ -185,6 +222,7 @@ def main() -> int:
             run_command("Frontend lint", [npm_bin, "run", "lint"], cwd=ROOT / "frontend")
             run_command("Frontend build", [npm_bin, "run", "build"], cwd=ROOT / "frontend")
         run_command("Git diff check", [git_bin, "diff", "--check"])
+        ensure_real_sample_assets()
         scan_secrets()
     except RuntimeError as exc:
         command_error = exc
@@ -203,7 +241,7 @@ def main() -> int:
         checked_parts.append("UI routes")
     if not args.skip_build:
         checked_parts.append("lint/build")
-    checked_parts.extend(["git diff check", "secret scan", "state-file guard"])
+    checked_parts.extend(["git diff check", "real-sample assets", "secret scan", "state-file guard"])
     print(f"\nARIS verification passed. Checked: {', '.join(checked_parts)}.")
     return 0
 

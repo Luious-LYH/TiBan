@@ -13,6 +13,11 @@ type ChatMessage = {
 }
 
 type TutorTab = 'agent' | 'evidence' | 'compare'
+type ImageLoadState = 'idle' | 'loading' | 'loaded' | 'error'
+type ImageLoadRecord = {
+  src: string
+  status: ImageLoadState
+}
 
 type ChallengeStats = {
   rounds: number
@@ -110,6 +115,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [challengeBenchmarkLoading, setChallengeBenchmarkLoading] = useState(false)
   const [lastChallengeAudit, setLastChallengeAudit] = useState<AuditLog | null>(null)
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
+  const [imageLoadRecord, setImageLoadRecord] = useState<ImageLoadRecord>({ src: '', status: 'idle' })
   const [chat, setChat] = useState<ChatMessage[]>([
     buildInitialAgentMessage(mockQuestions[0]),
   ])
@@ -244,7 +250,12 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const isPublicSample = publicDatasets.has(question.source_dataset)
   const canUseTutorChat = mode !== 'exam' && (!isChallenge || Boolean(submission))
   const imageSourceLabel = isPublicSample ? '真实公开样例' : '平台教学样例'
+  const activeImageUrl = question.image_url || '/assets/synthetic-endoscopy-training.svg'
+  const imageLoadState: ImageLoadState = imageLoadRecord.src === activeImageUrl ? imageLoadRecord.status : 'loading'
   const currentImageRef = question.image_url ? question.image_url.replace('/assets/real_samples/', 'real_samples/') : 'synthetic-endoscopy-training.svg'
+  const imageLoadLabel = imageLoadState === 'loaded'
+    ? isPublicSample ? '真实图片已加载' : '教学图已加载'
+    : imageLoadState === 'error' ? '图片加载失败' : '图片加载中'
   const currentSourceAssurance = isPublicSample
     ? '图像、题干、公开标注来自本地真实公开样例知识库；中文解释由平台按训练目标改写。'
     : '平台教学题用于补足训练类型，不声明为真实公开图片。'
@@ -675,12 +686,32 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
         <div className="training-grid qbank-grid">
           <Card className="image-panel">
             <SectionTitle eyebrow="Case image" title="内镜图像与病例摘要" />
-            <div className={`image-frame ${isPublicSample ? 'real-sample' : 'synthetic-sample'}`}>
-              <img className="endo-image" src={question.image_url || '/assets/synthetic-endoscopy-training.svg'} alt="内镜教学图像" />
+            <div className={`image-frame ${isPublicSample ? 'real-sample' : 'synthetic-sample'} image-${imageLoadState}`}>
+              <img
+                className="endo-image"
+                src={activeImageUrl}
+                alt={isPublicSample ? `${question.source_dataset} 公开内镜训练样例` : '平台教学内镜图像'}
+                data-real-sample-image={isPublicSample ? 'true' : 'false'}
+                data-image-status={imageLoadState}
+                data-source-dataset={question.source_dataset}
+                onLoad={() => setImageLoadRecord({ src: activeImageUrl, status: 'loaded' })}
+                onError={() => setImageLoadRecord({ src: activeImageUrl, status: 'error' })}
+              />
               <div className={`image-source-ribbon ${isPublicSample ? 'real' : 'synthetic'}`}>
                 <DatabaseZap size={14} />
                 <span>{imageSourceLabel}</span>
               </div>
+              <div className={`image-load-badge ${imageLoadState}`}>
+                {imageLoadState === 'loaded' ? <CheckCircle2 size={14} /> : imageLoadState === 'error' ? <AlertTriangle size={14} /> : <ActivitySquare size={14} />}
+                <span>{imageLoadLabel}</span>
+              </div>
+              {imageLoadState === 'error' ? (
+                <div className="image-load-fallback" role="alert">
+                  <AlertTriangle size={22} />
+                  <strong>无法读取本地样例图</strong>
+                  <span>{activeImageUrl}</span>
+                </div>
+              ) : null}
             </div>
             <p className="muted">{question.image_placeholder}</p>
             <div className="case-integrity-strip">

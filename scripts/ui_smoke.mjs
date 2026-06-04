@@ -167,6 +167,13 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
   await client.send('Runtime.enable')
   await client.send('Page.enable')
   await new Promise((resolve) => setTimeout(resolve, Math.min(timeoutMs, 1800)))
+  if (route.startsWith('/training')) {
+    await waitForRuntimeValue(
+      client,
+      'Array.from(document.querySelectorAll("img[data-real-sample-image=\\"true\\"]")).some((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0 && img.dataset.imageStatus === "loaded")',
+      Math.min(timeoutMs, 6000),
+    ).catch(() => null)
+  }
   const result = await client.send('Runtime.evaluate', {
     expression: `(() => ({
       route: location.pathname + location.search,
@@ -177,6 +184,14 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
       bodyLength: document.body.innerText.length,
       hasLiveEvidence: Boolean(document.querySelector('.sidebar-evidence')),
       evidenceText: (document.querySelector('.sidebar-evidence')?.innerText || '').slice(0, 220),
+      realImages: Array.from(document.querySelectorAll('img[data-real-sample-image="true"]')).map((img) => ({
+        src: img.getAttribute('src') || '',
+        status: img.dataset.imageStatus || '',
+        complete: img.complete,
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+        dataset: img.dataset.sourceDataset || ''
+      })),
       blank: (document.querySelector('#root')?.childElementCount || 0) === 0 || document.body.innerText.length < 80
     }))()`,
     returnByValue: true,
@@ -186,9 +201,24 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
   return {
     expected_route: route,
     ...result.result.value,
+    has_loaded_real_image: Array.isArray(result.result.value.realImages)
+      && result.result.value.realImages.some((item) => item.complete && item.naturalWidth > 0 && item.naturalHeight > 0 && item.status === 'loaded'),
+    broken_real_images: Array.isArray(result.result.value.realImages)
+      ? result.result.value.realImages.filter((item) => item.status === 'error' || !item.complete || item.naturalWidth <= 0 || item.naturalHeight <= 0)
+      : [],
     runtime_errors: client.runtimeErrors,
     console_errors: client.consoleErrors,
   }
+}
+
+async function waitForRuntimeValue(client, expression, timeoutMs) {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < timeoutMs) {
+    const result = await client.send('Runtime.evaluate', { expression, returnByValue: true })
+    if (result.result?.value) return true
+    await delay(200)
+  }
+  throw new Error(`Timed out waiting for runtime expression: ${expression}`)
 }
 
 function printSection(title, payload) {
@@ -265,6 +295,8 @@ async function main() {
       results.push(result)
       if (result.blank) failures.push(`${route}: page appears blank`)
       if (!result.hasLiveEvidence) failures.push(`${route}: missing global Live evidence sidebar`)
+      if (route.startsWith('/training') && !result.has_loaded_real_image) failures.push(`${route}: missing loaded real sample image`)
+      if (route.startsWith('/training') && result.broken_real_images.length) failures.push(`${route}: broken real sample images: ${JSON.stringify(result.broken_real_images)}`)
       if (result.runtime_errors.length) failures.push(`${route}: runtime errors: ${result.runtime_errors.join(' | ')}`)
       if (result.console_errors.length) failures.push(`${route}: console errors: ${result.console_errors.join(' | ')}`)
     }

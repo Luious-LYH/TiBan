@@ -1761,6 +1761,14 @@ input {
   border-radius: 0;
 }
 
+.image-frame.image-loading .endo-image {
+  opacity: 0.42;
+}
+
+.image-frame.image-error .endo-image {
+  opacity: 0.18;
+}
+
 .image-source-ribbon {
   position: absolute;
   top: 12px;
@@ -1785,6 +1793,56 @@ input {
 
 .image-source-ribbon.synthetic {
   background: rgba(180, 83, 9, 0.88);
+}
+
+.image-load-badge {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 9px;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  backdrop-filter: blur(10px);
+}
+
+.image-load-badge.loaded {
+  background: rgba(21, 128, 61, 0.88);
+}
+
+.image-load-badge.error {
+  background: rgba(185, 28, 28, 0.9);
+}
+
+.image-load-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 22px;
+  color: #fecaca;
+  text-align: center;
+  background: rgba(7, 10, 18, 0.84);
+}
+
+.image-load-fallback strong,
+.image-load-fallback span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.image-load-fallback span {
+  color: #fed7aa;
+  font-size: 12px;
 }
 
 .image-panel .muted {
