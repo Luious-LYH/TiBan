@@ -12,6 +12,14 @@ import type {
   ChallengeBenchmarkResult,
   DashboardPayload,
   DemoCheckResult,
+  DeliveryAuditEventCount,
+  DeliveryDoctorContext,
+  DeliveryPlatformSummary,
+  DeliveryProviderState,
+  DeliveryReport,
+  DeliveryReportIntegrity,
+  DeliveryVerificationCommand,
+  DeliveryWorkflowProof,
   ExamSessionAttempt,
   ExamSessionRecord,
   ExamSessionResponse,
@@ -64,6 +72,7 @@ const requiredApiCapabilities = [
   'patient_card_generation_receipt',
   'patient_card_approve',
   'skill_run_receipt',
+  'delivery_report',
 ]
 let activeApiBase = apiBaseCandidates[0]
 let apiBaseProbe: Promise<boolean> | null = null
@@ -704,6 +713,246 @@ function normalizePlatformReadiness(value: unknown, fallback: PlatformReadiness 
   }
 }
 
+function fallbackDeliveryReport(): DeliveryReport {
+  const readiness = mockDashboard.platform_readiness
+  const profile = mockDashboard.learner_profile
+  const auditCounts = Object.entries(
+    mockAuditLogs.reduce<Record<string, number>>((accumulator, item) => {
+      accumulator[item.event_type] = (accumulator[item.event_type] || 0) + 1
+      return accumulator
+    }, {}),
+  ).map(([event_type, count]) => ({ event_type, count }))
+
+  return {
+    generated_at: readiness.generated_at,
+    title: 'ARIS v2.0 交付证据报告（前端 fallback）',
+    scope: '后端不可用时仅展示交付证据页结构；正式验收证据以 FastAPI /api/platform/delivery-report 和导出脚本为准。',
+    doctor_context: {
+      learner_id: profile.learner_id,
+      name: profile.name,
+      title: profile.title,
+      department: profile.department,
+      hospital: profile.hospital,
+      training_stage: profile.training_stage,
+      daily_target: profile.daily_target,
+      completed_today: profile.completed_today,
+      streak_days: profile.streak_days,
+    },
+    platform_summary: {
+      overall_score: readiness.overall_score,
+      backend_ready: readiness.backend_ready,
+      provider_mode: readiness.provider_mode,
+      provider_ready: readiness.provider_ready,
+      knowledge_ready: readiness.knowledge_ready,
+      memory_ready: readiness.memory_ready,
+      qbank_count: readiness.qbank_count,
+      real_sample_count: readiness.real_sample_count,
+      report_template_count: readiness.report_template_count,
+      audit_log_count: readiness.audit_log_count,
+      exam_session_count: readiness.exam_session_count,
+      admission_grade: readiness.admission_grade,
+      admission_provider_called: readiness.admission_provider_called,
+    },
+    workflow_proofs: [
+      {
+        id: 'training_loop',
+        name: '训练题库与画像回灌',
+        status: readiness.memory_ready ? 'ready' : 'fallback',
+        evidence: '刷题、考试、错题和画像路径保留为同一训练闭环；fallback 不写入真实画像。',
+        route: '/training',
+      },
+      {
+        id: 'report_loop',
+        name: '诊断报告训练',
+        status: readiness.report_template_count ? 'ready' : 'fallback',
+        evidence: '报告模板、修改评分与安全边界可在报告中心查看；后端在线时返回 source_trace。',
+        route: '/report',
+      },
+      {
+        id: 'card_review_loop',
+        name: '科普卡片审核闸门',
+        status: 'ready',
+        evidence: '卡片草稿与医生审核状态分离，未审核不解锁患者沟通状态。',
+        route: '/card',
+      },
+      {
+        id: 'model_gate',
+        name: 'Provider 与模型准入',
+        status: readiness.provider_ready ? 'provider' : readiness.provider_mode,
+        evidence: '未配置 Provider 时显式显示 rule/fallback；不会伪造真实模型调用。',
+        route: '/models',
+      },
+    ],
+    knowledge_source_chain: readiness.knowledge_source_chain,
+    evidence_receipts: readiness.evidence_receipts,
+    audit_event_counts: auditCounts,
+    provider_state: {
+      configured: readiness.provider_ready,
+      mode: readiness.provider_mode,
+      provider_declared: false,
+      model: mockDashboard.active_model.name,
+      admission_provider_called: readiness.admission_provider_called,
+      admission_safe_for_training: mockDashboard.model_admission_state.safe_for_training,
+    },
+    verification_commands: [
+      {
+        name: '总控验证',
+        command: 'python scripts\\verify_all.py',
+        covers: '后端健康、Provider 医生、演示闭环、UI smoke 与交付报告导出。',
+      },
+      {
+        name: '交付报告导出',
+        command: 'python scripts\\export_delivery_report.py --output runtime_logs\\delivery_evidence_report.md',
+        covers: '只读导出 /api/platform/delivery-report，并检查状态文件不漂移。',
+      },
+    ],
+    current_boundaries: [
+      '平台定位是教学训练、报告表达练习和医生审核前辅助。',
+      '所有医学输出必须保留医生复核，不作为独立诊断依据。',
+      '前端 fallback 只用于断网或后端不可用时的可视化兜底。',
+    ],
+    gaps: ['当前为前端 fallback；请启动 FastAPI 后端查看真实运行时证据。'],
+    safety_notice: safetyNotice,
+    report_integrity: {
+      source: 'frontend_fallback',
+      writes_state: false,
+      secrets_included: false,
+      api_key_returned: false,
+      provider_base_returned: false,
+    },
+  }
+}
+
+function normalizeDeliveryDoctorContext(value: unknown, fallback: DeliveryDoctorContext): DeliveryDoctorContext {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    learner_id: asString(record.learner_id, fallback.learner_id),
+    name: asString(record.name, fallback.name),
+    title: asString(record.title, fallback.title),
+    department: asString(record.department, fallback.department),
+    hospital: asString(record.hospital, fallback.hospital || ''),
+    training_stage: asString(record.training_stage, fallback.training_stage),
+    daily_target: asNumber(record.daily_target, fallback.daily_target),
+    completed_today: asNumber(record.completed_today, fallback.completed_today),
+    streak_days: asNumber(record.streak_days, fallback.streak_days),
+  }
+}
+
+function normalizeDeliveryPlatformSummary(value: unknown, fallback: DeliveryPlatformSummary): DeliveryPlatformSummary {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    overall_score: asNumber(record.overall_score, fallback.overall_score),
+    backend_ready: asBoolean(record.backend_ready, fallback.backend_ready),
+    provider_mode: asString(record.provider_mode, fallback.provider_mode),
+    provider_ready: asBoolean(record.provider_ready, fallback.provider_ready),
+    knowledge_ready: asBoolean(record.knowledge_ready, fallback.knowledge_ready),
+    memory_ready: asBoolean(record.memory_ready, fallback.memory_ready),
+    qbank_count: asNumber(record.qbank_count, fallback.qbank_count),
+    real_sample_count: asNumber(record.real_sample_count, fallback.real_sample_count),
+    report_template_count: asNumber(record.report_template_count, fallback.report_template_count),
+    audit_log_count: asNumber(record.audit_log_count, fallback.audit_log_count),
+    exam_session_count: asNumber(record.exam_session_count, fallback.exam_session_count),
+    admission_grade: asString(record.admission_grade, fallback.admission_grade),
+    admission_provider_called: asBoolean(record.admission_provider_called, fallback.admission_provider_called),
+  }
+}
+
+function normalizeDeliveryWorkflowProof(value: unknown, fallback: DeliveryWorkflowProof, index: number): DeliveryWorkflowProof {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id || `workflow_${index}`),
+    name: asString(record.name, fallback.name),
+    status: asString(record.status, fallback.status),
+    evidence: asString(record.evidence, fallback.evidence),
+    route: asString(record.route, fallback.route || '/'),
+  }
+}
+
+function normalizeDeliveryAuditCount(value: unknown, fallback: DeliveryAuditEventCount, index: number): DeliveryAuditEventCount {
+  const record = asRecord(value)
+  return {
+    event_type: asString(record.event_type, fallback.event_type || `event_${index}`),
+    count: asNumber(record.count, fallback.count),
+  }
+}
+
+function normalizeDeliveryProviderState(value: unknown, fallback: DeliveryProviderState): DeliveryProviderState {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    configured: asBoolean(record.configured, fallback.configured),
+    mode: asString(record.mode, fallback.mode),
+    provider_declared: asBoolean(record.provider_declared, fallback.provider_declared),
+    model: asString(record.model, fallback.model),
+    admission_provider_called: asBoolean(record.admission_provider_called, fallback.admission_provider_called),
+    admission_safe_for_training: asBoolean(record.admission_safe_for_training, fallback.admission_safe_for_training),
+  }
+}
+
+function normalizeDeliveryCommand(value: unknown, fallback: DeliveryVerificationCommand, index: number): DeliveryVerificationCommand {
+  const record = asRecord(value)
+  return {
+    name: asString(record.name, fallback.name || `验证命令 ${index + 1}`),
+    command: asString(record.command, fallback.command),
+    covers: asString(record.covers, fallback.covers),
+  }
+}
+
+function normalizeDeliveryIntegrity(value: unknown, fallback: DeliveryReportIntegrity): DeliveryReportIntegrity {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    source: asString(record.source, fallback.source),
+    writes_state: asBoolean(record.writes_state, fallback.writes_state),
+    secrets_included: asBoolean(record.secrets_included, fallback.secrets_included),
+    api_key_returned: asBoolean(record.api_key_returned, fallback.api_key_returned),
+    provider_base_returned: asBoolean(record.provider_base_returned, fallback.provider_base_returned),
+  }
+}
+
+function normalizeDeliveryReport(value: unknown, fallback: DeliveryReport = fallbackDeliveryReport()): DeliveryReport {
+  const record = asRecord(value)
+  const fallbackWorkflowProofs = fallback.workflow_proofs.length ? fallback.workflow_proofs : fallbackDeliveryReport().workflow_proofs
+  const workflowProofs = Array.isArray(record.workflow_proofs) ? record.workflow_proofs : fallbackWorkflowProofs
+  const fallbackKnowledgeChain = fallback.knowledge_source_chain.length ? fallback.knowledge_source_chain : mockDashboard.platform_readiness.knowledge_source_chain
+  const knowledgeChain = Array.isArray(record.knowledge_source_chain) ? record.knowledge_source_chain : fallbackKnowledgeChain
+  const fallbackReceipts = fallback.evidence_receipts.length ? fallback.evidence_receipts : mockDashboard.platform_readiness.evidence_receipts
+  const receipts = Array.isArray(record.evidence_receipts) ? record.evidence_receipts : fallbackReceipts
+  const fallbackAuditCounts = fallback.audit_event_counts.length ? fallback.audit_event_counts : [{ event_type: 'audit_seed', count: 0 }]
+  const auditCounts = Array.isArray(record.audit_event_counts) ? record.audit_event_counts : fallbackAuditCounts
+  const fallbackCommands = fallback.verification_commands.length ? fallback.verification_commands : fallbackDeliveryReport().verification_commands
+  const commands = Array.isArray(record.verification_commands) ? record.verification_commands : fallbackCommands
+
+  return {
+    ...fallback,
+    ...record,
+    generated_at: asString(record.generated_at, fallback.generated_at),
+    title: asString(record.title, fallback.title),
+    scope: asString(record.scope, fallback.scope),
+    doctor_context: normalizeDeliveryDoctorContext(record.doctor_context, fallback.doctor_context),
+    platform_summary: normalizeDeliveryPlatformSummary(record.platform_summary, fallback.platform_summary),
+    workflow_proofs: workflowProofs.map((item, index) => normalizeDeliveryWorkflowProof(item, fallbackWorkflowProofs[index] || fallbackWorkflowProofs[0], index)),
+    knowledge_source_chain: knowledgeChain.map((item, index) => normalizeKnowledgeSourceChainItem(item, fallbackKnowledgeChain[index] || fallbackKnowledgeChain[0], index)),
+    evidence_receipts: receipts.map((item, index) => normalizeReadinessModule(item, fallbackReceipts[index] || fallbackReceipts[0], index)),
+    audit_event_counts: auditCounts.map((item, index) => normalizeDeliveryAuditCount(item, fallbackAuditCounts[index] || fallbackAuditCounts[0], index)),
+    provider_state: normalizeDeliveryProviderState(record.provider_state, fallback.provider_state),
+    verification_commands: commands.map((item, index) => normalizeDeliveryCommand(item, fallbackCommands[index] || fallbackCommands[0], index)),
+    current_boundaries: asStringArray(record.current_boundaries, fallback.current_boundaries),
+    gaps: asStringArray(record.gaps, fallback.gaps),
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    report_integrity: normalizeDeliveryIntegrity(record.report_integrity, fallback.report_integrity),
+    api_source: record.api_source as ApiSource | undefined,
+  }
+}
+
 function normalizeDashboard(value: unknown): DashboardPayload {
   const record = asRecord(value)
   const profile = normalizeProfile(record.learner_profile, mockDashboard.learner_profile)
@@ -1231,6 +1480,12 @@ export const api = {
   async platformReadiness(): Promise<PlatformReadiness> {
     const response = await request<PlatformReadiness>('/api/platform/readiness', undefined, mockDashboard.platform_readiness)
     return normalizePlatformReadiness(response)
+  },
+
+  async deliveryReport(): Promise<DeliveryReport> {
+    const fallback = fallbackDeliveryReport()
+    const response = await request<DeliveryReport>('/api/platform/delivery-report', undefined, fallback)
+    return normalizeDeliveryReport(response, fallback)
   },
 
   async platformDemoCheck(persist = false): Promise<DemoCheckResult> {

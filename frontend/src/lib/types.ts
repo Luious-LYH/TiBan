@@ -517,6 +517,89 @@ export type PlatformReadiness = {
   api_source?: 'backend' | 'fallback'
 }
 
+export type DeliveryDoctorContext = {
+  learner_id: string
+  name: string
+  title: string
+  department: string
+  hospital?: string
+  training_stage: string
+  daily_target: number
+  completed_today: number
+  streak_days: number
+}
+
+export type DeliveryPlatformSummary = {
+  overall_score: number
+  backend_ready: boolean
+  provider_mode: string
+  provider_ready: boolean
+  knowledge_ready: boolean
+  memory_ready: boolean
+  qbank_count: number
+  real_sample_count: number
+  report_template_count: number
+  audit_log_count: number
+  exam_session_count: number
+  admission_grade: string
+  admission_provider_called: boolean
+}
+
+export type DeliveryWorkflowProof = {
+  id: string
+  name: string
+  status: string
+  evidence: string
+  route: string
+}
+
+export type DeliveryAuditEventCount = {
+  event_type: string
+  count: number
+}
+
+export type DeliveryProviderState = {
+  configured: boolean
+  mode: string
+  provider_declared: boolean
+  model: string
+  admission_provider_called: boolean
+  admission_safe_for_training: boolean
+}
+
+export type DeliveryVerificationCommand = {
+  name: string
+  command: string
+  covers: string
+}
+
+export type DeliveryReportIntegrity = {
+  source: string
+  writes_state: boolean
+  secrets_included: boolean
+  api_key_returned: boolean
+  provider_base_returned: boolean
+}
+
+export type DeliveryReport = {
+  generated_at: string
+  title: string
+  scope: string
+  doctor_context: DeliveryDoctorContext
+  platform_summary: DeliveryPlatformSummary
+  workflow_proofs: DeliveryWorkflowProof[]
+  knowledge_source_chain: KnowledgeSourceChainItem[]
+  evidence_receipts: PlatformReadinessModule[]
+  audit_event_counts: DeliveryAuditEventCount[]
+  provider_state: DeliveryProviderState
+  verification_commands: DeliveryVerificationCommand[]
+  current_boundaries: string[]
+  gaps: string[]
+  safety_notice: string
+  report_integrity: DeliveryReportIntegrity
+  api_source?: 'backend' | 'fallback'
+}
+
 export type DemoCheckReceipt = {
   id: string
   label: string

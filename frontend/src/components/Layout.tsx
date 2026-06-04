@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Database,
   DatabaseZap,
+  FileCheck2,
   FileText,
   Gauge,
   GraduationCap,
@@ -76,6 +77,7 @@ const navGroups = [
     items: [
       { path: '/skills', label: 'Skills', icon: Sparkles },
       { path: '/audit', label: '审计日志', icon: ClipboardList },
+      { path: '/delivery', label: '交付证据', icon: FileCheck2 },
     ],
   },
 ]
@@ -203,6 +205,9 @@ export function Layout({ children }: { children: ReactNode }) {
             </Link>
             <Link to="/audit">
               <ClipboardList size={14} /> 审计
+            </Link>
+            <Link to="/delivery">
+              <FileCheck2 size={14} /> 交付
             </Link>
           </div>
         </div>

@@ -4,10 +4,11 @@ import http from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
-const DEFAULT_ROUTES = ['/', '/training?view=challenge', '/profile', '/report', '/models', '/card']
+const DEFAULT_ROUTES = ['/', '/training?view=challenge', '/profile', '/report', '/models', '/card', '/delivery']
 const ROUTES_REQUIRING_REAL_IMAGES = ['/training', '/report', '/card']
 const REAL_IMAGE_SELECTOR = 'img[data-real-sample-image="true"]'
 const REQUIRED_REAL_IMAGE_SELECTOR = 'img[data-real-sample-image="true"][data-real-sample-role="primary"]'
+const DELIVERY_EVIDENCE_SELECTOR = '[data-delivery-loaded="true"]'
 
 function parseArgs(argv) {
   const args = {
@@ -177,6 +178,13 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
       Math.min(timeoutMs, 6000),
     ).catch(() => null)
   }
+  if (requiresDeliveryEvidence(route)) {
+    await waitForRuntimeValue(
+      client,
+      `Boolean(document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)}))`,
+      Math.min(timeoutMs, 9000),
+    ).catch(() => null)
+  }
   const result = await client.send('Runtime.evaluate', {
     expression: `(() => {
       const toImageInfo = (img) => ({
@@ -197,6 +205,9 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
         bodyLength: document.body.innerText.length,
         hasLiveEvidence: Boolean(document.querySelector('.sidebar-evidence')),
         evidenceText: (document.querySelector('.sidebar-evidence')?.innerText || '').slice(0, 220),
+        deliveryLoaded: Boolean(document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})),
+        deliverySource: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliverySource || '',
+        deliveryIntegrity: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliveryIntegrity || '',
         realImages: Array.from(document.querySelectorAll(${JSON.stringify(REAL_IMAGE_SELECTOR)})).map(toImageInfo),
         requiredRealImages: Array.from(document.querySelectorAll(${JSON.stringify(REQUIRED_REAL_IMAGE_SELECTOR)})).map(toImageInfo),
         blank: (document.querySelector('#root')?.childElementCount || 0) === 0 || document.body.innerText.length < 80
@@ -234,6 +245,10 @@ function loadedImageExpression(selector) {
 
 function requiresRealImage(route) {
   return ROUTES_REQUIRING_REAL_IMAGES.some((prefix) => route.startsWith(prefix))
+}
+
+function requiresDeliveryEvidence(route) {
+  return route.startsWith('/delivery')
 }
 
 async function waitForRuntimeValue(client, expression, timeoutMs) {
@@ -322,6 +337,9 @@ async function main() {
       if (!result.hasLiveEvidence) failures.push(`${route}: missing global Live evidence sidebar`)
       if (requiresRealImage(route) && !result.has_loaded_required_real_image) failures.push(`${route}: missing loaded primary real sample image`)
       if (requiresRealImage(route) && result.broken_required_real_images.length) failures.push(`${route}: broken primary real sample images: ${JSON.stringify(result.broken_required_real_images)}`)
+      if (requiresDeliveryEvidence(route) && !result.deliveryLoaded) failures.push(`${route}: delivery evidence report did not finish loading`)
+      if (requiresDeliveryEvidence(route) && result.deliverySource !== 'backend') failures.push(`${route}: delivery evidence source is ${result.deliverySource || 'missing'}, expected backend`)
+      if (requiresDeliveryEvidence(route) && result.deliveryIntegrity !== 'clean') failures.push(`${route}: delivery evidence integrity is ${result.deliveryIntegrity || 'missing'}, expected clean`)
       if (result.runtime_errors.length) failures.push(`${route}: runtime errors: ${result.runtime_errors.join(' | ')}`)
       if (result.console_errors.length) failures.push(`${route}: console errors: ${result.console_errors.join(' | ')}`)
     }

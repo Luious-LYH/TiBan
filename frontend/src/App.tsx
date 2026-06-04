@@ -8,6 +8,9 @@ import type { Question, SubmissionResponse } from './lib/types'
 
 const AuditPanel = lazy(() => import('./pages/AuditPanel').then((module) => ({ default: module.AuditPanel })))
 const Dashboard = lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.Dashboard })))
+const DeliveryEvidence = lazy(() =>
+  import('./pages/DeliveryEvidence').then((module) => ({ default: module.DeliveryEvidence })),
+)
 const ErrorFeedback = lazy(() => import('./pages/ErrorFeedback').then((module) => ({ default: module.ErrorFeedback })))
 const FalsePremiseTraining = lazy(() =>
   import('./pages/FalsePremiseTraining').then((module) => ({ default: module.FalsePremiseTraining })),
@@ -61,6 +64,7 @@ function App() {
               <Route path="/models" element={<ModelHub />} />
               <Route path="/skills" element={<SkillsCenter />} />
               <Route path="/audit" element={<AuditPanel />} />
+              <Route path="/delivery" element={<DeliveryEvidence />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
