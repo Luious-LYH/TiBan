@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import http from 'node:http'
 import { tmpdir } from 'node:os'
@@ -196,6 +196,49 @@ function printSection(title, payload) {
   console.log(JSON.stringify(payload, null, 2))
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function waitForExit(child, timeoutMs = 3000) {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  await new Promise((resolve) => {
+    const timer = setTimeout(resolve, timeoutMs)
+    child.once('exit', () => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
+}
+
+async function stopBrowser(child) {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  if (process.platform === 'win32' && child.pid) {
+    spawnSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore' })
+  } else {
+    try {
+      child.kill('SIGTERM')
+    } catch {
+      // The process may already have exited.
+    }
+  }
+  await waitForExit(child)
+}
+
+async function removeProfileDir(profileDir) {
+  let lastError = null
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      rmSync(profileDir, { recursive: true, force: true })
+      return
+    } catch (error) {
+      lastError = error
+      await delay(250 * (attempt + 1))
+    }
+  }
+  console.warn(`Warning: could not remove temporary browser profile immediately: ${lastError?.message || 'unknown error'}`)
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   const browserPath = resolveBrowser(args.browser)
@@ -233,17 +276,8 @@ async function main() {
     console.log('\nUI smoke passed. Key routes rendered, global Live evidence is present, and no runtime/console errors were captured.')
     return 0
   } finally {
-    try {
-      browser.kill()
-    } catch {
-      // The process may already have exited.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    try {
-      rmSync(profileDir, { recursive: true, force: true })
-    } catch (error) {
-      console.warn(`Warning: could not remove temporary browser profile immediately: ${error.message}`)
-    }
+    await stopBrowser(browser)
+    await removeProfileDir(profileDir)
   }
 }
 

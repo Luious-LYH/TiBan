@@ -144,6 +144,21 @@ LLM_TIMEOUT_SECONDS=25
 
 ## 6. 验证命令
 
+答辩前推荐先跑总控验证。它要求后端和前端服务已经启动，会一次串联后端编译、沙盒闭环自检、Provider Base URL 安全预检、前端关键路由 smoke、lint/build、`git diff --check`、`sk-*` 形态密钥扫描和运行状态文件内容指纹保护：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code
+python scripts\verify_all.py
+```
+
+若只是快速确认页面没有空白、核心闭环没断，可先跳过构建：
+
+```powershell
+python scripts\verify_all.py --skip-build
+```
+
+总控验证默认 Provider 预检使用 `http://127.0.0.1:9999/v1` 这类本机假地址，只检查后端安全拦截和路径规范，不发送真实模型请求、不需要 key、不写审计；终端输出会脱敏 API key、Provider Base URL 和 token 类字段。脚本会在运行前后比对 `audit_logs.json`、`learner_profile.json` 和 `backend/runtime/patient_cards.json` 的内容指纹，即使中途失败也会报告状态是否漂移。若总控命令失败，再按下面的单项命令定位具体环节。
+
 前端：
 
 ```powershell
