@@ -194,6 +194,15 @@ python scripts\demo_smoke.py
 
 该命令会自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并以 `persist=false` 沙盒模式触发首页同款闭环自检：真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核和审计收据都会被检查；写入验证完成后会自动恢复画像、审计和卡片运行数据，并二次确认 readiness 摘要未变化。只有需要保留演示留痕时才使用 `--persist --yes`，不要在多人并发演示时运行会写入状态的自检。
 
+前端路由与运行时 smoke：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code
+node scripts\ui_smoke.mjs
+```
+
+该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入和科普卡片等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
+
 Provider Base URL 预检和自检 smoke：
 
 ```powershell
