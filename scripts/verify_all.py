@@ -26,6 +26,10 @@ STATE_FILES = [
     "backend/runtime/patient_cards.json",
 ]
 UPLOAD_DIR = ROOT / "backend/runtime/uploads"
+DEMO_CHECK_TEMP_DIRS = [
+    ROOT / "backend/app/data",
+    ROOT / "backend/runtime",
+]
 NOISE_LINE_PATTERNS = [
     re.compile(r"^warning: in the working copy of .+ LF will be replaced by CRLF the next time Git touches it$"),
 ]
@@ -232,6 +236,26 @@ def ensure_upload_files_clean(before: dict[str, str]) -> None:
     print("No backend/runtime/uploads file drift.")
 
 
+def demo_check_temp_files() -> list[Path]:
+    leftovers: list[Path] = []
+    for directory in DEMO_CHECK_TEMP_DIRS:
+        if not directory.exists():
+            continue
+        leftovers.extend(path for path in directory.iterdir() if path.is_file() and path.name.endswith(".demo_check_tmp"))
+    return sorted(leftovers)
+
+
+def ensure_demo_check_temp_clean() -> None:
+    print_section("Demo-check temp files")
+    leftovers = demo_check_temp_files()
+    if leftovers:
+        print("Demo-check restore temp files remain:")
+        for path in leftovers:
+            print(f"- {path.relative_to(ROOT)}")
+        raise RuntimeError("Demo-check temporary restore files remain.")
+    print("No demo-check temporary restore files remain.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run ARIS v2.0 backend, Provider, UI, lint/build, and safety verification.")
     parser.add_argument("--frontend", default=os.getenv("ARIS_FRONTEND_URL", "http://127.0.0.1:5173"))
@@ -241,6 +265,7 @@ def main() -> int:
     args = parser.parse_args()
 
     git_bin = resolve_binary("git")
+    ensure_demo_check_temp_clean()
     state_before = snapshot_state_files()
     uploads_before = snapshot_upload_files()
     command_error: RuntimeError | None = None
@@ -268,6 +293,7 @@ def main() -> int:
         try:
             ensure_state_files_clean(state_before)
             ensure_upload_files_clean(uploads_before)
+            ensure_demo_check_temp_clean()
         except RuntimeError as state_exc:
             if command_error:
                 raise RuntimeError(f"{command_error}\nState guard also failed: {state_exc}") from state_exc
@@ -280,7 +306,7 @@ def main() -> int:
         checked_parts.append("UI routes")
     if not args.skip_build:
         checked_parts.append("lint/build")
-    checked_parts.extend(["git diff check", "real-sample assets", "secret scan", "state/upload guard"])
+    checked_parts.extend(["git diff check", "real-sample assets", "secret scan", "state/upload/temp guard"])
     print(f"\nARIS verification passed. Checked: {', '.join(checked_parts)}.")
     return 0
 

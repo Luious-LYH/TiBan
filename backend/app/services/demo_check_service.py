@@ -1,3 +1,4 @@
+import time
 from threading import Lock
 from uuid import uuid4
 
@@ -39,6 +40,8 @@ class DemoCheckService:
             before_logs = audit_service.list_logs()
             before_audit_count = len(before_logs)
             before_audit_ids = {item.id for item in before_logs}
+            result: dict[str, object] | None = None
+            chain_error: Exception | None = None
             try:
                 result = self._run_chain(
                     learner_id=learner_id,
@@ -47,11 +50,19 @@ class DemoCheckService:
                     before_audit_ids=before_audit_ids,
                     persist=persist,
                 )
-            finally:
-                if not persist:
-                    self._restore_data_bytes("learner_profile.json", profile_snapshot)
-                    self._restore_data_bytes("audit_logs.json", audit_snapshot)
-                    self._restore_runtime_bytes("patient_cards.json", card_snapshot)
+            except Exception as exc:
+                chain_error = exc
+            restore_errors: list[str] = []
+            if not persist:
+                restore_errors = self._restore_sandbox_snapshots(profile_snapshot, audit_snapshot, card_snapshot)
+            if chain_error is not None:
+                if restore_errors:
+                    raise RuntimeError(f"Demo-check failed and sandbox restore also failed: {'; '.join(restore_errors)}") from chain_error
+                raise chain_error
+            if restore_errors:
+                raise RuntimeError(f"Demo-check sandbox restore failed: {'; '.join(restore_errors)}")
+            if result is None:
+                raise RuntimeError("Demo-check did not produce a result.")
             if not persist:
                 result["restore_verified"] = (
                     self._read_data_bytes("learner_profile.json") == profile_snapshot
@@ -69,21 +80,61 @@ class DemoCheckService:
         path = BACKEND_DIR / "runtime" / name
         return path.read_bytes() if path.exists() else None
 
+    def _restore_sandbox_snapshots(self, profile_snapshot: bytes, audit_snapshot: bytes, card_snapshot: bytes | None) -> list[str]:
+        restore_steps = [
+            ("learner_profile.json", lambda: self._restore_data_bytes("learner_profile.json", profile_snapshot)),
+            ("audit_logs.json", lambda: self._restore_data_bytes("audit_logs.json", audit_snapshot)),
+            ("patient_cards.json", lambda: self._restore_runtime_bytes("patient_cards.json", card_snapshot)),
+        ]
+        errors: list[str] = []
+        for label, restore in restore_steps:
+            try:
+                restore()
+            except OSError as exc:
+                errors.append(f"{label}: {type(exc).__name__}")
+        return errors
+
     def _restore_data_bytes(self, name: str, payload: bytes) -> None:
         path = DATA_DIR / name
         temp_path = DATA_DIR / f".{name}.demo_check_tmp"
-        temp_path.write_bytes(payload)
-        temp_path.replace(path)
+        self._replace_bytes_with_retry(path, temp_path, payload)
 
     def _restore_runtime_bytes(self, name: str, payload: bytes | None) -> None:
         path = BACKEND_DIR / "runtime" / name
         path.parent.mkdir(parents=True, exist_ok=True)
         if payload is None:
-            path.unlink(missing_ok=True)
+            self._unlink_with_retry(path)
             return
         temp_path = path.with_name(f".{name}.demo_check_tmp")
-        temp_path.write_bytes(payload)
-        temp_path.replace(path)
+        self._replace_bytes_with_retry(path, temp_path, payload)
+
+    def _replace_bytes_with_retry(self, path, temp_path, payload: bytes) -> None:
+        last_error: OSError | None = None
+        try:
+            for attempt in range(5):
+                try:
+                    temp_path.write_bytes(payload)
+                    temp_path.replace(path)
+                    return
+                except OSError as exc:
+                    last_error = exc
+                    time.sleep(0.05 * (attempt + 1))
+            if last_error is not None:
+                raise last_error
+        finally:
+            temp_path.unlink(missing_ok=True)
+
+    def _unlink_with_retry(self, path) -> None:
+        last_error: OSError | None = None
+        for attempt in range(5):
+            try:
+                path.unlink(missing_ok=True)
+                return
+            except OSError as exc:
+                last_error = exc
+                time.sleep(0.05 * (attempt + 1))
+        if last_error is not None:
+            raise last_error
 
     def _run_chain(
         self,
