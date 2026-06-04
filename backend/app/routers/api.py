@@ -61,6 +61,7 @@ def health() -> dict[str, object]:
             "patient_card_generation_receipt",
             "patient_card_approve",
             "skill_run_receipt",
+            "delivery_report",
         ],
     }
 
@@ -93,6 +94,11 @@ def dashboard() -> dict[str, object]:
 @router.get("/platform/readiness")
 def platform_readiness() -> dict[str, object]:
     return dashboard_service.get_readiness()
+
+
+@router.get("/platform/delivery-report")
+def platform_delivery_report() -> dict[str, object]:
+    return dashboard_service.get_delivery_report()
 
 
 @router.post("/platform/demo-check")

@@ -157,7 +157,7 @@ python scripts\provider_doctor.py --self-test --include-image
 
 ## 6. 验证命令
 
-答辩前推荐先跑总控验证。它要求后端和前端服务已经启动，会一次串联后端编译、沙盒闭环自检、Provider Base URL 安全预检、前端关键路由 smoke、lint/build、`git diff --check`、真实公开样例图片资产一致性检查、`sk-*` 形态密钥扫描和运行状态文件内容指纹保护：
+答辩前推荐先跑总控验证。它要求后端和前端服务已经启动，会一次串联后端编译、沙盒闭环自检、Provider Base URL 安全预检、交付证据包导出、前端关键路由 smoke、lint/build、`git diff --check`、真实公开样例图片资产一致性检查、`sk-*` 形态密钥扫描和运行状态文件内容指纹保护：
 
 ```powershell
 cd E:\2.Projects\ARIS\Endoscopy_Agent\code
@@ -170,7 +170,7 @@ python scripts\verify_all.py
 python scripts\verify_all.py --skip-build
 ```
 
-总控验证默认 Provider 预检使用 `http://127.0.0.1:9999/v1` 这类本机假地址，只检查后端安全拦截和路径规范，不发送真实模型请求、不需要 key、不写审计；终端输出会脱敏 API key、Provider Base URL 和 token 类字段。脚本会检查 `real_sample_knowledge.json` 中的 `/assets/real_samples/...` 是否都存在于前端 public 目录，并在 UI smoke 中确认比拼训练、报告生成和科普卡片页的关键主图已绑定真实公开样例且自然尺寸非零。脚本也会在运行前后比对 `audit_logs.json`、`learner_profile.json` 和 `backend/runtime/patient_cards.json` 的内容指纹，即使中途失败也会报告状态是否漂移。若总控命令失败，再按下面的单项命令定位具体环节。
+总控验证默认 Provider 预检使用 `http://127.0.0.1:9999/v1` 这类本机假地址，只检查后端安全拦截和路径规范，不发送真实模型请求、不需要 key、不写审计；终端输出会脱敏 API key、Provider Base URL 和 token 类字段。脚本会从 `GET /api/platform/delivery-report` 导出一份只读交付证据包到 `runtime_logs/delivery_evidence_report.md`，检查报告接口不会造成画像/审计/卡片状态漂移。脚本会检查 `real_sample_knowledge.json` 中的 `/assets/real_samples/...` 是否都存在于前端 public 目录，并在 UI smoke 中确认比拼训练、报告生成和科普卡片页的关键主图已绑定真实公开样例且自然尺寸非零。脚本也会在运行前后比对 `audit_logs.json`、`learner_profile.json` 和 `backend/runtime/patient_cards.json` 的内容指纹，即使中途失败也会报告状态是否漂移。若总控命令失败，再按下面的单项命令定位具体环节。
 
 前端：
 
@@ -221,6 +221,15 @@ python scripts\demo_smoke.py
 ```
 
 该命令会自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并以 `persist=false` 沙盒模式触发首页同款闭环自检：真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核和审计收据都会被检查；写入验证完成后会自动恢复画像、审计和卡片运行数据，并二次确认 readiness 摘要未变化。只有需要保留演示留痕时才使用 `--persist --yes`，不要在多人并发演示时运行会写入状态的自检。
+
+交付证据包导出：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code
+python scripts\export_delivery_report.py --output docs\DELIVERY_EVIDENCE_REPORT.md
+```
+
+该命令会自动探测后端并读取 `GET /api/platform/delivery-report`，把当前平台就绪度、林知远医师训练画像摘要、核心闭环证据、知识库来源链、审计事件分布、Provider/准入边界和验证命令导出为 Markdown。接口和脚本都是只读的，不触发 `demo-check`，不会写入 `learner_profile.json`、`audit_logs.json` 或 `patient_cards.json`，也不会返回 API key 或 Provider Base 明文。总控验证默认把报告导出到 `.gitignore` 中的 `runtime_logs`；需要作为答辩材料时再显式导出到 `docs\DELIVERY_EVIDENCE_REPORT.md`。
 
 前端路由与运行时 smoke：
 

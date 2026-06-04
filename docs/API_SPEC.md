@@ -32,6 +32,7 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 | POST | `/provider/self-test` | Provider 文本/视觉通道自检；视觉模式可附加一张公开样例图片，但不发送参考标注，不更新模型准入状态，不保存 key/base/完整回复；返回 `audit_log_id` 和 `self_test_receipt` |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
 | GET | `/platform/readiness` | 平台就绪度、真实性矩阵和建议演示路线 |
+| GET | `/platform/delivery-report` | 只读交付证据包：汇总当前 readiness、画像、知识库来源链、审计分布、Provider 边界和验证命令 |
 | POST | `/platform/demo-check` | 手动触发一次公开样例演示闭环自检；`persist=false` 沙盒写入后自动恢复画像、审计和卡片运行记录并返回 `restore_verified`，`persist=true` 才保留画像、审计和卡片运行记录；后端不可用时前端不伪造通过 |
 | GET | `/questions` | 题库列表，支持 `question_class`、`difficulty`、`false_premise` |
 | GET | `/questions/{id}` | 单题详情 |
@@ -105,7 +106,7 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
 }
 ```
 
-核心返回字段：
+挑战基准核心返回字段：
 
 ```json
 {
@@ -148,7 +149,7 @@ Tutor chat 返回会标注来源和画像回灌状态，不保存医生追问原
 }
 ```
 
-核心返回字段：
+考试 Session 核心返回字段：
 
 ```json
 {
@@ -550,7 +551,7 @@ POST /api/platform/demo-check?learner_id=demo_learner&persist=false
 
 该接口用于答辩前确认平台不是静态页面。它会选择一条公开样例题，真实触发 `/submit`、`/tutor/chat`、`/tutor/challenge-benchmark`、`/report-draft`、`/report/judge`、考试 Session 写入、`/patient-card` 草稿生成、同 `card_id` 审核通过及 `demo_check` 审计摘要，并返回 9 张证据收据。它不会保存 API key 或自由追问原文；若 Provider 未配置，结果会明确显示 `rule` / `public_annotation` 模式。默认 `persist=false` 会在返回前恢复 `learner_profile.json`、`audit_logs.json` 和 `backend/runtime/patient_cards.json`，并以 `restore_verified=true` 表示恢复后的文件字节与运行前快照一致；只有 `persist=true` 时才保留演示画像、审计和卡片运行留痕。
 
-核心返回字段：
+演示闭环自检核心返回字段：
 
 ```json
 {
@@ -594,6 +595,44 @@ POST /api/platform/demo-check?learner_id=demo_learner&persist=false
     }
   ],
   "doctor_review_required": true
+}
+```
+
+交付证据报告：
+
+```http
+GET /api/platform/delivery-report
+```
+
+该接口用于答辩材料和交付审查，只读汇总当前运行证据，不触发训练、demo-check 或 Provider 请求。返回内容包括医师训练对象、平台总览、核心闭环证据、知识库来源链、证据收据、审计事件分布、Provider/模型准入边界、当前能力边界和验证命令。响应不会包含 API key、Provider Base 明文或完整模型回复；`report_integrity.writes_state=false` 表示接口不会修改画像、审计或卡片运行状态。可用 `python scripts\export_delivery_report.py --output docs\DELIVERY_EVIDENCE_REPORT.md` 渲染成 Markdown。
+
+交付证据报告核心返回字段：
+
+```json
+{
+  "title": "ARIS v2.0 交付证据报告",
+  "platform_summary": {
+    "overall_score": 75,
+    "provider_mode": "rule",
+    "real_sample_count": 10,
+    "audit_log_count": 33
+  },
+  "workflow_proofs": [
+    {
+      "id": "training_loop",
+      "name": "训练题库与画像回灌",
+      "status": "ready",
+      "evidence": "24 道题，10 条公开图文样例，4 条训练/Agent/报告记录。",
+      "route": "/training"
+    }
+  ],
+  "report_integrity": {
+    "source": "backend_runtime_state",
+    "writes_state": false,
+    "secrets_included": false,
+    "api_key_returned": false,
+    "provider_base_returned": false
+  }
 }
 ```
 

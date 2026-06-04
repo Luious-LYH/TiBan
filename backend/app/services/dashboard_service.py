@@ -1,3 +1,5 @@
+from collections import Counter
+
 from app.core.config import SAFETY_NOTICE
 from app.services.audit_service import now_iso
 from app.services.data_store import read_json
@@ -329,6 +331,155 @@ class DashboardService:
             ],
             "gaps": gaps,
             "safety_notice": SAFETY_NOTICE,
+        }
+
+    def get_delivery_report(self) -> dict[str, object]:
+        readiness = self.get_readiness()
+        profile = memory_service.get_profile()
+        admission_state = model_service.admission_state()
+        provider_status = llm_provider.status()
+        audit_logs = read_json("audit_logs.json")
+        real_sample_kb = read_json("real_sample_knowledge.json")
+        report_kb = read_json("report_knowledge_base.json")
+        card_kb = read_json("card_template_knowledge.json")
+        event_counts = Counter(str(item.get("event_type", "unknown")) for item in audit_logs)
+        source_chain = readiness.get("knowledge_source_chain", [])
+        evidence_receipts = readiness.get("evidence_receipts", [])
+        latest_exam = readiness.get("latest_exam_replay")
+        return {
+            "generated_at": now_iso(),
+            "title": "ARIS v2.0 交付证据报告",
+            "scope": "内镜医师教学训练、刷题复盘、报告修改训练、患者沟通卡片和模型接入前准入检查。",
+            "doctor_context": {
+                "learner_id": profile.learner_id,
+                "name": profile.name,
+                "title": profile.title,
+                "department": profile.department,
+                "training_stage": profile.training_stage,
+                "daily_target": profile.daily_target,
+                "completed_today": profile.completed_today,
+                "streak_days": profile.streak_days,
+            },
+            "platform_summary": {
+                "overall_score": readiness.get("overall_score"),
+                "backend_ready": readiness.get("backend_ready"),
+                "provider_mode": readiness.get("provider_mode"),
+                "provider_ready": readiness.get("provider_ready"),
+                "knowledge_ready": readiness.get("knowledge_ready"),
+                "memory_ready": readiness.get("memory_ready"),
+                "qbank_count": readiness.get("qbank_count"),
+                "real_sample_count": readiness.get("real_sample_count"),
+                "report_template_count": readiness.get("report_template_count"),
+                "audit_log_count": readiness.get("audit_log_count"),
+                "exam_session_count": readiness.get("exam_session_count"),
+                "admission_grade": readiness.get("admission_grade"),
+                "admission_provider_called": readiness.get("admission_provider_called"),
+            },
+            "workflow_proofs": [
+                {
+                    "id": "training_loop",
+                    "name": "训练题库与画像回灌",
+                    "status": "ready" if readiness.get("training_record_count") else "seed",
+                    "evidence": f"{readiness.get('qbank_count')} 道题，{readiness.get('real_sample_count')} 条公开图文样例，{readiness.get('training_record_count')} 条训练/Agent/报告记录。",
+                    "route": "/training",
+                },
+                {
+                    "id": "exam_replay",
+                    "name": "考试 Session 复盘",
+                    "status": "ready" if latest_exam else "not_run",
+                    "evidence": latest_exam.get("detail") if isinstance(latest_exam, dict) else "尚未生成持久考试 Session；首页沙盒自检可即时验证写入与恢复。",
+                    "route": latest_exam.get("href") if isinstance(latest_exam, dict) else "/training?mode=exam",
+                },
+                {
+                    "id": "challenge_benchmark",
+                    "name": "医生 AI 比拼基准",
+                    "status": "audited" if event_counts.get("challenge_benchmark") else "sandbox_available",
+                    "evidence": f"持久 challenge_benchmark 审计 {event_counts.get('challenge_benchmark', 0)} 条；沙盒自检会真实触发并恢复。",
+                    "route": "/training?view=challenge",
+                },
+                {
+                    "id": "report_training",
+                    "name": "诊断报告生成与修改训练",
+                    "status": "ready" if report_kb.get("templates") else "partial",
+                    "evidence": f"报告模板 {len(report_kb.get('templates', []))} 个；report_draft 审计 {event_counts.get('report_draft', 0)} 条，report_judge 审计 {event_counts.get('report_judge', 0)} 条。",
+                    "route": "/report",
+                },
+                {
+                    "id": "patient_card_review",
+                    "name": "科普卡片医生审核闸门",
+                    "status": "ready" if card_kb.get("templates") else "partial",
+                    "evidence": f"卡片模板 {len(card_kb.get('templates', []))} 个；patient_card 审计 {event_counts.get('patient_card', 0)} 条，patient_card_approve 审计 {event_counts.get('patient_card_approve', 0)} 条。",
+                    "route": "/card",
+                },
+                {
+                    "id": "provider_admission",
+                    "name": "用户 Provider 接入与样例级准入",
+                    "status": "provider_called" if admission_state.get("provider_called") else "rule_draft",
+                    "evidence": f"{admission_state.get('provider_name', 'Provider')} · Grade {admission_state.get('grade', 'NA')} · provider_called={bool(admission_state.get('provider_called'))}。",
+                    "route": "/models",
+                },
+                {
+                    "id": "audit_safety",
+                    "name": "审计与隐私边界",
+                    "status": "ready" if audit_logs else "empty",
+                    "evidence": f"当前保存 {len(audit_logs)} 条摘要审计；接口和脚本不返回 API key、API base 明文或自由追问全文。",
+                    "route": "/audit",
+                },
+            ],
+            "knowledge_source_chain": source_chain,
+            "evidence_receipts": evidence_receipts,
+            "audit_event_counts": [{"event_type": event_type, "count": count} for event_type, count in event_counts.most_common()],
+            "provider_state": {
+                "configured": bool(provider_status.get("configured")),
+                "mode": provider_status.get("mode", "rule"),
+                "provider_declared": bool(provider_status.get("provider") and provider_status.get("provider") != "mock"),
+                "model": provider_status.get("model", "gpt-4o-mini"),
+                "admission_provider_called": bool(admission_state.get("provider_called")),
+                "admission_safe_for_training": bool(admission_state.get("safe_for_training")),
+            },
+            "verification_commands": [
+                {
+                    "name": "总控验证",
+                    "command": "python scripts\\verify_all.py",
+                    "covers": "后端闭环、Provider 体检、UI 路由、lint/build、真实图片资产、密钥扫描和状态文件漂移。",
+                },
+                {
+                    "name": "演示闭环 smoke",
+                    "command": "python scripts\\demo_smoke.py",
+                    "covers": "公开样例提交、Agent 辅导、挑战基准、报告训练、考试 Session、卡片审核和沙盒恢复。",
+                },
+                {
+                    "name": "前端主图 smoke",
+                    "command": "node scripts\\ui_smoke.mjs",
+                    "covers": "关键路由非空白、Live evidence、训练/报告/卡片关键主图真实加载。",
+                },
+                {
+                    "name": "Provider 体检",
+                    "command": "python scripts\\provider_doctor.py",
+                    "covers": ".env 忽略状态、Provider diagnostics、Base URL 预检；默认不发送模型请求。",
+                },
+                {
+                    "name": "交付证据导出",
+                    "command": "python scripts\\export_delivery_report.py --output docs\\DELIVERY_EVIDENCE_REPORT.md",
+                    "covers": "从当前后端 readiness、知识库和审计状态导出可交付 Markdown 证据包。",
+                },
+            ],
+            "current_boundaries": [
+                "平台定位是教学训练和医生审核前辅助，不作为独立诊断依据。",
+                "未配置 Provider 时会明确显示 rule/fallback，不伪装成真实模型推理。",
+                "模型准入是训练 Agent 接入前检查，不是批量临床评测或统计学评测。",
+                "公开样例来自本地知识库映射和公开图像资产，只用于演示训练闭环。",
+                "本机上传图只用于受控预览或教学流转，不应包含真实患者身份信息。",
+            ],
+            "gaps": readiness.get("gaps", []),
+            "safety_notice": SAFETY_NOTICE,
+            "report_integrity": {
+                "source": "backend_runtime_state",
+                "writes_state": False,
+                "secrets_included": False,
+                "api_key_returned": False,
+                "provider_base_returned": False,
+            },
         }
 
     def _latest_exam_replay(self, profile) -> dict[str, object] | None:
