@@ -111,7 +111,7 @@ def main() -> int:
             "version": health.get("version"),
             "provider_capabilities_present": all(
                 capability in health.get("capabilities", [])
-                for capability in ["provider_diagnostics", "provider_preflight", "provider_self_test", "provider_visual_self_test"]
+                for capability in ["provider_diagnostics", "provider_preflight", "provider_request_preview", "provider_self_test", "provider_visual_self_test"]
             ),
         },
     )
@@ -147,6 +147,38 @@ def main() -> int:
         "warnings": preflight.get("warnings", []),
     }
     print_section("Backend .env preflight", preflight_public)
+
+    preview = post_json(
+        api_base,
+        "/provider/request-preview",
+        {
+            "provider_name": "Backend .env Provider",
+            "api_base": "",
+            "api_key_present": bool(env_status.get("api_key_present")),
+            "model": None,
+            "selected_sample_ids": ["real_x1_0", "real_x1_2", "real_x1_3"],
+            "test_focus": ["基础识别", "错误前提", "报告安全"],
+            "preview_mode": "admission",
+        },
+        args.timeout,
+    )
+    print_section(
+        "Backend .env request preview",
+        {
+            "id": preview.get("id"),
+            "ready_for_provider_call": preview.get("ready_for_provider_call"),
+            "blocked_reason": preview.get("blocked_reason"),
+            "safety_status": preview.get("safety_status"),
+            "endpoint_paths": preview.get("endpoint_paths", []),
+            "sample_count": preview.get("sample_count"),
+            "image_attachment_count": preview.get("image_attachment_count"),
+            "request_sent": preview.get("request_sent"),
+            "key_persisted": preview.get("key_persisted"),
+            "audit_logged": preview.get("audit_logged"),
+            "state_updated": preview.get("state_updated"),
+            "reference_answer_sent": preview.get("reference_answer_sent"),
+        },
+    )
 
     preflight_ok = bool(preflight.get("ok"))
     if args.self_test:

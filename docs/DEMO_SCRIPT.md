@@ -14,12 +14,13 @@
 
 ## 3. 交付证据
 
-进入 `/delivery`，说明这是给评委看的只读证据页，不是新的训练功能。页面会调用 `GET /api/platform/delivery-report`，把当前平台就绪度、林知远医师训练对象、核心闭环证据、真实知识库来源链、审计事件分布、Provider 状态、验证命令和 `report_integrity` 展示出来。
+进入 `/delivery`，说明这是给评委看的只读证据页，不是新的训练功能。页面会调用 `GET /api/platform/delivery-report`，把当前平台就绪度、林知远医师训练对象、核心闭环证据、真实知识库来源链、审计事件分布、Provider 配置/自检/准入调用三层状态、验证命令和 `report_integrity` 展示出来。
 
 重点指出三个标志：
 
 - 页面顶部显示 `backend live`，说明数据来自当前后端，而不是前端 fallback。
 - 页面顶部显示“只读且无密钥”，对应 `report_integrity.writes_state=false`、`secrets_included=false`、`api_key_returned=false`、`provider_base_returned=false`。
+- Provider 卡片会把 `configured`、`self_test_verified`、`admission_provider_called` 和 `real_inference_verified` 拆开讲；配置齐全只代表具备调用条件，不能讲成已经完成真实推理。
 - 验证命令里包含 `python scripts\verify_all.py`、`node scripts\ui_smoke.mjs` 和交付报告导出命令；`ui_smoke` 会硬性检查 `/delivery` 的 `data-delivery-source=backend` 与 `data-delivery-integrity=clean`，可以抓出旧前端路由或后端断连。
 
 如果页面显示 `frontend fallback`，不要讲成真实交付证据；应先确认后端 `8001` 在线、前端用 `npm run dev -- --host 127.0.0.1 --port 5173 --strictPort` 重启，避免旧 Vite 进程占用 `5173`。
@@ -72,7 +73,7 @@
 
 在 `/skills` 选择当前题运行 `false_premise_guard` 或 `atomic_feedback`。页面展示运行摘要、医生复核状态和“后端 Skill 运行收据”：`skill_run` 审计 ID、输入来源、执行来源、风险等级、收据时间和下一步工作区入口；完整 JSON 只在开发细节折叠项里。若后端不可用，页面只能显示“本地技能预览”，审计 ID 为空，不能讲成真实后端留痕。
 
-在 `/models` 先展示“Provider 联调状态检查”：它会明确当前是 `provider`、`rule` 还是 `fallback`，缺少哪些 `.env` 配置，公开样例池是否存在，以及最近 `provider_self_test` / `model_admission` 审计摘要是什么。强调状态检查不返回 key/base 明文，也不代表临床评测，只是告诉评委“现在为什么能或不能进入真实 Provider 联调”。随后展示 Provider 文本轻量自检和视觉通道自检：文本自检只发安全短提示词；视觉自检会把一张公开内镜图片附加到多模态请求，但不发送参考标注，不保存 key/base/完整回复，也不会更新模型准入状态。点完自检后展开“后端 Provider 自检收据”，讲清楚 `provider_self_test` 审计 ID、公开视觉样例是否使用、图片是否附加、key/base 和完整回复都没有保存。随后展示用户自带 API/key 的样例级 blind probe 准入检查；Provider 只拿到图片和问题，不拿参考标注，后端返回后再做公开标注对齐。准入结果下方的“后端模型准入收据”会展示 `model_admission` 审计 ID、blind probe 来源、平台状态是否更新和隐私边界。只有真实调用成功才显示 `provider_called=true`；只有调用成功且至少一条盲测回答部分对齐，最近准入才会标为可进入人工复核。最后展示“当前看板候选 Agent”的准入闸门：真实 Provider 调用、公开标注对齐、平台准入摘要、非 mock 候选和模型卡动作都通过后，才允许把非 mock 模型写入“待人工复核候选”；mock/rule draft 永远不说成正式训练 Agent。
+在 `/models` 先展示“Provider 联调状态检查”：它会明确当前是 `provider`、`rule` 还是 `fallback`，缺少哪些 `.env` 配置，公开样例池是否存在，以及最近 `provider_self_test` / `model_admission` 审计摘要是什么。随后展示“Provider 请求预演包”：切换文本自检、视觉自检和样例准入三种模式，说明这是后端 dry-run 收据，只接收 key 是否存在的布尔值，不接收真实 key 字符串；它展示 endpoint path、请求体字段、真实公开样例绑定、图片附加计划和隐私边界，并明确 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`。接着展示 Provider 文本轻量自检和视觉通道自检：文本自检只发安全短提示词；视觉自检会把一张公开内镜图片附加到多模态请求，但不发送参考标注，不保存 key/base/完整回复，也不会更新模型准入状态。随后展示用户自带 API/key 的样例级 blind probe 准入检查；Provider 只拿到图片和问题，不拿参考标注，后端返回后再做公开标注对齐。准入结果下方的“后端模型准入收据”会展示 `model_admission` 审计 ID、blind probe 来源、平台状态是否更新和隐私边界。只有真实调用成功才显示 `provider_called=true`；只有调用成功且至少一条盲测回答部分对齐，最近准入才会标为可进入人工复核。最后展示“当前看板候选 Agent”的准入闸门：真实 Provider 调用、公开标注对齐、平台准入摘要、非 mock 候选和模型卡动作都通过后，才允许把非 mock 模型写入“待人工复核候选”；mock/rule draft 永远不说成正式训练 Agent。
 
 最后进入 `/audit` 展示审计驾驶舱：事件总量、高风险事件、医生复核负载、最近写入时间、分类筛选和完整日志表。强调审计日志只保存事件摘要、风险等级和审核状态，不保存 API key 或医师自由追问原文。
 

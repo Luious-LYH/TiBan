@@ -54,20 +54,20 @@ npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 http://127.0.0.1:5173/delivery
 ```
 
-`/delivery` 调用 `GET /api/platform/delivery-report`，只读展示当前医师训练对象、核心工作流 proof、知识库来源链、审计分布、Provider 状态、验证命令和 `report_integrity`。页面显示 `backend live` 且 `report_integrity=clean` 对应“只读且无密钥”时，才适合作为交付证据；如果显示 frontend fallback，不要讲成真实后端证据，应先确认后端在线并用 `--strictPort` 重启前端。页面和导出脚本都不会触发训练写入、demo-check 或 Provider 请求，也不会返回 API key、Provider Base 明文或完整模型回复。
+`/delivery` 调用 `GET /api/platform/delivery-report`，只读展示当前医师训练对象、核心工作流 proof、知识库来源链、审计分布、Provider 配置/自检/准入调用三层状态、验证命令和 `report_integrity`。页面显示 `backend live` 且 `report_integrity=clean` 对应“只读且无密钥”时，才适合作为交付证据；如果显示 frontend fallback，不要讲成真实后端证据，应先确认后端在线并用 `--strictPort` 重启前端。`Provider configured` 只代表后端具备调用条件，只有 `self_test_verified` 或 `admission_provider_called` 才能支持 `real_inference_verified=true`。页面和导出脚本都不会触发训练写入、demo-check 或 Provider 请求，也不会返回 API key、Provider Base 明文或完整模型回复。
 
 ## v2.0 使用要点
 
 1. 左侧栏新增全局 “Live evidence” 摘要，会从 `/api/platform/readiness` 拉取后端证据状态，在任意页面显示平台就绪度、Provider/rule 模式、真实公开样例数、审计数和最近考试复盘；首页“平台真实性与演示路径”会进一步聚合后端、真实公开样例、医师画像、考试 Session 复盘、报告知识库、Provider、模型准入和审计状态，适合答辩时先讲系统闭环；“最近考试 Session”卡片会直接显示本场题量、正确率、错题数和 `/feedback?session=...` 复盘入口；“真实样例覆盖总账”会展示 `real_sample_coverage` 的 KB 记录数、映射题目数、图片资产校验、数据集分布和用途分布；“真实数据来源链”会列出本地 JSON 知识库的记录数、样例 ID 和消费页面，避免看起来只是静态页面陈列。
    首页还提供“沙盒自检 / 写入演示画像”双按钮：沙盒会真实触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计写入，再自动恢复数据；正式写入会保留画像、审计和卡片运行记录。两种模式都会返回 9 张证据收据，包含 `challenge_benchmark`、`exam_session`、`patient_card` 和 `patient_card_approve` 审计验证，后端不可用时不会用前端 fallback 伪造通过。
 2. 交付证据页 `/delivery` 会把同一后端只读报告渲染成评委可看的证据面板；UI smoke 会硬性检查该页来自 backend 且 `report_integrity=clean`，避免旧前端路由、后端断连或只读完整性异常被误判为通过。
-3. 顶部 Provider 状态条会显示当前处于 `provider`、`rule` 还是 `fallback`；模型准入页还会展示 Provider 联调状态检查，列出缺失配置、公开样例数、最近自检/准入审计和隐私边界，避免把规则草案伪装成真实推理。
+3. 顶部 Provider 状态条会显示当前处于 `provider`、`rule` 还是 `fallback`；模型准入页还会展示 Provider 联调状态检查和“Provider 请求预演包”，列出缺失配置、公开样例数、最近自检/准入审计、dry-run endpoint path、请求字段、样例绑定和隐私边界，避免把规则草案伪装成真实推理。
 4. 训练中心顶部新增林知远医师任务队列，读取后端画像展示今日进度、薄弱标签、最近考试、画像写入状态和下一组训练入口；提交答案、收藏题目、Agent 追问或考试交卷后会刷新画像。右侧 Agent 分为“辅导 / 证据 / 对照”，提交前隐藏参考答案；追问会记录训练标签和模式，不保存自由追问原文。
 5. 报告中心会以流程工作台区分医生输入、公开样例标注、模板知识库、Provider 输出和医师复核任务。
 6. 报告修改训练提交后会回灌林知远医师画像，更新训练记录、能力分和弱项标签，并返回下一步专项训练入口。
 7. 考试模式是一个全局 session：12 分钟倒计时不会因单题提交重置，页面会累计已答题、正确率、平均分、错题 strip；交卷复盘会调用后端写入整场考试摘要、医师画像和审计日志，并通过 `/feedback?session=...` 按本场考试恢复错题队列；首页和画像页会同步展示最近一场考试的可复盘收据。
 8. 报告页上传图片会保存到 `backend/runtime/uploads`，该目录已加入 `.gitignore`；科普卡片页优先从 `/api/knowledge/real-samples` 读取公开样例图像池，本地上传图只做当前浏览器预览，不写入后端卡片记录。
-9. 模型准入页先看 Provider 联调状态检查：它只返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要和下一步动作，不返回 API key、API base 明文或完整模型回复。随后看 Base URL 预检：它不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 chat completions path、安全拦截原因和下一步动作；非本机 `http`、metadata、内网/保留地址、非法端口、loopback 低端口和带凭据 URL 会被拒绝。真实 Provider 调用层也不会自动跟随 30x 重定向，并会使用重新校验后的连接地址，降低密钥被跳转或 DNS 变化带走的风险。预检通过后可做 Provider 文本轻量自检或视觉通道自检，只写摘要审计、不更新准入状态；视觉自检会附加一张公开内镜图片和问题，但不发送参考标注，不代表临床诊断。自检后会展示 `self_test_receipt`、`provider_self_test` 审计 ID、输入来源、Provider 来源和隐私边界。最后可使用后端 `.env` 或页面临时配置做最多 3 个公开样例的 blind probe 准入检查，并展示 `admission_receipt` 与 `model_admission` 审计 ID。模型卡片默认只是能力看板；只有最近准入摘要满足真实 Provider 调用、公开标注对齐和安全阈值，且目标不是 mock 模型时，才允许写入“待人工复核候选”。临时 key 不保存，只有填写临时 base 或 key 时页面模型名才会覆盖后端默认值。
+9. 模型准入页先看 Provider 联调状态检查：它只返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要和下一步动作，不返回 API key、API base 明文或完整模型回复。随后看 Base URL 预检和“Provider 请求预演包”：预检不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 chat completions path、安全拦截原因和下一步动作；请求预演包同样是后端 dry-run，只接收 `api_key_present` 布尔值，不接收真实 key 字符串，会展示文本自检/视觉自检/样例准入三种模式下的 endpoint path、请求体字段、公开样例绑定、图片附加计划和隐私边界，并保持 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`。预检通过后可做 Provider 文本轻量自检或视觉通道自检，只写摘要审计、不更新准入状态；视觉自检会附加一张公开内镜图片和问题，但不发送参考标注，不代表临床诊断。最后可使用后端 `.env` 或页面临时配置做最多 3 个公开样例的 blind probe 准入检查，并展示 `admission_receipt` 与 `model_admission` 审计 ID。模型卡片默认只是能力看板；只有最近准入摘要满足真实 Provider 调用、公开标注对齐和安全阈值，且目标不是 mock 模型时，才允许写入“待人工复核候选”。
 10. 科普卡片页已加入医生审核闸门：草稿默认锁定打印/分享，医生勾选审核项并对当前 `card_id` 提交后才会解锁，并写入 `patient_card_approve` 审计日志。
 11. 真实性说明见 `docs/V2_AUTHENTICITY_MATRIX.md`，接口见 `GET /api/platform/readiness` 和 `GET /api/platform/delivery-report`。
 
@@ -79,14 +79,14 @@ http://127.0.0.1:5173/delivery
 - 比拼模式提交前会锁住证据页和挑战基准，避免破坏训练闭环；医师提交后才调用 `/api/tutor/challenge-benchmark`。Provider 可用时由 Provider 独立作答；不可用时明确回退为“公开标注 fallback”。该基准只写 `challenge_benchmark` 审计，不重复回灌医师画像。
 - 报告中心首屏已改为流程工作台：图像/所见、草稿生成、复核台账三个步骤会同步显示状态；公开 VQA 标注默认收进来源台账，不伪装成医生报告结论。
 - 报告修改训练新增 `recommended_drills`，评分后可直接跳回训练中心做报告安全、证据不足或错误前提专项；链接会携带 `source=report_judge`、`drill` 和合法 `question_class`，进入后显示专项任务卡并按题类筛选，提交训练题后才继续回灌画像。
-- 模型准入已从单样例探测升级为“文本/视觉自检 -> 样例级准入检查清单”：自检不触碰准入状态，视觉自检只证明公开图片已附加到 Provider 请求；每个公开样例准入会返回 evidence、Provider 调用状态、错误原因和后端审计收据；分数只代表训练接入检查，不代表临床评测。
+- 模型准入已从单样例探测升级为“请求预演 -> 文本/视觉自检 -> 样例级准入检查清单”：请求预演用于证明后端会如何构造 OpenAI-compatible 请求且不会调用 Provider；自检不触碰准入状态，视觉自检只证明公开图片已附加到 Provider 请求；每个公开样例准入会返回 evidence、Provider 调用状态、错误原因和后端审计收据；分数只代表训练接入检查，不代表临床评测。
 - 前端 API 层已加入分级超时保护：健康/状态/诊断类接口会快速失败并显示 fallback 或不可用原因，真实 Provider 推理、报告生成、准入探测保留更长等待时间，避免演示时页面长期卡在加载状态。
 - Provider API Base 支持根地址、`/v1` 或完整 `/chat/completions`；后端会优先尝试 `/v1/chat/completions` 并拒绝非本机 `http`、metadata、内网/保留地址，避免临时 key 外发。
 - 新增 `backend/.env.example` 和 `scripts/provider_doctor.py` 作为真实 Provider 接入体检入口：脚本会检查项目根 `.env` / `backend/.env` 是否存在、是否被 git 忽略、后端 Provider capabilities、`/api/provider/diagnostics` 和后端 `.env` Base URL 预检；默认不发送模型请求、不打印 key/base 明文，配置完成并重启后端后可加 `--self-test --include-image` 用后端 `.env` 做文本/视觉通道自检。
-- 新增 `scripts/provider_smoke.py` 作为终端联调入口：默认自动探测 `8000/8001` 最新 v2.0 后端，并要求后端暴露 Provider 诊断、预检、自检和收据能力；脚本会先打印脱敏后的 `/api/provider/diagnostics` 摘要，再调用 `/api/provider/preflight`，只在预检通过且明确提供 key 或使用后端 `.env` key 时才运行 Provider 自检；脚本不会打印 API key、API base 明文或完整模型回复。
+- 新增 `scripts/provider_smoke.py` 作为终端联调入口：默认自动探测 `8000/8001` 最新 v2.0 后端，并要求后端暴露 Provider 诊断、预检、请求预演、自检和收据能力；脚本会先打印脱敏后的 `/api/provider/diagnostics` 摘要，再调用 `/api/provider/preflight` 和 `/api/provider/request-preview`，确认 dry-run 不发请求、不保存 key、不写审计/状态、不发送参考答案；只在预检通过且明确提供 key 或使用后端 `.env` key 时才运行 Provider 自检。
 - 新增 `scripts/demo_smoke.py` 作为答辩前一键自检入口：默认自动探测 `8000/8001` 后端，调用 `/api/health`、`/api/platform/readiness` 和 `/api/platform/demo-check?persist=false`，确认真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告训练、考试 Session、科普卡片草稿、同卡片医生审核、画像写入恢复和审计收据均可跑通；默认沙盒模式会自动恢复画像、审计和卡片运行数据，并二次确认 readiness 摘要未变化。
-- 新增 `/delivery` 页面、`GET /api/platform/delivery-report` 和 `scripts/export_delivery_report.py` 作为答辩交付证据包入口：后端只读汇总当前 readiness、医师画像、知识库来源链、审计事件分布、Provider/准入边界、验证命令和 `report_integrity`；脚本默认导出到 `runtime_logs/delivery_evidence_report.md`，不会写画像/审计/卡片状态，不返回 API key 或 Provider Base 明文。需要交给评委时可指定 `--output docs\DELIVERY_EVIDENCE_REPORT.md` 生成 Markdown。
-- 新增 `scripts/ui_smoke.mjs` 作为前端路由巡检入口：自动启动本机 Edge/Chrome 无头浏览器，检查首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由非空白、无 runtime/console error，并确认全局 Live evidence 证据条存在；首页会额外要求真实样例覆盖总账 `data-real-sample-ledger=true`，且记录数、映射题量和图片资产校验不为空；比拼训练会额外要求医师任务队列 `data-training-mission=true` 与 learner id 存在；比拼训练、报告生成和科普卡片路由还会读取关键主图的真实公开样例标记、`naturalWidth/naturalHeight` 和加载状态，防止缩略图能加载但主工作图实际未显示；交付证据页会额外要求 `data-delivery-source=backend` 与 `data-delivery-integrity=clean`。
+- 新增 `/delivery` 页面、`GET /api/platform/delivery-report` 和 `scripts/export_delivery_report.py` 作为答辩交付证据包入口：后端只读汇总当前 readiness、医师画像、知识库来源链、审计事件分布、Provider 配置/自检/准入调用三层边界、验证命令和 `report_integrity`；脚本默认导出到 `runtime_logs/delivery_evidence_report.md`，不会写画像/审计/卡片状态，不返回 API key 或 Provider Base 明文。需要交给评委时可指定 `--output docs\DELIVERY_EVIDENCE_REPORT.md` 生成 Markdown。
+- 新增 `scripts/ui_smoke.mjs` 作为前端路由巡检入口：自动启动本机 Edge/Chrome 无头浏览器，检查首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由非空白、无 runtime/console error，并确认全局 Live evidence 证据条存在；首页会额外要求真实样例覆盖总账 `data-real-sample-ledger=true`，且记录数、映射题量和图片资产校验不为空；模型准入页会额外要求 `data-provider-preview=true` 来自 backend，且 `request_sent=false`、`key_persisted=false`、公开样例和图片附加计划非空；交付证据页会额外要求 `data-delivery-source=backend`、`data-delivery-integrity=clean`，并检查 Provider configured/real/self-test/admission 证据字段存在。
 - 新增 `scripts/verify_all.py` 作为答辩前总控验证入口：在后端和前端服务已启动后，一次串联后端编译、沙盒闭环自检、Provider Base URL 安全预检、交付证据包导出、前端路由 smoke、`npm run lint`、`npm run build`、`git diff --check`、真实公开样例图片资产一致性检查、`sk-*` 形态密钥扫描和运行状态文件内容指纹保护；默认 Provider 预检使用本机假地址，不发送 key、不写审计，终端输出会脱敏 API key 和 Provider URL。轻量巡检可加 `--skip-build`，只排查后端/Provider/UI/安全状态。
 - 科普卡片已从单纯预览升级为“公开样例图像池 -> 草稿生成 -> 同一 `card_id` 医生审核 -> 分享/打印解锁 -> 审计记录”的受控流程。
 - Skills 中心展示受控运行摘要、医生复核状态和工作区跳转，完整 JSON 只放在开发细节折叠项中。

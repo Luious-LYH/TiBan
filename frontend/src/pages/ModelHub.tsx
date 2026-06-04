@@ -6,7 +6,7 @@ import { ProviderPreflightPanel } from '../components/ProviderPreflightPanel'
 import { Card, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
 import { mockModels } from '../lib/mock'
-import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderDiagnostics, ProviderEvidenceReceipt, ProviderPreflight, ProviderSelfTestResult, ProviderStatus, Question } from '../lib/types'
+import type { ModelAdmissionResult, ModelAdmissionState, ModelProfile, ProviderDiagnostics, ProviderEvidenceReceipt, ProviderPreflight, ProviderPreviewMode, ProviderRequestPreview, ProviderSelfTestResult, ProviderStatus, Question } from '../lib/types'
 
 const scoreLabels: Record<string, string> = {
   basic_recognition: '基础识别',
@@ -17,6 +17,11 @@ const scoreLabels: Record<string, string> = {
 }
 
 const focusItems = ['基础识别', '复杂推理', '错误前提', '报告安全', '接口稳定']
+const previewModeLabels: Record<ProviderPreviewMode, string> = {
+  text_self_test: '文本自检预演',
+  visual_self_test: '视觉自检预演',
+  admission: '样例准入预演',
+}
 
 function admissionSampleId(sampleId: string): string {
   return sampleId.startsWith('public_') ? sampleId.slice('public_'.length) : sampleId
@@ -204,6 +209,98 @@ function ProviderDiagnosticsLoadingCard() {
   )
 }
 
+function ProviderRequestPreviewCard({
+  preview,
+  loading,
+  mode,
+  setMode,
+}: {
+  preview: ProviderRequestPreview | null
+  loading: boolean
+  mode: ProviderPreviewMode
+  setMode: (mode: ProviderPreviewMode) => void
+}) {
+  const fallback = preview?.api_source === 'fallback'
+  const ready = Boolean(preview?.ready_for_provider_call)
+  const source = preview?.api_source || (loading ? 'checking' : 'not_loaded')
+  return (
+    <Card
+      className={`provider-request-preview-card ${fallback ? 'fallback' : ready ? 'synced' : 'blocked'}`}
+      data-provider-preview="true"
+      data-provider-preview-source={source}
+      data-provider-preview-sent={String(Boolean(preview?.request_sent))}
+      data-provider-preview-key-persisted={String(Boolean(preview?.key_persisted))}
+      data-provider-preview-samples={preview?.sample_count || 0}
+      data-provider-preview-images={preview?.image_attachment_count || 0}
+    >
+      <SectionTitle
+        eyebrow="Dry-run receipt"
+        title="Provider 请求预演包"
+        action={<Tag tone={fallback ? 'red' : ready ? 'green' : 'amber'}>{loading ? 'checking' : preview ? (ready ? 'ready' : preview.blocked_reason || 'blocked') : 'waiting'}</Tag>}
+      />
+      <div className="preview-mode-tabs" role="tablist" aria-label="Provider 请求预演模式">
+        {(Object.keys(previewModeLabels) as ProviderPreviewMode[]).map((item) => (
+          <button className={mode === item ? 'active' : ''} type="button" onClick={() => setMode(item)} key={item}>
+            {previewModeLabels[item]}
+          </button>
+        ))}
+      </div>
+      <div className="provider-preview-banner">
+        {loading ? <LoaderCircle className="spin-icon" size={20} /> : ready ? <ShieldCheck size={20} /> : <AlertTriangle size={20} />}
+        <div>
+          <strong>{loading ? '正在生成后端 dry-run 请求收据' : preview ? `${previewModeLabels[preview.preview_mode]} · ${source}` : '等待后端预演结果'}</strong>
+          <span>
+            {preview
+              ? `不会发送 Provider 请求：${preview.request_sent ? '异常，已发送' : '确认未发送'}；不会保存 key：${preview.key_persisted ? '异常' : '确认未保存'}；不会发送参考答案：${preview.reference_answer_sent ? '异常' : '确认未发送'}。`
+              : '该收据用于展示后端将如何构造真实 Provider 请求，而不是前端静态文案。'}
+          </span>
+        </div>
+      </div>
+      {preview ? (
+        <>
+          <div className="provider-preview-grid">
+            <div><span>endpoint path</span><strong>{preview.endpoint_paths.join(' / ') || preview.blocked_reason || '待配置'}</strong></div>
+            <div><span>样例数</span><strong>{preview.sample_count}</strong></div>
+            <div><span>图片附加</span><strong>{preview.image_attachment_count}</strong></div>
+            <div><span>key 来源</span><strong>{preview.api_key_present ? '页面临时 key' : preview.backend_env_key_available ? '后端 .env key' : '未提供'}</strong></div>
+          </div>
+          <div className="provider-preview-fields">
+            <span>请求体字段</span>
+            <div>{preview.request_body_fields.map((field) => <strong key={field}>{field}</strong>)}</div>
+          </div>
+          <div className="provider-preview-message-plan">
+            {preview.message_plan.map((item, index) => (
+              <div key={`${item.role}_${index}`}>
+                <span>{item.role}{item.image ? ' · image_url' : ''}</span>
+                <strong>{item.contains}</strong>
+                {item.sample_ids?.length ? <small>{item.sample_ids.join(' / ')}</small> : null}
+              </div>
+            ))}
+          </div>
+          {preview.selected_samples.length ? (
+            <div className="provider-preview-samples">
+              {preview.selected_samples.map((sample) => (
+                <div key={sample.id || sample.question_preview}>
+                  <span>{sample.source_dataset || '公开样例'} · {sample.id || 'sample'}</span>
+                  <strong>{sample.image_attached ? '将附加公开图片' : '不附加图片'} · 参考答案不发送</strong>
+                  <p>{sample.question_preview || '未返回问题预览。'}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <ReceiptTraceChips title="隐私边界" items={preview.privacy_trace} />
+          {preview.next_actions.length ? (
+            <div className="provider-preflight-list next">
+              <span>下一步</span>
+              {preview.next_actions.slice(0, 4).map((item) => <p key={item}>{item}</p>)}
+            </div>
+          ) : null}
+        </>
+      ) : null}
+    </Card>
+  )
+}
+
 export function ModelHub() {
   const [models, setModels] = useState<ModelProfile[]>(mockModels)
   const [samples, setSamples] = useState<Question[]>([])
@@ -227,6 +324,10 @@ export function ModelHub() {
   const [isRunningSelfTest, setIsRunningSelfTest] = useState(false)
   const [selfTestMode, setSelfTestMode] = useState<'text' | 'visual' | null>(null)
   const [selfTestNotice, setSelfTestNotice] = useState('可先做轻量自检：只验证 Provider 通道，不读取公开样例，不写入模型准入状态。')
+  const [previewMode, setPreviewMode] = useState<ProviderPreviewMode>('admission')
+  const [requestPreview, setRequestPreview] = useState<ProviderRequestPreview | null>(null)
+  const [isCheckingRequestPreview, setIsCheckingRequestPreview] = useState(false)
+  const requestProviderActive = Boolean(apiBase.trim() || apiKey.trim())
   const activeCandidateLabel = '当前看板候选'
   const inactiveCandidateLabel = '设为待复核候选'
 
@@ -286,6 +387,35 @@ export function ModelHub() {
       window.clearTimeout(timer)
     }
   }, [apiBase])
+
+  useEffect(() => {
+    let mounted = true
+    const timer = window.setTimeout(() => {
+      setIsCheckingRequestPreview(true)
+      api.providerRequestPreview({
+        providerName,
+        apiBase,
+        apiKeyPresent: Boolean(apiKey.trim()),
+        model: requestProviderActive ? model.trim() || undefined : undefined,
+        sampleIds: selectedSamples,
+        focus,
+        previewMode,
+      })
+        .then((result) => {
+          if (mounted) setRequestPreview(result)
+        })
+        .catch(() => {
+          if (mounted) setRequestPreview(null)
+        })
+        .finally(() => {
+          if (mounted) setIsCheckingRequestPreview(false)
+        })
+    }, 420)
+    return () => {
+      mounted = false
+      window.clearTimeout(timer)
+    }
+  }, [providerName, apiBase, apiKey, model, selectedSamples, focus, previewMode, requestProviderActive])
 
   const runAdmission = async () => {
     if (isRunningAdmission || isRunningSelfTest || !selectedSamples.length || !focus.length) return
@@ -444,7 +574,6 @@ export function ModelHub() {
 
   const providerSuccessCount = result?.provider_status.provider_success_count
   const providerSampleCount = result?.provider_status.sample_count || result?.evidence.length || 0
-  const requestProviderActive = Boolean(apiBase.trim() || apiKey.trim())
   const providerPreflightRequired = Boolean(requestProviderActive || providerStatus?.base_url_configured || providerStatus?.api_key_configured)
   const providerActionBlocked = Boolean(providerPreflightRequired && (isCheckingPreflight || !preflight?.ok))
   const providerPreflightIssue = isCheckingPreflight
@@ -501,6 +630,13 @@ export function ModelHub() {
           <p>平台仅记录 provider 名称、检查清单分、风险项和建议，不保存 API base、key 或完整模型回复。</p>
         </div>
       </Card>
+
+      <ProviderRequestPreviewCard
+        preview={requestPreview}
+        loading={isCheckingRequestPreview}
+        mode={previewMode}
+        setMode={setPreviewMode}
+      />
 
       {admissionState ? (
         <Card className="provider-status-card">

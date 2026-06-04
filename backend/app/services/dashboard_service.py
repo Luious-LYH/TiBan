@@ -345,6 +345,25 @@ class DashboardService:
         report_kb = read_json("report_knowledge_base.json")
         card_kb = read_json("card_template_knowledge.json")
         event_counts = Counter(str(item.get("event_type", "unknown")) for item in audit_logs)
+        provider_self_tests = [item for item in audit_logs if item.get("event_type") == "provider_self_test"]
+        provider_self_test_passed = any(self._provider_self_test_ok(item) for item in provider_self_tests)
+        latest_self_test_state = (
+            self._provider_self_test_state(provider_self_tests[0])
+            if provider_self_tests
+            else "not_run"
+        )
+        admission_provider_called = bool(admission_state.get("provider_called"))
+        provider_configured = bool(provider_status.get("configured"))
+        real_inference_verified = bool(provider_self_test_passed or admission_provider_called)
+        if real_inference_verified:
+            provider_verification_label = "真实调用已验证"
+            provider_verification_note = "交付证据中已有 Provider 自检成功或样例级准入调用记录。"
+        elif provider_configured:
+            provider_verification_label = "已配置，未验证调用"
+            provider_verification_note = "后端 Provider 配置齐全，但当前交付报告没有成功自检或样例准入调用证据。"
+        else:
+            provider_verification_label = "规则/知识库模式"
+            provider_verification_note = "后端未配置真实 Provider；训练输出保持 rule/fallback 标注。"
         source_chain = readiness.get("knowledge_source_chain", [])
         evidence_receipts = readiness.get("evidence_receipts", [])
         latest_exam = readiness.get("latest_exam_replay")
@@ -433,12 +452,20 @@ class DashboardService:
             "evidence_receipts": evidence_receipts,
             "audit_event_counts": [{"event_type": event_type, "count": count} for event_type, count in event_counts.most_common()],
             "provider_state": {
-                "configured": bool(provider_status.get("configured")),
+                "configured": provider_configured,
                 "mode": provider_status.get("mode", "rule"),
                 "provider_declared": bool(provider_status.get("provider") and provider_status.get("provider") != "mock"),
                 "model": provider_status.get("model", "gpt-4o-mini"),
-                "admission_provider_called": bool(admission_state.get("provider_called")),
+                "self_test_logged": bool(provider_self_tests),
+                "self_test_count": len(provider_self_tests),
+                "self_test_verified": provider_self_test_passed,
+                "latest_self_test_state": latest_self_test_state,
+                "admission_provider_called": admission_provider_called,
+                "admission_state_kind": "provider_admission" if admission_provider_called else "rule_draft",
                 "admission_safe_for_training": bool(admission_state.get("safe_for_training")),
+                "real_inference_verified": real_inference_verified,
+                "verification_label": provider_verification_label,
+                "verification_note": provider_verification_note,
             },
             "verification_commands": [
                 {
@@ -484,6 +511,18 @@ class DashboardService:
                 "provider_base_returned": False,
             },
         }
+
+    def _provider_self_test_ok(self, audit_item: dict[str, object]) -> bool:
+        metadata = audit_item.get("metadata")
+        if isinstance(metadata, dict) and "provider_called" in metadata:
+            return bool(metadata.get("provider_called"))
+        return "结果 ok" in str(audit_item.get("summary", ""))
+
+    def _provider_self_test_state(self, audit_item: dict[str, object]) -> str:
+        metadata = audit_item.get("metadata")
+        if isinstance(metadata, dict) and "provider_called" in metadata:
+            return "ok" if metadata.get("provider_called") else "failed"
+        return "ok" if "结果 ok" in str(audit_item.get("summary", "")) else "logged_failed_or_unknown"
 
     def _latest_exam_replay(self, profile) -> dict[str, object] | None:
         sessions = profile.exam_sessions or []

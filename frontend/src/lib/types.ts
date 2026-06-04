@@ -80,6 +80,46 @@ export type ProviderPreflight = {
   api_source?: 'backend' | 'fallback'
 }
 
+export type ProviderPreviewMode = 'text_self_test' | 'visual_self_test' | 'admission'
+
+export type ProviderRequestPreview = {
+  id: string
+  provider_name: string
+  preview_mode: ProviderPreviewMode
+  ready_for_provider_call: boolean
+  blocked_reason?: string | null
+  preflight_mode: string
+  safety_status: string
+  normalized_preview?: string | null
+  endpoint_paths: string[]
+  request_body_fields: string[]
+  message_plan: { role: string; contains: string; image: boolean; sample_ids?: string[] }[]
+  selected_samples: {
+    id?: string
+    source_dataset?: string
+    image_url?: string
+    question_preview?: string
+    image_attached?: boolean
+    reference_answer_sent?: boolean
+    local_asset_required?: boolean
+  }[]
+  sample_count: number
+  image_attachment_count: number
+  api_key_present: boolean
+  backend_env_key_available: boolean
+  request_sent: boolean
+  key_persisted: boolean
+  audit_logged: boolean
+  state_updated: boolean
+  reference_answer_sent: boolean
+  full_response_persisted: boolean
+  privacy_trace: { label: string; used: boolean; detail: string }[]
+  next_actions: string[]
+  safety_notice: string
+  created_at: string
+  api_source?: 'backend' | 'fallback'
+}
+
 export type SourceTraceItem = {
   source_type: string
   label: string
@@ -586,8 +626,16 @@ export type DeliveryProviderState = {
   mode: string
   provider_declared: boolean
   model: string
+  self_test_logged: boolean
+  self_test_count: number
+  self_test_verified: boolean
+  latest_self_test_state: string
   admission_provider_called: boolean
+  admission_state_kind: string
   admission_safe_for_training: boolean
+  real_inference_verified: boolean
+  verification_label: string
+  verification_note: string
 }
 
 export type DeliveryVerificationCommand = {

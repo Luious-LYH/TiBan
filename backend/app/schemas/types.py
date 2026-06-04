@@ -365,6 +365,16 @@ class ModelAdmissionTestRequest(BaseModel):
     test_focus: list[str] = Field(default_factory=lambda: ["基础识别", "错误前提", "报告安全"])
 
 
+class ProviderRequestPreviewRequest(BaseModel):
+    provider_name: str = "自定义 Provider"
+    api_base: str | None = None
+    api_key_present: bool = False
+    model: str | None = None
+    selected_sample_ids: list[str] = Field(default_factory=list)
+    test_focus: list[str] = Field(default_factory=lambda: ["基础识别", "错误前提", "报告安全"])
+    preview_mode: Literal["text_self_test", "visual_self_test", "admission"] = "admission"
+
+
 class ProviderSelfTestRequest(BaseModel):
     provider_name: str = "自定义 Provider"
     api_base: str = "https://api.example.com/v1"
@@ -392,6 +402,35 @@ class ProviderPreflightResponse(BaseModel):
     request_sent: bool = False
     key_persisted: bool = False
     safety_notice: str
+
+
+class ProviderRequestPreviewResponse(BaseModel):
+    id: str
+    provider_name: str
+    preview_mode: Literal["text_self_test", "visual_self_test", "admission"]
+    ready_for_provider_call: bool = False
+    blocked_reason: str | None = None
+    preflight_mode: str
+    safety_status: str
+    normalized_preview: str | None = None
+    endpoint_paths: list[str] = Field(default_factory=list)
+    request_body_fields: list[str] = Field(default_factory=list)
+    message_plan: list[dict[str, Any]] = Field(default_factory=list)
+    selected_samples: list[dict[str, Any]] = Field(default_factory=list)
+    sample_count: int = 0
+    image_attachment_count: int = 0
+    api_key_present: bool = False
+    backend_env_key_available: bool = False
+    request_sent: bool = False
+    key_persisted: bool = False
+    audit_logged: bool = False
+    state_updated: bool = False
+    reference_answer_sent: bool = False
+    full_response_persisted: bool = False
+    privacy_trace: list[dict[str, Any]] = Field(default_factory=list)
+    next_actions: list[str] = Field(default_factory=list)
+    safety_notice: str
+    created_at: str
 
 
 class ProviderSelfTestResponse(BaseModel):
@@ -470,4 +509,5 @@ class AuditLog(BaseModel):
     summary: str
     risk_level: RiskLevel
     doctor_review_required: bool
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: str

@@ -9,6 +9,7 @@ const ROUTES_REQUIRING_REAL_IMAGES = ['/training', '/report', '/card']
 const REAL_IMAGE_SELECTOR = 'img[data-real-sample-image="true"]'
 const REQUIRED_REAL_IMAGE_SELECTOR = 'img[data-real-sample-image="true"][data-real-sample-role="primary"]'
 const DELIVERY_EVIDENCE_SELECTOR = '[data-delivery-loaded="true"]'
+const PROVIDER_PREVIEW_SELECTOR = '[data-provider-preview="true"]'
 
 function parseArgs(argv) {
   const args = {
@@ -185,6 +186,13 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
       Math.min(timeoutMs, 9000),
     ).catch(() => null)
   }
+  if (requiresProviderPreview(route)) {
+    await waitForRuntimeValue(
+      client,
+      `document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewSource === "backend"`,
+      Math.min(timeoutMs, 9000),
+    ).catch(() => null)
+  }
   const result = await client.send('Runtime.evaluate', {
     expression: `(() => {
       const toImageInfo = (img) => ({
@@ -215,6 +223,16 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
         deliveryLoaded: Boolean(document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})),
         deliverySource: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliverySource || '',
         deliveryIntegrity: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliveryIntegrity || '',
+        deliveryProviderConfigured: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliveryProviderConfigured || '',
+        deliveryProviderReal: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliveryProviderReal || '',
+        deliveryProviderSelfTest: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliveryProviderSelfTest || '',
+        deliveryProviderAdmission: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliveryProviderAdmission || '',
+        providerPreviewLoaded: Boolean(document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})),
+        providerPreviewSource: document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewSource || '',
+        providerPreviewSent: document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewSent || '',
+        providerPreviewKeyPersisted: document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewKeyPersisted || '',
+        providerPreviewSamples: Number(document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewSamples || 0),
+        providerPreviewImages: Number(document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewImages || 0),
         realImages: Array.from(document.querySelectorAll(${JSON.stringify(REAL_IMAGE_SELECTOR)})).map(toImageInfo),
         requiredRealImages: Array.from(document.querySelectorAll(${JSON.stringify(REQUIRED_REAL_IMAGE_SELECTOR)})).map(toImageInfo),
         blank: (document.querySelector('#root')?.childElementCount || 0) === 0 || document.body.innerText.length < 80
@@ -242,6 +260,79 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
   }
 }
 
+async function fetchJson(url, timeoutMs) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    if (!response.ok) {
+      throw new Error(`${response.status} ${response.statusText}`)
+    }
+    return await response.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function fetchDeliveryBackendReport(frontend, timeoutMs) {
+  const candidates = []
+  if (process.env.VITE_API_BASE_URL) candidates.push(process.env.VITE_API_BASE_URL)
+  const frontendUrl = new URL(frontend)
+  candidates.push(`${frontendUrl.protocol}//${frontendUrl.hostname}:8000`)
+  candidates.push(`${frontendUrl.protocol}//${frontendUrl.hostname}:8001`)
+  candidates.push('http://127.0.0.1:8000')
+  candidates.push('http://127.0.0.1:8001')
+  const seen = new Set()
+  let lastError = null
+  for (const candidate of candidates) {
+    const apiBase = candidate.replace(/\/$/, '')
+    if (seen.has(apiBase)) continue
+    seen.add(apiBase)
+    try {
+      const health = await fetchJson(`${apiBase}/api/health`, Math.min(timeoutMs, 5000))
+      const capabilities = Array.isArray(health.capabilities) ? health.capabilities : []
+      if (!capabilities.includes('delivery_report')) continue
+      const report = await fetchJson(`${apiBase}/api/platform/delivery-report`, Math.min(timeoutMs, 9000))
+      return { apiBase, report }
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw new Error(`Could not fetch backend delivery report: ${lastError?.message || 'no capable backend found'}`)
+}
+
+function validateDeliveryBackendReport(report) {
+  const failures = []
+  const provider = report?.provider_state && typeof report.provider_state === 'object' ? report.provider_state : null
+  const requiredFields = [
+    'configured',
+    'self_test_logged',
+    'self_test_count',
+    'self_test_verified',
+    'latest_self_test_state',
+    'admission_provider_called',
+    'admission_state_kind',
+    'real_inference_verified',
+    'verification_label',
+    'verification_note',
+  ]
+  if (!provider) {
+    failures.push('backend delivery report missing provider_state')
+    return failures
+  }
+  for (const field of requiredFields) {
+    if (!(field in provider)) failures.push(`backend delivery report missing provider_state.${field}`)
+  }
+  if (typeof provider.configured !== 'boolean') failures.push('provider_state.configured is not boolean')
+  if (typeof provider.self_test_verified !== 'boolean') failures.push('provider_state.self_test_verified is not boolean')
+  if (typeof provider.admission_provider_called !== 'boolean') failures.push('provider_state.admission_provider_called is not boolean')
+  if (typeof provider.real_inference_verified !== 'boolean') failures.push('provider_state.real_inference_verified is not boolean')
+  if (!['provider_admission', 'rule_draft'].includes(provider.admission_state_kind)) failures.push('provider_state.admission_state_kind has unexpected value')
+  if (!String(provider.verification_label || '').trim()) failures.push('provider_state.verification_label is empty')
+  if (!String(provider.verification_note || '').trim()) failures.push('provider_state.verification_note is empty')
+  return failures
+}
+
 function imageInfoLoaded(item) {
   return item.complete && item.naturalWidth > 0 && item.naturalHeight > 0 && item.status !== 'error'
 }
@@ -256,6 +347,10 @@ function requiresRealImage(route) {
 
 function requiresDeliveryEvidence(route) {
   return route.startsWith('/delivery')
+}
+
+function requiresProviderPreview(route) {
+  return route.startsWith('/models')
 }
 
 function requiresTrainingMission(route) {
@@ -343,8 +438,14 @@ async function main() {
       port: args.port,
       routes: args.routes,
     })
+    const backendDelivery = await fetchDeliveryBackendReport(args.frontend, args.timeoutMs)
+    const backendDeliveryFailures = validateDeliveryBackendReport(backendDelivery.report)
+    printSection('Backend delivery report', {
+      apiBase: backendDelivery.apiBase,
+      provider_state: backendDelivery.report.provider_state,
+    })
     const results = []
-    const failures = []
+    const failures = [...backendDeliveryFailures]
     for (const route of args.routes) {
       const result = await inspectRoute({ frontend: args.frontend, port: args.port, route, timeoutMs: args.timeoutMs })
       results.push(result)
@@ -361,6 +462,16 @@ async function main() {
       if (requiresDeliveryEvidence(route) && !result.deliveryLoaded) failures.push(`${route}: delivery evidence report did not finish loading`)
       if (requiresDeliveryEvidence(route) && result.deliverySource !== 'backend') failures.push(`${route}: delivery evidence source is ${result.deliverySource || 'missing'}, expected backend`)
       if (requiresDeliveryEvidence(route) && result.deliveryIntegrity !== 'clean') failures.push(`${route}: delivery evidence integrity is ${result.deliveryIntegrity || 'missing'}, expected clean`)
+      if (requiresDeliveryEvidence(route) && !['true', 'false'].includes(result.deliveryProviderConfigured)) failures.push(`${route}: delivery Provider configured flag missing`)
+      if (requiresDeliveryEvidence(route) && !['true', 'false'].includes(result.deliveryProviderReal)) failures.push(`${route}: delivery Provider real-inference flag missing`)
+      if (requiresDeliveryEvidence(route) && !['verified', 'logged', 'not_run'].includes(result.deliveryProviderSelfTest)) failures.push(`${route}: delivery Provider self-test state missing`)
+      if (requiresDeliveryEvidence(route) && !['provider_admission', 'rule_draft'].includes(result.deliveryProviderAdmission)) failures.push(`${route}: delivery Provider admission state missing`)
+      if (requiresProviderPreview(route) && !result.providerPreviewLoaded) failures.push(`${route}: missing Provider request preview receipt`)
+      if (requiresProviderPreview(route) && result.providerPreviewSource !== 'backend') failures.push(`${route}: Provider request preview source is ${result.providerPreviewSource || 'missing'}, expected backend`)
+      if (requiresProviderPreview(route) && result.providerPreviewSent !== 'false') failures.push(`${route}: Provider request preview unexpectedly sent a request`)
+      if (requiresProviderPreview(route) && result.providerPreviewKeyPersisted !== 'false') failures.push(`${route}: Provider request preview unexpectedly persisted key`)
+      if (requiresProviderPreview(route) && result.providerPreviewSamples <= 0) failures.push(`${route}: Provider request preview did not bind public samples`)
+      if (requiresProviderPreview(route) && result.providerPreviewImages <= 0) failures.push(`${route}: Provider request preview did not plan image attachments`)
       if (result.runtime_errors.length) failures.push(`${route}: runtime errors: ${result.runtime_errors.join(' | ')}`)
       if (result.console_errors.length) failures.push(`${route}: console errors: ${result.console_errors.join(' | ')}`)
     }

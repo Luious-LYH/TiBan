@@ -88,6 +88,7 @@ export function DeliveryEvidence() {
       : '完整性待核查'
   const providerMode = safeText(provider.mode)
   const providerModel = safeText(provider.model)
+  const providerVerificationTone = provider.real_inference_verified ? 'green' : provider.configured ? 'amber' : 'blue'
 
   return (
     <div
@@ -95,6 +96,10 @@ export function DeliveryEvidence() {
       data-delivery-loaded="true"
       data-delivery-source={loadState}
       data-delivery-integrity={integrityClean ? 'clean' : loadState === 'fallback' ? 'preview' : 'warning'}
+      data-delivery-provider-configured={provider.configured ? 'true' : 'false'}
+      data-delivery-provider-real={provider.real_inference_verified ? 'true' : 'false'}
+      data-delivery-provider-self-test={provider.self_test_verified ? 'verified' : provider.self_test_logged ? 'logged' : 'not_run'}
+      data-delivery-provider-admission={provider.admission_state_kind}
     >
       <Card className={`delivery-hero ${loadState === 'fallback' ? 'fallback' : 'live'}`}>
         <div className="delivery-hero-copy">
@@ -104,7 +109,8 @@ export function DeliveryEvidence() {
           <div className="delivery-hero-tags">
             <Tag tone={sourceTone}>{sourceLabel}</Tag>
             <Tag tone={integrityClean ? 'green' : loadState === 'fallback' ? 'amber' : 'red'}>{integrityLabel}</Tag>
-            <Tag tone={summary.provider_ready ? 'green' : 'amber'}>{summary.provider_ready ? 'provider ready' : `${safeText(summary.provider_mode)} mode`}</Tag>
+            <Tag tone={summary.provider_ready ? 'amber' : 'blue'}>{summary.provider_ready ? 'provider configured' : `${safeText(summary.provider_mode)} mode`}</Tag>
+            <Tag tone={providerVerificationTone}>{safeText(provider.verification_label)}</Tag>
           </div>
         </div>
         <div className="delivery-score">
@@ -209,8 +215,12 @@ export function DeliveryEvidence() {
           </div>
         </Card>
 
-        <Card className={`delivery-provider-card ${provider.configured ? 'ready' : 'rule'}`}>
+        <Card className={`delivery-provider-card ${provider.real_inference_verified ? 'verified' : provider.configured ? 'configured' : 'rule'}`}>
           <SectionTitle eyebrow="Provider state" title="推理通道状态" action={<Gauge size={20} />} />
+          <div className="delivery-provider-banner">
+            <strong>{safeText(provider.verification_label)}</strong>
+            <span>{safeText(provider.verification_note)}</span>
+          </div>
           <div className="delivery-provider-grid">
             <div>
               <span>Mode</span>
@@ -225,12 +235,26 @@ export function DeliveryEvidence() {
               <strong>{provider.configured ? 'yes' : 'no'}</strong>
             </div>
             <div>
-              <span>Admission</span>
+              <span>Self-test</span>
+              <strong>{provider.self_test_verified ? 'verified' : provider.self_test_logged ? `${provider.self_test_count} logged` : 'not run'}</strong>
+            </div>
+            <div>
+              <span>Admission call</span>
+              <strong>{provider.admission_provider_called ? 'provider called' : safeText(provider.admission_state_kind)}</strong>
+            </div>
+            <div>
+              <span>Training gate</span>
               <strong>{provider.admission_safe_for_training ? 'safe for training' : 'doctor review'}</strong>
             </div>
           </div>
           <p className="delivery-provider-note">
-            {provider.provider_declared ? 'Provider 名称已声明，但密钥和 base URL 不会返回到前端证据报告。' : '当前未声明真实 Provider；页面必须显式显示 rule/fallback 状态。'}
+            {provider.real_inference_verified
+              ? '该状态来自 Provider 自检成功或样例级准入调用；密钥和 base URL 不会返回到前端证据报告。'
+              : provider.configured
+                ? 'Provider 已配置只代表后端具备调用条件；未出现自检成功或样例准入调用前，不展示为真实推理已验证。'
+                : provider.provider_declared
+                  ? 'Provider 名称已声明，但密钥和 base URL 不会返回到前端证据报告。'
+                  : '当前未声明真实 Provider；页面必须显式显示 rule/fallback 状态。'}
           </p>
         </Card>
       </div>

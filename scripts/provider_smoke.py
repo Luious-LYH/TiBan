@@ -13,6 +13,7 @@ DEFAULT_BACKENDS = ("http://127.0.0.1:8000/api", "http://127.0.0.1:8001/api")
 REQUIRED_CAPABILITIES = {
     "provider_diagnostics",
     "provider_preflight",
+    "provider_request_preview",
     "provider_self_test",
     "provider_visual_self_test",
     "provider_self_test_receipt",
@@ -219,6 +220,43 @@ def main() -> int:
         "next_actions": preflight.get("next_actions", []),
     }
     print_section("Provider preflight", preflight_public)
+
+    preview = post_json(
+        api_base,
+        "/provider/request-preview",
+        {
+            "provider_name": args.provider_name,
+            "api_base": args.api_base,
+            "api_key_present": bool(os.getenv(args.api_key_env, "")) or bool(args.use_backend_env_key),
+            "model": args.model or None,
+            "selected_sample_ids": ["real_x1_0", "real_x1_2", "real_x1_3"],
+            "test_focus": ["基础识别", "错误前提", "报告安全"],
+            "preview_mode": "admission",
+        },
+        args.timeout,
+    )
+    preview_public = {
+        "id": preview.get("id"),
+        "api_source": preview.get("api_source"),
+        "ready_for_provider_call": preview.get("ready_for_provider_call"),
+        "blocked_reason": preview.get("blocked_reason"),
+        "safety_status": preview.get("safety_status"),
+        "endpoint_paths": preview.get("endpoint_paths", []),
+        "sample_count": preview.get("sample_count"),
+        "image_attachment_count": preview.get("image_attachment_count"),
+        "request_sent": preview.get("request_sent"),
+        "key_persisted": preview.get("key_persisted"),
+        "audit_logged": preview.get("audit_logged"),
+        "state_updated": preview.get("state_updated"),
+        "reference_answer_sent": preview.get("reference_answer_sent"),
+    }
+    print_section("Provider request preview", preview_public)
+    if preview.get("request_sent") or preview.get("key_persisted") or preview.get("audit_logged") or preview.get("state_updated"):
+        print("\nProvider request preview is not read-only. Check backend dry-run implementation.")
+        return 5
+    if preview.get("reference_answer_sent") or int(preview.get("sample_count") or 0) <= 0:
+        print("\nProvider request preview did not preserve blind-probe/sample constraints.")
+        return 5
 
     if not preflight.get("ok"):
         print("\nPreflight blocked Provider calls. Fix API Base before running self-test.")

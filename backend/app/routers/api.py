@@ -16,6 +16,7 @@ from app.schemas import (
     PatientCardApproveRequest,
     PatientCardRequest,
     ProviderPreflightRequest,
+    ProviderRequestPreviewRequest,
     ProviderSelfTestRequest,
     ReportDraftRequest,
     ReportJudgeRequest,
@@ -51,6 +52,7 @@ def health() -> dict[str, object]:
             "provider_self_test_receipt",
             "provider_diagnostics",
             "provider_preflight",
+            "provider_request_preview",
             "model_admission_receipt",
             "knowledge_source_chain",
             "real_sample_coverage",
@@ -80,6 +82,11 @@ def provider_diagnostics() -> dict[str, object]:
 @router.post("/provider/preflight")
 def provider_preflight(request: ProviderPreflightRequest) -> dict[str, object]:
     return model_service.provider_preflight(request).model_dump()
+
+
+@router.post("/provider/request-preview")
+def provider_request_preview(request: ProviderRequestPreviewRequest) -> dict[str, object]:
+    return model_service.provider_request_preview(request).model_dump()
 
 
 @router.post("/provider/self-test")

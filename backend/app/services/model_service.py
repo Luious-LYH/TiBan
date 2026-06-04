@@ -8,6 +8,8 @@ from app.schemas import (
     ModelProfile,
     ProviderPreflightRequest,
     ProviderPreflightResponse,
+    ProviderRequestPreviewRequest,
+    ProviderRequestPreviewResponse,
     ProviderSelfTestRequest,
     ProviderSelfTestResponse,
 )
@@ -152,6 +154,89 @@ class ModelService:
             safety_notice=SAFETY_NOTICE,
         )
 
+    def provider_request_preview(self, request: ProviderRequestPreviewRequest) -> ProviderRequestPreviewResponse:
+        preflight = llm_provider.preflight(request.api_base)
+        provider_status = llm_provider.status()
+        samples = self._preview_samples(request)
+        visual_mode = request.preview_mode in {"visual_self_test", "admission"}
+        image_attachment_count = sum(1 for item in samples if item.get("image_url")) if visual_mode else 0
+        request_key_available = bool(request.api_key_present)
+        backend_env_key_available = bool(provider_status.get("api_key_configured"))
+        request_provider_active = bool(self._request_provider_value(request.api_base) or request.api_key_present)
+        provider_name = self._public_provider_label(request.provider_name)
+        ready_for_provider_call = bool(
+            preflight.get("ok")
+            and (request_key_available or backend_env_key_available)
+            and (request_provider_active or provider_status.get("provider") != "mock")
+        )
+        blocked_reason = None
+        if not preflight.get("ok"):
+            blocked_reason = str(preflight.get("blocked_reason") or "preflight_not_allowed")
+        elif not (request_key_available or backend_env_key_available):
+            blocked_reason = "missing_api_key"
+        elif provider_status.get("provider") == "mock" and not request_provider_active:
+            blocked_reason = "provider_not_configured"
+        return ProviderRequestPreviewResponse(
+            id=f"provider_preview_{uuid4().hex[:12]}",
+            provider_name=provider_name,
+            preview_mode=request.preview_mode,
+            ready_for_provider_call=ready_for_provider_call,
+            blocked_reason=blocked_reason,
+            preflight_mode=str(preflight.get("mode", "rule")),
+            safety_status=str(preflight.get("safety_status", "blocked")),
+            normalized_preview=preflight.get("normalized_preview") if isinstance(preflight.get("normalized_preview"), str) else None,
+            endpoint_paths=[str(item) for item in preflight.get("endpoint_paths", [])],
+            request_body_fields=self._preview_body_fields(request.preview_mode, visual_mode),
+            message_plan=self._preview_message_plan(request.preview_mode, samples),
+            selected_samples=[
+                {
+                    "id": sample.get("id"),
+                    "source_dataset": sample.get("source_dataset"),
+                    "image_url": sample.get("image_url"),
+                    "question_preview": str(sample.get("question", ""))[:180],
+                    "image_attached": bool(visual_mode and sample.get("image_url")),
+                    "reference_answer_sent": False,
+                    "local_asset_required": bool(sample.get("image_url")),
+                }
+                for sample in samples
+            ],
+            sample_count=len(samples),
+            image_attachment_count=image_attachment_count,
+            api_key_present=request_key_available,
+            backend_env_key_available=backend_env_key_available,
+            request_sent=False,
+            key_persisted=False,
+            audit_logged=False,
+            state_updated=False,
+            reference_answer_sent=False,
+            full_response_persisted=False,
+            privacy_trace=[
+                {
+                    "label": "API key/base",
+                    "used": False,
+                    "detail": "预演只记录 key 是否存在和 base 的脱敏预览；不接收真实 key 字符串，不写审计或状态文件。",
+                },
+                {
+                    "label": "参考答案",
+                    "used": False,
+                    "detail": "自检和准入请求均不向 Provider 发送公开参考标注；准入只在返回后做粗粒度对齐。",
+                },
+                {
+                    "label": "Provider 请求",
+                    "used": False,
+                    "detail": "这是 dry-run 预演包；后端没有发送 chat completions 请求。",
+                },
+                {
+                    "label": "平台状态",
+                    "used": False,
+                    "detail": "预演不写 model_admission_state.json，不写 audit_logs.json，也不保存完整模型回复。",
+                },
+            ],
+            next_actions=self._preview_next_actions(request.preview_mode, preflight, blocked_reason),
+            safety_notice=SAFETY_NOTICE,
+            created_at=now_iso(),
+        )
+
     def _latest_audit_summary(self, logs: list[dict]) -> dict[str, object] | None:
         if not logs:
             return None
@@ -213,6 +298,13 @@ class ModelService:
                 "未保存 key/base/完整回复，未更新准入状态。"
             ),
             risk_level="medium",
+            metadata={
+                "provider_called": bool(provider_result.ok),
+                "image_attached": bool(image_attached),
+                "visual_probe": bool(visual_probe),
+                "state_kind": "self_test",
+                "error": public_error,
+            },
         )
         return response.model_copy(update={
             "audit_log_id": audit.id,
@@ -246,6 +338,70 @@ class ModelService:
         if requested_id and requested_id in sample_by_id:
             return sample_by_id[requested_id]
         return next((item for item in samples if item.get("image_url")), None)
+
+    def _preview_samples(self, request: ProviderRequestPreviewRequest) -> list[dict]:
+        if request.preview_mode == "text_self_test":
+            return []
+        samples = read_json("real_sample_knowledge.json")
+        sample_by_id = {str(item.get("id")): item for item in samples if item.get("image_url")}
+        requested_ids = [
+            self._normalize_sample_id(item)
+            for item in request.selected_sample_ids
+            if self._normalize_sample_id(item)
+        ]
+        selected = [sample_by_id[item] for item in requested_ids if item in sample_by_id]
+        if not selected:
+            selected = [item for item in samples if item.get("image_url")]
+        limit = 1 if request.preview_mode == "visual_self_test" else 3
+        return selected[:limit]
+
+    def _preview_body_fields(self, preview_mode: str, visual_mode: bool) -> list[str]:
+        fields = ["model", "messages", "temperature", "max_tokens"]
+        if visual_mode:
+            fields.append("messages[].content[].image_url")
+        if preview_mode == "admission":
+            fields.extend(["per_sample_prompt", "blind_probe"])
+        return fields
+
+    def _preview_message_plan(self, preview_mode: str, samples: list[dict]) -> list[dict[str, object]]:
+        if preview_mode == "text_self_test":
+            return [
+                {"role": "system", "contains": "Provider 连通性自检边界", "image": False},
+                {"role": "user", "contains": "一句话确认收到；禁止诊断、治疗建议、API key 或患者身份信息", "image": False},
+            ]
+        if preview_mode == "visual_self_test":
+            sample = samples[0] if samples else {}
+            return [
+                {"role": "system", "contains": "Provider 视觉通道自检边界", "image": False},
+                {
+                    "role": "user",
+                    "contains": f"公开样例问题与安全要求；sample={sample.get('id', 'default_public_sample')}",
+                    "image": bool(sample.get("image_url")),
+                },
+            ]
+        return [
+            {"role": "system", "contains": "模型准入探针；只回答教学观察依据和安全边界", "image": False},
+            {
+                "role": "user",
+                "contains": "逐公开样例发送图片和问题；不包含参考答案；返回后才做公开标注对齐",
+                "image": bool(samples),
+                "sample_ids": [str(sample.get("id")) for sample in samples[:3]],
+            },
+        ]
+
+    def _preview_next_actions(self, preview_mode: str, preflight: dict[str, object], blocked_reason: str | None) -> list[str]:
+        if blocked_reason:
+            actions = [str(item) for item in preflight.get("next_actions", [])]
+            if blocked_reason == "missing_api_key":
+                actions.insert(0, "填写页面临时 key，或在 backend/.env 配置 LLM_API_KEY 后重启后端。")
+            if blocked_reason == "provider_not_configured":
+                actions.insert(0, "填写页面临时 base/key，或配置 LLM_PROVIDER/LLM_BASE_URL/LLM_API_KEY。")
+            return actions[:4]
+        if preview_mode == "text_self_test":
+            return ["确认预演包后运行文本轻量自检；自检只写 provider_self_test 摘要审计。"]
+        if preview_mode == "visual_self_test":
+            return ["确认公开样例图片和 endpoint path 后运行视觉通道自检；不发送参考答案。"]
+        return ["确认样例 ID、endpoint path 和隐私边界后运行样例级准入；准入最多使用 3 个公开样例。"]
 
     def _self_test_recommendation(self, error: str | None, ok: bool, image_attached: bool, visual_prompt: bool) -> str:
         if visual_prompt and image_attached and ok:
@@ -357,6 +513,14 @@ class ModelService:
             entity_id=response.id,
             summary=f"执行模型准入测试：{public_provider_name}，模式 {'provider' if provider_called else 'rule'}，等级 {grade}。",
             risk_level="medium",
+            metadata={
+                "provider_called": bool(provider_called),
+                "state_kind": "provider_admission" if provider_called else "rule_draft",
+                "sample_count": len(provider_results),
+                "provider_success_count": provider_success_count,
+                "reference_aligned_count": aligned_count,
+                "safe_for_training": bool(provider_called and total >= 80 and aligned_count > 0),
+            },
         )
         return response.model_copy(update={
             "audit_logged": True,

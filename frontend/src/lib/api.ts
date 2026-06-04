@@ -37,6 +37,7 @@ import type {
   ProviderDiagnostics,
   ProviderEvidenceReceipt,
   ProviderPreflight,
+  ProviderRequestPreview,
   PlatformReadiness,
   PlatformReadinessModule,
   ProviderSelfTestResult,
@@ -63,6 +64,7 @@ const requiredApiCapabilities = [
   'provider_self_test_receipt',
   'provider_diagnostics',
   'provider_preflight',
+  'provider_request_preview',
   'model_admission_receipt',
   'knowledge_source_chain',
   'real_sample_coverage',
@@ -358,6 +360,76 @@ function normalizeProviderPreflight(value: unknown, fallback: ProviderPreflight)
     request_sent: asBoolean(record.request_sent, fallback.request_sent),
     key_persisted: asBoolean(record.key_persisted, fallback.key_persisted),
     safety_notice: asString(record.safety_notice, fallback.safety_notice),
+    api_source: record.api_source as ApiSource | undefined,
+  }
+}
+
+function normalizeProviderRequestPreview(value: unknown, fallback: ProviderRequestPreview): ProviderRequestPreview {
+  const record = asRecord(value)
+  const normalizeMessagePlan = (items: unknown) => Array.isArray(items)
+    ? items.map((item) => {
+        const entry = asRecord(item)
+        return {
+          role: asString(entry.role, 'user'),
+          contains: asString(entry.contains, ''),
+          image: asBoolean(entry.image, false),
+          sample_ids: asStringArray(entry.sample_ids, []),
+        }
+      })
+    : fallback.message_plan
+  const normalizeSamples = (items: unknown) => Array.isArray(items)
+    ? items.map((item) => {
+        const entry = asRecord(item)
+        return {
+          id: asString(entry.id, ''),
+          source_dataset: asString(entry.source_dataset, ''),
+          image_url: asString(entry.image_url, ''),
+          question_preview: asString(entry.question_preview, ''),
+          image_attached: asBoolean(entry.image_attached, false),
+          reference_answer_sent: asBoolean(entry.reference_answer_sent, false),
+          local_asset_required: asBoolean(entry.local_asset_required, false),
+        }
+      })
+    : fallback.selected_samples
+  const normalizePrivacy = (items: unknown) => Array.isArray(items)
+    ? items.map((item) => {
+        const entry = asRecord(item)
+        return {
+          label: asString(entry.label, '隐私边界'),
+          used: asBoolean(entry.used, false),
+          detail: asString(entry.detail, ''),
+        }
+      })
+    : fallback.privacy_trace
+  return {
+    ...fallback,
+    ...record,
+    id: asString(record.id, fallback.id),
+    provider_name: asString(record.provider_name, fallback.provider_name),
+    preview_mode: asString(record.preview_mode, fallback.preview_mode) as ProviderRequestPreview['preview_mode'],
+    ready_for_provider_call: asBoolean(record.ready_for_provider_call, fallback.ready_for_provider_call),
+    blocked_reason: typeof record.blocked_reason === 'string' || record.blocked_reason === null ? record.blocked_reason : fallback.blocked_reason,
+    preflight_mode: asString(record.preflight_mode, fallback.preflight_mode),
+    safety_status: asString(record.safety_status, fallback.safety_status),
+    normalized_preview: typeof record.normalized_preview === 'string' || record.normalized_preview === null ? record.normalized_preview : fallback.normalized_preview,
+    endpoint_paths: asStringArray(record.endpoint_paths, fallback.endpoint_paths),
+    request_body_fields: asStringArray(record.request_body_fields, fallback.request_body_fields),
+    message_plan: normalizeMessagePlan(record.message_plan),
+    selected_samples: normalizeSamples(record.selected_samples),
+    sample_count: asNumber(record.sample_count, fallback.sample_count),
+    image_attachment_count: asNumber(record.image_attachment_count, fallback.image_attachment_count),
+    api_key_present: asBoolean(record.api_key_present, fallback.api_key_present),
+    backend_env_key_available: asBoolean(record.backend_env_key_available, fallback.backend_env_key_available),
+    request_sent: asBoolean(record.request_sent, fallback.request_sent),
+    key_persisted: asBoolean(record.key_persisted, fallback.key_persisted),
+    audit_logged: asBoolean(record.audit_logged, fallback.audit_logged),
+    state_updated: asBoolean(record.state_updated, fallback.state_updated),
+    reference_answer_sent: asBoolean(record.reference_answer_sent, fallback.reference_answer_sent),
+    full_response_persisted: asBoolean(record.full_response_persisted, fallback.full_response_persisted),
+    privacy_trace: normalizePrivacy(record.privacy_trace),
+    next_actions: asStringArray(record.next_actions, fallback.next_actions),
+    safety_notice: asString(record.safety_notice, safetyNotice),
+    created_at: asString(record.created_at, fallback.created_at),
     api_source: record.api_source as ApiSource | undefined,
   }
 }
@@ -826,8 +898,16 @@ function fallbackDeliveryReport(): DeliveryReport {
       mode: readiness.provider_mode,
       provider_declared: false,
       model: mockDashboard.active_model.name,
+      self_test_logged: false,
+      self_test_count: 0,
+      self_test_verified: false,
+      latest_self_test_state: 'frontend_fallback',
       admission_provider_called: readiness.admission_provider_called,
+      admission_state_kind: readiness.admission_provider_called ? 'provider_admission' : 'rule_draft',
       admission_safe_for_training: mockDashboard.model_admission_state.safe_for_training,
+      real_inference_verified: false,
+      verification_label: '前端 fallback 预览',
+      verification_note: '后端不可用时无法证明 Provider 真实调用；正式验收请查看 backend live 交付证据。',
     },
     verification_commands: [
       {
@@ -929,8 +1009,16 @@ function normalizeDeliveryProviderState(value: unknown, fallback: DeliveryProvid
     mode: asString(record.mode, fallback.mode),
     provider_declared: asBoolean(record.provider_declared, fallback.provider_declared),
     model: asString(record.model, fallback.model),
+    self_test_logged: asBoolean(record.self_test_logged, fallback.self_test_logged),
+    self_test_count: asNumber(record.self_test_count, fallback.self_test_count),
+    self_test_verified: asBoolean(record.self_test_verified, fallback.self_test_verified),
+    latest_self_test_state: asString(record.latest_self_test_state, fallback.latest_self_test_state),
     admission_provider_called: asBoolean(record.admission_provider_called, fallback.admission_provider_called),
+    admission_state_kind: asString(record.admission_state_kind, fallback.admission_state_kind),
     admission_safe_for_training: asBoolean(record.admission_safe_for_training, fallback.admission_safe_for_training),
+    real_inference_verified: asBoolean(record.real_inference_verified, fallback.real_inference_verified),
+    verification_label: asString(record.verification_label, fallback.verification_label),
+    verification_note: asString(record.verification_note, fallback.verification_note),
   }
 }
 
@@ -1795,6 +1883,83 @@ export const api = {
       fallback,
     )
     return normalizeProviderPreflight(response, fallback)
+  },
+
+  async providerRequestPreview(payload: {
+    providerName: string
+    apiBase: string
+    apiKeyPresent: boolean
+    model?: string
+    sampleIds: string[]
+    focus: string[]
+    previewMode: ProviderRequestPreview['preview_mode']
+  }): Promise<ProviderRequestPreview> {
+    const fallbackCreatedAt = new Date().toISOString()
+    const fallback: ProviderRequestPreview = {
+      id: `provider_preview_local_${Date.now()}`,
+      provider_name: payload.providerName,
+      preview_mode: payload.previewMode,
+      ready_for_provider_call: false,
+      blocked_reason: 'backend_unavailable',
+      preflight_mode: 'fallback',
+      safety_status: 'frontend_fallback',
+      normalized_preview: null,
+      endpoint_paths: [],
+      request_body_fields: payload.previewMode === 'text_self_test'
+        ? ['model', 'messages', 'temperature', 'max_tokens']
+        : ['model', 'messages', 'temperature', 'max_tokens', 'messages[].content[].image_url'],
+      message_plan: [
+        {
+          role: 'user',
+          contains: '前端 fallback 只能展示本地预览，不能证明后端会如何构造 Provider 请求。',
+          image: payload.previewMode !== 'text_self_test',
+          sample_ids: payload.sampleIds.slice(0, payload.previewMode === 'visual_self_test' ? 1 : 3),
+        },
+      ],
+      selected_samples: payload.sampleIds.slice(0, payload.previewMode === 'visual_self_test' ? 1 : 3).map((id) => ({
+        id,
+        source_dataset: '',
+        image_url: '',
+        question_preview: '后端不可用，无法读取真实样例问题预览。',
+        image_attached: false,
+        reference_answer_sent: false,
+        local_asset_required: payload.previewMode !== 'text_self_test',
+      })),
+      sample_count: payload.previewMode === 'text_self_test' ? 0 : Math.min(payload.sampleIds.length, payload.previewMode === 'visual_self_test' ? 1 : 3),
+      image_attachment_count: 0,
+      api_key_present: payload.apiKeyPresent,
+      backend_env_key_available: false,
+      request_sent: false,
+      key_persisted: false,
+      audit_logged: false,
+      state_updated: false,
+      reference_answer_sent: false,
+      full_response_persisted: false,
+      privacy_trace: [
+        { label: 'API key/base', used: false, detail: '前端 fallback 不发送或保存 key；也不能证明后端预演。' },
+        { label: 'Provider 请求', used: false, detail: '未发送 Provider 请求。' },
+      ],
+      next_actions: ['启动 FastAPI 后端后重新查看真实请求预演包。'],
+      safety_notice: safetyNotice,
+      created_at: fallbackCreatedAt,
+    }
+    const response = await request<ProviderRequestPreview>(
+      '/api/provider/request-preview',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          provider_name: payload.providerName,
+          api_base: payload.apiBase,
+          api_key_present: payload.apiKeyPresent,
+          model: payload.model || undefined,
+          selected_sample_ids: payload.sampleIds,
+          test_focus: payload.focus,
+          preview_mode: payload.previewMode,
+        }),
+      },
+      fallback,
+    )
+    return normalizeProviderRequestPreview(response, fallback)
   },
 
   async providerSelfTest(payload: { providerName: string; apiBase: string; apiKey?: string; model?: string; includeImage?: boolean; sampleId?: string }): Promise<ProviderSelfTestResult> {

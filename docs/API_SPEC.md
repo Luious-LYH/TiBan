@@ -25,10 +25,11 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider Base URL 预检、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力的后端 |
+| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力的后端 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
 | GET | `/provider/diagnostics` | Provider 联调状态检查；返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要、准入状态和下一步动作，不返回 key/base 明文或完整模型回复 |
 | POST | `/provider/preflight` | Provider Base URL 安全预检；不需要 key，不发送模型请求，不写审计；返回规范化预览、会尝试的 chat completions path、安全拦截原因和下一步动作 |
+| POST | `/provider/request-preview` | Provider 请求 dry-run 预演；只接收 key 是否存在的布尔值，不接收真实 key 字符串，不发送模型请求，不写审计/准入状态；返回 endpoint path、请求体字段、样例绑定、图片附加计划和隐私边界 |
 | POST | `/provider/self-test` | Provider 文本/视觉通道自检；视觉模式可附加一张公开样例图片，但不发送参考标注，不更新模型准入状态，不保存 key/base/完整回复；返回 `audit_log_id` 和 `self_test_receipt` |
 | GET | `/dashboard` | 首页训练总览、能力画像、推荐训练 |
 | GET | `/platform/readiness` | 平台就绪度、真实性矩阵和建议演示路线 |
@@ -360,6 +361,67 @@ Provider Base URL 安全预检：
 
 若填写非本机 `http`、metadata、内网/保留地址、非法端口、loopback 低端口或带凭据 URL，会返回 `ok=false` 和 `blocked_reason`，例如 `non_loopback_http_blocked`、`metadata_host_blocked`、`private_or_reserved_ip_blocked`、`resolves_to_private_or_reserved_ip`、`invalid_port`、`loopback_port_blocked`、`credentials_in_url`。真实 Provider 调用层不自动跟随 30x 重定向，并会使用重新校验后的连接地址，避免通过跳转或 DNS 变化把临时 key 带向未授权地址。
 
+Provider 请求预演：
+
+```json
+{
+  "provider_name": "自定义多模态 API",
+  "api_base": "https://api.example.com/v1",
+  "api_key_present": false,
+  "model": "your-model-name",
+  "selected_sample_ids": ["real_x1_0", "real_x1_2", "real_x1_3"],
+  "test_focus": ["基础识别", "错误前提", "报告安全"],
+  "preview_mode": "admission"
+}
+```
+
+`preview_mode` 可为 `text_self_test`、`visual_self_test` 或 `admission`。该接口只做后端 dry-run，不接收真实 API key 字符串；`api_key_present` 只用于展示当前是否具备进入真实调用的必要凭据。接口不会发送 OpenAI-compatible 请求，不写 `audit_logs.json`，不写 `model_admission_state.json`，也不会保存完整模型回复。核心返回字段：
+
+```json
+{
+  "id": "provider_preview_xxx",
+  "provider_name": "自定义多模态 API",
+  "preview_mode": "admission",
+  "ready_for_provider_call": false,
+  "blocked_reason": "missing_api_key",
+  "safety_status": "allowed",
+  "endpoint_paths": ["/v1/chat/completions"],
+  "request_body_fields": ["model", "messages", "temperature", "max_tokens", "messages[].content[].image_url", "per_sample_prompt", "blind_probe"],
+  "message_plan": [
+    {
+      "role": "system",
+      "contains": "模型准入探针；只回答教学观察依据和安全边界",
+      "image": false
+    },
+    {
+      "role": "user",
+      "contains": "逐公开样例发送图片和问题；不包含参考答案；返回后才做公开标注对齐",
+      "image": true,
+      "sample_ids": ["real_x1_0", "real_x1_2", "real_x1_3"]
+    }
+  ],
+  "selected_samples": [
+    {
+      "id": "real_x1_0",
+      "source_dataset": "Kvasir-VQA-x1",
+      "image_url": "/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg",
+      "image_attached": true,
+      "reference_answer_sent": false
+    }
+  ],
+  "sample_count": 3,
+  "image_attachment_count": 3,
+  "request_sent": false,
+  "key_persisted": false,
+  "audit_logged": false,
+  "state_updated": false,
+  "reference_answer_sent": false,
+  "full_response_persisted": false
+}
+```
+
+前端 `/models` 的“Provider 请求预演包”直接读取该接口，并用 `data-provider-preview=true` 暴露给 `scripts/ui_smoke.mjs`。UI smoke 会要求该卡来自 backend，且 `request_sent=false`、`key_persisted=false`、公开样例数和图片附加计划均非空。
+
 Provider 文本/视觉通道自检：
 
 ```json
@@ -625,7 +687,7 @@ POST /api/platform/demo-check?learner_id=demo_learner&persist=false
 GET /api/platform/delivery-report
 ```
 
-该接口用于答辩材料和交付审查，只读汇总当前运行证据，不触发训练、demo-check 或 Provider 请求。返回内容包括医师训练对象、平台总览、核心闭环证据、知识库来源链、证据收据、审计事件分布、Provider/模型准入边界、当前能力边界和验证命令。响应不会包含 API key、Provider Base 明文或完整模型回复；`report_integrity.writes_state=false` 表示接口不会修改画像、审计或卡片运行状态。前端 `/delivery` 只有在 `data-delivery-source=backend` 且 `data-delivery-integrity=clean` 时才可作为答辩交付证据；frontend fallback 只能作为界面预览，不能作为真实后端证据。可用 `python scripts\export_delivery_report.py --output docs\DELIVERY_EVIDENCE_REPORT.md` 渲染成 Markdown。
+该接口用于答辩材料和交付审查，只读汇总当前运行证据，不触发训练、demo-check 或 Provider 请求。返回内容包括医师训练对象、平台总览、核心闭环证据、知识库来源链、证据收据、审计事件分布、Provider/模型准入边界、当前能力边界和验证命令。响应不会包含 API key、Provider Base 明文或完整模型回复；`report_integrity.writes_state=false` 表示接口不会修改画像、审计或卡片运行状态。Provider 边界会拆成 `configured`、`self_test_verified`、`admission_provider_called` 和 `real_inference_verified`：配置齐全只代表具备调用条件，只有自检成功或样例级准入调用成功才算真实推理证据。前端 `/delivery` 只有在 `data-delivery-source=backend` 且 `data-delivery-integrity=clean` 时才可作为答辩交付证据；frontend fallback 只能作为界面预览，不能作为真实后端证据。可用 `python scripts\export_delivery_report.py --output docs\DELIVERY_EVIDENCE_REPORT.md` 渲染成 Markdown。
 
 交付证据报告核心返回字段：
 
@@ -653,6 +715,18 @@ GET /api/platform/delivery-report
     "secrets_included": false,
     "api_key_returned": false,
     "provider_base_returned": false
+  },
+  "provider_state": {
+    "configured": true,
+    "self_test_logged": true,
+    "self_test_count": 1,
+    "self_test_verified": true,
+    "latest_self_test_state": "ok",
+    "admission_provider_called": false,
+    "admission_state_kind": "rule_draft",
+    "real_inference_verified": true,
+    "verification_label": "真实调用已验证",
+    "verification_note": "交付证据中已有 Provider 自检成功或样例级准入调用记录。"
   }
 }
 ```

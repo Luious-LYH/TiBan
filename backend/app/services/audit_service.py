@@ -21,6 +21,7 @@ class AuditService:
         risk_level: str = "low",
         entity_id: str | None = None,
         doctor_review_required: bool = True,
+        metadata: dict[str, object] | None = None,
     ) -> AuditLog:
         log = AuditLog(
             id=f"audit_{uuid4().hex[:12]}",
@@ -30,6 +31,7 @@ class AuditService:
             summary=summary,
             risk_level=risk_level,
             doctor_review_required=doctor_review_required,
+            metadata=metadata or {},
             created_at=now_iso(),
         )
         logs = read_json("audit_logs.json")
@@ -39,4 +41,3 @@ class AuditService:
 
 
 audit_service = AuditService()
-
