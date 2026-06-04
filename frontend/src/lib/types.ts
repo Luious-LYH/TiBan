@@ -36,6 +36,16 @@ export type ProviderDiagnosticAction = {
   done: boolean
 }
 
+export type ProviderEvidenceLadderStep = {
+  id: string
+  label: string
+  state: 'done' | 'current' | 'pending' | 'blocked' | string
+  evidence: string
+  action: string
+  href: string
+  proof_kind: string
+}
+
 export type ProviderDiagnostics = {
   ready_level: string
   provider_configured: boolean
@@ -48,6 +58,7 @@ export type ProviderDiagnostics = {
   public_sample_count: number
   latest_self_test?: ProviderAuditSummary | null
   latest_admission?: ProviderAuditSummary | null
+  evidence_ladder: ProviderEvidenceLadderStep[]
   admission_state: {
     provider_name: string
     grade: string

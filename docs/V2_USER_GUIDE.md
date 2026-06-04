@@ -42,7 +42,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code\backend
 python -m uvicorn app.main:app --reload --port 8001
 ```
 
-前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 联调状态检查、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、报告图像上传收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
+前端未显式设置 `VITE_API_BASE_URL` 时，会自动按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities 的服务。当前能力探测会确认 Provider 联调状态检查、Provider 证据阶梯、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、报告图像上传收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力；如需固定后端端口，可在前端启动前设置 `VITE_API_BASE_URL=http://127.0.0.1:8001`。
 
 版本与提交证据：
 
@@ -83,7 +83,7 @@ python scripts\provider_doctor.py
 python scripts\provider_doctor.py --self-test --include-image
 ```
 
-`LLM_BASE_URL` 或页面临时 API Base 可以填写 Provider 根地址、`/v1` 地址，或完整 `/chat/completions` endpoint；后端会规范化为 OpenAI-compatible chat completions 请求，未写协议的外部域名按 `https://` 处理，本地 `localhost` / `127.0.0.1` 地址按 `http://` 处理；根地址会优先尝试 `/v1/chat/completions`，404/405 时再尝试 `/chat/completions`。非本机 `http`、metadata、内网/保留地址、loopback 低端口和非法端口会被拒绝为 `unsafe_base_url`，避免密钥外发；真实 Provider 调用不会自动跟随 30x 重定向，并会使用重新校验后的连接地址。不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页会先显示 Provider 联调状态检查和 Base URL 预检：预检不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 endpoint path、安全拦截原因和下一步动作。一次性 key 可用于文本/视觉自检或样例级准入检查，不会保存到数据文件；只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
+`LLM_BASE_URL` 或页面临时 API Base 可以填写 Provider 根地址、`/v1` 地址，或完整 `/chat/completions` endpoint；后端会规范化为 OpenAI-compatible chat completions 请求，未写协议的外部域名按 `https://` 处理，本地 `localhost` / `127.0.0.1` 地址按 `http://` 处理；根地址会优先尝试 `/v1/chat/completions`，404/405 时再尝试 `/chat/completions`。非本机 `http`、metadata、内网/保留地址、loopback 低端口和非法端口会被拒绝为 `unsafe_base_url`，避免密钥外发；真实 Provider 调用不会自动跟随 30x 重定向，并会使用重新校验后的连接地址。不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页会先显示 Provider 联调状态检查、真实推理证据阶梯和 Base URL 预检：证据阶梯把 `.env`、preflight、dry-run、自检、公开样例准入和候选启用闸门分开，避免把配置齐全误讲成已真实推理；预检不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 endpoint path、安全拦截原因和下一步动作。一次性 key 可用于文本/视觉自检或样例级准入检查，不会保存到数据文件；只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
 
 ## 3. 推荐演示顺序
 
@@ -124,7 +124,7 @@ python scripts\provider_doctor.py --self-test --include-image
    选择当前题运行受控技能。页面展示运行摘要、审核要求、闭环入口和后端 `skill_run_receipt`：包括 `skill_run` 审计 ID、风险等级、输入来源、执行来源、收据时间和下一步动作。完整 JSON 放在开发细节折叠项，避免把平台展示成调试台；若后端不可用，只显示本地技能预览且审计 ID 为空。
 
 13. 模型准入 `/models`
-    先看“Provider 联调状态检查”：它来自 `/api/provider/diagnostics`，只读展示 Provider 模式、`.env` 缺失项、公开样例数、最近 `provider_self_test` / `model_admission` 审计摘要、最近准入状态和下一步动作。再看“Base URL preflight”和“Provider 请求预演包”：预检来自 `/api/provider/preflight`，只做 URL 规范化、安全策略和 chat completions path 推导，不需要 key、不发送模型请求、不写审计；预演来自 `/api/provider/request-preview`，后端按文本自检、视觉自检或样例准入模式生成 dry-run 收据，只接收 `api_key_present` 布尔值，不接收真实 key 字符串，展示 endpoint path、请求体字段、公开样例绑定、图片附加计划和隐私边界，并保持 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`。预演通过后再做 Provider 文本轻量自检或视觉通道自检：文本自检只发送一条安全短提示词；视觉自检会附加一张公开内镜图片和问题，但不读取/发送参考标注，不保存 key/base/完整回复，也不更新模型准入状态。随后用最多 3 个公开样例和可选 Provider 做样例级准入检查；Provider 收到的是图片和问题，不包含参考标注，后端只在返回后做公开标注粗粒度对齐。只有真实调用成功才显示 `provider_called=true`；只有调用成功且至少一条盲测回答与公开标注部分对齐，最近准入状态才会标为可进入人工复核。模型卡片默认只是能力看板；`/models/select` 未过真实 Provider/公开标注对齐/安全阈值闸门时返回 400。
+    先看“Provider 联调状态检查”和“真实推理证据阶梯”：它们来自 `/api/provider/diagnostics`，只读展示 Provider 模式、`.env` 缺失项、公开样例数、最近 `provider_self_test` / `model_admission` 审计摘要、最近准入状态、六步 `evidence_ladder` 和下一步动作。证据阶梯依次为 Provider 配置、Base 安全预检、请求预演收据、文本/视觉自检、公开样例准入、候选启用闸门；只有自检或准入真实调用成功，才算真实推理证据。再看“Base URL preflight”和“Provider 请求预演包”：预检来自 `/api/provider/preflight`，只做 URL 规范化、安全策略和 chat completions path 推导，不需要 key、不发送模型请求、不写审计；预演来自 `/api/provider/request-preview`，后端按文本自检、视觉自检或样例准入模式生成 dry-run 收据，只接收 `api_key_present` 布尔值，不接收真实 key 字符串，展示 endpoint path、请求体字段、公开样例绑定、图片附加计划和隐私边界，并保持 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`。预演通过后再做 Provider 文本轻量自检或视觉通道自检：文本自检只发送一条安全短提示词；视觉自检会附加一张公开内镜图片和问题，但不读取/发送参考标注，不保存 key/base/完整回复，也不更新模型准入状态。随后用最多 3 个公开样例和可选 Provider 做样例级准入检查；Provider 收到的是图片和问题，不包含参考标注，后端只在返回后做公开标注粗粒度对齐。只有真实调用成功才显示 `provider_called=true`；只有调用成功且至少一条盲测回答与公开标注部分对齐，最近准入状态才会标为可进入人工复核。模型卡片默认只是能力看板；`/models/select` 未过真实 Provider/公开标注对齐/安全阈值闸门时返回 400。
 
 14. 审计日志 `/audit`
     查看审计驾驶舱：事件总量、高风险、医生复核负载、最近写入时间、分类筛选和完整日志表。日志只保存事件摘要、风险等级和审核状态。
@@ -142,7 +142,7 @@ python scripts\provider_doctor.py --self-test --include-image
 | 报告 judge | 规则 rubric + 可选 Provider 评阅，并回灌画像与推荐专项训练 | Provider 反馈仅作训练建议；后续可接真实专家评分 |
 | 报告到卡片闭环 | 报告 judge 建议改写或医生修改稿摘要可带入科普卡片输入区，并显示后端生成收据 | 只生成医生审核前卡片草稿；不会绕过审核清单、分享锁或打印锁 |
 | 卡片公开样例配图 | 科普卡片页优先从 `/api/knowledge/real-samples` 读取公开样例图像池，并显示样例 ID/数据集 | 图像仅作医生审核前患者沟通卡片配图，不代表自动诊断；本机上传图不写入后端 |
-| 模型准入 | Provider 联调状态检查 + Base URL 预检 + 请求预演包 + OpenAI-compatible Provider 文本/视觉自检 + 公开样例 blind probe 准入检查，并展示 `self_test_receipt` / `admission_receipt` | 状态检查只证明配置状态、公开样例数和审计摘要，不返回 key/base 明文；Base URL 预检和请求预演都不发送模型请求、不写审计，预演只接收 key 是否存在的布尔值并展示 endpoint path、请求字段、样例绑定和隐私边界；真实调用层不跟随 30x 重定向，并限制 metadata、内网/保留地址和本机低端口；文本自检只验证文字通道；视觉自检只证明公开图片已附加到 Provider 请求并写摘要审计，不发送参考标注；样例准入不向 Provider 泄露参考标注；模型卡片未过后端准入闸门时只作看板，mock 模型不能写入待人工复核候选 |
+| 模型准入 | Provider 联调状态检查 + 真实推理证据阶梯 + Base URL 预检 + 请求预演包 + OpenAI-compatible Provider 文本/视觉自检 + 公开样例 blind probe 准入检查，并展示 `self_test_receipt` / `admission_receipt` | 状态检查只证明配置状态、公开样例数和审计摘要，不返回 key/base 明文；证据阶梯将配置、preflight、dry-run、自检、准入和候选闸门分开展示，preflight/dry-run 不等于真实调用；Base URL 预检和请求预演都不发送模型请求、不写审计，预演只接收 key 是否存在的布尔值并展示 endpoint path、请求字段、样例绑定和隐私边界；真实调用层不跟随 30x 重定向，并限制 metadata、内网/保留地址和本机低端口；文本自检只验证文字通道；视觉自检只证明公开图片已附加到 Provider 请求并写摘要审计，不发送参考标注；样例准入不向 Provider 泄露参考标注；模型卡片未过后端准入闸门时只作看板，mock 模型不能写入待人工复核候选 |
 | 交付证据页 | `/delivery` 调用 `GET /api/platform/delivery-report` 展示只读运行证据；导出脚本可生成 Markdown 交付包 | 页面和脚本不触发训练、demo-check 或 Provider 请求；Provider 状态拆成 `configured`、`self_test_verified`、`admission_provider_called` 和 `real_inference_verified`，配置齐全不等于真实推理已验证；`report_integrity` 必须为 `writes_state=false` 且不返回 key/base；UI smoke 会硬性检查 `data-delivery-source=backend`、`data-delivery-integrity=clean` 和 Provider 证据 data attrs；后端文本在前端会再次脱敏 |
 | Skills | 训练、反馈、报告、卡片、安全、审计技能可运行；运行后展示 `skill_run_receipt`、输入来源、执行来源、审计 ID 和下一步动作 | 面向受控编排，不允许自由越权调用；前端 fallback 不伪造后端审计 ID |
 
@@ -258,7 +258,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 node scripts\ui_smoke.mjs
 ```
 
-该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。首页会额外要求真实样例覆盖总账 `data-real-sample-ledger=true`，并检查记录数、映射题量和图片资产校验值；比拼训练会额外要求医师任务队列 `data-training-mission=true` 与 learner id 存在；比拼训练、报告生成和科普卡片页会额外校验关键主图：读取 `img[data-real-sample-image="true"][data-real-sample-role="primary"]` 的加载状态、`naturalWidth` 和 `naturalHeight`，避免缩略图已加载但主工作图实际未显示。`/delivery` 会额外等待 `data-delivery-loaded=true`，并要求 `data-delivery-source=backend`、`data-delivery-integrity=clean`、Provider configured/real/self-test/admission 证据字段存在；这能抓出旧 Vite 路由、后端断连、只读完整性异常或 Provider 证据边界回退。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
+该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。首页会额外要求真实样例覆盖总账 `data-real-sample-ledger=true`，并检查记录数、映射题量和图片资产校验值；比拼训练会额外要求医师任务队列 `data-training-mission=true` 与 learner id 存在；比拼训练、报告生成和科普卡片页会额外校验关键主图：读取 `img[data-real-sample-image="true"][data-real-sample-role="primary"]` 的加载状态、`naturalWidth` 和 `naturalHeight`，避免缩略图已加载但主工作图实际未显示。`/models` 会额外要求 `data-provider-ladder=true` 和 `data-provider-preview=true` 均来自 backend、证据阶梯不少于 6 步，并确认 dry-run 未发送请求、未保存 key；`/delivery` 会额外等待 `data-delivery-loaded=true`，并要求 `data-delivery-source=backend`、`data-delivery-integrity=clean`、Provider configured/real/self-test/admission 证据字段存在；这能抓出旧 Vite 路由、后端断连、只读完整性异常或 Provider 证据边界回退。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
 
 Provider 体检、Base URL 预检和自检 smoke：
 
@@ -267,7 +267,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 python scripts\provider_doctor.py
 ```
 
-`provider_doctor.py` 是推荐的第一步：它只读取本机 `.env` 是否存在、是否被 git 忽略，以及后端 diagnostics/preflight 状态，不发送模型请求、不打印 key/base 明文。后端 `.env` 配好并重启 FastAPI 后，可运行：
+`provider_doctor.py` 是推荐的第一步：它只读取本机 `.env` 是否存在、是否被 git 忽略，以及后端 diagnostics 证据阶梯/preflight 状态，不发送模型请求、不打印 key/base 明文。后端 `.env` 配好并重启 FastAPI 后，可运行：
 
 ```powershell
 python scripts\provider_doctor.py --self-test --include-image
@@ -282,7 +282,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 python scripts\provider_smoke.py --api-base http://127.0.0.1:9999/v1
 ```
 
-该命令默认自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并要求后端暴露 Provider 诊断、预检、自检和收据能力。脚本会先打印 `/api/provider/diagnostics` 的脱敏摘要，包括 Provider 模式、缺失配置、公开样例数、最近自检/准入审计和准入状态；随后调用 `/api/provider/preflight`，不需要 key、不发送模型请求、不写审计。预检通过并准备真实联调时，再设置本地环境变量运行自检：
+该命令默认自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并要求后端暴露 Provider 诊断、证据阶梯、预检、自检和收据能力。脚本会先打印 `/api/provider/diagnostics` 的脱敏摘要，包括 Provider 模式、缺失配置、公开样例数、最近自检/准入审计、准入状态和六步 evidence ladder；随后调用 `/api/provider/preflight`，不需要 key、不发送模型请求、不写审计。预检通过并准备真实联调时，再设置本地环境变量运行自检：
 
 ```powershell
 $env:LLM_API_KEY="your-local-key"

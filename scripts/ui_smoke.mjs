@@ -10,6 +10,7 @@ const REAL_IMAGE_SELECTOR = 'img[data-real-sample-image="true"]'
 const REQUIRED_REAL_IMAGE_SELECTOR = 'img[data-real-sample-image="true"][data-real-sample-role="primary"]'
 const DELIVERY_EVIDENCE_SELECTOR = '[data-delivery-loaded="true"]'
 const PROVIDER_PREVIEW_SELECTOR = '[data-provider-preview="true"]'
+const PROVIDER_LADDER_SELECTOR = '[data-provider-ladder="true"]'
 
 function parseArgs(argv) {
   const args = {
@@ -192,6 +193,11 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
       `document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewSource === "backend"`,
       Math.min(timeoutMs, 9000),
     ).catch(() => null)
+    await waitForRuntimeValue(
+      client,
+      `document.querySelector(${JSON.stringify(PROVIDER_LADDER_SELECTOR)})?.dataset.providerLadderSource === "backend"`,
+      Math.min(timeoutMs, 9000),
+    ).catch(() => null)
   }
   const result = await client.send('Runtime.evaluate', {
     expression: `(() => {
@@ -233,6 +239,11 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
         providerPreviewKeyPersisted: document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewKeyPersisted || '',
         providerPreviewSamples: Number(document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewSamples || 0),
         providerPreviewImages: Number(document.querySelector(${JSON.stringify(PROVIDER_PREVIEW_SELECTOR)})?.dataset.providerPreviewImages || 0),
+        providerLadderLoaded: Boolean(document.querySelector(${JSON.stringify(PROVIDER_LADDER_SELECTOR)})),
+        providerLadderSource: document.querySelector(${JSON.stringify(PROVIDER_LADDER_SELECTOR)})?.dataset.providerLadderSource || '',
+        providerLadderReal: document.querySelector(${JSON.stringify(PROVIDER_LADDER_SELECTOR)})?.dataset.providerLadderReal || '',
+        providerLadderCurrent: document.querySelector(${JSON.stringify(PROVIDER_LADDER_SELECTOR)})?.dataset.providerLadderCurrent || '',
+        providerLadderSteps: Number(document.querySelector(${JSON.stringify(PROVIDER_LADDER_SELECTOR)})?.dataset.providerLadderSteps || 0),
         realImages: Array.from(document.querySelectorAll(${JSON.stringify(REAL_IMAGE_SELECTOR)})).map(toImageInfo),
         requiredRealImages: Array.from(document.querySelectorAll(${JSON.stringify(REQUIRED_REAL_IMAGE_SELECTOR)})).map(toImageInfo),
         blank: (document.querySelector('#root')?.childElementCount || 0) === 0 || document.body.innerText.length < 80
@@ -472,6 +483,11 @@ async function main() {
       if (requiresProviderPreview(route) && result.providerPreviewKeyPersisted !== 'false') failures.push(`${route}: Provider request preview unexpectedly persisted key`)
       if (requiresProviderPreview(route) && result.providerPreviewSamples <= 0) failures.push(`${route}: Provider request preview did not bind public samples`)
       if (requiresProviderPreview(route) && result.providerPreviewImages <= 0) failures.push(`${route}: Provider request preview did not plan image attachments`)
+      if (requiresProviderPreview(route) && !result.providerLadderLoaded) failures.push(`${route}: missing Provider evidence ladder`)
+      if (requiresProviderPreview(route) && result.providerLadderSource !== 'backend') failures.push(`${route}: Provider evidence ladder source is ${result.providerLadderSource || 'missing'}, expected backend`)
+      if (requiresProviderPreview(route) && !['true', 'false'].includes(result.providerLadderReal)) failures.push(`${route}: Provider evidence ladder real flag missing`)
+      if (requiresProviderPreview(route) && result.providerLadderCurrent === 'none') failures.push(`${route}: Provider evidence ladder current step missing`)
+      if (requiresProviderPreview(route) && result.providerLadderSteps < 6) failures.push(`${route}: Provider evidence ladder has too few steps`)
       if (result.runtime_errors.length) failures.push(`${route}: runtime errors: ${result.runtime_errors.join(' | ')}`)
       if (result.console_errors.length) failures.push(`${route}: console errors: ${result.console_errors.join(' | ')}`)
     }

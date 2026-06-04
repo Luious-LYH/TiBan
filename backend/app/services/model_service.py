@@ -70,6 +70,7 @@ class ModelService:
 
     def provider_diagnostics(self) -> dict[str, object]:
         provider_status = llm_provider.status()
+        preflight = llm_provider.preflight("")
         admission_state = self.admission_state()
         audit_logs = read_json("audit_logs.json")
         self_tests = [item for item in audit_logs if item.get("event_type") == "provider_self_test"]
@@ -107,6 +108,13 @@ class ModelService:
             "public_sample_count": len(samples),
             "latest_self_test": self._latest_audit_summary(self_tests),
             "latest_admission": self._latest_audit_summary(admissions),
+            "evidence_ladder": self._provider_evidence_ladder(
+                provider_status=provider_status,
+                preflight=preflight,
+                admission_state=admission_state,
+                self_tests=self_tests,
+                samples=samples,
+            ),
             "admission_state": {
                 "provider_name": admission_state.get("provider_name", "未记录"),
                 "grade": admission_state.get("grade", "NA"),
@@ -146,6 +154,127 @@ class ModelService:
             "safety_notice": SAFETY_NOTICE,
             "created_at": now_iso(),
         }
+
+    def _provider_evidence_ladder(
+        self,
+        *,
+        provider_status: dict[str, object],
+        preflight: dict[str, object],
+        admission_state: dict[str, object],
+        self_tests: list[dict],
+        samples: list[dict],
+    ) -> list[dict[str, object]]:
+        configured = bool(provider_status.get("configured"))
+        base_ready = bool(provider_status.get("base_url_configured"))
+        key_ready = bool(provider_status.get("api_key_configured"))
+        provider_declared = provider_status.get("provider") != "mock"
+        sample_count = len(samples)
+        preflight_ok = bool(preflight.get("ok"))
+        self_test_logged = bool(self_tests)
+        self_test_verified = any(bool((item.get("metadata") or {}).get("provider_called")) for item in self_tests)
+        latest_self_test = self_tests[0] if self_tests else None
+        admission_provider_called = bool(admission_state.get("provider_called"))
+        reference_aligned_count = int(admission_state.get("reference_aligned_count", 0) or 0)
+        safe_for_training = bool(admission_state.get("safe_for_training"))
+        latest_self_state = "已通过" if self_test_verified else "已记录但未通过" if self_test_logged else "未记录"
+
+        env_missing = []
+        if not base_ready:
+            env_missing.append("LLM_BASE_URL")
+        if not key_ready:
+            env_missing.append("LLM_API_KEY")
+        if not provider_declared:
+            env_missing.append("LLM_PROVIDER")
+
+        def step(
+            step_id: str,
+            label: str,
+            state: str,
+            evidence: str,
+            action: str,
+            proof_kind: str,
+            href: str = "/models",
+        ) -> dict[str, object]:
+            return {
+                "id": step_id,
+                "label": label,
+                "state": state,
+                "evidence": evidence,
+                "action": action,
+                "href": href,
+                "proof_kind": proof_kind,
+            }
+
+        return [
+            step(
+                "provider_env",
+                "Provider 配置",
+                "done" if configured else "current",
+                (
+                    f"后端 .env 已声明 Provider、Base 与 Key；模型 {self._public_model_label(provider_status.get('model'), '未指定模型')}。"
+                    if configured
+                    else f"缺失 {', '.join(env_missing) if env_missing else '有效 Provider 配置'}；当前只能保持 rule 模式。"
+                ),
+                "补齐 backend/.env 并重启 FastAPI；不要把 .env 或 key 提交到 git。",
+                "config",
+            ),
+            step(
+                "base_preflight",
+                "Base 安全预检",
+                "done" if preflight_ok else "blocked" if base_ready else "pending",
+                (
+                    f"URL 安全策略允许；将尝试 {', '.join(preflight.get('endpoint_paths', []) or ['chat completions'])}。"
+                    if preflight_ok
+                    else f"预检未通过：{preflight.get('blocked_reason') or 'missing_base_url'}；未发送 Provider 请求。"
+                ),
+                "在页面或 provider_doctor 中修正 API Base，直到预检显示 allowed。",
+                "preflight",
+            ),
+            step(
+                "request_preview",
+                "请求预演收据",
+                "current" if preflight_ok and sample_count else "pending",
+                f"下方 dry-run 收据会绑定公开样例 {sample_count} 条，只展示 endpoint path、请求字段和图片计划；不接收真实 key，不发送请求。",
+                "确认 request_sent=false、key_persisted=false、reference_answer_sent=false 后再自检。",
+                "dry_run",
+            ),
+            step(
+                "provider_self_test",
+                "文本/视觉自检",
+                "done" if self_test_verified else "blocked" if self_test_logged and configured else "current" if configured and preflight_ok else "pending",
+                (
+                    f"{latest_self_state}；最近审计 {latest_self_test.get('id') if latest_self_test else 'audit_id: -'}。"
+                    if self_test_logged
+                    else "尚无 provider_self_test 审计；配置完成后先做文本轻量自检，再做视觉通道自检。"
+                ),
+                "运行页面自检或 python scripts\\provider_doctor.py --self-test --include-image。",
+                "self_test",
+            ),
+            step(
+                "blind_admission",
+                "公开样例准入",
+                "done" if admission_provider_called else "current" if self_test_verified else "pending",
+                (
+                    f"最近准入已真实调用 Provider；Grade {admission_state.get('grade', 'NA')} · {admission_state.get('total_score', 0)}，公开标注对齐 {reference_aligned_count} 条。"
+                    if admission_provider_called
+                    else "最近准入仍是规则草案；Provider 不会看到公开参考答案，返回后才做粗粒度对齐。"
+                ),
+                "选择最多 3 个公开样例运行 blind probe 准入，并查看 admission_receipt。",
+                "admission",
+            ),
+            step(
+                "candidate_unlock",
+                "候选启用闸门",
+                "done" if admission_provider_called and reference_aligned_count > 0 and safe_for_training else "blocked" if admission_provider_called else "pending",
+                (
+                    "已满足真实调用、公开标注对齐和安全阈值；仍需医生/管理员人工复核。"
+                    if admission_provider_called and reference_aligned_count > 0 and safe_for_training
+                    else "未满足真实 Provider 调用、公开标注对齐和安全阈值三项条件；mock 模型不能写入候选。"
+                ),
+                "准入通过后再使用 /models/select 写入待人工复核候选。",
+                "candidate",
+            ),
+        ]
 
     def provider_preflight(self, request: ProviderPreflightRequest) -> ProviderPreflightResponse:
         result = llm_provider.preflight(request.api_base)

@@ -63,6 +63,7 @@ const requiredApiCapabilities = [
   'provider_visual_self_test',
   'provider_self_test_receipt',
   'provider_diagnostics',
+  'provider_evidence_ladder',
   'provider_preflight',
   'provider_request_preview',
   'report_upload_receipt',
@@ -299,6 +300,20 @@ function normalizeProviderAuditSummary(value: unknown): ProviderAuditSummary | n
 function normalizeProviderDiagnostics(value: unknown, fallback: ProviderDiagnostics): ProviderDiagnostics {
   const record = asRecord(value)
   const state = asRecord(record.admission_state)
+  const evidenceLadder = Array.isArray(record.evidence_ladder)
+    ? record.evidence_ladder.map((item) => {
+        const step = asRecord(item)
+        return {
+          id: asString(step.id, 'provider_step'),
+          label: asString(step.label, '证据步骤'),
+          state: asString(step.state, 'pending'),
+          evidence: asString(step.evidence, ''),
+          action: asString(step.action, ''),
+          href: asString(step.href, '/models'),
+          proof_kind: asString(step.proof_kind, 'status'),
+        }
+      })
+    : fallback.evidence_ladder
   return {
     ...fallback,
     ...record,
@@ -313,6 +328,7 @@ function normalizeProviderDiagnostics(value: unknown, fallback: ProviderDiagnost
     public_sample_count: asNumber(record.public_sample_count, fallback.public_sample_count),
     latest_self_test: normalizeProviderAuditSummary(record.latest_self_test) || fallback.latest_self_test,
     latest_admission: normalizeProviderAuditSummary(record.latest_admission) || fallback.latest_admission,
+    evidence_ladder: evidenceLadder,
     admission_state: {
       provider_name: asString(state.provider_name, fallback.admission_state.provider_name),
       grade: asString(state.grade, fallback.admission_state.grade),
@@ -1843,6 +1859,26 @@ export const api = {
       public_sample_count: 0,
       latest_self_test: null,
       latest_admission: null,
+      evidence_ladder: [
+        {
+          id: 'backend_api',
+          label: '后端连接',
+          state: 'blocked',
+          evidence: '前端无法连接 Provider diagnostics；不能证明配置、预检或真实调用状态。',
+          action: '启动 FastAPI 后端并刷新 /models。',
+          href: '/models',
+          proof_kind: 'fallback',
+        },
+        {
+          id: 'provider_env',
+          label: 'Provider 配置',
+          state: 'pending',
+          evidence: '后端未连接前不会读取 .env 状态。',
+          action: '后端在线后再查看 .env 缺失项。',
+          href: '/models',
+          proof_kind: 'config',
+        },
+      ],
       admission_state: {
         provider_name: '未连接后端',
         grade: 'NA',

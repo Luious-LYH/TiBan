@@ -7,12 +7,14 @@ from pathlib import Path
 from provider_smoke import (
     compact_admission_state,
     compact_audit,
+    compact_evidence_ladder,
     compact_provider_status,
     get_json,
     post_json,
     print_section,
     redact_provider_preview,
     resolve_backend,
+    validate_evidence_ladder,
 )
 
 
@@ -111,12 +113,13 @@ def main() -> int:
             "version": health.get("version"),
             "provider_capabilities_present": all(
                 capability in health.get("capabilities", [])
-                for capability in ["provider_diagnostics", "provider_preflight", "provider_request_preview", "provider_self_test", "provider_visual_self_test"]
+                for capability in ["provider_diagnostics", "provider_evidence_ladder", "provider_preflight", "provider_request_preview", "provider_self_test", "provider_visual_self_test"]
             ),
         },
     )
 
     diagnostics = get_json(api_base, "/provider/diagnostics", args.timeout)
+    validate_evidence_ladder(diagnostics.get("evidence_ladder"))
     diagnostics_public = {
         "ready_level": diagnostics.get("ready_level"),
         "provider_configured": diagnostics.get("provider_configured"),
@@ -130,6 +133,7 @@ def main() -> int:
         "latest_self_test": compact_audit(diagnostics.get("latest_self_test")),
         "latest_admission": compact_audit(diagnostics.get("latest_admission")),
         "admission_state": compact_admission_state(diagnostics.get("admission_state")),
+        "evidence_ladder": compact_evidence_ladder(diagnostics.get("evidence_ladder")),
         "blocking_reason": diagnostics.get("blocking_reason"),
     }
     print_section("Backend Provider diagnostics", diagnostics_public)

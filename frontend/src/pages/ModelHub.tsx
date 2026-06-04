@@ -138,6 +138,65 @@ function ProviderReceiptPanel({
   )
 }
 
+function ProviderEvidenceLadder({ diagnostics }: { diagnostics: ProviderDiagnostics }) {
+  const steps = diagnostics.evidence_ladder || []
+  const currentStep = steps.find((step) => step.state === 'current' || step.state === 'blocked') || steps.find((step) => step.state !== 'done') || steps[steps.length - 1]
+  const realVerified = Boolean(diagnostics.admission_state.provider_called && diagnostics.admission_state.safe_for_training)
+  const source = diagnostics.api_source || 'backend'
+  const iconFor = (state: string) => {
+    if (state === 'done') return <CheckCircle2 size={18} />
+    if (state === 'current') return <PlugZap size={18} />
+    if (state === 'blocked') return <ShieldAlert size={18} />
+    return <ActivitySquare size={18} />
+  }
+  const tagTone = (state: string): 'green' | 'red' | 'blue' | 'amber' => {
+    if (state === 'done') return 'green'
+    if (state === 'blocked') return 'red'
+    if (state === 'current') return 'blue'
+    return 'amber'
+  }
+  return (
+    <div
+      className={`provider-evidence-ladder ${realVerified ? 'verified' : 'not-verified'}`}
+      data-provider-ladder="true"
+      data-provider-ladder-source={source}
+      data-provider-ladder-real={String(realVerified)}
+      data-provider-ladder-current={currentStep?.id || 'none'}
+      data-provider-ladder-steps={steps.length}
+    >
+      <div className="provider-ladder-head">
+        <div>
+          <span>Inference evidence ladder</span>
+          <strong>真实推理证据阶梯</strong>
+        </div>
+        <Tag tone={realVerified ? 'green' : diagnostics.provider_configured ? 'amber' : 'red'}>
+          {realVerified ? 'real inference verified' : diagnostics.provider_configured ? 'configured · unverified' : diagnostics.provider_mode}
+        </Tag>
+      </div>
+      <div className="provider-ladder-track">
+        {steps.map((step, index) => (
+          <Link
+            className={`provider-ladder-step ${step.state}`}
+            to={step.href || '/models'}
+            key={step.id || `${step.label}_${index}`}
+            title={step.action}
+          >
+            <span className="provider-ladder-index">{index + 1}</span>
+            <span className="provider-ladder-icon">{iconFor(step.state)}</span>
+            <span className="provider-ladder-copy">
+              <em>{step.label}</em>
+              <strong>{step.evidence}</strong>
+              <small>{step.action}</small>
+            </span>
+            <span className="provider-ladder-kind">{step.proof_kind}</span>
+            <Tag tone={tagTone(step.state)}>{step.state}</Tag>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ProviderDiagnosticsCard({ diagnostics }: { diagnostics: ProviderDiagnostics }) {
   const configured = diagnostics.provider_configured
   const fallback = diagnostics.api_source === 'fallback'
@@ -161,6 +220,7 @@ function ProviderDiagnosticsCard({ diagnostics }: { diagnostics: ProviderDiagnos
           </span>
         </div>
       </div>
+      <ProviderEvidenceLadder diagnostics={diagnostics} />
       <div className="status-grid provider-diagnostics-grid">
         <div><span>公开样例</span><strong>{diagnostics.public_sample_count}</strong></div>
         <div><span>Base</span><strong>{diagnostics.base_url_configured ? '已配置' : '未配置'}</strong></div>

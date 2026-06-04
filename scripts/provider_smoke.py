@@ -12,6 +12,7 @@ DEFAULT_BACKENDS = ("http://127.0.0.1:8000/api", "http://127.0.0.1:8001/api")
 
 REQUIRED_CAPABILITIES = {
     "provider_diagnostics",
+    "provider_evidence_ladder",
     "provider_preflight",
     "provider_request_preview",
     "report_upload_receipt",
@@ -141,6 +142,47 @@ def compact_provider_status(status: dict | None) -> dict | None:
     }
 
 
+def compact_evidence_ladder(steps: object) -> list[dict[str, object]]:
+    if not isinstance(steps, list):
+        return []
+    compact: list[dict[str, object]] = []
+    for item in steps:
+        if not isinstance(item, dict):
+            continue
+        compact.append(
+            {
+                "id": item.get("id"),
+                "state": item.get("state"),
+                "proof_kind": item.get("proof_kind"),
+                "label": item.get("label"),
+            }
+        )
+    return compact
+
+
+def validate_evidence_ladder(steps: object) -> None:
+    compact = compact_evidence_ladder(steps)
+    required_ids = {
+        "provider_env",
+        "base_preflight",
+        "request_preview",
+        "provider_self_test",
+        "blind_admission",
+        "candidate_unlock",
+    }
+    ids = {str(item.get("id")) for item in compact}
+    missing = sorted(required_ids - ids)
+    invalid_states = [
+        item for item in compact
+        if item.get("state") not in {"done", "current", "pending", "blocked"}
+    ]
+    if missing or invalid_states:
+        raise RuntimeError(
+            "Provider evidence ladder is malformed: "
+            f"missing={missing or []}; invalid_states={invalid_states or []}"
+        )
+
+
 def resolve_backend(explicit_backend: str | None, timeout: float) -> tuple[str, dict]:
     candidates = [explicit_backend] if explicit_backend else list(DEFAULT_BACKENDS)
     errors: list[str] = []
@@ -189,6 +231,7 @@ def main() -> int:
     )
 
     diagnostics = get_json(api_base, "/provider/diagnostics", args.timeout)
+    validate_evidence_ladder(diagnostics.get("evidence_ladder"))
     diagnostics_public = {
         "ready_level": diagnostics.get("ready_level"),
         "provider_configured": diagnostics.get("provider_configured"),
@@ -201,6 +244,7 @@ def main() -> int:
         "latest_self_test": compact_audit(diagnostics.get("latest_self_test")),
         "latest_admission": compact_audit(diagnostics.get("latest_admission")),
         "admission_state": compact_admission_state(diagnostics.get("admission_state")),
+        "evidence_ladder": compact_evidence_ladder(diagnostics.get("evidence_ladder")),
         "blocking_reason": diagnostics.get("blocking_reason"),
         "next_actions": diagnostics.get("next_actions", []),
         "privacy_notice": diagnostics.get("privacy_notice"),

@@ -25,9 +25,9 @@ v2.0 起，涉及大模型或规则生成的接口会显式返回 `generation_mo
 
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、报告图像上传收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力的后端 |
+| GET | `/health` | 服务健康检查，返回 `version` 与 `capabilities`，用于前端选择具备 v2.0 Provider 联调状态检查、Provider 证据阶梯、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、报告图像上传收据、模型准入收据、知识库来源链、沙盒自检、沙盒恢复校验、考试/卡片闭环收据、挑战基准、挑战审计收据、科普卡片收据、科普卡片审核、Skill 运行收据和交付证据报告能力的后端 |
 | GET | `/provider/status` | 当前 OpenAI-compatible Provider 配置状态，不返回密钥 |
-| GET | `/provider/diagnostics` | Provider 联调状态检查；返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要、准入状态和下一步动作，不返回 key/base 明文或完整模型回复 |
+| GET | `/provider/diagnostics` | Provider 联调状态检查；返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要、准入状态、`evidence_ladder` 六步证据阶梯和下一步动作，不返回 key/base 明文或完整模型回复 |
 | POST | `/provider/preflight` | Provider Base URL 安全预检；不需要 key，不发送模型请求，不写审计；返回规范化预览、会尝试的 chat completions path、安全拦截原因和下一步动作 |
 | POST | `/provider/request-preview` | Provider 请求 dry-run 预演；只接收 key 是否存在的布尔值，不接收真实 key 字符串，不发送模型请求，不写审计/准入状态；返回 endpoint path、请求体字段、样例绑定、图片附加计划和隐私边界 |
 | POST | `/provider/self-test` | Provider 文本/视觉通道自检；视觉模式可附加一张公开样例图片，但不发送参考标注，不更新模型准入状态，不保存 key/base/完整回复；返回 `audit_log_id` 和 `self_test_receipt` |
@@ -364,6 +364,29 @@ POST /api/patient-card/card_xxx/approve
   "doctor_review_required": true
 }
 ```
+
+Provider 联调状态检查：
+
+`GET /api/provider/diagnostics` 会把“能不能真调用”拆成结构化 `evidence_ladder`，用于前端 `/models` 的真实推理证据阶梯和 `scripts/provider_smoke.py` 校验。状态值只允许 `done`、`current`、`pending`、`blocked`；其中 preflight 和 dry-run 只证明安全策略与请求计划，不证明已经发生 Provider 推理：
+
+```json
+{
+  "ready_level": "rule_mode",
+  "provider_configured": false,
+  "provider_mode": "rule",
+  "missing": ["LLM_BASE_URL", "LLM_API_KEY", "LLM_PROVIDER"],
+  "evidence_ladder": [
+    { "id": "provider_env", "label": "Provider 配置", "state": "current", "proof_kind": "config" },
+    { "id": "base_preflight", "label": "Base 安全预检", "state": "pending", "proof_kind": "preflight" },
+    { "id": "request_preview", "label": "请求预演收据", "state": "pending", "proof_kind": "dry_run" },
+    { "id": "provider_self_test", "label": "文本/视觉自检", "state": "pending", "proof_kind": "self_test" },
+    { "id": "blind_admission", "label": "公开样例准入", "state": "pending", "proof_kind": "admission" },
+    { "id": "candidate_unlock", "label": "候选启用闸门", "state": "pending", "proof_kind": "candidate" }
+  ]
+}
+```
+
+前端 `/models` 会通过 `data-provider-ladder=true`、`data-provider-ladder-source=backend`、`data-provider-ladder-real=true|false` 和 `data-provider-ladder-steps` 暴露该证据阶梯给 UI smoke。`data-provider-ladder-real=true` 只在最近准入同时满足真实 Provider 调用和训练安全阈值时出现。
 
 Provider Base URL 安全预检：
 
