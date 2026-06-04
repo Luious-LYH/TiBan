@@ -1466,6 +1466,7 @@ const localSubmission = (question: Question, selectedAnswer: string): Submission
       : `你的答案是“${selectedAnswer}”，参考答案是“${question.answer}”。${question.explanation}`,
     next_recommendation: question.false_premise_flag ? '建议继续练习错误前提与证据不足判断题。' : '建议进入复杂组合题训练证据链表达。',
     created_at: new Date().toISOString(),
+    profile_updated: false,
     doctor_review_required: true,
     safety_notice: safetyNotice,
   }
@@ -1565,14 +1566,22 @@ export const api = {
   },
 
   async submit(question: Question, selectedAnswer: string): Promise<SubmissionResponse> {
-    return request<SubmissionResponse>(
+    const fallback = localSubmission(question, selectedAnswer)
+    const response = await request<SubmissionResponse>(
       '/api/submit',
       {
         method: 'POST',
         body: JSON.stringify({ question_id: question.id, learner_id: 'demo_learner', selected_answer: selectedAnswer }),
       },
-      localSubmission(question, selectedAnswer),
+      fallback,
     )
+    return {
+      ...fallback,
+      ...response,
+      profile_updated: asBoolean(response.profile_updated, response.api_source === 'backend'),
+      doctor_review_required: asBoolean(response.doctor_review_required, fallback.doctor_review_required),
+      safety_notice: asString(response.safety_notice, safetyNotice),
+    }
   },
 
   async examSession(payload: {

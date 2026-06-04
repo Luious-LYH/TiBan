@@ -1370,6 +1370,142 @@ a {
   align-items: center;
 }
 
+.training-mission-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) minmax(260px, 0.8fr) minmax(360px, 1.15fr) auto;
+  gap: 14px;
+  align-items: center;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 253, 250, 0.78) 42%, rgba(239, 246, 255, 0.9));
+  border-color: #99f6e4;
+}
+
+.mission-doctor {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+}
+
+.mission-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  color: #0f766e;
+  background: #ccfbf1;
+  border: 1px solid #5eead4;
+  border-radius: 8px;
+}
+
+.mission-doctor h3 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.mission-doctor p,
+.mission-progress-panel em {
+  margin: 5px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.mission-progress-panel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mission-progress-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mission-progress-head strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.mission-progress-track {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  background: rgba(15, 118, 110, 0.12);
+  border-radius: 999px;
+}
+
+.mission-progress-track span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  min-width: 6px;
+  background: linear-gradient(90deg, #14b8a6, #2563eb);
+  border-radius: inherit;
+}
+
+.mission-progress-panel em {
+  display: block;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.mission-proof-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mission-proof-grid div {
+  min-width: 0;
+  padding: 10px 11px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 8px;
+}
+
+.mission-proof-grid span,
+.mission-proof-grid strong,
+.mission-proof-grid small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mission-proof-grid span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mission-proof-grid strong {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.mission-proof-grid small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .filter-panel {
   display: grid;
   grid-template-columns: repeat(5, minmax(120px, 1fr)) auto;
@@ -6033,6 +6169,7 @@ textarea {
   }
 
   .filter-panel,
+  .training-mission-card,
   .qbank-source-ledger,
   .dashboard-exam-replay,
   .feedback-session-card,
@@ -6051,6 +6188,10 @@ textarea {
   }
 
   .qbank-ledger-actions {
+    justify-content: flex-start;
+  }
+
+  .mission-actions {
     justify-content: flex-start;
   }
 
@@ -6247,6 +6388,7 @@ textarea {
   }
 
   .qbank-ledger-metrics,
+  .mission-proof-grid,
   .public-sample-jump-row,
   .current-source-grid,
   .dashboard-exam-metrics,

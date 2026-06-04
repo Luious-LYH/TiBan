@@ -27,11 +27,13 @@ class GradingService:
             explanation=self._explanation(question, selected, is_correct),
             next_recommendation=self.recommend_next(question, error_tags),
             created_at=now_iso(),
+            profile_updated=False,
             doctor_review_required=True,
             safety_notice=SAFETY_NOTICE,
         )
         if record:
             memory_service.record_submission(response)
+            response.profile_updated = True
             audit_service.log(
                 "answer_submit",
                 user_id=request.learner_id,

@@ -65,6 +65,7 @@ class SubmissionResponse(BaseModel):
     explanation: str
     next_recommendation: str
     created_at: str
+    profile_updated: bool = False
     doctor_review_required: bool = True
     safety_notice: str
 

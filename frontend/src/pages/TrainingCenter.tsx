@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { ActivitySquare, AlertTriangle, ArrowLeft, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, DatabaseZap, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Target, Trophy } from 'lucide-react'
+import { ActivitySquare, AlertTriangle, ArrowLeft, ArrowRight, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, DatabaseZap, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Target, Trophy, UserRound } from 'lucide-react'
 import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
 import { api } from '../lib/api'
-import { mockQuestions, safetyNotice } from '../lib/mock'
-import type { AuditLog, ChallengeBenchmarkResult, ExamSessionAttempt, ProviderStatus, Question, SubmissionResponse } from '../lib/types'
+import { mockDashboard, mockQuestions, safetyNotice } from '../lib/mock'
+import type { AuditLog, ChallengeBenchmarkResult, ExamSessionAttempt, LearnerProfile, ProviderStatus, Question, SubmissionResponse } from '../lib/types'
 
 type ChatMessage = {
   role: 'agent' | 'doctor'
@@ -115,6 +115,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [challengeBenchmarkLoading, setChallengeBenchmarkLoading] = useState(false)
   const [lastChallengeAudit, setLastChallengeAudit] = useState<AuditLog | null>(null)
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
+  const [learnerProfile, setLearnerProfile] = useState<LearnerProfile>(mockDashboard.learner_profile)
   const [imageLoadRecord, setImageLoadRecord] = useState<ImageLoadRecord>({ src: '', status: 'idle' })
   const [chat, setChat] = useState<ChatMessage[]>([
     buildInitialAgentMessage(mockQuestions[0]),
@@ -148,8 +149,20 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     ? '考试模式已隐藏提示，结束后统一复盘。'
     : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再同步后端挑战基准。' : isReportJudgeDrill ? `报告评分专项：${drillMeta?.focus || '先独立作答，再复盘证据边界。'}` : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。'
 
+  const refreshLearnerProfile = async () => {
+    try {
+      setLearnerProfile(await api.learnerProfile())
+    } catch {
+      setLearnerProfile(mockDashboard.learner_profile)
+    }
+  }
+
   useEffect(() => {
     api.providerStatus().then(setProviderStatus).catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    api.learnerProfile().then(setLearnerProfile).catch(() => setLearnerProfile(mockDashboard.learner_profile))
   }, [])
 
   useEffect(() => {
@@ -269,6 +282,31 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     ? ['用一句话总结错因', '给我下一题复盘策略', '帮我改写成报告表达']
     : ['按部位-形态-边界追问我', '这题最容易越界的判断是什么？', '给我一个不泄题提示']
   const visibleChat = chat.slice(1)
+  const learnerProgress = Math.min(100, Math.round((learnerProfile.completed_today / Math.max(learnerProfile.daily_target, 1)) * 100))
+  const learnerWeaknessTags = learnerProfile.weakness_tags.slice(0, 3)
+  const learnerRecommendedClasses = learnerProfile.recommended_question_classes.slice(0, 3)
+  const learnerLatestExam = learnerProfile.exam_sessions[0] || null
+  const missionModeLabel = mode === 'exam'
+    ? '考试 Session'
+    : isChallenge ? '医生 vs AI 比拼'
+      : isReportJudgeDrill ? '报告评分专项'
+        : view === 'wrong' ? '错题复盘'
+          : view === 'favorite' ? '收藏题训练'
+            : source === 'public' ? '公开样例训练'
+              : '日常证据式刷题'
+  const missionFocus = isReportJudgeDrill
+    ? drillMeta?.focus || '按报告 judge 推荐薄弱项筛题。'
+    : isChallenge ? '先独立作答，提交后再解锁挑战基准和审计收据。'
+      : mode === 'exam' ? '整场交卷后写入考试摘要、错题队列和画像记录。'
+        : learnerWeaknessTags.length ? `优先修复：${learnerWeaknessTags.join('、')}。` : '保持公开样例、报告表达和证据边界训练节奏。'
+  const missionWriteback = mode === 'exam'
+    ? examSessionSaved ? '考试摘要已写入画像' : '交卷后写入画像'
+    : isChallenge ? submission ? (submission.profile_updated ? '答题已写入；基准只写审计' : '前端预览；基准未写画像') : '提交写画像；基准只写审计'
+      : submission ? (submission.profile_updated ? '本题提交已回灌画像' : '前端预览未写入画像') : '提交/追问后形成 Memory 记录'
+  const missionNextHref = learnerProfile.wrong_questions.length
+    ? '/training?view=wrong'
+    : learnerRecommendedClasses[0] ? `/training?question_class=${encodeURIComponent(learnerRecommendedClasses[0])}` : '/training?source=public'
+  const missionUpdatedAt = formatAuditTime(learnerProfile.updated_at)
 
   const updateFilter = (key: keyof Filters, value: string) => {
     setFilters((current) => ({ ...current, [key]: value }))
@@ -330,6 +368,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
         { role: 'doctor', text: `我选择：${selectedAnswer}` },
         { role: 'agent', text: `${result.is_correct ? '回答正确。' : '这题需要复盘。'}${result.explanation} 下一步：${result.next_recommendation}`, mode: 'rule' },
       ])
+      if (result.profile_updated) void refreshLearnerProfile()
       setTutorTab('compare')
       if (isChallenge) {
         syncChallengeBenchmark(question, selectedAnswer, result)
@@ -399,6 +438,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setAgentMode(result.generation_mode || 'rule')
       setChat((items) => [...items, { role: 'agent', text: result.reply, mode: result.generation_mode }])
       setMemorySync(result.memory_summary || (result.profile_updated ? '已写入医师画像。' : '当前未写入后端医师画像。'))
+      if (result.profile_updated) void refreshLearnerProfile()
     } catch {
       setAgentMode('fallback')
       setChat((items) => [...items, { role: 'agent', text: '当前辅导接口暂不可用，请先按证据链完成本题，稍后再追问 Agent。', mode: 'fallback' }])
@@ -409,7 +449,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const toggleFavorite = async () => {
     const nextValue = !question.is_favorited
     try {
-      await api.favorite(question.id, nextValue)
+      const updatedProfile = await api.favorite(question.id, nextValue)
+      setLearnerProfile(updatedProfile)
       setQuestions((items) => items.map((item) => item.id === question.id ? { ...item, is_favorited: nextValue, review_status: nextValue ? '收藏中' : item.review_status } : item))
     } catch {
       setHint('收藏接口暂不可用，本次状态未写入后端。')
@@ -465,6 +506,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setExamSessionSaved(Boolean(result.profile_updated))
       setHint(result.profile_updated ? '本场考试已交卷并写入画像。请从战报进入错因复盘，或重开本场继续训练。' : '本场考试已交卷，但后端未写入画像；请确认后端在线后可再次同步。')
       setMemorySync(result.memory_summary)
+      if (result.profile_updated) void refreshLearnerProfile()
     } catch {
       setExamSessionSaved(false)
       setHint('本场考试已交卷，但 Session 汇总同步失败；请稍后重试。')
@@ -518,6 +560,57 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
         <div className="mode-switch">
           <Tag tone={mode === 'exam' || isChallenge || isReportJudgeDrill ? 'amber' : 'green'}>{mode === 'exam' ? '计时考试' : isChallenge ? '比拼模式' : isReportJudgeDrill ? '报告专项' : '练习辅导'}</Tag>
           <Tag tone="blue">{filteredQuestions.length} 题</Tag>
+        </div>
+      </Card>
+
+      <Card
+        className="training-mission-card"
+        data-training-mission="true"
+        data-learner-id={learnerProfile.learner_id}
+        data-training-mode={missionModeLabel}
+      >
+        <div className="mission-doctor">
+          <div className="mission-avatar"><UserRound size={24} /></div>
+          <div>
+            <span className="eyebrow">Current physician mission</span>
+            <h3>{learnerProfile.name} · {missionModeLabel}</h3>
+            <p>{learnerProfile.title} · {learnerProfile.department} · {learnerProfile.training_stage}</p>
+          </div>
+        </div>
+        <div className="mission-progress-panel">
+          <div className="mission-progress-head">
+            <span>今日训练</span>
+            <strong>{learnerProfile.completed_today}/{learnerProfile.daily_target}</strong>
+          </div>
+          <div className="mission-progress-track" aria-label={`今日训练完成 ${learnerProgress}%`}>
+            <span style={{ width: `${learnerProgress}%` }} />
+          </div>
+          <em>{missionFocus}</em>
+        </div>
+        <div className="mission-proof-grid">
+          <div>
+            <span>画像写入</span>
+            <strong>{missionWriteback}</strong>
+            <small>Memory updated {missionUpdatedAt}</small>
+          </div>
+          <div>
+            <span>薄弱标签</span>
+            <strong>{learnerWeaknessTags.join(' / ') || '暂无薄弱标签'}</strong>
+            <small>{learnerRecommendedClasses.join(' / ') || '继续公开样例训练'}</small>
+          </div>
+          <div>
+            <span>最近考试</span>
+            <strong>{learnerLatestExam ? `${learnerLatestExam.accuracy}% · ${learnerLatestExam.wrong_questions.length}错题` : '等待考试 Session'}</strong>
+            <small>{learnerLatestExam?.session_id || '交卷后生成 session 复盘入口'}</small>
+          </div>
+        </div>
+        <div className="mission-actions">
+          <Link className="button secondary" to="/profile?tab=records">
+            <ActivitySquare size={16} /> 画像记录
+          </Link>
+          <Link className="button primary" to={missionNextHref}>
+            <ArrowRight size={16} /> 下一组训练
+          </Link>
         </div>
       </Card>
 

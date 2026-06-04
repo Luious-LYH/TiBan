@@ -1,7 +1,11 @@
-import type { ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`card ${className}`}>{children}</section>
+type CardProps = HTMLAttributes<HTMLElement> & {
+  children: ReactNode
+}
+
+export function Card({ children, className = '', ...props }: CardProps) {
+  return <section {...props} className={`card ${className}`}>{children}</section>
 }
 
 export function SectionTitle({
@@ -40,4 +44,3 @@ export function SafetyNotice({ text }: { text: string }) {
 export function EmptyState({ children }: { children: ReactNode }) {
   return <div className="empty-state">{children}</div>
 }
-

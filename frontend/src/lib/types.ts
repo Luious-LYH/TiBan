@@ -139,6 +139,7 @@ export type SubmissionResponse = {
   explanation: string
   next_recommendation: string
   created_at: string
+  profile_updated: boolean
   doctor_review_required: boolean
   safety_notice: string
   api_source?: 'backend' | 'fallback'

@@ -62,7 +62,7 @@ http://127.0.0.1:5173/delivery
    首页还提供“沙盒自检 / 写入演示画像”双按钮：沙盒会真实触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计写入，再自动恢复数据；正式写入会保留画像、审计和卡片运行记录。两种模式都会返回 9 张证据收据，包含 `challenge_benchmark`、`exam_session`、`patient_card` 和 `patient_card_approve` 审计验证，后端不可用时不会用前端 fallback 伪造通过。
 2. 交付证据页 `/delivery` 会把同一后端只读报告渲染成评委可看的证据面板；UI smoke 会硬性检查该页来自 backend 且 `report_integrity=clean`，避免旧前端路由、后端断连或只读完整性异常被误判为通过。
 3. 顶部 Provider 状态条会显示当前处于 `provider`、`rule` 还是 `fallback`；模型准入页还会展示 Provider 联调状态检查，列出缺失配置、公开样例数、最近自检/准入审计和隐私边界，避免把规则草案伪装成真实推理。
-4. 训练中心右侧 Agent 分为“辅导 / 证据 / 对照”，提交前隐藏参考答案；追问会记录训练标签和模式，不保存自由追问原文。
+4. 训练中心顶部新增林知远医师任务队列，读取后端画像展示今日进度、薄弱标签、最近考试、画像写入状态和下一组训练入口；提交答案、收藏题目、Agent 追问或考试交卷后会刷新画像。右侧 Agent 分为“辅导 / 证据 / 对照”，提交前隐藏参考答案；追问会记录训练标签和模式，不保存自由追问原文。
 5. 报告中心会以流程工作台区分医生输入、公开样例标注、模板知识库、Provider 输出和医师复核任务。
 6. 报告修改训练提交后会回灌林知远医师画像，更新训练记录、能力分和弱项标签，并返回下一步专项训练入口。
 7. 考试模式是一个全局 session：12 分钟倒计时不会因单题提交重置，页面会累计已答题、正确率、平均分、错题 strip；交卷复盘会调用后端写入整场考试摘要、医师画像和审计日志，并通过 `/feedback?session=...` 按本场考试恢复错题队列；首页和画像页会同步展示最近一场考试的可复盘收据。
@@ -86,7 +86,7 @@ http://127.0.0.1:5173/delivery
 - 新增 `scripts/provider_smoke.py` 作为终端联调入口：默认自动探测 `8000/8001` 最新 v2.0 后端，并要求后端暴露 Provider 诊断、预检、自检和收据能力；脚本会先打印脱敏后的 `/api/provider/diagnostics` 摘要，再调用 `/api/provider/preflight`，只在预检通过且明确提供 key 或使用后端 `.env` key 时才运行 Provider 自检；脚本不会打印 API key、API base 明文或完整模型回复。
 - 新增 `scripts/demo_smoke.py` 作为答辩前一键自检入口：默认自动探测 `8000/8001` 后端，调用 `/api/health`、`/api/platform/readiness` 和 `/api/platform/demo-check?persist=false`，确认真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告训练、考试 Session、科普卡片草稿、同卡片医生审核、画像写入恢复和审计收据均可跑通；默认沙盒模式会自动恢复画像、审计和卡片运行数据，并二次确认 readiness 摘要未变化。
 - 新增 `/delivery` 页面、`GET /api/platform/delivery-report` 和 `scripts/export_delivery_report.py` 作为答辩交付证据包入口：后端只读汇总当前 readiness、医师画像、知识库来源链、审计事件分布、Provider/准入边界、验证命令和 `report_integrity`；脚本默认导出到 `runtime_logs/delivery_evidence_report.md`，不会写画像/审计/卡片状态，不返回 API key 或 Provider Base 明文。需要交给评委时可指定 `--output docs\DELIVERY_EVIDENCE_REPORT.md` 生成 Markdown。
-- 新增 `scripts/ui_smoke.mjs` 作为前端路由巡检入口：自动启动本机 Edge/Chrome 无头浏览器，检查首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由非空白、无 runtime/console error，并确认全局 Live evidence 证据条存在；比拼训练、报告生成和科普卡片路由还会读取关键主图的真实公开样例标记、`naturalWidth/naturalHeight` 和加载状态，防止缩略图能加载但主工作图实际未显示；交付证据页会额外要求 `data-delivery-source=backend` 与 `data-delivery-integrity=clean`。
+- 新增 `scripts/ui_smoke.mjs` 作为前端路由巡检入口：自动启动本机 Edge/Chrome 无头浏览器，检查首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由非空白、无 runtime/console error，并确认全局 Live evidence 证据条存在；比拼训练会额外要求医师任务队列 `data-training-mission=true` 与 learner id 存在；比拼训练、报告生成和科普卡片路由还会读取关键主图的真实公开样例标记、`naturalWidth/naturalHeight` 和加载状态，防止缩略图能加载但主工作图实际未显示；交付证据页会额外要求 `data-delivery-source=backend` 与 `data-delivery-integrity=clean`。
 - 新增 `scripts/verify_all.py` 作为答辩前总控验证入口：在后端和前端服务已启动后，一次串联后端编译、沙盒闭环自检、Provider Base URL 安全预检、交付证据包导出、前端路由 smoke、`npm run lint`、`npm run build`、`git diff --check`、真实公开样例图片资产一致性检查、`sk-*` 形态密钥扫描和运行状态文件内容指纹保护；默认 Provider 预检使用本机假地址，不发送 key、不写审计，终端输出会脱敏 API key 和 Provider URL。轻量巡检可加 `--skip-build`，只排查后端/Provider/UI/安全状态。
 - 科普卡片已从单纯预览升级为“公开样例图像池 -> 草稿生成 -> 同一 `card_id` 医生审核 -> 分享/打印解锁 -> 审计记录”的受控流程。
 - Skills 中心展示受控运行摘要、医生复核状态和工作区跳转，完整 JSON 只放在开发细节折叠项中。

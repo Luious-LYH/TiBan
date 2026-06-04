@@ -8,7 +8,7 @@
 
 - Frontend: React + Vite + TypeScript, lucide-react, Recharts
 - Backend: FastAPI + Pydantic
-- Data: JSON mock 数据
+- Data: 本地 JSON 状态 + 真实公开图文样例映射 + 报告/卡片知识库
 - Agent: 规则/模板编排 + OpenAI-compatible Provider 可选调用
 - Safety: 统一 safety_notice、doctor_review_required、敏感标记脱敏、审计日志
 
@@ -69,7 +69,7 @@ LLM_TIMEOUT_SECONDS=25
 
 1. 首页总览：先看“平台真实性与演示路径”“可核验证据收据”和“真实数据来源链”，确认后端、公开样例、画像、报告/科普知识库、Provider、自检/准入、挑战基准审计和审计日志状态；来源链会列出 `real_sample_knowledge.json`、`report_knowledge_base.json`、`card_template_knowledge.json` 的条数、样例 ID 和消费页面；“沙盒自检”会真实跑通训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分和审计链路后自动恢复数据，“写入演示画像”才保留留痕。
 2. 交付证据 `/delivery`：确认页面显示 `backend live`、`只读且无密钥`、平台就绪度、工作流 proof、知识库来源、审计计数和验证命令。这个页面适合回答“你怎么证明它不是静态页”。
-3. 训练中心：右侧 Agent 默认只辅导当前题，不提前泄露参考答案；考试模式有全局 session 倒计时、累计战报、交卷复盘入口；比拼模式提交前锁住证据页，提交后调用后端挑战基准，并在比分板展示最近 `challenge_benchmark` 后端审计收据；Provider 可用时用 Provider 作答，不通时明确回退公开标注 fallback。
+3. 训练中心：顶部先展示林知远医师的本轮任务队列、今日进度、薄弱标签、最近考试和画像写入状态；提交答案、收藏、Agent 追问和考试交卷后会刷新后端画像。右侧 Agent 默认只辅导当前题，不提前泄露参考答案；考试模式有全局 session 倒计时、累计战报、交卷复盘入口；比拼模式提交前锁住证据页，提交后调用后端挑战基准，并在比分板展示最近 `challenge_benchmark` 后端审计收据；Provider 可用时用 Provider 作答，不通时明确回退公开标注 fallback。
 4. 错因分析：查看 atomic facts、错因标签和下一题推荐。
 5. 错误前提训练：先让林知远医师独立判断题干是否成立，提交后才解锁证据不足事实、得分和复盘建议。
 6. 报告中心：选择真实公开样例或上传图片，在流程工作台中完成“图像/所见 -> 草稿 -> 证据台账 -> 医师复核”；可用后端 `.env` 或页面临时 Provider 做一次真实推理，公开 VQA 标注默认收进来源台账，不伪装成医生报告结论。
@@ -83,7 +83,7 @@ LLM_TIMEOUT_SECONDS=25
 
 | 模块 | v2.0 模式 | 数据来源 | 说明 |
 |---|---|---|---|
-| 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` | 公开样例优先展示，支持错题/收藏/筛选；考试模式有全局倒计时、累计正确率、平均分，交卷后通过 `/api/learner/exam-session` 写入画像和审计 |
+| 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` + `learner_profile.json` | 公开样例优先展示，支持错题/收藏/筛选；训练页顶部任务队列读取林知远医师画像，显示今日进度、薄弱项、最近考试和下一组训练入口；提交答案、收藏、Agent 追问和考试交卷后刷新画像；考试模式有全局倒计时、累计正确率、平均分，交卷后通过 `/api/learner/exam-session` 写入画像和审计 |
 | 首页闭环自检 | backend sandbox / persistence | 公开样例 + `learner_profile.json` + `audit_logs.json` | `persist=false` 真实写入后自动恢复，`persist=true` 才保留演示画像和审计；首页同时展示 `knowledge_source_chain`，说明本地知识库被哪些功能消费 |
 | 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案；挑战模式提交后才调用后端挑战基准，比分板只在真实后端审计存在时显示最近 `challenge_benchmark` 收据，基准不重复回灌画像；追问会回灌训练事件但不保存原文 |
 | 错误前提训练 | backend rule | false-premise 题库 + atomic facts | 先作答后解锁证据不足事实、得分和复盘建议 |

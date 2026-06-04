@@ -205,6 +205,9 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
         bodyLength: document.body.innerText.length,
         hasLiveEvidence: Boolean(document.querySelector('.sidebar-evidence')),
         evidenceText: (document.querySelector('.sidebar-evidence')?.innerText || '').slice(0, 220),
+        trainingMissionLoaded: Boolean(document.querySelector('[data-training-mission="true"]')),
+        trainingMissionLearner: document.querySelector('[data-training-mission="true"]')?.dataset.learnerId || '',
+        trainingMissionMode: document.querySelector('[data-training-mission="true"]')?.dataset.trainingMode || '',
         deliveryLoaded: Boolean(document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})),
         deliverySource: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliverySource || '',
         deliveryIntegrity: document.querySelector(${JSON.stringify(DELIVERY_EVIDENCE_SELECTOR)})?.dataset.deliveryIntegrity || '',
@@ -249,6 +252,10 @@ function requiresRealImage(route) {
 
 function requiresDeliveryEvidence(route) {
   return route.startsWith('/delivery')
+}
+
+function requiresTrainingMission(route) {
+  return route.startsWith('/training')
 }
 
 async function waitForRuntimeValue(client, expression, timeoutMs) {
@@ -337,6 +344,8 @@ async function main() {
       if (!result.hasLiveEvidence) failures.push(`${route}: missing global Live evidence sidebar`)
       if (requiresRealImage(route) && !result.has_loaded_required_real_image) failures.push(`${route}: missing loaded primary real sample image`)
       if (requiresRealImage(route) && result.broken_required_real_images.length) failures.push(`${route}: broken primary real sample images: ${JSON.stringify(result.broken_required_real_images)}`)
+      if (requiresTrainingMission(route) && !result.trainingMissionLoaded) failures.push(`${route}: missing physician training mission card`)
+      if (requiresTrainingMission(route) && !result.trainingMissionLearner) failures.push(`${route}: training mission learner id missing`)
       if (requiresDeliveryEvidence(route) && !result.deliveryLoaded) failures.push(`${route}: delivery evidence report did not finish loading`)
       if (requiresDeliveryEvidence(route) && result.deliverySource !== 'backend') failures.push(`${route}: delivery evidence source is ${result.deliverySource || 'missing'}, expected backend`)
       if (requiresDeliveryEvidence(route) && result.deliveryIntegrity !== 'clean') failures.push(`${route}: delivery evidence integrity is ${result.deliveryIntegrity || 'missing'}, expected clean`)

@@ -167,6 +167,7 @@ function buildReviewSnapshot(question: Question): SubmissionResponse {
     explanation: `复盘快照：${question.explanation} 请对照参考答案重新检查证据链。`,
     next_recommendation: question.false_premise_flag ? '建议继续练习错误前提与证据不足判断题。' : '建议回到错题本，继续练习证据链表达。',
     created_at: new Date().toISOString(),
+    profile_updated: false,
     doctor_review_required: true,
     safety_notice: safetyNotice,
   }

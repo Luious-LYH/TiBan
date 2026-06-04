@@ -94,7 +94,7 @@ python scripts\provider_doctor.py --self-test --include-image
    这是答辩时回答“如何证明平台不是静态页面”的入口。页面应显示 `backend live`、`report_integrity=clean` 对应的“只读且无密钥”、平台就绪度、林知远医师上下文、核心闭环证据、知识库来源链、审计事件分布和验证命令。它和 `scripts/export_delivery_report.py` 读取同一个后端只读报告，不触发训练写入、不调用 Provider、不返回 API key 或 Provider Base 明文。
 
 3. 题库刷题 `/training`
-   展示公开样例图像、病例摘要、题目和右侧 Agent。练习模式可以点“提示一下”，Agent 只追问证据，不直接给答案。提交后显示得分、错因标签、解释和对照。
+   先看顶部“Current physician mission”任务队列：它读取林知远医师后端画像，显示今日训练进度、薄弱标签、最近考试、画像写入状态和下一组训练入口。提交答案、收藏题目、Agent 追问或考试交卷后，页面会刷新后端画像，让训练页从“题目列表”变成一个会持续追踪医生能力成长的入口。再展示公开样例图像、病例摘要、题目和右侧 Agent。练习模式可以点“提示一下”，Agent 只追问证据，不直接给答案。提交后显示得分、错因标签、解释和对照。
 
 4. 考试模式 `/training?mode=exam`
    进入后启动一场全局 12 分钟 session。倒计时不会因单题提交或切换题目重置；页面会累计已答题、正确率、平均分和最近错题，并提供“交卷复盘”“重开本场”和错因复盘入口。考试中隐藏提示和自由追问，交卷后会调用 `/api/learner/exam-session` 写入整场考试摘要、画像记录和审计日志；摘要会进入 `learner_profile.exam_sessions`，复盘入口携带 `/feedback?session=...`，用于恢复本场错题队列。首页 readiness 和画像记录页会同步出现最近一场考试的复盘收据。
@@ -135,7 +135,7 @@ python scripts\provider_doctor.py --self-test --include-image
 |---|---|---|
 | 公开样例题库 | 从 `real_sample_knowledge.json` 和公开图像资产加载 | 只抽取部分本地真实数据用于演示，不等同完整数据集训练 |
 | 首页来源链 | `/api/platform/readiness` 返回 `knowledge_source_chain`，展示真实样例库、报告知识库、卡片模板库被哪些页面消费 | 证明本地知识库被平台引用，不代表已经完成批量临床评测 |
-| 医师训练闭环 | 答题、收藏、错题、考试 session、比拼、错误前提训练 | 当前只有 `demo_learner` 单医师画像；单题提交单独更新题量和能力分，考试 session 交卷会持久化整场题量、正确率、平均分和错题摘要，不重复增加单题题量 |
+| 医师训练闭环 | 答题、收藏、错题、考试 session、比拼、错误前提训练 | 当前只有 `demo_learner` 单医师画像；训练中心顶部任务队列读取 `learner_profile.json`，显示今日进度、薄弱项、最近考试、画像写入状态和下一组训练入口；单题提交单独更新题量和能力分，收藏/Agent 追问/考试交卷后刷新画像，考试 session 交卷会持久化整场题量、正确率、平均分和错题摘要，不重复增加单题题量 |
 | 首页闭环自检 | 沙盒自检和正式写入两种模式 | `persist=false` 真实写入后自动恢复，验证训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和 9 张收据，适合反复演示前 smoke；`persist=true` 才保留演示画像、审计和卡片运行记录 |
 | Agent 辅导 | 后端 tutor 编排，可接 Provider，也有规则兜底 | 不保存自由追问原文，只记录训练标签和模式 |
 | 报告生成 | 图片上传、公开样例、模板 KB、来源追踪、幻觉审查、请求级 Provider，并复用 Base URL 预检 | 输出是医生审核前训练草稿，不是最终诊断；临时 key 不保存；预检不发送模型请求、不写审计，未通过时阻断报告生成和 AI judge |
@@ -258,7 +258,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 node scripts\ui_smoke.mjs
 ```
 
-该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。比拼训练、报告生成和科普卡片页会额外校验关键主图：读取 `img[data-real-sample-image="true"][data-real-sample-role="primary"]` 的加载状态、`naturalWidth` 和 `naturalHeight`，避免缩略图已加载但主工作图实际未显示。`/delivery` 会额外等待 `data-delivery-loaded=true`，并要求 `data-delivery-source=backend`、`data-delivery-integrity=clean`；这能抓出旧 Vite 路由、后端断连或只读完整性异常。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
+该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。比拼训练会额外要求医师任务队列 `data-training-mission=true` 与 learner id 存在；比拼训练、报告生成和科普卡片页会额外校验关键主图：读取 `img[data-real-sample-image="true"][data-real-sample-role="primary"]` 的加载状态、`naturalWidth` 和 `naturalHeight`，避免缩略图已加载但主工作图实际未显示。`/delivery` 会额外等待 `data-delivery-loaded=true`，并要求 `data-delivery-source=backend`、`data-delivery-integrity=clean`；这能抓出旧 Vite 路由、后端断连或只读完整性异常。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
 
 Provider 体检、Base URL 预检和自检 smoke：
 
