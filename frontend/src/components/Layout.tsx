@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ClipboardList,
   Database,
+  DatabaseZap,
   FileText,
   Gauge,
   GraduationCap,
@@ -22,7 +23,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { api } from '../lib/api'
 import { safetyNotice } from '../lib/mock'
-import type { ProviderStatus } from '../lib/types'
+import type { PlatformReadiness, ProviderStatus } from '../lib/types'
 
 const navGroups = [
   {
@@ -82,15 +83,23 @@ const navGroups = [
 export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation()
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
+  const [readiness, setReadiness] = useState<PlatformReadiness | null>(null)
 
   useEffect(() => {
     let mounted = true
-    api.providerStatus()
-      .then((status) => {
-        if (mounted) setProviderStatus(status)
-      })
-      .catch(() => {
-        if (mounted) {
+    let inFlight = false
+    const refreshEvidence = async () => {
+      if (inFlight) return
+      inFlight = true
+      try {
+        const [statusResult, readinessResult] = await Promise.allSettled([
+          api.providerStatus(),
+          api.platformReadiness(),
+        ])
+        if (!mounted) return
+        if (statusResult.status === 'fulfilled') {
+          setProviderStatus(statusResult.value)
+        } else {
           setProviderStatus({
             provider: 'frontend',
             model: 'unavailable',
@@ -99,9 +108,17 @@ export function Layout({ children }: { children: ReactNode }) {
             error: 'backend_unavailable',
           })
         }
-      })
+        setReadiness(readinessResult.status === 'fulfilled' ? readinessResult.value : null)
+      } finally {
+        inFlight = false
+      }
+    }
+
+    refreshEvidence()
+    const timer = window.setInterval(refreshEvidence, 30000)
     return () => {
       mounted = false
+      window.clearInterval(timer)
     }
   }, [])
 
@@ -111,6 +128,15 @@ export function Layout({ children }: { children: ReactNode }) {
     : providerStatus?.error === 'backend_unavailable'
       ? '后端未联通'
       : '规则/知识库模式'
+  const readinessLive = Boolean(readiness && readiness.api_source !== 'fallback' && readiness.backend_ready)
+  const readinessFallback = Boolean(readiness?.api_source === 'fallback')
+  const evidenceMode = readiness?.provider_ready ? 'provider' : readiness?.provider_mode || providerStatus?.mode || 'checking'
+  const evidenceSubtitle = readiness
+    ? `${readinessFallback ? '前端 fallback · ' : ''}${readiness.real_sample_count} 图文样例 · ${readiness.audit_log_count} 审计`
+    : '读取平台证据链中'
+  const latestExamLabel = readiness?.latest_exam_replay
+    ? `${readiness.latest_exam_replay.session_id} · ${readiness.latest_exam_replay.wrong_count} 错题`
+    : '等待交卷'
 
   return (
     <div className="app-shell">
@@ -145,6 +171,41 @@ export function Layout({ children }: { children: ReactNode }) {
             </details>
           ))}
         </nav>
+        <div className={`sidebar-evidence ${readinessLive ? 'live' : 'fallback'}`}>
+          <div className="sidebar-evidence-head">
+            <ActivitySquare size={17} />
+            <div>
+              <span>Live evidence</span>
+              <strong>{readinessLive ? '后端证据在线' : '等待后端证据'}</strong>
+            </div>
+          </div>
+          <div className="sidebar-evidence-grid">
+            <div>
+              <span>就绪度</span>
+              <strong>{readiness ? `${readiness.overall_score}%` : '--'}</strong>
+            </div>
+            <div>
+              <span>推理</span>
+              <strong>{evidenceMode}</strong>
+            </div>
+            <div className="wide">
+              <span>来源</span>
+              <strong>{evidenceSubtitle}</strong>
+            </div>
+            <div className="wide">
+              <span>考试复盘</span>
+              <strong>{latestExamLabel}</strong>
+            </div>
+          </div>
+          <div className="sidebar-evidence-actions">
+            <Link to="/">
+              <DatabaseZap size={14} /> 首页自检
+            </Link>
+            <Link to="/audit">
+              <ClipboardList size={14} /> 审计
+            </Link>
+          </div>
+        </div>
         <div className="sidebar-note">
           <ScrollText size={18} />
           <span>训练、报告与模型准入均标明 provider/rule/fallback 来源；所有医学输出仅供教学或医生审核前辅助。</span>
