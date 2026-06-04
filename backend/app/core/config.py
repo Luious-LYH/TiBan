@@ -1,4 +1,6 @@
+import ipaddress
 import os
+import urllib.parse
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -21,3 +23,43 @@ LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").rstrip("/")
 LLM_API_KEY = os.getenv("LLM_API_KEY", "")
 LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
+
+
+def _normalize_allowlist_host(value: str) -> str:
+    cleaned = value.strip()
+    if not cleaned:
+        return ""
+    if "://" in cleaned:
+        try:
+            hostname = urllib.parse.urlsplit(cleaned).hostname or ""
+        except ValueError:
+            return ""
+    else:
+        host_part = cleaned.split("/", 1)[0]
+        if host_part.startswith("[") and "]" in host_part:
+            hostname = host_part[1:].split("]", 1)[0]
+        elif host_part.count(":") == 1 and host_part.rsplit(":", 1)[1].isdigit():
+            hostname = host_part.rsplit(":", 1)[0]
+        else:
+            hostname = host_part
+    normalized = hostname.strip().strip("[]").lower().rstrip(".")
+    try:
+        ipaddress.ip_address(normalized)
+        return ""
+    except ValueError:
+        return normalized
+
+
+_private_host_allowlist_raw = os.getenv(
+    "LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST",
+    os.getenv("LLM_ALLOWED_PRIVATE_HOSTS", ""),
+)
+LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST = tuple(
+    sorted(
+        {
+            normalized
+            for item in _private_host_allowlist_raw.split(",")
+            if (normalized := _normalize_allowlist_host(item))
+        },
+    ),
+)

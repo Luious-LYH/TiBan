@@ -31,6 +31,7 @@ export function ProviderPreflightPanel({
             <div><span>规范化预览</span><strong>{preflight.normalized_preview || '未配置'}</strong></div>
             <div><span>请求发送</span><strong>{preflight.request_sent ? '异常：已发送' : '否'}</strong></div>
             <div><span>保存 key</span><strong>{preflight.key_persisted ? '异常' : '否'}</strong></div>
+            <div><span>私有 host</span><strong>{preflight.private_host_allowlist_used ? '后端白名单命中' : preflight.private_host_allowlist_configured ? '后端已配置' : '默认拦截'}</strong></div>
           </div>
           <div className="provider-preflight-paths">
             <span>将尝试的 chat completions path</span>

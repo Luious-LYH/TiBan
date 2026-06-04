@@ -18,6 +18,8 @@ export type ProviderStatus = {
   image_attached?: boolean
   base_url_configured?: boolean
   api_key_configured?: boolean
+  private_host_allowlist_configured?: boolean
+  private_host_allowlist_count?: number
   safety_notice?: string
 }
 
@@ -54,6 +56,8 @@ export type ProviderDiagnostics = {
   model: string
   base_url_configured: boolean
   api_key_configured: boolean
+  private_host_allowlist_configured: boolean
+  private_host_allowlist_count: number
   missing: string[]
   public_sample_count: number
   latest_self_test?: ProviderAuditSummary | null
@@ -84,6 +88,8 @@ export type ProviderPreflight = {
   blocked_reason?: string | null
   warnings: string[]
   next_actions: string[]
+  private_host_allowlist_configured: boolean
+  private_host_allowlist_used: boolean
   key_required_for_call: boolean
   request_sent: boolean
   key_persisted: boolean

@@ -67,6 +67,8 @@ class LLMProvider:
             "api_key_configured": bool(config.LLM_API_KEY),
             "model": config.LLM_MODEL,
             "mode": "provider" if configured else "rule",
+            "private_host_allowlist_configured": bool(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
+            "private_host_allowlist_count": len(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
             "safety_notice": "真实 provider 仅用于公开教学样例和医生审核前辅助，不上传真实患者身份信息。",
         }
 
@@ -90,6 +92,8 @@ class LLMProvider:
                     "blocked_reason": "missing_base_url",
                     "warnings": ["未填写临时 API Base，后端 .env 也未配置 LLM_BASE_URL；当前会保持 rule 模式。"],
                     "next_actions": next_actions,
+                    "private_host_allowlist_configured": bool(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
+                    "private_host_allowlist_used": False,
                     "key_required_for_call": True,
                     "request_sent": False,
                     "key_persisted": False,
@@ -111,6 +115,8 @@ class LLMProvider:
                 "blocked_reason": "invalid_url",
                 "warnings": warnings,
                 "next_actions": self._preflight_next_actions("invalid_url"),
+                "private_host_allowlist_configured": bool(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
+                "private_host_allowlist_used": False,
                 "key_required_for_call": True,
                 "request_sent": False,
                 "key_persisted": False,
@@ -131,6 +137,8 @@ class LLMProvider:
                 "blocked_reason": reason,
                 "warnings": warnings,
                 "next_actions": self._preflight_next_actions(reason),
+                "private_host_allowlist_configured": bool(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
+                "private_host_allowlist_used": False,
                 "key_required_for_call": True,
                 "request_sent": False,
                 "key_persisted": False,
@@ -138,8 +146,11 @@ class LLMProvider:
 
         endpoints = self._chat_completion_endpoints(normalized)
         endpoint_paths = [urllib.parse.urlsplit(endpoint).path for endpoint in endpoints]
+        private_allowlist_used = self._host_uses_private_allowlist(parsed)
         if parsed.scheme.lower() == "http":
             warnings.append("http 仅允许 localhost/127.0.0.1/[::1] 等本机调试地址。")
+        if private_allowlist_used:
+            warnings.append("该 Provider host 解析到私有/保留地址，已由后端 .env 的精确白名单显式放行；前端临时输入不能修改白名单。")
         if source == "backend_env":
             warnings.append("当前使用后端 .env 的 LLM_BASE_URL；为避免泄露，前端不回传完整 base 明文。")
         return {
@@ -151,6 +162,8 @@ class LLMProvider:
             "blocked_reason": None,
             "warnings": warnings,
             "next_actions": next_actions,
+            "private_host_allowlist_configured": bool(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
+            "private_host_allowlist_used": private_allowlist_used,
             "key_required_for_call": True,
             "request_sent": False,
             "key_persisted": False,
@@ -291,7 +304,7 @@ class LLMProvider:
     def _base_url_block_reason(self, parsed: urllib.parse.SplitResult) -> str | None:
         scheme = parsed.scheme.lower()
         try:
-            hostname = (parsed.hostname or "").lower()
+            hostname = self._canonical_hostname(parsed.hostname or "")
             port = parsed.port
         except ValueError:
             return "invalid_port"
@@ -312,8 +325,12 @@ class LLMProvider:
             return "non_loopback_http_blocked"
         if not is_loopback and self._is_blocked_ip_literal(hostname):
             return "private_or_reserved_ip_blocked"
-        if not is_loopback and self._resolves_to_blocked_address(hostname, port):
-            return "resolves_to_private_or_reserved_ip"
+        if not is_loopback:
+            resolution = self._resolution_safety(hostname, port)
+            if resolution == "blocked":
+                return "resolves_to_private_or_reserved_ip"
+            if resolution == "private_allowlisted" and not self._private_host_allowed(hostname):
+                return "resolves_to_private_or_reserved_ip"
         return None
 
     def _safe_preflight_preview(self, parsed: urllib.parse.SplitResult, source: str) -> str:
@@ -339,7 +356,7 @@ class LLMProvider:
             "metadata_host_blocked": "metadata 地址会被拒绝，避免云主机凭据泄露。",
             "non_loopback_http_blocked": "非本机 http 会被拒绝；外部 Provider 请使用 https。",
             "private_or_reserved_ip_blocked": "内网、链路本地、保留或组播 IP 会被拒绝；请使用公开 https Provider 或本机 loopback。",
-            "resolves_to_private_or_reserved_ip": "该域名解析到内网/保留地址，后端会拒绝；请检查 DNS 或改用公开 Provider endpoint。",
+            "resolves_to_private_or_reserved_ip": "该域名解析到内网/保留地址，默认会被拒绝；如这是你控制的私有 Provider 代理，请只在后端 .env 配置 LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST 精确放行该 host 并重启后端。",
             "missing_base_url": "填写临时 API Base，或在后端 .env 配置 LLM_BASE_URL。",
             "loopback_port_required": "本机调试地址必须显式填写端口，例如 http://127.0.0.1:8001/v1。",
             "loopback_port_blocked": "本机调试端口过低，可能指向系统服务；请使用明确的开发端口。",
@@ -380,11 +397,12 @@ class LLMProvider:
             return False
         return str(address) in {"169.254.169.254", "100.100.100.200", "fd00:ec2::254"}
 
-    def _resolves_to_blocked_address(self, hostname: str, port: int | None) -> bool:
+    def _resolution_safety(self, hostname: str, port: int | None) -> str:
         try:
             resolved = socket.getaddrinfo(hostname, port or 443, type=socket.SOCK_STREAM)
         except socket.gaierror:
-            return False
+            return "public"
+        found_private_or_reserved = False
         for item in resolved:
             sockaddr = item[4]
             if not sockaddr:
@@ -393,29 +411,31 @@ class LLMProvider:
                 address = ipaddress.ip_address(sockaddr[0])
             except ValueError:
                 continue
-            if (
-                address.is_private
-                or address.is_loopback
-                or address.is_link_local
-                or address.is_unspecified
-                or address.is_reserved
-                or address.is_multicast
-            ):
-                return True
-        return False
+            if self._is_metadata_address(address):
+                return "blocked"
+            if address.is_loopback or address.is_link_local or address.is_unspecified or address.is_multicast:
+                return "blocked"
+            if address.is_private or address.is_reserved:
+                found_private_or_reserved = True
+        return "private_allowlisted" if found_private_or_reserved else "public"
+
+    def _resolves_to_blocked_address(self, hostname: str, port: int | None) -> bool:
+        return self._resolution_safety(hostname, port) != "public"
 
     def _parsed_hostname(self, parsed: urllib.parse.SplitResult) -> str:
         try:
-            return (parsed.hostname or "").lower()
+            return self._canonical_hostname(parsed.hostname or "")
         except ValueError:
             return ""
 
     def _resolve_connection_host(self, hostname: str, port: int) -> str:
+        canonical_hostname = self._canonical_hostname(hostname)
         try:
-            resolved = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+            resolved = socket.getaddrinfo(canonical_hostname, port, type=socket.SOCK_STREAM)
         except socket.gaierror as exc:
             raise ValueError("unsafe_base_url") from exc
-        is_loopback = self._is_loopback_host(hostname)
+        is_loopback = self._is_loopback_host(canonical_hostname)
+        private_allowed = self._private_host_allowed(canonical_hostname)
         for item in resolved:
             sockaddr = item[4]
             if not sockaddr:
@@ -427,6 +447,10 @@ class LLMProvider:
                 continue
             if is_loopback and address.is_loopback:
                 return candidate
+            if self._is_metadata_address(address):
+                continue
+            if private_allowed and self._is_allowlisted_private_address(address):
+                return candidate
             if not is_loopback and not (
                 address.is_private
                 or address.is_loopback
@@ -437,6 +461,39 @@ class LLMProvider:
             ):
                 return candidate
         raise ValueError("unsafe_base_url")
+
+    def _canonical_hostname(self, hostname: str) -> str:
+        return hostname.strip().strip("[]").lower().rstrip(".")
+
+    def _private_host_allowed(self, hostname: str) -> bool:
+        canonical = self._canonical_hostname(hostname)
+        if not canonical or self._is_loopback_host(canonical) or self._is_metadata_host(canonical):
+            return False
+        try:
+            ipaddress.ip_address(canonical)
+            return False
+        except ValueError:
+            return canonical in config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST
+
+    def _is_allowlisted_private_address(self, address: ipaddress._BaseAddress) -> bool:
+        if self._is_metadata_address(address):
+            return False
+        if address.is_loopback or address.is_link_local or address.is_unspecified or address.is_multicast:
+            return False
+        return bool(address.is_private or address.is_reserved)
+
+    def _is_metadata_address(self, address: ipaddress._BaseAddress) -> bool:
+        return str(address) in {"169.254.169.254", "100.100.100.200", "fd00:ec2::254"}
+
+    def _host_uses_private_allowlist(self, parsed: urllib.parse.SplitResult) -> bool:
+        hostname = self._parsed_hostname(parsed)
+        if not self._private_host_allowed(hostname):
+            return False
+        try:
+            port = parsed.port
+        except ValueError:
+            return False
+        return self._resolution_safety(hostname, port) == "private_allowlisted"
 
     def _replace_url_path(self, parsed: urllib.parse.SplitResult, path: str) -> str:
         normalized_path = "/" + path.strip("/")

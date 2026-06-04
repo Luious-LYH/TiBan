@@ -85,6 +85,8 @@ export function ReportDraft() {
               blocked_reason: 'frontend_error',
               warnings: ['前端未能读取后端预检结果，不能证明 API Base 可用于报告 Provider 调用。'],
               next_actions: ['确认 FastAPI 后端在线，再重新检查 API Base。'],
+              private_host_allowlist_configured: false,
+              private_host_allowlist_used: false,
               key_required_for_call: true,
               request_sent: false,
               key_persisted: false,

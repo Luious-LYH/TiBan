@@ -29,7 +29,7 @@
 
 ## 密钥和图片安全
 
-- 真实 key 只能放本地 `.env`，或模型准入/报告中心页面的一次性临时输入；只有临时 base 或 key 存在时，模型名才作为本次请求覆盖项，key/base 不写入状态文件。Provider 联调状态检查只返回配置布尔值、证据阶梯和审计摘要，不泄露 key/base 明文。模型准入页和报告中心均复用 Base URL 预检；预检不需要 key、不发送模型请求、不写审计，未通过时前端不会继续发起真实 Provider 调用。模型准入页的请求预演只发送 `api_key_present` 布尔值给后端，不传真实 key；它用于展示 dry-run 请求计划，必须保持 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`。Provider 文本/视觉自检只写 `provider_self_test` 摘要审计并返回 `self_test_receipt`，不写 `model_admission_state.json`。视觉自检返回 `image_attached` 只代表后端已附加公开图片到请求，不代表模型完成诊断。样例级准入返回 `admission_receipt`，但仍只保存准入摘要，不保存完整模型回复。
+- 真实 key 只能放本地 `.env`，或模型准入/报告中心页面的一次性临时输入；只有临时 base 或 key 存在时，模型名才作为本次请求覆盖项，key/base 不写入状态文件。Provider 联调状态检查只返回配置布尔值、证据阶梯和审计摘要，不泄露 key/base 明文。模型准入页和报告中心均复用 Base URL 预检；预检不需要 key、不发送模型请求、不写审计，未通过时前端不会继续发起真实 Provider 调用。若可信 HTTPS Provider 网关域名有意解析到私有/保留地址，只能通过后端 `.env` 的 `LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST` 精确 hostname 白名单放行；预检只返回 `private_host_allowlist_configured` / `private_host_allowlist_used` 布尔证据，不返回 host 明文。该白名单只接受 hostname，不接受 IP literal，不能由前端请求修改，也不放行 metadata/link-local/loopback DNS、非本机 `http`、URL 凭据或非法端口。模型准入页的请求预演只发送 `api_key_present` 布尔值给后端，不传真实 key；它用于展示 dry-run 请求计划，必须保持 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`。Provider 文本/视觉自检只写 `provider_self_test` 摘要审计并返回 `self_test_receipt`，不写 `model_admission_state.json`。视觉自检返回 `image_attached` 只代表后端已附加公开图片到请求，不代表模型完成诊断。样例级准入返回 `admission_receipt`，但仍只保存准入摘要，不保存完整模型回复。
 - `.env` 和 `backend/runtime/` 均不提交 git。
 - Provider 图片输入只允许：
   - `/assets/real_samples/...`

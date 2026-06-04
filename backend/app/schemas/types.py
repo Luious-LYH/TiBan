@@ -406,6 +406,8 @@ class ProviderPreflightResponse(BaseModel):
     blocked_reason: str | None = None
     warnings: list[str] = Field(default_factory=list)
     next_actions: list[str] = Field(default_factory=list)
+    private_host_allowlist_configured: bool = False
+    private_host_allowlist_used: bool = False
     key_required_for_call: bool = True
     request_sent: bool = False
     key_persisted: bool = False

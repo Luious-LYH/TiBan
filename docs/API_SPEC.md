@@ -406,13 +406,15 @@ Provider Base URL 安全预检：
   "normalized_preview": "https://provider.example.com/v1",
   "endpoint_paths": ["/v1/chat/completions"],
   "blocked_reason": null,
+  "private_host_allowlist_configured": false,
+  "private_host_allowlist_used": false,
   "request_sent": false,
   "key_persisted": false,
   "next_actions": ["确认临时 key 或后端 .env key 可用后，再运行文本轻量自检。"]
 }
 ```
 
-若填写非本机 `http`、metadata、内网/保留地址、非法端口、loopback 低端口或带凭据 URL，会返回 `ok=false` 和 `blocked_reason`，例如 `non_loopback_http_blocked`、`metadata_host_blocked`、`private_or_reserved_ip_blocked`、`resolves_to_private_or_reserved_ip`、`invalid_port`、`loopback_port_blocked`、`credentials_in_url`。真实 Provider 调用层不自动跟随 30x 重定向，并会使用重新校验后的连接地址，避免通过跳转或 DNS 变化把临时 key 带向未授权地址。
+若填写非本机 `http`、metadata、内网/保留地址、非法端口、loopback 低端口或带凭据 URL，会返回 `ok=false` 和 `blocked_reason`，例如 `non_loopback_http_blocked`、`metadata_host_blocked`、`private_or_reserved_ip_blocked`、`resolves_to_private_or_reserved_ip`、`invalid_port`、`loopback_port_blocked`、`credentials_in_url`。可信 HTTPS Provider 网关域名如果有意解析到私有/保留地址，必须在后端 `.env` 中通过 `LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST` 精确放行 hostname；该白名单只接受 hostname，不接受 IP literal，只由后端读取，不接受前端请求修改，并且不会放行 metadata/link-local/loopback DNS、非本机 `http`、URL 凭据或非法端口。真实 Provider 调用层不自动跟随 30x 重定向，并会使用重新校验后的连接地址，避免通过跳转或 DNS 变化把临时 key 带向未授权地址。
 
 Provider 请求预演：
 

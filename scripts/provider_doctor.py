@@ -19,7 +19,15 @@ from provider_smoke import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-ENV_KEYS = ("LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT_SECONDS")
+ENV_KEYS = (
+    "LLM_PROVIDER",
+    "LLM_BASE_URL",
+    "LLM_API_KEY",
+    "LLM_MODEL",
+    "LLM_TIMEOUT_SECONDS",
+    "LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST",
+    "LLM_ALLOWED_PRIVATE_HOSTS",
+)
 ENV_PATHS = (ROOT / ".env", ROOT / "backend/.env")
 
 
@@ -59,6 +67,9 @@ def env_presence() -> dict[str, object]:
         "model_declared": merged.get("LLM_MODEL", ""),
         "base_url_present": bool(merged.get("LLM_BASE_URL")),
         "api_key_present": bool(merged.get("LLM_API_KEY")),
+        "private_host_allowlist_present": bool(
+            merged.get("LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST") or merged.get("LLM_ALLOWED_PRIVATE_HOSTS")
+        ),
     }
 
 
@@ -128,6 +139,8 @@ def main() -> int:
         "model": diagnostics.get("model"),
         "base_url_configured": diagnostics.get("base_url_configured"),
         "api_key_configured": diagnostics.get("api_key_configured"),
+        "private_host_allowlist_configured": diagnostics.get("private_host_allowlist_configured"),
+        "private_host_allowlist_count": diagnostics.get("private_host_allowlist_count"),
         "missing": diagnostics.get("missing", []),
         "public_sample_count": diagnostics.get("public_sample_count"),
         "latest_self_test": compact_audit(diagnostics.get("latest_self_test")),
@@ -146,6 +159,8 @@ def main() -> int:
         "normalized_preview": redact_provider_preview(preflight.get("normalized_preview")),
         "endpoint_paths": preflight.get("endpoint_paths", []),
         "blocked_reason": preflight.get("blocked_reason"),
+        "private_host_allowlist_configured": preflight.get("private_host_allowlist_configured"),
+        "private_host_allowlist_used": preflight.get("private_host_allowlist_used"),
         "request_sent": preflight.get("request_sent"),
         "key_persisted": preflight.get("key_persisted"),
         "warnings": preflight.get("warnings", []),

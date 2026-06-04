@@ -104,6 +104,8 @@ class ModelService:
             "model": self._public_model_label(provider_status.get("model", "unconfigured"), "unconfigured"),
             "base_url_configured": bool(provider_status.get("base_url_configured")),
             "api_key_configured": bool(provider_status.get("api_key_configured")),
+            "private_host_allowlist_configured": bool(provider_status.get("private_host_allowlist_configured")),
+            "private_host_allowlist_count": int(provider_status.get("private_host_allowlist_count", 0) or 0),
             "missing": missing,
             "public_sample_count": len(samples),
             "latest_self_test": self._latest_audit_summary(self_tests),

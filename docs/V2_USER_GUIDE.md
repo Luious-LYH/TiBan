@@ -68,6 +68,9 @@ LLM_BASE_URL=https://your-provider.example/v1
 LLM_API_KEY=your-local-key
 LLM_MODEL=your-model-name
 LLM_TIMEOUT_SECONDS=25
+# Optional: exact hostnames only, for trusted HTTPS Provider gateways under
+# your DNS control that intentionally resolve to private/reserved IPs.
+# LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST=your-private-gateway.example
 ```
 
 保存后重启 FastAPI 后端，再运行 Provider 体检脚本：
@@ -83,7 +86,7 @@ python scripts\provider_doctor.py
 python scripts\provider_doctor.py --self-test --include-image
 ```
 
-`LLM_BASE_URL` 或页面临时 API Base 可以填写 Provider 根地址、`/v1` 地址，或完整 `/chat/completions` endpoint；后端会规范化为 OpenAI-compatible chat completions 请求，未写协议的外部域名按 `https://` 处理，本地 `localhost` / `127.0.0.1` 地址按 `http://` 处理；根地址会优先尝试 `/v1/chat/completions`，404/405 时再尝试 `/chat/completions`。非本机 `http`、metadata、内网/保留地址、loopback 低端口和非法端口会被拒绝为 `unsafe_base_url`，避免密钥外发；真实 Provider 调用不会自动跟随 30x 重定向，并会使用重新校验后的连接地址。不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页会先显示 Provider 联调状态检查、真实推理证据阶梯和 Base URL 预检：证据阶梯把 `.env`、preflight、dry-run、自检、公开样例准入和候选启用闸门分开，避免把配置齐全误讲成已真实推理；预检不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 endpoint path、安全拦截原因和下一步动作。一次性 key 可用于文本/视觉自检或样例级准入检查，不会保存到数据文件；只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
+`LLM_BASE_URL` 或页面临时 API Base 可以填写 Provider 根地址、`/v1` 地址，或完整 `/chat/completions` endpoint；后端会规范化为 OpenAI-compatible chat completions 请求，未写协议的外部域名按 `https://` 处理，本地 `localhost` / `127.0.0.1` 地址按 `http://` 处理；根地址会优先尝试 `/v1/chat/completions`，404/405 时再尝试 `/chat/completions`。非本机 `http`、metadata、内网/保留地址、loopback 低端口和非法端口会被拒绝为 `unsafe_base_url`，避免密钥外发；真实 Provider 调用不会自动跟随 30x 重定向，并会使用重新校验后的连接地址。如果你控制的可信 HTTPS Provider 网关域名确实解析到私有/保留地址，默认预检会显示 `resolves_to_private_or_reserved_ip`；只有在后端 `.env` 中把精确 hostname 加入 `LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST` 并重启 FastAPI 后，才会显示白名单命中。该白名单仅接受 hostname，不接受 IP literal，DNS 应由你控制；它不能由前端临时 API Base 修改，也不会放行 metadata/link-local/loopback DNS、非本机 `http`、URL 凭据或非法端口。不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页会先显示 Provider 联调状态检查、真实推理证据阶梯和 Base URL 预检：证据阶梯把 `.env`、preflight、dry-run、自检、公开样例准入和候选启用闸门分开，避免把配置齐全误讲成已真实推理；预检不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 endpoint path、安全拦截原因、`private_host_allowlist_configured` 和 `private_host_allowlist_used`。一次性 key 可用于文本/视觉自检或样例级准入检查，不会保存到数据文件；只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
 
 ## 3. 推荐演示顺序
 
@@ -267,7 +270,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 python scripts\provider_doctor.py
 ```
 
-`provider_doctor.py` 是推荐的第一步：它只读取本机 `.env` 是否存在、是否被 git 忽略，以及后端 diagnostics 证据阶梯/preflight 状态，不发送模型请求、不打印 key/base 明文。后端 `.env` 配好并重启 FastAPI 后，可运行：
+`provider_doctor.py` 是推荐的第一步：它只读取本机 `.env` 是否存在、是否被 git 忽略、是否配置了后端私有 Provider host 白名单，以及后端 diagnostics 证据阶梯/preflight 状态；不发送模型请求、不打印 key/base/白名单 host 明文。后端 `.env` 配好并重启 FastAPI 后，可运行：
 
 ```powershell
 python scripts\provider_doctor.py --self-test --include-image
@@ -282,7 +285,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 python scripts\provider_smoke.py --api-base http://127.0.0.1:9999/v1
 ```
 
-该命令默认自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并要求后端暴露 Provider 诊断、证据阶梯、预检、自检和收据能力。脚本会先打印 `/api/provider/diagnostics` 的脱敏摘要，包括 Provider 模式、缺失配置、公开样例数、最近自检/准入审计、准入状态和六步 evidence ladder；随后调用 `/api/provider/preflight`，不需要 key、不发送模型请求、不写审计。预检通过并准备真实联调时，再设置本地环境变量运行自检：
+该命令默认自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并要求后端暴露 Provider 诊断、证据阶梯、预检、自检和收据能力。脚本会先打印 `/api/provider/diagnostics` 的脱敏摘要，包括 Provider 模式、缺失配置、后端私有 host 白名单是否配置/数量、公开样例数、最近自检/准入审计、准入状态和六步 evidence ladder；随后调用 `/api/provider/preflight`，不需要 key、不发送模型请求、不写审计，并会显示本次是否命中后端白名单。预检通过并准备真实联调时，再设置本地环境变量运行自检：
 
 ```powershell
 $env:LLM_API_KEY="your-local-key"
