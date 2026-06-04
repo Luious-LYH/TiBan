@@ -201,11 +201,11 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 python scripts\provider_smoke.py --api-base http://127.0.0.1:9999/v1
 ```
 
-该命令只调用后端 `/api/provider/preflight`，不需要 key、不发送模型请求、不写审计。预检通过并准备真实联调时，再设置本地环境变量运行自检：
+该命令默认自动探测 `http://127.0.0.1:8000/api` 和 `http://127.0.0.1:8001/api`，并要求后端暴露 Provider 诊断、预检、自检和收据能力。脚本会先打印 `/api/provider/diagnostics` 的脱敏摘要，包括 Provider 模式、缺失配置、公开样例数、最近自检/准入审计和准入状态；随后调用 `/api/provider/preflight`，不需要 key、不发送模型请求、不写审计。预检通过并准备真实联调时，再设置本地环境变量运行自检：
 
 ```powershell
 $env:LLM_API_KEY="your-local-key"
 python scripts\provider_smoke.py --api-base https://your-provider.example/v1 --model your-model --self-test
 ```
 
-脚本不会打印 API key；如要使用后端 `.env` 中的 key，可加 `--use-backend-env-key`。
+答辩投屏或录屏时不要在终端输入真实 key；优先使用本机后端 `.env`，或在非录屏环境完成真实自检。脚本不会打印 API key、Provider API Base 明文或完整模型回复；外部 Provider 地址在终端中只保留协议和路径级别的脱敏预览。如要使用后端 `.env` 中的 key，可加 `--use-backend-env-key`。

@@ -1,9 +1,59 @@
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
+
+
+DEFAULT_BACKENDS = ("http://127.0.0.1:8000/api", "http://127.0.0.1:8001/api")
+
+REQUIRED_CAPABILITIES = {
+    "provider_diagnostics",
+    "provider_preflight",
+    "provider_self_test",
+    "provider_visual_self_test",
+    "provider_self_test_receipt",
+}
+
+
+def sanitize_text(detail: str, limit: int | None = None) -> str:
+    detail = re.sub(r"sk-[A-Za-z0-9]{8,}", "sk-***", detail)
+    detail = re.sub(r"(?i)(api[_-]?key|authorization|token|secret|password|llm_api_key)(['\"\s:=]+)([^,;\\s}\\]]+)", r"\1\2***", detail)
+    detail = re.sub(r"(?i)(api[_-]?base|base[_-]?url|llm_base_url)(['\"\s:=]+)([^,;\\s}\\]]+)", r"\1\2***", detail)
+    detail = re.sub(r"https?://(?!127\.0\.0\.1|localhost)([^/\s\"'<>]+)([^\s\"'<>]*)", r"https://<provider-host-redacted>\2", detail)
+    return detail[:limit] if limit else detail
+
+
+def sanitize_detail(detail: str) -> str:
+    return sanitize_text(detail, 300)
+
+
+def sanitize_public_value(value: object) -> object:
+    if isinstance(value, str):
+        return sanitize_text(value)
+    if isinstance(value, list):
+        return [sanitize_public_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): sanitize_public_value(item) for key, item in value.items()}
+    return value
+
+
+def redact_provider_preview(preview: str | None) -> str | None:
+    if not preview:
+        return preview
+    if preview.startswith("backend .env configured"):
+        return preview
+    try:
+        parsed = urllib.parse.urlsplit(preview)
+    except ValueError:
+        return "<provider-base-redacted>"
+    if not parsed.scheme or not parsed.netloc:
+        return "<provider-base-redacted>"
+    path = parsed.path.rstrip("/") or "/"
+    return f"{parsed.scheme}://<provider-host-redacted>{path}"
 
 
 def post_json(api_base: str, path: str, payload: dict, timeout: float) -> dict:
@@ -19,9 +69,9 @@ def post_json(api_base: str, path: str, payload: dict, timeout: float) -> dict:
             return json.loads(body)
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"HTTP {exc.code}: {detail[:300]}") from exc
+        raise RuntimeError(f"POST {path} failed with HTTP {exc.code}: {sanitize_detail(detail)}") from exc
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"Request failed: {exc.reason}") from exc
+        raise RuntimeError(f"POST {path} failed: {sanitize_detail(str(exc.reason))}") from exc
     except TimeoutError as exc:
         raise RuntimeError("Request timed out.") from exc
     except json.JSONDecodeError as exc:
@@ -35,9 +85,9 @@ def get_json(api_base: str, path: str, timeout: float) -> dict:
             return json.loads(body)
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"HTTP {exc.code}: {detail[:300]}") from exc
+        raise RuntimeError(f"GET {path} failed with HTTP {exc.code}: {sanitize_detail(detail)}") from exc
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"Request failed: {exc.reason}") from exc
+        raise RuntimeError(f"GET {path} failed: {sanitize_detail(str(exc.reason))}") from exc
     except TimeoutError as exc:
         raise RuntimeError("Request timed out.") from exc
     except json.JSONDecodeError as exc:
@@ -46,12 +96,72 @@ def get_json(api_base: str, path: str, timeout: float) -> dict:
 
 def print_section(title: str, payload: dict) -> None:
     print(f"\n## {title}")
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    print(json.dumps(sanitize_public_value(payload), ensure_ascii=False, indent=2))
+
+
+def compact_audit(item: dict | None) -> dict | None:
+    if not isinstance(item, dict):
+        return None
+    return {
+        "id": item.get("id"),
+        "event": item.get("event") or item.get("event_type"),
+        "created_at": item.get("created_at") or item.get("timestamp"),
+        "generation_mode": item.get("generation_mode") or item.get("mode"),
+        "provider_called": item.get("provider_called"),
+        "risk_level": item.get("risk_level"),
+    }
+
+
+def compact_admission_state(state: dict | None) -> dict | None:
+    if not isinstance(state, dict):
+        return None
+    return {
+        "provider_name": state.get("provider_name"),
+        "grade": state.get("grade"),
+        "total_score": state.get("total_score"),
+        "provider_called": state.get("provider_called"),
+        "safe_for_training": state.get("safe_for_training"),
+        "recommendation": state.get("recommendation"),
+    }
+
+
+def compact_provider_status(status: dict | None) -> dict | None:
+    if not isinstance(status, dict):
+        return None
+    return {
+        "provider": status.get("provider"),
+        "mode": status.get("mode"),
+        "model": status.get("model"),
+        "ok": status.get("ok"),
+        "error": status.get("error"),
+        "latency_ms": status.get("latency_ms"),
+        "configured": status.get("configured"),
+    }
+
+
+def resolve_backend(explicit_backend: str | None, timeout: float) -> tuple[str, dict]:
+    candidates = [explicit_backend] if explicit_backend else list(DEFAULT_BACKENDS)
+    errors: list[str] = []
+    for candidate in candidates:
+        if not candidate:
+            continue
+        api_base = candidate.rstrip("/")
+        try:
+            health = get_json(api_base, "/health", timeout)
+        except RuntimeError as exc:
+            errors.append(f"{api_base}: {exc}")
+            continue
+        capabilities = set(health.get("capabilities", []))
+        missing = sorted(REQUIRED_CAPABILITIES - capabilities)
+        if health.get("status") == "ok" and not missing:
+            return api_base, health
+        errors.append(f"{api_base}: health ok but missing capabilities: {', '.join(missing) or 'status_not_ok'}")
+    raise RuntimeError("No compatible ARIS v2.0 Provider backend found. Tried: " + " | ".join(errors))
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Smoke-test ARIS OpenAI-compatible Provider wiring without printing API keys.")
-    parser.add_argument("--backend", default=os.getenv("ARIS_BACKEND_URL", "http://127.0.0.1:8001/api"), help="Backend API base, default: http://127.0.0.1:8001/api")
+    parser.add_argument("--backend", default=os.getenv("ARIS_BACKEND_URL", ""), help="Backend API base. When omitted, auto-probes 8000 then 8001.")
     parser.add_argument("--provider-name", default=os.getenv("LLM_PROVIDER_NAME", "CLI Provider Smoke"), help="Display name only.")
     parser.add_argument("--api-base", default=os.getenv("LLM_BASE_URL", ""), help="Provider base URL. Falls back to backend .env if blank.")
     parser.add_argument("--api-key-env", default="LLM_API_KEY", help="Environment variable that contains the API key. The value is never printed.")
@@ -63,15 +173,44 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=25.0)
     args = parser.parse_args()
 
-    health = get_json(args.backend, "/health", args.timeout)
-    print_section("Backend health", {"status": health.get("status"), "version": health.get("version"), "provider_preflight": "provider_preflight" in health.get("capabilities", [])})
+    api_base, health = resolve_backend(args.backend or None, args.timeout)
+    capabilities = set(health.get("capabilities", []))
+    missing = sorted(REQUIRED_CAPABILITIES - capabilities)
+    print_section(
+        "Backend health",
+        {
+            "backend_api_base": api_base,
+            "status": health.get("status"),
+            "version": health.get("version"),
+            "missing_capabilities": missing,
+        },
+    )
 
-    preflight = post_json(args.backend, "/provider/preflight", {"api_base": args.api_base}, args.timeout)
+    diagnostics = get_json(api_base, "/provider/diagnostics", args.timeout)
+    diagnostics_public = {
+        "ready_level": diagnostics.get("ready_level"),
+        "provider_configured": diagnostics.get("provider_configured"),
+        "provider_mode": diagnostics.get("provider_mode"),
+        "provider": diagnostics.get("provider"),
+        "base_url_configured": diagnostics.get("base_url_configured"),
+        "api_key_configured": diagnostics.get("api_key_configured"),
+        "missing": diagnostics.get("missing", []),
+        "public_sample_count": diagnostics.get("public_sample_count"),
+        "latest_self_test": compact_audit(diagnostics.get("latest_self_test")),
+        "latest_admission": compact_audit(diagnostics.get("latest_admission")),
+        "admission_state": compact_admission_state(diagnostics.get("admission_state")),
+        "blocking_reason": diagnostics.get("blocking_reason"),
+        "next_actions": diagnostics.get("next_actions", []),
+        "privacy_notice": diagnostics.get("privacy_notice"),
+    }
+    print_section("Provider diagnostics", diagnostics_public)
+
+    preflight = post_json(api_base, "/provider/preflight", {"api_base": args.api_base}, args.timeout)
     preflight_public = {
         "ok": preflight.get("ok"),
         "safety_status": preflight.get("safety_status"),
         "mode": preflight.get("mode"),
-        "normalized_preview": preflight.get("normalized_preview"),
+        "normalized_preview": redact_provider_preview(preflight.get("normalized_preview")),
         "endpoint_paths": preflight.get("endpoint_paths", []),
         "blocked_reason": preflight.get("blocked_reason"),
         "request_sent": preflight.get("request_sent"),
@@ -101,14 +240,14 @@ def main() -> int:
         "include_image": bool(args.include_image),
         "sample_id": args.sample_id or None,
     }
-    result = post_json(args.backend, "/provider/self-test", payload, args.timeout)
+    result = post_json(api_base, "/provider/self-test", payload, args.timeout)
     result_public = {
         "id": result.get("id"),
         "provider_called": result.get("provider_called"),
         "visual_probe": result.get("visual_probe"),
         "image_attached": result.get("image_attached"),
         "image_sample_id": result.get("image_sample_id"),
-        "provider_status": result.get("provider_status"),
+        "provider_status": compact_provider_status(result.get("provider_status")),
         "audit_logged": result.get("audit_logged"),
         "audit_log_id": result.get("audit_log_id"),
         "key_persisted": result.get("key_persisted"),
