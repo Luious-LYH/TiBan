@@ -214,6 +214,7 @@ def main() -> int:
         run_command("Backend compile", [sys.executable, "-m", "compileall", "backend/app"])
         run_command("Demo sandbox smoke", [sys.executable, "scripts/demo_smoke.py"])
         run_command("Provider preflight smoke", [sys.executable, "scripts/provider_smoke.py", "--api-base", args.provider_api_base])
+        run_command("Provider readiness doctor", [sys.executable, "scripts/provider_doctor.py"])
         if not args.skip_ui:
             node_bin = resolve_binary("node")
             run_command("Frontend route UI smoke", [node_bin, "scripts/ui_smoke.mjs", "--frontend", args.frontend])
@@ -236,7 +237,7 @@ def main() -> int:
     if command_error:
         raise command_error
 
-    checked_parts = ["core backend loop", "Provider preflight"]
+    checked_parts = ["core backend loop", "Provider preflight", "Provider readiness doctor"]
     if not args.skip_ui:
         checked_parts.append("UI routes")
     if not args.skip_build:

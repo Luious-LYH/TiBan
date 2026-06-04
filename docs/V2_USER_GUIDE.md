@@ -44,7 +44,7 @@ python -m uvicorn app.main:app --reload --port 8001
 
 ## 2. 可选真实 Provider
 
-如果没有配置 Provider，平台仍可用规则、模板和公开样例完成训练演示，并会在 UI 中显示 `rule` 或 `fallback`。如需真实 OpenAI-compatible 调用，只在本机 `.env` 填写：
+如果没有配置 Provider，平台仍可用规则、模板和公开样例完成训练演示，并会在 UI 中显示 `rule` 或 `fallback`。如需真实 OpenAI-compatible 调用，先复制 `backend/.env.example` 为 `backend/.env`，只在本机填写：
 
 ```powershell
 LLM_PROVIDER=openai_compatible
@@ -52,6 +52,19 @@ LLM_BASE_URL=https://your-provider.example/v1
 LLM_API_KEY=your-local-key
 LLM_MODEL=your-model-name
 LLM_TIMEOUT_SECONDS=25
+```
+
+保存后重启 FastAPI 后端，再运行 Provider 体检脚本：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code
+python scripts\provider_doctor.py
+```
+
+该脚本不会打印 API key 或完整 Provider host；它只检查项目根 `.env` / `backend/.env` 是否存在、是否被 git 忽略、后端 Provider capabilities、`/api/provider/diagnostics` 和后端 `.env` Base URL 预检。预检通过且后端 diagnostics 显示 Provider 已配置后，可以用后端 `.env` 做一次文本/视觉通道自检：
+
+```powershell
+python scripts\provider_doctor.py --self-test --include-image
 ```
 
 `LLM_BASE_URL` 或页面临时 API Base 可以填写 Provider 根地址、`/v1` 地址，或完整 `/chat/completions` endpoint；后端会规范化为 OpenAI-compatible chat completions 请求，未写协议的外部域名按 `https://` 处理，本地 `localhost` / `127.0.0.1` 地址按 `http://` 处理；根地址会优先尝试 `/v1/chat/completions`，404/405 时再尝试 `/chat/completions`。非本机 `http`、metadata、内网/保留地址、loopback 低端口和非法端口会被拒绝为 `unsafe_base_url`，避免密钥外发；真实 Provider 调用不会自动跟随 30x 重定向，并会使用重新校验后的连接地址。不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页会先显示 Provider 联调状态检查和 Base URL 预检：预检不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 endpoint path、安全拦截原因和下一步动作。一次性 key 可用于文本/视觉自检或样例级准入检查，不会保存到数据文件；只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
@@ -218,7 +231,22 @@ node scripts\ui_smoke.mjs
 
 该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入和科普卡片等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。比拼训练页会额外校验真实公开样例图像：读取 `img[data-real-sample-image="true"]` 的加载状态、`naturalWidth` 和 `naturalHeight`，避免图片路径写入但页面实际未显示。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
 
-Provider Base URL 预检和自检 smoke：
+Provider 体检、Base URL 预检和自检 smoke：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code
+python scripts\provider_doctor.py
+```
+
+`provider_doctor.py` 是推荐的第一步：它只读取本机 `.env` 是否存在、是否被 git 忽略，以及后端 diagnostics/preflight 状态，不发送模型请求、不打印 key/base 明文。后端 `.env` 配好并重启 FastAPI 后，可运行：
+
+```powershell
+python scripts\provider_doctor.py --self-test --include-image
+```
+
+该命令使用后端 `.env` 中的 key 做文本/视觉通道自检，不需要在投屏终端输入 key，并会显示 `provider_called`、`image_attached`、审计 ID 和建议下一步。
+
+Provider Base URL 预检 smoke：
 
 ```powershell
 cd E:\2.Projects\ARIS\Endoscopy_Agent\code
