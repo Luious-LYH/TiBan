@@ -1892,6 +1892,49 @@ input {
   border-color: #fde68a;
 }
 
+.tutor-case-chip {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 12px;
+  padding: 10px 11px;
+  background: linear-gradient(135deg, rgba(239, 246, 255, 0.92), rgba(240, 253, 250, 0.88));
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+}
+
+.tutor-case-chip span,
+.tutor-case-chip strong,
+.tutor-case-chip em {
+  display: block;
+  min-width: 0;
+}
+
+.tutor-case-chip span {
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tutor-case-chip strong {
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.tutor-case-chip em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .result-box {
   margin-top: 14px;
   padding: 13px;

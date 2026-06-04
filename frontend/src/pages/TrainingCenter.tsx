@@ -111,7 +111,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const [lastChallengeAudit, setLastChallengeAudit] = useState<AuditLog | null>(null)
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
   const [chat, setChat] = useState<ChatMessage[]>([
-    { role: 'agent', text: '林知远医师，先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。', mode: 'rule' },
+    buildInitialAgentMessage(mockQuestions[0]),
   ])
 
   const mode = searchParams.get('mode') === 'exam' ? 'exam' : 'practice'
@@ -174,6 +174,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
       setExamSyncing(false)
       setMemorySync(baseMemorySync)
       setHint(baseHint)
+      setChatInput('')
+      setChat([buildInitialAgentMessage(items[0] || mockQuestions[0])])
       setChallengeStats(emptyChallengeStats)
       setChallengeBenchmark(null)
       setChallengeBenchmarkLoading(false)
@@ -276,6 +278,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setExamSyncing(false)
     setMemorySync(baseMemorySync)
     setHint(baseHint)
+    setChatInput('')
+    setChat([buildInitialAgentMessage(filteredQuestions[0] || question)])
     setChallengeStats(emptyChallengeStats)
     setChallengeBenchmark(null)
     setChallengeBenchmarkLoading(false)
@@ -415,6 +419,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setAgentMode('rule')
     setHint('考试模式已重新开始。请独立完成本场训练，交卷后统一复盘。')
     setMemorySync('考试 session 已重置，本场记录将从下一次提交开始累计。')
+    setChatInput('')
+    setChat([buildInitialAgentMessage(filteredQuestions[0] || question)])
   }
 
   const finishExam = async () => {
@@ -425,6 +431,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setTutorTab('agent')
     setExamSyncing(true)
     setHint('本场考试正在交卷，并同步 Session 汇总到医师画像。')
+    setChatInput('')
+    setChat([buildInitialAgentMessage(question)])
     const finishedReason = examSeconds <= 0 ? 'time_expired' : examAttempts.length >= filteredQuestions.length ? 'completed_all' : 'manual_submit'
     const attempts: ExamSessionAttempt[] = examAttempts.map((attempt) => ({
       question_id: attempt.questionId,
@@ -458,12 +466,15 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const next = () => {
     const nextIndex = nextQuestionIndex(index, filteredQuestions, examAttempts, mode === 'exam')
     setIndex(nextIndex)
+    const nextQuestion = filteredQuestions[nextIndex] || question
     setSelected('')
     setSubmission(null)
     setTutorTab('agent')
     setAgentMode('rule')
     setMemorySync(baseMemorySync)
     setHint(baseHint)
+    setChatInput('')
+    setChat([buildInitialAgentMessage(nextQuestion)])
     setChallengeBenchmark(null)
     setChallengeBenchmarkLoading(false)
   }
@@ -471,6 +482,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
   const jumpToQuestion = (questionId: string) => {
     const nextIndex = filteredQuestions.findIndex((item) => item.id === questionId)
     if (nextIndex < 0) return
+    const nextQuestion = filteredQuestions[nextIndex] || question
     setIndex(nextIndex)
     setSelected('')
     setSubmission(null)
@@ -478,6 +490,8 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
     setAgentMode('rule')
     setMemorySync(baseMemorySync)
     setHint(baseHint)
+    setChatInput('')
+    setChat([buildInitialAgentMessage(nextQuestion)])
     setChallengeBenchmark(null)
     setChallengeBenchmarkLoading(false)
   }
@@ -756,6 +770,13 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
               <div><span>范围</span><strong>{isPublicSample ? '公开样例' : '教学题'}</strong></div>
               <div><span>画像</span><strong>{tutorWriteback}</strong></div>
             </div>
+            <div className="tutor-case-chip">
+              <div>
+                <span>当前题上下文</span>
+                <strong>{question.id}</strong>
+              </div>
+              <em>{question.body_part} · {question.task} · {question.source_dataset}</em>
+            </div>
             {reviewUnlocked ? (
               <div className="tutor-tabs">
                 <button className={tutorTab === 'agent' ? 'active' : ''} type="button" onClick={() => setTutorTab('agent')}>辅导</button>
@@ -872,6 +893,14 @@ function FilterSelect({ label, value, options, onChange }: { label: string; valu
       </select>
     </label>
   )
+}
+
+function buildInitialAgentMessage(question: Question): ChatMessage {
+  return {
+    role: 'agent',
+    text: `林知远医师，本题聚焦 ${question.body_part} · ${question.task}。先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。`,
+    mode: 'rule',
+  }
 }
 
 function challengeMessage(doctorCorrect: boolean, benchmarkCorrect: boolean, sameAnswer: boolean): string {
