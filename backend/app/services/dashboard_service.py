@@ -268,11 +268,11 @@ class DashboardService:
                 self._receipt(
                     "challenge_audit",
                     "训练挑战基准",
-                    "audited" if challenge_logs else "not_run",
+                    "audited" if challenge_logs else "sandbox_available",
                     (
                         f"已有 {len(challenge_logs)} 条 challenge_benchmark 审计；基准不重复回灌画像。"
                         if challenge_logs
-                        else "暂无持久 challenge_benchmark 审计；点击首页沙盒自检可即时验证挑战基准并自动恢复数据，或进入比拼模式提交一题保留审计。"
+                        else "暂无持久 challenge_benchmark 审计；首页沙盒自检可即时验证并自动恢复，点击“写入演示画像”或提交比拼题可保留审计。"
                     ),
                     "/training?view=challenge",
                     "green" if challenge_logs else "blue",

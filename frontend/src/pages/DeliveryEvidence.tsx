@@ -29,6 +29,8 @@ const fallbackToneByStatus: Record<string, ReadinessTone> = {
   provider: 'green',
   rule: 'amber',
   fallback: 'amber',
+  backend_required: 'amber',
+  sandbox_available: 'blue',
   not_run: 'blue',
   pending: 'blue',
   blocked: 'red',

@@ -60,6 +60,8 @@ export function Dashboard() {
   const readinessSource = readiness.api_source || data.api_source || 'backend'
   const challengeVerified = Boolean(demoCheck?.audit_event_types?.includes('challenge_benchmark'))
   const challengeReceipt = readiness.evidence_receipts.find((item) => item.id === 'challenge_audit') || null
+  const challengeSandboxAvailable = readinessSource === 'backend' && challengeReceipt?.status === 'sandbox_available'
+  const challengeBackendRequired = readinessSource === 'fallback' || challengeReceipt?.status === 'backend_required'
   const latestExamReplay = readiness.latest_exam_replay || null
   const sampleCoverage = readiness.real_sample_coverage
   const sampleAssetPercent = sampleCoverage.asset_checked_count
@@ -255,7 +257,7 @@ export function Dashboard() {
               </p>
             </div>
           </div>
-          <div className={`challenge-proof-strip ${challengeVerified ? 'verified' : challengeReceipt?.status === 'audited' ? 'persisted' : 'pending'}`}>
+          <div className={`challenge-proof-strip ${challengeVerified ? 'verified' : challengeReceipt?.status === 'audited' ? 'persisted' : challengeSandboxAvailable ? 'sandbox' : challengeBackendRequired ? 'backend-required' : 'pending'}`}>
             <ShieldCheck size={18} />
             <div>
               <strong>
@@ -263,12 +265,16 @@ export function Dashboard() {
                   ? '本轮沙盒已验证 challenge_benchmark'
                   : challengeReceipt?.status === 'audited'
                     ? '已有持久挑战基准审计'
+                    : challengeSandboxAvailable
+                      ? '挑战基准可沙盒验证，尚未保留审计'
+                      : challengeBackendRequired
+                        ? '挑战基准需要后端联通后验证'
                     : '挑战基准可用沙盒即时验证'}
               </strong>
               <span>
                 {challengeVerified
                   ? '本次自检已真实触发挑战基准、考试 Session、卡片审核和摘要审计，并按沙盒策略恢复画像、审计和卡片数据；需要留痕时可点击“写入演示画像”。'
-                  : challengeReceipt?.detail || '沙盒自检会真实触发 challenge_benchmark、exam_session、patient_card_approve，并在返回前恢复画像、审计和卡片数据。'}
+                  : challengeReceipt?.detail || '后端联通后，沙盒自检会真实触发 challenge_benchmark、exam_session、patient_card_approve，并在返回前恢复画像、审计和卡片数据；正式留痕需点击“写入演示画像”或进入比拼模式提交一题。'}
               </span>
             </div>
             <Link className="button secondary" to="/training?view=challenge">

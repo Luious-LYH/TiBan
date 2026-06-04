@@ -853,9 +853,23 @@ a {
   background: rgba(240, 253, 250, 0.76);
 }
 
+.challenge-proof-strip.sandbox {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(239, 246, 255, 0.82);
+}
+
+.challenge-proof-strip.backend-required {
+  border-color: rgba(180, 83, 9, 0.28);
+  background: rgba(255, 251, 235, 0.82);
+}
+
 .challenge-proof-strip.verified svg,
 .challenge-proof-strip.persisted svg {
   color: var(--teal);
+}
+
+.challenge-proof-strip.backend-required svg {
+  color: var(--amber);
 }
 
 .challenge-proof-strip strong,

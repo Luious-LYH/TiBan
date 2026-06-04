@@ -654,10 +654,10 @@ Provider 文本/视觉通道自检：
     },
     {
       "label": "训练挑战基准",
-      "status": "audited",
-      "detail": "已有 challenge_benchmark 审计；基准不重复回灌画像。",
+      "status": "sandbox_available",
+      "detail": "暂无持久 challenge_benchmark 审计；首页沙盒自检可即时验证并自动恢复，点击“写入演示画像”或提交比拼题可保留审计。",
       "href": "/training?view=challenge",
-      "tone": "green"
+      "tone": "blue"
     }
   ],
   "modules": [

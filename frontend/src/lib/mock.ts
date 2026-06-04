@@ -314,7 +314,7 @@ export const mockDashboard: DashboardPayload = {
       { id: 'report_kb', label: '报告/科普知识库', status: 'ready', detail: 'fallback 中保留报告模板和卡片模板演示结构。', href: '/report', tone: 'green' },
       { id: 'provider_status', label: 'Provider 通道', status: 'fallback', detail: '当前为前端 fallback，真实 Provider 状态需后端返回。', href: '/models', tone: 'amber' },
       { id: 'provider_self_test', label: 'Provider 轻量自检', status: 'not_run', detail: '启动后端后可在模型页运行，不更新准入状态。', href: '/models', tone: 'blue' },
-      { id: 'challenge_audit', label: '训练挑战基准', status: 'not_run', detail: '提交比拼题后会写入 challenge_benchmark 审计。', href: '/training?view=challenge', tone: 'blue' },
+      { id: 'challenge_audit', label: '训练挑战基准', status: 'backend_required', detail: '当前为前端 fallback；后端联通后才可用沙盒自检即时验证，提交比拼题或正式写入会保留 challenge_benchmark 审计。', href: '/training?view=challenge', tone: 'amber' },
       { id: 'audit_log', label: '审计日志', status: 'seed', detail: '本地仅显示种子审计记录。', href: '/audit', tone: 'blue' },
     ],
     modules: [
