@@ -23,25 +23,53 @@
 3. 打开 Claude Code 或 Cursor。
 4. 先发送 `02_Agent自动开发提示词文档.md` 中的“总控提示词”。
 5. 每完成一个 milestone，用“Claude Code 审阅循环提示词”审查。
-6. 保证最终至少跑通：首页总览、训练中心、智能辅导、错因分析、交互式错误前提训练、报告中心、科普卡片、受控 Skills、审计日志、模型准入探测。
+6. 保证最终至少跑通：首页总览、交付证据页、训练中心、智能辅导、错因分析、交互式错误前提训练、报告中心、科普卡片、受控 Skills、审计日志、模型准入探测。
 
 ## 当前阶段边界
 
 真实批量评测流水线暂不开发；v2.0 已支持 OpenAI-compatible Provider 的样例级准入检查、报告来源追踪和规则/fallback 显示。未配置 Provider 时，平台会明确显示 `rule` 或 `fallback`，不会把规则草案伪装成真实模型推理。
 
+## 运行与答辩入口
+
+推荐后端启动到最新 v2.0 服务端口：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code\backend
+python -m uvicorn app.main:app --reload --port 8001
+```
+
+推荐前端固定 `5173` 启动：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code\frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+```
+
+`--strictPort` 用于避免本机已有旧 Vite 进程占用 `5173` 后，普通 `npm run dev` 自动漂到 `5174`，而浏览器仍打开旧服务，表现为 `/profile`、`/delivery` 或新增路由空白/NotFound。若启动失败，先停止旧前端进程，再按上面命令重启。
+
+答辩时建议先打开：
+
+```text
+http://127.0.0.1:5173/delivery
+```
+
+`/delivery` 调用 `GET /api/platform/delivery-report`，只读展示当前医师训练对象、核心工作流 proof、知识库来源链、审计分布、Provider 状态、验证命令和 `report_integrity`。页面显示 `backend live` 且 `report_integrity=clean` 对应“只读且无密钥”时，才适合作为交付证据；如果显示 frontend fallback，不要讲成真实后端证据，应先确认后端在线并用 `--strictPort` 重启前端。页面和导出脚本都不会触发训练写入、demo-check 或 Provider 请求，也不会返回 API key、Provider Base 明文或完整模型回复。
+
 ## v2.0 使用要点
 
 1. 左侧栏新增全局 “Live evidence” 摘要，会从 `/api/platform/readiness` 拉取后端证据状态，在任意页面显示平台就绪度、Provider/rule 模式、真实公开样例数、审计数和最近考试复盘；首页“平台真实性与演示路径”会进一步聚合后端、真实公开样例、医师画像、考试 Session 复盘、报告知识库、Provider、模型准入和审计状态，适合答辩时先讲系统闭环；“最近考试 Session”卡片会直接显示本场题量、正确率、错题数和 `/feedback?session=...` 复盘入口；“真实数据来源链”会列出本地 JSON 知识库的记录数、样例 ID 和消费页面，避免看起来只是静态页面陈列。
    首页还提供“沙盒自检 / 写入演示画像”双按钮：沙盒会真实触发公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计写入，再自动恢复数据；正式写入会保留画像、审计和卡片运行记录。两种模式都会返回 9 张证据收据，包含 `challenge_benchmark`、`exam_session`、`patient_card` 和 `patient_card_approve` 审计验证，后端不可用时不会用前端 fallback 伪造通过。
-2. 顶部 Provider 状态条会显示当前处于 `provider`、`rule` 还是 `fallback`；模型准入页还会展示 Provider 联调状态检查，列出缺失配置、公开样例数、最近自检/准入审计和隐私边界，避免把规则草案伪装成真实推理。
-3. 训练中心右侧 Agent 分为“辅导 / 证据 / 对照”，提交前隐藏参考答案；追问会记录训练标签和模式，不保存自由追问原文。
-4. 报告中心会以流程工作台区分医生输入、公开样例标注、模板知识库、Provider 输出和医师复核任务。
-5. 报告修改训练提交后会回灌林知远医师画像，更新训练记录、能力分和弱项标签，并返回下一步专项训练入口。
-6. 考试模式是一个全局 session：12 分钟倒计时不会因单题提交重置，页面会累计已答题、正确率、平均分、错题 strip；交卷复盘会调用后端写入整场考试摘要、医师画像和审计日志，并通过 `/feedback?session=...` 按本场考试恢复错题队列；首页和画像页会同步展示最近一场考试的可复盘收据。
-7. 报告页上传图片会保存到 `backend/runtime/uploads`，该目录已加入 `.gitignore`；科普卡片页优先从 `/api/knowledge/real-samples` 读取公开样例图像池，本地上传图只做当前浏览器预览，不写入后端卡片记录。
-8. 模型准入页先看 Provider 联调状态检查：它只返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要和下一步动作，不返回 API key、API base 明文或完整模型回复。随后看 Base URL 预检：它不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 chat completions path、安全拦截原因和下一步动作；非本机 `http`、metadata、内网/保留地址、非法端口、loopback 低端口和带凭据 URL 会被拒绝。真实 Provider 调用层也不会自动跟随 30x 重定向，并会使用重新校验后的连接地址，降低密钥被跳转或 DNS 变化带走的风险。预检通过后可做 Provider 文本轻量自检或视觉通道自检，只写摘要审计、不更新准入状态；视觉自检会附加一张公开内镜图片和问题，但不发送参考标注，不代表临床诊断。自检后会展示 `self_test_receipt`、`provider_self_test` 审计 ID、输入来源、Provider 来源和隐私边界。最后可使用后端 `.env` 或页面临时配置做最多 3 个公开样例的 blind probe 准入检查，并展示 `admission_receipt` 与 `model_admission` 审计 ID。模型卡片默认只是能力看板；只有最近准入摘要满足真实 Provider 调用、公开标注对齐和安全阈值，且目标不是 mock 模型时，才允许写入“待人工复核候选”。临时 key 不保存，只有填写临时 base 或 key 时页面模型名才会覆盖后端默认值。
-9. 科普卡片页已加入医生审核闸门：草稿默认锁定打印/分享，医生勾选审核项并对当前 `card_id` 提交后才会解锁，并写入 `patient_card_approve` 审计日志。
-10. 真实性说明见 `docs/V2_AUTHENTICITY_MATRIX.md`，接口见 `GET /api/platform/readiness`。
+2. 交付证据页 `/delivery` 会把同一后端只读报告渲染成评委可看的证据面板；UI smoke 会硬性检查该页来自 backend 且 `report_integrity=clean`，避免旧前端路由、后端断连或只读完整性异常被误判为通过。
+3. 顶部 Provider 状态条会显示当前处于 `provider`、`rule` 还是 `fallback`；模型准入页还会展示 Provider 联调状态检查，列出缺失配置、公开样例数、最近自检/准入审计和隐私边界，避免把规则草案伪装成真实推理。
+4. 训练中心右侧 Agent 分为“辅导 / 证据 / 对照”，提交前隐藏参考答案；追问会记录训练标签和模式，不保存自由追问原文。
+5. 报告中心会以流程工作台区分医生输入、公开样例标注、模板知识库、Provider 输出和医师复核任务。
+6. 报告修改训练提交后会回灌林知远医师画像，更新训练记录、能力分和弱项标签，并返回下一步专项训练入口。
+7. 考试模式是一个全局 session：12 分钟倒计时不会因单题提交重置，页面会累计已答题、正确率、平均分、错题 strip；交卷复盘会调用后端写入整场考试摘要、医师画像和审计日志，并通过 `/feedback?session=...` 按本场考试恢复错题队列；首页和画像页会同步展示最近一场考试的可复盘收据。
+8. 报告页上传图片会保存到 `backend/runtime/uploads`，该目录已加入 `.gitignore`；科普卡片页优先从 `/api/knowledge/real-samples` 读取公开样例图像池，本地上传图只做当前浏览器预览，不写入后端卡片记录。
+9. 模型准入页先看 Provider 联调状态检查：它只返回配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要和下一步动作，不返回 API key、API base 明文或完整模型回复。随后看 Base URL 预检：它不需要 key、不发送模型请求、不写审计，只展示规范化预览、将尝试的 chat completions path、安全拦截原因和下一步动作；非本机 `http`、metadata、内网/保留地址、非法端口、loopback 低端口和带凭据 URL 会被拒绝。真实 Provider 调用层也不会自动跟随 30x 重定向，并会使用重新校验后的连接地址，降低密钥被跳转或 DNS 变化带走的风险。预检通过后可做 Provider 文本轻量自检或视觉通道自检，只写摘要审计、不更新准入状态；视觉自检会附加一张公开内镜图片和问题，但不发送参考标注，不代表临床诊断。自检后会展示 `self_test_receipt`、`provider_self_test` 审计 ID、输入来源、Provider 来源和隐私边界。最后可使用后端 `.env` 或页面临时配置做最多 3 个公开样例的 blind probe 准入检查，并展示 `admission_receipt` 与 `model_admission` 审计 ID。模型卡片默认只是能力看板；只有最近准入摘要满足真实 Provider 调用、公开标注对齐和安全阈值，且目标不是 mock 模型时，才允许写入“待人工复核候选”。临时 key 不保存，只有填写临时 base 或 key 时页面模型名才会覆盖后端默认值。
+10. 科普卡片页已加入医生审核闸门：草稿默认锁定打印/分享，医生勾选审核项并对当前 `card_id` 提交后才会解锁，并写入 `patient_card_approve` 审计日志。
+11. 真实性说明见 `docs/V2_AUTHENTICITY_MATRIX.md`，接口见 `GET /api/platform/readiness` 和 `GET /api/platform/delivery-report`。
 
 ## v2.0 新增说明
 
@@ -57,8 +85,8 @@
 - 新增 `backend/.env.example` 和 `scripts/provider_doctor.py` 作为真实 Provider 接入体检入口：脚本会检查项目根 `.env` / `backend/.env` 是否存在、是否被 git 忽略、后端 Provider capabilities、`/api/provider/diagnostics` 和后端 `.env` Base URL 预检；默认不发送模型请求、不打印 key/base 明文，配置完成并重启后端后可加 `--self-test --include-image` 用后端 `.env` 做文本/视觉通道自检。
 - 新增 `scripts/provider_smoke.py` 作为终端联调入口：默认自动探测 `8000/8001` 最新 v2.0 后端，并要求后端暴露 Provider 诊断、预检、自检和收据能力；脚本会先打印脱敏后的 `/api/provider/diagnostics` 摘要，再调用 `/api/provider/preflight`，只在预检通过且明确提供 key 或使用后端 `.env` key 时才运行 Provider 自检；脚本不会打印 API key、API base 明文或完整模型回复。
 - 新增 `scripts/demo_smoke.py` 作为答辩前一键自检入口：默认自动探测 `8000/8001` 后端，调用 `/api/health`、`/api/platform/readiness` 和 `/api/platform/demo-check?persist=false`，确认真实公开样例、知识来源链、训练提交、Agent 辅导、挑战基准、报告训练、考试 Session、科普卡片草稿、同卡片医生审核、画像写入恢复和审计收据均可跑通；默认沙盒模式会自动恢复画像、审计和卡片运行数据，并二次确认 readiness 摘要未变化。
-- 新增 `GET /api/platform/delivery-report` 和 `scripts/export_delivery_report.py` 作为答辩交付证据包入口：后端只读汇总当前 readiness、医师画像、知识库来源链、审计事件分布、Provider/准入边界和验证命令；脚本默认导出到 `runtime_logs/delivery_evidence_report.md`，不会写画像/审计/卡片状态，不返回 API key 或 Provider Base 明文。需要交给评委时可指定 `--output docs\DELIVERY_EVIDENCE_REPORT.md` 生成 Markdown。
-- 新增 `scripts/ui_smoke.mjs` 作为前端路由巡检入口：自动启动本机 Edge/Chrome 无头浏览器，检查首页、比拼训练、画像、报告、模型准入和科普卡片等关键路由非空白、无 runtime/console error，并确认全局 Live evidence 证据条存在；比拼训练、报告生成和科普卡片路由还会读取关键主图的真实公开样例标记、`naturalWidth/naturalHeight` 和加载状态，防止缩略图能加载但主工作图实际未显示。
+- 新增 `/delivery` 页面、`GET /api/platform/delivery-report` 和 `scripts/export_delivery_report.py` 作为答辩交付证据包入口：后端只读汇总当前 readiness、医师画像、知识库来源链、审计事件分布、Provider/准入边界、验证命令和 `report_integrity`；脚本默认导出到 `runtime_logs/delivery_evidence_report.md`，不会写画像/审计/卡片状态，不返回 API key 或 Provider Base 明文。需要交给评委时可指定 `--output docs\DELIVERY_EVIDENCE_REPORT.md` 生成 Markdown。
+- 新增 `scripts/ui_smoke.mjs` 作为前端路由巡检入口：自动启动本机 Edge/Chrome 无头浏览器，检查首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由非空白、无 runtime/console error，并确认全局 Live evidence 证据条存在；比拼训练、报告生成和科普卡片路由还会读取关键主图的真实公开样例标记、`naturalWidth/naturalHeight` 和加载状态，防止缩略图能加载但主工作图实际未显示；交付证据页会额外要求 `data-delivery-source=backend` 与 `data-delivery-integrity=clean`。
 - 新增 `scripts/verify_all.py` 作为答辩前总控验证入口：在后端和前端服务已启动后，一次串联后端编译、沙盒闭环自检、Provider Base URL 安全预检、交付证据包导出、前端路由 smoke、`npm run lint`、`npm run build`、`git diff --check`、真实公开样例图片资产一致性检查、`sk-*` 形态密钥扫描和运行状态文件内容指纹保护；默认 Provider 预检使用本机假地址，不发送 key、不写审计，终端输出会脱敏 API key 和 Provider URL。轻量巡检可加 `--skip-build`，只排查后端/Provider/UI/安全状态。
 - 科普卡片已从单纯预览升级为“公开样例图像池 -> 草稿生成 -> 同一 `card_id` 医生审核 -> 分享/打印解锁 -> 审计记录”的受控流程。
 - Skills 中心展示受控运行摘要、医生复核状态和工作区跳转，完整 JSON 只放在开发细节折叠项中。
