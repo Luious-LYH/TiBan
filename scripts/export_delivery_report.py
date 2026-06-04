@@ -122,6 +122,7 @@ def render_report(report: dict, api_base: str) -> str:
     generated_at = report.get("generated_at") or datetime.now().isoformat(timespec="seconds")
     doctor = report.get("doctor_context", {})
     summary = report.get("platform_summary", {})
+    sample_coverage = summary.get("real_sample_coverage") or {}
     provider = report.get("provider_state", {})
     integrity = report.get("report_integrity", {})
     lines: list[str] = [
@@ -154,9 +155,27 @@ def render_report(report: dict, api_base: str) -> str:
                 ["后端在线", summary.get("backend_ready")],
                 ["Provider", f"{summary.get('provider_mode')} · ready={summary.get('provider_ready')}"],
                 ["知识库", f"题库 {summary.get('qbank_count')} · 真实样例 {summary.get('real_sample_count')} · 报告模板 {summary.get('report_template_count')}"],
+                ["真实样例资产", f"KB {sample_coverage.get('total_records', 'NA')} · 映射 {sample_coverage.get('mapped_question_count', 'NA')} · 图片 {sample_coverage.get('asset_present_count', 'NA')}/{sample_coverage.get('asset_checked_count', 'NA')}"],
                 ["画像/考试", f"memory={summary.get('memory_ready')} · exam_session={summary.get('exam_session_count')}"],
                 ["审计", f"{summary.get('audit_log_count')} 条摘要事件"],
                 ["模型准入", f"Grade {summary.get('admission_grade')} · provider_called={summary.get('admission_provider_called')}"],
+            ],
+        ),
+        "",
+        "## 真实样例覆盖总账",
+        "",
+        f"- 来源文件：{md_escape(sample_coverage.get('source_file', 'real_sample_knowledge.json'))}",
+        f"- 本地来源提示：{md_escape(sample_coverage.get('local_data_hint', 'E:\\\\2.Projects\\\\ARIS\\\\VQA\\\\data'))}",
+        f"- 覆盖说明：{md_escape(sample_coverage.get('coverage_note', '当前后端未返回真实样例覆盖总账。'))}",
+        "",
+        *table(
+            ["维度", "分布"],
+            [
+                ["数据集", "；".join(f"{item.get('label')}={item.get('count')}" for item in sample_coverage.get("dataset_distribution", []))],
+                ["用途", "；".join(f"{item.get('label')}={item.get('count')}" for item in sample_coverage.get("use_distribution", []))],
+                ["复杂度", "；".join(f"{item.get('label')}={item.get('count')}" for item in sample_coverage.get("complexity_distribution", []))],
+                ["样例 ID", "、".join(str(item) for item in sample_coverage.get("sample_ids", [])[:8])],
+                ["缺失图片", "、".join(str(item) for item in sample_coverage.get("missing_assets", [])) or "无"],
             ],
         ),
         "",

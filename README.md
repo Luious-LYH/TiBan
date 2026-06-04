@@ -67,7 +67,7 @@ LLM_TIMEOUT_SECONDS=25
 
 ## v2.0 演示路径
 
-1. 首页总览：先看“平台真实性与演示路径”“可核验证据收据”和“真实数据来源链”，确认后端、公开样例、画像、报告/科普知识库、Provider、自检/准入、挑战基准审计和审计日志状态；来源链会列出 `real_sample_knowledge.json`、`report_knowledge_base.json`、`card_template_knowledge.json` 的条数、样例 ID 和消费页面；“沙盒自检”会真实跑通训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分和审计链路后自动恢复数据，“写入演示画像”才保留留痕。
+1. 首页总览：先看“平台真实性与演示路径”“可核验证据收据”“真实样例覆盖总账”和“真实数据来源链”，确认后端、公开样例、画像、报告/科普知识库、Provider、自检/准入、挑战基准审计和审计日志状态；覆盖总账来自 `/api/platform/readiness.real_sample_coverage`，会显示 `real_sample_knowledge.json` 记录数、映射题目数、数据集/用途分布和图片资产校验；来源链会列出 `real_sample_knowledge.json`、`report_knowledge_base.json`、`card_template_knowledge.json` 的条数、样例 ID 和消费页面；“沙盒自检”会真实跑通训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分和审计链路后自动恢复数据，“写入演示画像”才保留留痕。
 2. 交付证据 `/delivery`：确认页面显示 `backend live`、`只读且无密钥`、平台就绪度、工作流 proof、知识库来源、审计计数和验证命令。这个页面适合回答“你怎么证明它不是静态页”。
 3. 训练中心：顶部先展示林知远医师的本轮任务队列、今日进度、薄弱标签、最近考试和画像写入状态；提交答案、收藏、Agent 追问和考试交卷后会刷新后端画像。右侧 Agent 默认只辅导当前题，不提前泄露参考答案；考试模式有全局 session 倒计时、累计战报、交卷复盘入口；比拼模式提交前锁住证据页，提交后调用后端挑战基准，并在比分板展示最近 `challenge_benchmark` 后端审计收据；Provider 可用时用 Provider 作答，不通时明确回退公开标注 fallback。
 4. 错因分析：查看 atomic facts、错因标签和下一题推荐。
@@ -84,7 +84,7 @@ LLM_TIMEOUT_SECONDS=25
 | 模块 | v2.0 模式 | 数据来源 | 说明 |
 |---|---|---|---|
 | 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` + `learner_profile.json` | 公开样例优先展示，支持错题/收藏/筛选；训练页顶部任务队列读取林知远医师画像，显示今日进度、薄弱项、最近考试和下一组训练入口；提交答案、收藏、Agent 追问和考试交卷后刷新画像；考试模式有全局倒计时、累计正确率、平均分，交卷后通过 `/api/learner/exam-session` 写入画像和审计 |
-| 首页闭环自检 | backend sandbox / persistence | 公开样例 + `learner_profile.json` + `audit_logs.json` | `persist=false` 真实写入后自动恢复，`persist=true` 才保留演示画像和审计；首页同时展示 `knowledge_source_chain`，说明本地知识库被哪些功能消费 |
+| 首页闭环自检 | backend sandbox / persistence | 公开样例 + `learner_profile.json` + `audit_logs.json` | `persist=false` 真实写入后自动恢复，`persist=true` 才保留演示画像和审计；首页同时展示 `real_sample_coverage` 和 `knowledge_source_chain`，说明真实样例记录数、映射题目数、图片资产校验以及本地知识库被哪些功能消费 |
 | 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案；挑战模式提交后才调用后端挑战基准，比分板只在真实后端审计存在时显示最近 `challenge_benchmark` 收据，基准不重复回灌画像；追问会回灌训练事件但不保存原文 |
 | 错误前提训练 | backend rule | false-premise 题库 + atomic facts | 先作答后解锁证据不足事实、得分和复盘建议 |
 | 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 流程工作台展示数据/Provider/模板状态；报告生成显示 `source_trace`、Provider 状态和 `evidence_ledger`；报告评分返回画像回灌与 `recommended_drills`，推荐链接会携带 `source=report_judge`、`drill` 和合法 `question_class`，进入训练中心后显示专项任务卡并按题类筛选，提交训练题后才继续回灌医师画像；也可把建议改写或医生修改稿摘要带入科普卡片待审流程 |

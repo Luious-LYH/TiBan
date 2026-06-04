@@ -32,6 +32,7 @@ import type {
   ModelAdmissionState,
   ModelProfile,
   PatientCard,
+  RealSampleCoverage,
   ProviderAuditSummary,
   ProviderDiagnostics,
   ProviderEvidenceReceipt,
@@ -64,6 +65,7 @@ const requiredApiCapabilities = [
   'provider_preflight',
   'model_admission_receipt',
   'knowledge_source_chain',
+  'real_sample_coverage',
   'demo_check_sandbox',
   'demo_check_restore_verified',
   'demo_check_exam_card_receipt',
@@ -623,6 +625,37 @@ function normalizeKnowledgeSourceChainItem(value: unknown, fallback: KnowledgeSo
   }
 }
 
+function normalizeCoverageBuckets(value: unknown, fallback: RealSampleCoverage['dataset_distribution'] = []): RealSampleCoverage['dataset_distribution'] {
+  if (!Array.isArray(value)) return fallback
+  return value.map((item, index) => {
+    const record = asRecord(item)
+    return {
+      label: asString(record.label, fallback[index]?.label || `bucket_${index + 1}`),
+      count: asNumber(record.count, fallback[index]?.count || 0),
+    }
+  })
+}
+
+function normalizeRealSampleCoverage(value: unknown, fallback: RealSampleCoverage): RealSampleCoverage {
+  const record = asRecord(value)
+  return {
+    ...fallback,
+    ...record,
+    source_file: asString(record.source_file, fallback.source_file),
+    local_data_hint: asString(record.local_data_hint, fallback.local_data_hint),
+    total_records: asNumber(record.total_records, fallback.total_records),
+    mapped_question_count: asNumber(record.mapped_question_count, fallback.mapped_question_count),
+    asset_checked_count: asNumber(record.asset_checked_count, fallback.asset_checked_count),
+    asset_present_count: asNumber(record.asset_present_count, fallback.asset_present_count),
+    missing_assets: asStringArray(record.missing_assets, fallback.missing_assets),
+    dataset_distribution: normalizeCoverageBuckets(record.dataset_distribution, fallback.dataset_distribution),
+    use_distribution: normalizeCoverageBuckets(record.use_distribution, fallback.use_distribution),
+    complexity_distribution: normalizeCoverageBuckets(record.complexity_distribution, fallback.complexity_distribution),
+    sample_ids: asStringArray(record.sample_ids, fallback.sample_ids),
+    coverage_note: asString(record.coverage_note, fallback.coverage_note),
+  }
+}
+
 function normalizeLatestExamReplay(value: unknown, fallback?: LatestExamReplay | null): LatestExamReplay | null {
   const record = asRecord(value)
   if (!Object.keys(record).length) return fallback || null
@@ -686,6 +719,7 @@ function normalizePlatformReadiness(value: unknown, fallback: PlatformReadiness 
     memory_ready: asBoolean(record.memory_ready, fallback.memory_ready),
     qbank_count: asNumber(record.qbank_count, fallback.qbank_count),
     real_sample_count: asNumber(record.real_sample_count, fallback.real_sample_count),
+    real_sample_coverage: normalizeRealSampleCoverage(record.real_sample_coverage, fallback.real_sample_coverage),
     report_template_count: asNumber(record.report_template_count, fallback.report_template_count),
     training_record_count: asNumber(record.training_record_count, fallback.training_record_count),
     exam_session_count: asNumber(record.exam_session_count, fallback.exam_session_count),
@@ -747,6 +781,7 @@ function fallbackDeliveryReport(): DeliveryReport {
       memory_ready: readiness.memory_ready,
       qbank_count: readiness.qbank_count,
       real_sample_count: readiness.real_sample_count,
+      real_sample_coverage: readiness.real_sample_coverage,
       report_template_count: readiness.report_template_count,
       audit_log_count: readiness.audit_log_count,
       exam_session_count: readiness.exam_session_count,
@@ -853,6 +888,9 @@ function normalizeDeliveryPlatformSummary(value: unknown, fallback: DeliveryPlat
     memory_ready: asBoolean(record.memory_ready, fallback.memory_ready),
     qbank_count: asNumber(record.qbank_count, fallback.qbank_count),
     real_sample_count: asNumber(record.real_sample_count, fallback.real_sample_count),
+    real_sample_coverage: record.real_sample_coverage
+      ? normalizeRealSampleCoverage(record.real_sample_coverage, fallback.real_sample_coverage || mockDashboard.platform_readiness.real_sample_coverage)
+      : fallback.real_sample_coverage,
     report_template_count: asNumber(record.report_template_count, fallback.report_template_count),
     audit_log_count: asNumber(record.audit_log_count, fallback.audit_log_count),
     exam_session_count: asNumber(record.exam_session_count, fallback.exam_session_count),

@@ -205,6 +205,10 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
         bodyLength: document.body.innerText.length,
         hasLiveEvidence: Boolean(document.querySelector('.sidebar-evidence')),
         evidenceText: (document.querySelector('.sidebar-evidence')?.innerText || '').slice(0, 220),
+        realSampleLedgerLoaded: Boolean(document.querySelector('[data-real-sample-ledger="true"]')),
+        realSampleLedgerRecords: Number(document.querySelector('[data-real-sample-ledger="true"]')?.dataset.realSampleRecords || 0),
+        realSampleLedgerMapped: Number(document.querySelector('[data-real-sample-ledger="true"]')?.dataset.realSampleMapped || 0),
+        realSampleLedgerAssets: document.querySelector('[data-real-sample-ledger="true"]')?.dataset.realSampleAssets || '',
         trainingMissionLoaded: Boolean(document.querySelector('[data-training-mission="true"]')),
         trainingMissionLearner: document.querySelector('[data-training-mission="true"]')?.dataset.learnerId || '',
         trainingMissionMode: document.querySelector('[data-training-mission="true"]')?.dataset.trainingMode || '',
@@ -256,6 +260,10 @@ function requiresDeliveryEvidence(route) {
 
 function requiresTrainingMission(route) {
   return route.startsWith('/training')
+}
+
+function requiresRealSampleLedger(route) {
+  return route === '/'
 }
 
 async function waitForRuntimeValue(client, expression, timeoutMs) {
@@ -342,6 +350,10 @@ async function main() {
       results.push(result)
       if (result.blank) failures.push(`${route}: page appears blank`)
       if (!result.hasLiveEvidence) failures.push(`${route}: missing global Live evidence sidebar`)
+      if (requiresRealSampleLedger(route) && !result.realSampleLedgerLoaded) failures.push(`${route}: missing real sample ledger`)
+      if (requiresRealSampleLedger(route) && result.realSampleLedgerRecords <= 0) failures.push(`${route}: real sample ledger records missing`)
+      if (requiresRealSampleLedger(route) && result.realSampleLedgerMapped <= 0) failures.push(`${route}: real sample ledger mapped question count missing`)
+      if (requiresRealSampleLedger(route) && !/^\d+\/\d+$/.test(result.realSampleLedgerAssets || '')) failures.push(`${route}: real sample ledger asset proof missing`)
       if (requiresRealImage(route) && !result.has_loaded_required_real_image) failures.push(`${route}: missing loaded primary real sample image`)
       if (requiresRealImage(route) && result.broken_required_real_images.length) failures.push(`${route}: broken primary real sample images: ${JSON.stringify(result.broken_required_real_images)}`)
       if (requiresTrainingMission(route) && !result.trainingMissionLoaded) failures.push(`${route}: missing physician training mission card`)

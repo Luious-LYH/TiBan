@@ -10,6 +10,7 @@ DEFAULT_BACKENDS = ("http://127.0.0.1:8000/api", "http://127.0.0.1:8001/api")
 
 REQUIRED_CAPABILITIES = {
     "provider_preflight",
+    "real_sample_coverage",
     "demo_check_sandbox",
     "demo_check_restore_verified",
     "demo_check_exam_card_receipt",
@@ -70,11 +71,14 @@ def require(condition: bool, message: str, failures: list[str]) -> None:
 
 
 def readiness_summary(readiness: dict) -> dict[str, object]:
+    coverage = readiness.get("real_sample_coverage") or {}
     return {
         "training_record_count": readiness.get("training_record_count"),
         "audit_log_count": readiness.get("audit_log_count"),
         "exam_session_count": readiness.get("exam_session_count"),
         "real_sample_count": readiness.get("real_sample_count"),
+        "real_sample_records": coverage.get("total_records"),
+        "real_sample_assets": f"{coverage.get('asset_present_count')}/{coverage.get('asset_checked_count')}",
     }
 
 
@@ -121,9 +125,17 @@ def main() -> int:
     readiness = get_json(api_base, "/platform/readiness", args.timeout)
     before_summary = readiness_summary(readiness)
     source_chain = readiness.get("knowledge_source_chain", [])
+    sample_coverage = readiness.get("real_sample_coverage") or {}
     receipts = readiness.get("evidence_receipts", [])
     require(bool(readiness.get("backend_ready")), "Readiness backend_ready is false.", failures)
     require(int(readiness.get("real_sample_count", 0) or 0) > 0, "No real public samples reported.", failures)
+    require(int(sample_coverage.get("total_records", 0) or 0) > 0, "Real sample coverage total_records is missing.", failures)
+    require(int(sample_coverage.get("mapped_question_count", 0) or 0) > 0, "Real sample coverage mapped_question_count is missing.", failures)
+    require(
+        sample_coverage.get("asset_present_count") == sample_coverage.get("asset_checked_count"),
+        "Real sample coverage reports missing image assets.",
+        failures,
+    )
     require(len(source_chain) >= 3, "Knowledge source chain is incomplete.", failures)
     require(any(item.get("id") == "challenge_audit" for item in receipts), "Challenge benchmark receipt is missing.", failures)
     print_section(
@@ -132,6 +144,7 @@ def main() -> int:
             "overall_score": readiness.get("overall_score"),
             "provider_mode": readiness.get("provider_mode"),
             "real_sample_count": readiness.get("real_sample_count"),
+            "real_sample_coverage": sample_coverage,
             "knowledge_sources": [item.get("id") for item in source_chain],
             "state_summary": before_summary,
             "challenge_receipt": next((item for item in receipts if item.get("id") == "challenge_audit"), None),

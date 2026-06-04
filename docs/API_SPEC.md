@@ -494,6 +494,27 @@ Provider 文本/视觉通道自检：
   "overall_score": 71,
   "provider_mode": "rule",
   "real_sample_count": 10,
+  "real_sample_coverage": {
+    "source_file": "real_sample_knowledge.json",
+    "local_data_hint": "E:\\2.Projects\\ARIS\\VQA\\data",
+    "total_records": 10,
+    "mapped_question_count": 10,
+    "asset_checked_count": 10,
+    "asset_present_count": 10,
+    "missing_assets": [],
+    "dataset_distribution": [
+      { "label": "Kvasir-VQA-x1", "count": 4 },
+      { "label": "Kvasir-VQA", "count": 3 },
+      { "label": "EndoBench", "count": 3 }
+    ],
+    "use_distribution": [
+      { "label": "complex_qbank", "count": 4 },
+      { "label": "atomic_qbank", "count": 3 },
+      { "label": "exam_mode", "count": 3 }
+    ],
+    "sample_ids": ["real_x1_0", "real_x1_2", "real_x1_3"],
+    "coverage_note": "当前抽取本地 VQA 公开样例构建演示级知识库。"
+  },
   "knowledge_source_chain": [
     {
       "label": "真实公开图文样例",
@@ -510,7 +531,7 @@ Provider 文本/视觉通道自检：
     {
       "label": "真实公开样例库",
       "status": "ready",
-      "detail": "10 条公开图文题已由 real_sample_knowledge.json 映射到题库。",
+      "detail": "10 条公开图文题已由 real_sample_knowledge.json 映射到题库；图片资产 10/10 已校验存在。",
       "href": "/training?source=public",
       "tone": "green"
     },

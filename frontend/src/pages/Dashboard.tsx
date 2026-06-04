@@ -61,6 +61,10 @@ export function Dashboard() {
   const challengeVerified = Boolean(demoCheck?.audit_event_types?.includes('challenge_benchmark'))
   const challengeReceipt = readiness.evidence_receipts.find((item) => item.id === 'challenge_audit') || null
   const latestExamReplay = readiness.latest_exam_replay || null
+  const sampleCoverage = readiness.real_sample_coverage
+  const sampleAssetPercent = sampleCoverage.asset_checked_count
+    ? Math.round((sampleCoverage.asset_present_count / sampleCoverage.asset_checked_count) * 100)
+    : 0
 
   return (
     <div className="page-stack">
@@ -140,6 +144,57 @@ export function Dashboard() {
             <span>模型准入</span>
             <strong>Grade {readiness.admission_grade} · {readiness.admission_provider_called ? 'provider' : 'rule'}</strong>
           </div>
+        </div>
+        <div
+          className={`real-sample-ledger ${sampleCoverage.missing_assets.length ? 'warning' : 'verified'}`}
+          data-real-sample-ledger="true"
+          data-real-sample-records={sampleCoverage.total_records}
+          data-real-sample-mapped={sampleCoverage.mapped_question_count}
+          data-real-sample-assets={`${sampleCoverage.asset_present_count}/${sampleCoverage.asset_checked_count}`}
+        >
+          <div className="real-sample-ledger-main">
+            <DatabaseZap size={22} />
+            <div>
+              <span className="eyebrow">Real sample ledger</span>
+              <strong>本地 VQA 公开样例抽样总账</strong>
+              <p>{sampleCoverage.coverage_note}</p>
+            </div>
+          </div>
+          <div className="real-sample-ledger-metrics">
+            <div>
+              <span>KB 记录</span>
+              <strong>{sampleCoverage.total_records}</strong>
+              <em>{sampleCoverage.source_file}</em>
+            </div>
+            <div>
+              <span>映射题目</span>
+              <strong>{sampleCoverage.mapped_question_count}</strong>
+              <em>Training / Report / Card</em>
+            </div>
+            <div>
+              <span>图片资产</span>
+              <strong>{sampleAssetPercent}%</strong>
+              <em>{sampleCoverage.asset_present_count}/{sampleCoverage.asset_checked_count} present</em>
+            </div>
+            <div>
+              <span>本地来源</span>
+              <strong>{sampleCoverage.local_data_hint.split('\\').slice(-2).join('\\') || sampleCoverage.local_data_hint}</strong>
+              <em>{sampleCoverage.missing_assets.length ? `${sampleCoverage.missing_assets.length} missing` : 'assets clean'}</em>
+            </div>
+          </div>
+          <div className="real-sample-distribution">
+            <div>
+              <span>数据集</span>
+              {sampleCoverage.dataset_distribution.map((item) => <strong key={`dataset_${item.label}`}>{item.label} · {item.count}</strong>)}
+            </div>
+            <div>
+              <span>用途</span>
+              {sampleCoverage.use_distribution.map((item) => <strong key={`use_${item.label}`}>{item.label} · {item.count}</strong>)}
+            </div>
+          </div>
+          <Link className="button secondary" to="/training?source=public">
+            <ArrowRight size={16} /> 进入公开样例
+          </Link>
         </div>
         {latestExamReplay ? (
           <div className="dashboard-exam-replay">

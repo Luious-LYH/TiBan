@@ -1073,6 +1073,111 @@ a {
   line-height: 1.45;
 }
 
+.real-sample-ledger {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(420px, 1.1fr) minmax(260px, 0.8fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(240, 253, 250, 0.9) 46%, rgba(239, 246, 255, 0.94));
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.real-sample-ledger.warning {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 251, 235, 0.78) 46%, rgba(239, 246, 255, 0.94));
+  border-color: #fde68a;
+}
+
+.real-sample-ledger-main {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.real-sample-ledger-main > svg {
+  flex: 0 0 auto;
+  color: var(--teal);
+}
+
+.real-sample-ledger-main strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.real-sample-ledger-main p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.real-sample-ledger-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.real-sample-ledger-metrics div,
+.real-sample-distribution div {
+  min-width: 0;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 8px;
+}
+
+.real-sample-ledger-metrics span,
+.real-sample-distribution span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.real-sample-ledger-metrics strong,
+.real-sample-ledger-metrics em,
+.real-sample-distribution strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.real-sample-ledger-metrics strong {
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 18px;
+}
+
+.real-sample-ledger-metrics em {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.real-sample-distribution {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.real-sample-distribution strong {
+  margin-top: 5px;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .status-dot {
   width: 10px;
   height: 10px;
@@ -6171,6 +6276,7 @@ textarea {
   .filter-panel,
   .training-mission-card,
   .qbank-source-ledger,
+  .real-sample-ledger,
   .dashboard-exam-replay,
   .feedback-session-card,
   .profile-exam-session-card,
@@ -6345,6 +6451,7 @@ textarea {
   .demo-check-console,
   .readiness-summary,
   .readiness-grid,
+  .real-sample-ledger,
   .provider-receipt-metrics,
   .provider-preflight-head,
   .provider-preflight-grid,
@@ -6389,6 +6496,8 @@ textarea {
 
   .qbank-ledger-metrics,
   .mission-proof-grid,
+  .real-sample-ledger-metrics,
+  .real-sample-distribution,
   .public-sample-jump-row,
   .current-source-grid,
   .dashboard-exam-metrics,

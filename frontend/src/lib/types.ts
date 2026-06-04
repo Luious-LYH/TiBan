@@ -465,6 +465,26 @@ export type KnowledgeSourceChainItem = {
   tone: ReadinessTone
 }
 
+export type RealSampleCoverageBucket = {
+  label: string
+  count: number
+}
+
+export type RealSampleCoverage = {
+  source_file: string
+  local_data_hint: string
+  total_records: number
+  mapped_question_count: number
+  asset_checked_count: number
+  asset_present_count: number
+  missing_assets: string[]
+  dataset_distribution: RealSampleCoverageBucket[]
+  use_distribution: RealSampleCoverageBucket[]
+  complexity_distribution: RealSampleCoverageBucket[]
+  sample_ids: string[]
+  coverage_note: string
+}
+
 export type LatestExamReplay = {
   id: string
   session_id: string
@@ -502,6 +522,7 @@ export type PlatformReadiness = {
   memory_ready: boolean
   qbank_count: number
   real_sample_count: number
+  real_sample_coverage: RealSampleCoverage
   report_template_count: number
   training_record_count: number
   exam_session_count: number
@@ -539,6 +560,7 @@ export type DeliveryPlatformSummary = {
   memory_ready: boolean
   qbank_count: number
   real_sample_count: number
+  real_sample_coverage?: RealSampleCoverage
   report_template_count: number
   audit_log_count: number
   exam_session_count: number

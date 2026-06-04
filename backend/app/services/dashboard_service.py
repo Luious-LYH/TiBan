@@ -1,6 +1,6 @@
 from collections import Counter
 
-from app.core.config import SAFETY_NOTICE
+from app.core.config import PROJECT_DIR, SAFETY_NOTICE
 from app.services.audit_service import now_iso
 from app.services.data_store import read_json
 from app.services.llm_provider import llm_provider
@@ -96,6 +96,7 @@ class DashboardService:
         real_sample_kb = read_json("real_sample_knowledge.json")
         report_kb = read_json("report_knowledge_base.json")
         card_kb = read_json("card_template_knowledge.json")
+        real_sample_coverage = self._real_sample_coverage(real_sample_kb, public_questions)
         audit_logs = read_json("audit_logs.json")
         challenge_logs = [item for item in audit_logs if item.get("event_type") == "challenge_benchmark"]
         provider_self_tests = [item for item in audit_logs if item.get("event_type") == "provider_self_test"]
@@ -192,6 +193,7 @@ class DashboardService:
             "memory_ready": bool(profile.training_records),
             "qbank_count": len(questions),
             "real_sample_count": len(public_questions),
+            "real_sample_coverage": real_sample_coverage,
             "report_template_count": len(report_kb.get("templates", [])),
             "training_record_count": len(profile.training_records),
             "exam_session_count": len(profile.exam_sessions or []),
@@ -205,7 +207,7 @@ class DashboardService:
                     "real_sample_kb",
                     "真实公开样例库",
                     "ready" if public_questions else "missing",
-                    f"{len(public_questions)} 条公开图文题已由 real_sample_knowledge.json 映射到题库。",
+                    f"{len(public_questions)} 条公开图文题已由 real_sample_knowledge.json 映射到题库；图片资产 {real_sample_coverage['asset_present_count']}/{real_sample_coverage['asset_checked_count']} 已校验存在。",
                     "/training?source=public",
                     "green" if public_questions else "amber",
                 ),
@@ -369,6 +371,7 @@ class DashboardService:
                 "memory_ready": readiness.get("memory_ready"),
                 "qbank_count": readiness.get("qbank_count"),
                 "real_sample_count": readiness.get("real_sample_count"),
+                "real_sample_coverage": readiness.get("real_sample_coverage"),
                 "report_template_count": readiness.get("report_template_count"),
                 "audit_log_count": readiness.get("audit_log_count"),
                 "exam_session_count": readiness.get("exam_session_count"),
@@ -553,6 +556,38 @@ class DashboardService:
                 "tone": "green" if card_templates else "amber",
             },
         ]
+
+    def _real_sample_coverage(self, real_sample_kb: list[dict], public_questions: list) -> dict[str, object]:
+        asset_root = PROJECT_DIR / "frontend" / "public"
+        dataset_counter = Counter(str(item.get("source_dataset", "unknown")) for item in real_sample_kb)
+        use_counter = Counter(str(item.get("use", "unknown")) for item in real_sample_kb)
+        complexity_counter = Counter(str(item.get("complexity", "unknown")) for item in real_sample_kb)
+        missing_assets: list[str] = []
+        present_assets = 0
+        for item in real_sample_kb:
+            image_url = str(item.get("image_url", ""))
+            if not image_url:
+                missing_assets.append(str(item.get("id", "missing_image_url")))
+                continue
+            relative_parts = image_url.lstrip("/").split("/")
+            if asset_root.joinpath(*relative_parts).exists():
+                present_assets += 1
+            else:
+                missing_assets.append(str(item.get("id", image_url)))
+        return {
+            "source_file": "real_sample_knowledge.json",
+            "local_data_hint": r"E:\2.Projects\ARIS\VQA\data",
+            "total_records": len(real_sample_kb),
+            "mapped_question_count": len(public_questions),
+            "asset_checked_count": len(real_sample_kb),
+            "asset_present_count": present_assets,
+            "missing_assets": missing_assets[:12],
+            "dataset_distribution": [{"label": label, "count": count} for label, count in dataset_counter.most_common()],
+            "use_distribution": [{"label": label, "count": count} for label, count in use_counter.most_common()],
+            "complexity_distribution": [{"label": label, "count": count} for label, count in complexity_counter.most_common()],
+            "sample_ids": [str(item.get("id")) for item in real_sample_kb[:8] if item.get("id")],
+            "coverage_note": "当前抽取本地 VQA 公开样例构建演示级知识库；用于医师教学训练、报告/卡片配图和模型准入，不代表完整数据集评测。",
+        }
 
     def _module(
         self,

@@ -53,6 +53,7 @@ def health() -> dict[str, object]:
             "provider_preflight",
             "model_admission_receipt",
             "knowledge_source_chain",
+            "real_sample_coverage",
             "demo_check_sandbox",
             "demo_check_restore_verified",
             "demo_check_exam_card_receipt",

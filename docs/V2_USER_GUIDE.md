@@ -88,7 +88,7 @@ python scripts\provider_doctor.py --self-test --include-image
 ## 3. 推荐演示顺序
 
 1. 训练驾驶舱 `/`
-   先看左侧栏全局 “Live evidence” 摘要，它会在任意页面从 `/api/platform/readiness` 拉取平台就绪度、Provider/rule 模式、公开样例数、审计数和最近考试复盘，避免评委以为切页后只是静态展示。随后看首页“平台真实性与演示路径”“可核验证据收据”和“真实数据来源链”，说明后端、公开样例、考试 Session 复盘、报告/科普知识库、Provider、自检/准入、训练挑战基准审计、Memory 和 Audit 的状态。来源链来自 `/api/platform/readiness.knowledge_source_chain`，会列出本地 JSON 知识库文件名、记录数、样例 ID 和消费页面。首页的“最近考试 Session”卡片会直接给出 session id、题量、正确率、错题数和复盘入口，适合回答“训练是否真的沉淀到画像”。首页的“沙盒自检”会真实跑通训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计链路并自动恢复数据；需要在审计页留下演示证据时，再点击“写入演示画像”。
+   先看左侧栏全局 “Live evidence” 摘要，它会在任意页面从 `/api/platform/readiness` 拉取平台就绪度、Provider/rule 模式、公开样例数、审计数和最近考试复盘，避免评委以为切页后只是静态展示。随后看首页“平台真实性与演示路径”“可核验证据收据”“真实样例覆盖总账”和“真实数据来源链”，说明后端、公开样例、考试 Session 复盘、报告/科普知识库、Provider、自检/准入、训练挑战基准审计、Memory 和 Audit 的状态。覆盖总账来自 `/api/platform/readiness.real_sample_coverage`，会列出 `real_sample_knowledge.json` 记录数、映射题目数、图片资产校验、数据集分布、用途分布和本地 `E:\2.Projects\ARIS\VQA\data` 来源提示；来源链来自 `/api/platform/readiness.knowledge_source_chain`，会列出本地 JSON 知识库文件名、记录数、样例 ID 和消费页面。首页的“最近考试 Session”卡片会直接给出 session id、题量、正确率、错题数和复盘入口，适合回答“训练是否真的沉淀到画像”。首页的“沙盒自检”会真实跑通训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计链路并自动恢复数据；需要在审计页留下演示证据时，再点击“写入演示画像”。
 
 2. 交付证据 `/delivery`
    这是答辩时回答“如何证明平台不是静态页面”的入口。页面应显示 `backend live`、`report_integrity=clean` 对应的“只读且无密钥”、平台就绪度、林知远医师上下文、核心闭环证据、知识库来源链、审计事件分布和验证命令。它和 `scripts/export_delivery_report.py` 读取同一个后端只读报告，不触发训练写入、不调用 Provider、不返回 API key 或 Provider Base 明文。
@@ -134,7 +134,7 @@ python scripts\provider_doctor.py --self-test --include-image
 | 能力 | 已实现 | 边界 |
 |---|---|---|
 | 公开样例题库 | 从 `real_sample_knowledge.json` 和公开图像资产加载 | 只抽取部分本地真实数据用于演示，不等同完整数据集训练 |
-| 首页来源链 | `/api/platform/readiness` 返回 `knowledge_source_chain`，展示真实样例库、报告知识库、卡片模板库被哪些页面消费 | 证明本地知识库被平台引用，不代表已经完成批量临床评测 |
+| 首页来源链 | `/api/platform/readiness` 返回 `real_sample_coverage` 和 `knowledge_source_chain`，展示真实样例库记录数、映射题量、图片资产校验、数据集/用途分布，以及报告知识库、卡片模板库被哪些页面消费 | 证明本地知识库被平台引用，不代表已经完成批量临床评测 |
 | 医师训练闭环 | 答题、收藏、错题、考试 session、比拼、错误前提训练 | 当前只有 `demo_learner` 单医师画像；训练中心顶部任务队列读取 `learner_profile.json`，显示今日进度、薄弱项、最近考试、画像写入状态和下一组训练入口；单题提交单独更新题量和能力分，收藏/Agent 追问/考试交卷后刷新画像，考试 session 交卷会持久化整场题量、正确率、平均分和错题摘要，不重复增加单题题量 |
 | 首页闭环自检 | 沙盒自检和正式写入两种模式 | `persist=false` 真实写入后自动恢复，验证训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和 9 张收据，适合反复演示前 smoke；`persist=true` 才保留演示画像、审计和卡片运行记录 |
 | Agent 辅导 | 后端 tutor 编排，可接 Provider，也有规则兜底 | 不保存自由追问原文，只记录训练标签和模式 |
@@ -258,7 +258,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 node scripts\ui_smoke.mjs
 ```
 
-该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。比拼训练会额外要求医师任务队列 `data-training-mission=true` 与 learner id 存在；比拼训练、报告生成和科普卡片页会额外校验关键主图：读取 `img[data-real-sample-image="true"][data-real-sample-role="primary"]` 的加载状态、`naturalWidth` 和 `naturalHeight`，避免缩略图已加载但主工作图实际未显示。`/delivery` 会额外等待 `data-delivery-loaded=true`，并要求 `data-delivery-source=backend`、`data-delivery-integrity=clean`；这能抓出旧 Vite 路由、后端断连或只读完整性异常。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
+该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入、科普卡片和交付证据等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。首页会额外要求真实样例覆盖总账 `data-real-sample-ledger=true`，并检查记录数、映射题量和图片资产校验值；比拼训练会额外要求医师任务队列 `data-training-mission=true` 与 learner id 存在；比拼训练、报告生成和科普卡片页会额外校验关键主图：读取 `img[data-real-sample-image="true"][data-real-sample-role="primary"]` 的加载状态、`naturalWidth` 和 `naturalHeight`，避免缩略图已加载但主工作图实际未显示。`/delivery` 会额外等待 `data-delivery-loaded=true`，并要求 `data-delivery-source=backend`、`data-delivery-integrity=clean`；这能抓出旧 Vite 路由、后端断连或只读完整性异常。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
 
 Provider 体检、Base URL 预检和自检 smoke：
 
