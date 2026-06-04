@@ -5,6 +5,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 const DEFAULT_ROUTES = ['/', '/training?view=challenge', '/profile', '/report', '/models', '/card']
+const ROUTES_REQUIRING_REAL_IMAGES = ['/training', '/report', '/card']
+const REAL_IMAGE_SELECTOR = 'img[data-real-sample-image="true"]'
+const REQUIRED_REAL_IMAGE_SELECTOR = 'img[data-real-sample-image="true"][data-real-sample-role="primary"]'
 
 function parseArgs(argv) {
   const args = {
@@ -167,33 +170,38 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
   await client.send('Runtime.enable')
   await client.send('Page.enable')
   await new Promise((resolve) => setTimeout(resolve, Math.min(timeoutMs, 1800)))
-  if (route.startsWith('/training')) {
+  if (requiresRealImage(route)) {
     await waitForRuntimeValue(
       client,
-      'Array.from(document.querySelectorAll("img[data-real-sample-image=\\"true\\"]")).some((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0 && img.dataset.imageStatus === "loaded")',
+      loadedImageExpression(REQUIRED_REAL_IMAGE_SELECTOR),
       Math.min(timeoutMs, 6000),
     ).catch(() => null)
   }
   const result = await client.send('Runtime.evaluate', {
-    expression: `(() => ({
-      route: location.pathname + location.search,
-      title: document.title,
-      h1: document.querySelector('h1')?.innerText || '',
-      hasRoot: Boolean(document.querySelector('#root')),
-      rootChildCount: document.querySelector('#root')?.childElementCount || 0,
-      bodyLength: document.body.innerText.length,
-      hasLiveEvidence: Boolean(document.querySelector('.sidebar-evidence')),
-      evidenceText: (document.querySelector('.sidebar-evidence')?.innerText || '').slice(0, 220),
-      realImages: Array.from(document.querySelectorAll('img[data-real-sample-image="true"]')).map((img) => ({
+    expression: `(() => {
+      const toImageInfo = (img) => ({
         src: img.getAttribute('src') || '',
         status: img.dataset.imageStatus || '',
+        role: img.dataset.realSampleRole || '',
         complete: img.complete,
         naturalWidth: img.naturalWidth,
         naturalHeight: img.naturalHeight,
         dataset: img.dataset.sourceDataset || ''
-      })),
-      blank: (document.querySelector('#root')?.childElementCount || 0) === 0 || document.body.innerText.length < 80
-    }))()`,
+      })
+      return ({
+        route: location.pathname + location.search,
+        title: document.title,
+        h1: document.querySelector('h1')?.innerText || '',
+        hasRoot: Boolean(document.querySelector('#root')),
+        rootChildCount: document.querySelector('#root')?.childElementCount || 0,
+        bodyLength: document.body.innerText.length,
+        hasLiveEvidence: Boolean(document.querySelector('.sidebar-evidence')),
+        evidenceText: (document.querySelector('.sidebar-evidence')?.innerText || '').slice(0, 220),
+        realImages: Array.from(document.querySelectorAll(${JSON.stringify(REAL_IMAGE_SELECTOR)})).map(toImageInfo),
+        requiredRealImages: Array.from(document.querySelectorAll(${JSON.stringify(REQUIRED_REAL_IMAGE_SELECTOR)})).map(toImageInfo),
+        blank: (document.querySelector('#root')?.childElementCount || 0) === 0 || document.body.innerText.length < 80
+      })
+    })()`,
     returnByValue: true,
   })
   await request('GET', port, `/json/close/${target.id}`, false).catch(() => null)
@@ -202,13 +210,30 @@ async function inspectRoute({ frontend, port, route, timeoutMs }) {
     expected_route: route,
     ...result.result.value,
     has_loaded_real_image: Array.isArray(result.result.value.realImages)
-      && result.result.value.realImages.some((item) => item.complete && item.naturalWidth > 0 && item.naturalHeight > 0 && item.status === 'loaded'),
+      && result.result.value.realImages.some(imageInfoLoaded),
+    has_loaded_required_real_image: Array.isArray(result.result.value.requiredRealImages)
+      && result.result.value.requiredRealImages.some(imageInfoLoaded),
     broken_real_images: Array.isArray(result.result.value.realImages)
-      ? result.result.value.realImages.filter((item) => item.status === 'error' || !item.complete || item.naturalWidth <= 0 || item.naturalHeight <= 0)
+      ? result.result.value.realImages.filter((item) => !imageInfoLoaded(item))
+      : [],
+    broken_required_real_images: Array.isArray(result.result.value.requiredRealImages)
+      ? result.result.value.requiredRealImages.filter((item) => !imageInfoLoaded(item))
       : [],
     runtime_errors: client.runtimeErrors,
     console_errors: client.consoleErrors,
   }
+}
+
+function imageInfoLoaded(item) {
+  return item.complete && item.naturalWidth > 0 && item.naturalHeight > 0 && item.status !== 'error'
+}
+
+function loadedImageExpression(selector) {
+  return `Array.from(document.querySelectorAll(${JSON.stringify(selector)})).some((img) => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0 && img.dataset.imageStatus !== "error")`
+}
+
+function requiresRealImage(route) {
+  return ROUTES_REQUIRING_REAL_IMAGES.some((prefix) => route.startsWith(prefix))
 }
 
 async function waitForRuntimeValue(client, expression, timeoutMs) {
@@ -295,8 +320,8 @@ async function main() {
       results.push(result)
       if (result.blank) failures.push(`${route}: page appears blank`)
       if (!result.hasLiveEvidence) failures.push(`${route}: missing global Live evidence sidebar`)
-      if (route.startsWith('/training') && !result.has_loaded_real_image) failures.push(`${route}: missing loaded real sample image`)
-      if (route.startsWith('/training') && result.broken_real_images.length) failures.push(`${route}: broken real sample images: ${JSON.stringify(result.broken_real_images)}`)
+      if (requiresRealImage(route) && !result.has_loaded_required_real_image) failures.push(`${route}: missing loaded primary real sample image`)
+      if (requiresRealImage(route) && result.broken_required_real_images.length) failures.push(`${route}: broken primary real sample images: ${JSON.stringify(result.broken_required_real_images)}`)
       if (result.runtime_errors.length) failures.push(`${route}: runtime errors: ${result.runtime_errors.join(' | ')}`)
       if (result.console_errors.length) failures.push(`${route}: console errors: ${result.console_errors.join(' | ')}`)
     }

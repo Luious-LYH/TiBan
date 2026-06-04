@@ -692,6 +692,7 @@ export function TrainingCenter({ onSubmission }: { onSubmission: (submission: Su
                 src={activeImageUrl}
                 alt={isPublicSample ? `${question.source_dataset} 公开内镜训练样例` : '平台教学内镜图像'}
                 data-real-sample-image={isPublicSample ? 'true' : 'false'}
+                data-real-sample-role="primary"
                 data-image-status={imageLoadState}
                 data-source-dataset={question.source_dataset}
                 onLoad={() => setImageLoadRecord({ src: activeImageUrl, status: 'loaded' })}

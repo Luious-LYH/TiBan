@@ -170,7 +170,7 @@ python scripts\verify_all.py
 python scripts\verify_all.py --skip-build
 ```
 
-总控验证默认 Provider 预检使用 `http://127.0.0.1:9999/v1` 这类本机假地址，只检查后端安全拦截和路径规范，不发送真实模型请求、不需要 key、不写审计；终端输出会脱敏 API key、Provider Base URL 和 token 类字段。脚本会检查 `real_sample_knowledge.json` 中的 `/assets/real_samples/...` 是否都存在于前端 public 目录，并在 UI smoke 中确认比拼训练页真实图片已加载且自然尺寸非零。脚本也会在运行前后比对 `audit_logs.json`、`learner_profile.json` 和 `backend/runtime/patient_cards.json` 的内容指纹，即使中途失败也会报告状态是否漂移。若总控命令失败，再按下面的单项命令定位具体环节。
+总控验证默认 Provider 预检使用 `http://127.0.0.1:9999/v1` 这类本机假地址，只检查后端安全拦截和路径规范，不发送真实模型请求、不需要 key、不写审计；终端输出会脱敏 API key、Provider Base URL 和 token 类字段。脚本会检查 `real_sample_knowledge.json` 中的 `/assets/real_samples/...` 是否都存在于前端 public 目录，并在 UI smoke 中确认比拼训练、报告生成和科普卡片页的关键主图已绑定真实公开样例且自然尺寸非零。脚本也会在运行前后比对 `audit_logs.json`、`learner_profile.json` 和 `backend/runtime/patient_cards.json` 的内容指纹，即使中途失败也会报告状态是否漂移。若总控命令失败，再按下面的单项命令定位具体环节。
 
 前端：
 
@@ -229,7 +229,7 @@ cd E:\2.Projects\ARIS\Endoscopy_Agent\code
 node scripts\ui_smoke.mjs
 ```
 
-该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入和科普卡片等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。比拼训练页会额外校验真实公开样例图像：读取 `img[data-real-sample-image="true"]` 的加载状态、`naturalWidth` 和 `naturalHeight`，避免图片路径写入但页面实际未显示。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
+该命令会自动启动本机 Edge/Chrome 无头浏览器，打开首页、比拼训练、画像、报告、模型准入和科普卡片等关键路由，检查页面非空白、无 runtime/console error，并确认左侧栏全局 “Live evidence” 后端证据摘要存在。比拼训练、报告生成和科普卡片页会额外校验关键主图：读取 `img[data-real-sample-image="true"][data-real-sample-role="primary"]` 的加载状态、`naturalWidth` 和 `naturalHeight`，避免缩略图已加载但主工作图实际未显示。若浏览器安装在非标准路径，可通过 `--browser` 或 `ARIS_BROWSER_PATH` 指定。
 
 Provider 体检、Base URL 预检和自检 smoke：
 

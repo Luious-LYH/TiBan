@@ -218,6 +218,10 @@ export function PatientCard() {
 
   const activeTemplate = knowledge?.templates?.find((item) => item.id === templateId)
   const selectedImageOption = imageOptions.find((item) => item.id === selectedImageId)
+  const displayedCardImageUrl = card?.image_url || imageUrl
+  const displayedImageOption = imageOptions.find((item) => item.imageUrl === displayedCardImageUrl)
+  const displayedImageDataset = displayedImageOption?.dataset
+    || (displayedCardImageUrl.startsWith('blob:') ? 'local_upload' : displayedCardImageUrl.startsWith('/assets/real_samples/') ? 'public_sample_unknown' : selectedImageOption?.dataset || 'public_sample')
   const reviewSteps = isReviewed && card?.review_steps?.length
     ? card.review_steps
     : [
@@ -289,7 +293,13 @@ export function PatientCard() {
                 }}
                 title={`${item.label} · ${item.dataset}`}
               >
-                <img src={item.imageUrl} alt={`${item.label} 缩略图`} />
+                <img
+                  src={item.imageUrl}
+                  alt={`${item.label} 缩略图`}
+                  data-real-sample-image={item.imageUrl.startsWith('/assets/real_samples/') ? 'true' : 'false'}
+                  data-real-sample-role="thumbnail"
+                  data-source-dataset={item.dataset}
+                />
               </button>
             ))}
             <label className={`image-placeholder ${uploadedImageName ? 'active-upload' : ''}`} title="上传本地卡片图像">
@@ -396,7 +406,13 @@ export function PatientCard() {
         <div className="stage-aura" />
         <article className={`floating-patient-card template-${card?.template_id || templateId}`}>
           <div className="card-media">
-            <img src={card?.image_url || imageUrl} alt="科普卡片使用的内镜示例图" />
+            <img
+              src={displayedCardImageUrl}
+              alt="科普卡片使用的内镜示例图"
+              data-real-sample-image={displayedCardImageUrl.startsWith('/assets/real_samples/') ? 'true' : 'false'}
+              data-real-sample-role="primary"
+              data-source-dataset={displayedImageDataset}
+            />
             <span>{activeTemplate?.name || card?.visual_tone || '医生审核前草稿'}</span>
           </div>
           <div className="card-copy">

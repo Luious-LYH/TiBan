@@ -283,7 +283,13 @@ export function ReportDraft() {
                       onClick={() => applySample(sample)}
                       title={`${sample.source_dataset} · ${sample.body_part}`}
                     >
-                      <img src={sample.image_url || '/assets/synthetic-endoscopy-training.svg'} alt={sample.title} />
+                      <img
+                        src={sample.image_url || '/assets/synthetic-endoscopy-training.svg'}
+                        alt={sample.title}
+                        data-real-sample-image={sample.image_url?.startsWith('/assets/real_samples/') ? 'true' : 'false'}
+                        data-real-sample-role="thumbnail"
+                        data-source-dataset={sample.source_dataset}
+                      />
                       <span>{sample.source_dataset}</span>
                     </button>
                   ))}
@@ -291,7 +297,15 @@ export function ReportDraft() {
               ) : null}
               <label className="upload-zone">
                 <input type="file" accept="image/*" onChange={onImage} />
-                {imagePreview ? <img src={imagePreview} alt="上传的内镜图片预览" /> : <FileImage size={34} />}
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt={selectedSample ? `${selectedSample.source_dataset} 公开内镜样例预览` : '上传的内镜图片预览'}
+                    data-real-sample-image={selectedSample && imagePreview.startsWith('/assets/real_samples/') ? 'true' : 'false'}
+                    data-real-sample-role="primary"
+                    data-source-dataset={selectedSample?.source_dataset || 'uploaded'}
+                  />
+                ) : <FileImage size={34} />}
                 <span>{selectedSampleId ? '已载入本地真实公开图文样例，可切换或上传自定义图片' : imageName || '上传内镜图片到后端受控目录'}</span>
               </label>
               {uploadStatus ? <div className="source-note">{uploadStatus}</div> : null}
