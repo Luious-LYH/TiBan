@@ -1,0 +1,86 @@
+[
+  {
+    "id": "case_esophagus_landmark",
+    "title": "食管黏膜观察与 Z 线定位",
+    "source_dataset": "Kvasir-VQA-x1",
+    "source_type": "公开脱敏教学样例",
+    "image_url": "/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg",
+    "difficulty": "进阶",
+    "prompt": "请按“部位标志—黏膜表现—阴性发现—复核边界”的顺序，写一句医生复核前观察记录。",
+    "gold_answer": "可见 Z 线这一食管解剖标志，黏膜有炎症相关表现，未见明确息肉；结论需结合完整检查由医生复核。",
+    "facts": [
+      {"id": "eso_f1", "label": "Z 线可见", "aliases": ["z线", "z 线", "齿状线", "解剖标志"], "dimension": "部位定位", "evidence": "公开样例标注：z-line visible。"},
+      {"id": "eso_f2", "label": "食管黏膜炎症相关表现", "aliases": ["食管炎", "炎症相关", "黏膜炎症", "炎性改变"], "dimension": "属性判断", "evidence": "公开样例标注：evidence of oesophagitis。"},
+      {"id": "eso_f3", "label": "未见明确息肉", "aliases": ["未见明确息肉", "未见息肉", "无息肉", "未发现息肉", "no polyp"], "dimension": "数量判断", "evidence": "公开样例标注：no polyps identified。"},
+      {"id": "eso_f4", "label": "保留医生复核边界", "aliases": ["医生复核", "结合完整检查", "仅作观察", "复核前"], "dimension": "证据不足识别", "evidence": "单帧公开图像仅支持教学观察，不能替代完整检查。"}
+    ],
+    "next_recommendation": "进入食管报告纠错题，练习区分观察所见与最终结论。"
+  },
+  {
+    "id": "case_polyp_followup",
+    "title": "息肉处理后视野复核",
+    "source_dataset": "Kvasir-VQA-x1",
+    "source_type": "公开脱敏教学样例",
+    "image_url": "/assets/real_samples/x1_cl8k2u1qa1ekz08324rek2qcv.jpg",
+    "difficulty": "挑战",
+    "prompt": "请复核处理后视野，记录残留、画面文字和异常区域位置，并保留医生复核边界。",
+    "gold_answer": "视野内仍可见息肉样改变，画面有文字信息，异常区域位于中央及偏上；需由医生结合完整检查复核。",
+    "facts": [
+      {"id": "polyp_f1", "label": "仍有息肉样改变", "aliases": ["仍可见息肉", "息肉残留", "息肉样改变", "polyps remain"], "dimension": "病灶识别", "evidence": "公开样例标注：polyps remain present。"},
+      {"id": "polyp_f2", "label": "画面可见文字", "aliases": ["可见文字", "有文字信息", "画面文字", "text is visible"], "dimension": "事实组合", "evidence": "公开样例标注：text is visible。"},
+      {"id": "polyp_f3", "label": "异常位于中央及偏上", "aliases": ["中央及偏上", "中央和上方", "中心及上部", "central and upper"], "dimension": "部位定位", "evidence": "公开样例标注：central and upper-center regions。"},
+      {"id": "polyp_f4", "label": "保留医生复核边界", "aliases": ["医生复核", "结合完整检查", "复核前"], "dimension": "证据不足识别", "evidence": "局部视野不能替代完整检查与正式报告审核。"}
+    ],
+    "next_recommendation": "练习处理前后图像对照与残留所见的结构化表达。"
+  },
+  {
+    "id": "case_negative_findings",
+    "title": "阴性发现与单一异常计数",
+    "source_dataset": "Kvasir-VQA-x1",
+    "source_type": "公开脱敏教学样例",
+    "image_url": "/assets/real_samples/x1_cla820gmss67b071u3h7o5k3t.jpg",
+    "difficulty": "进阶",
+    "prompt": "请完成视野清点：器械、息肉及异常发现数量，并写明使用边界。",
+    "gold_answer": "视野内未见器械，未见明确息肉，可见一处异常表现；该记录仅供教学并需医生复核。",
+    "facts": [
+      {"id": "neg_f1", "label": "未见器械", "aliases": ["未见器械", "无器械", "器械0", "no instrument"], "dimension": "数量判断", "evidence": "公开样例标注：0 instruments。"},
+      {"id": "neg_f2", "label": "未见明确息肉", "aliases": ["未见明确息肉", "未见息肉", "无息肉", "息肉0", "no polyp"], "dimension": "数量判断", "evidence": "公开样例标注：0 polyps。"},
+      {"id": "neg_f3", "label": "一处异常表现", "aliases": ["一处异常", "1处异常", "一个异常", "one abnormal"], "dimension": "病灶识别", "evidence": "公开样例标注：1 finding。"},
+      {"id": "neg_f4", "label": "保留医生复核边界", "aliases": ["医生复核", "仅供教学", "结合完整检查"], "dimension": "证据不足识别", "evidence": "计数结果仅限当前公开样例视野。"}
+    ],
+    "next_recommendation": "继续训练阴性发现的完整记录，避免只描述阳性所见。"
+  },
+  {
+    "id": "case_instrument_field",
+    "title": "操作视野中的器械与异常分布",
+    "source_dataset": "Kvasir-VQA-x1",
+    "source_type": "公开脱敏教学样例",
+    "image_url": "/assets/real_samples/x1_clb0lbwzpdpgo086ucmqx7nyu.jpg",
+    "difficulty": "挑战",
+    "prompt": "请按器械数量、画面遮挡信息、异常分布和复核边界完成操作视野记录。",
+    "gold_answer": "视野内可见一件器械，未见画面文字，异常分布于中央及上方区域；需由医生复核完整检查。",
+    "facts": [
+      {"id": "inst_f1", "label": "可见一件器械", "aliases": ["一件器械", "1件器械", "一个器械", "one instrument"], "dimension": "数量判断", "evidence": "公开样例标注：1 instrument。"},
+      {"id": "inst_f2", "label": "未见画面文字", "aliases": ["未见画面文字", "未见文字", "无文字", "没有文字", "no text"], "dimension": "事实组合", "evidence": "公开样例标注：no text visible。"},
+      {"id": "inst_f3", "label": "异常分布于中央及上方", "aliases": ["中央及上方", "中央和上方", "中心及上部", "central and upper"], "dimension": "部位定位", "evidence": "公开样例标注：central and upper regions。"},
+      {"id": "inst_f4", "label": "保留医生复核边界", "aliases": ["医生复核", "完整检查", "复核前"], "dimension": "证据不足识别", "evidence": "操作视野记录需结合完整视频和医生审核。"}
+    ],
+    "next_recommendation": "练习器械遮挡场景下的有效视野与证据完整性判断。"
+  },
+  {
+    "id": "case_capsule_anatomy",
+    "title": "胶囊内镜消化道部位定位",
+    "source_dataset": "EndoBench",
+    "source_type": "公开脱敏教学样例",
+    "image_url": "/assets/real_samples/endo_image_0.jpg",
+    "difficulty": "进阶",
+    "prompt": "请给出当前胶囊内镜视野的部位判断、定位依据要求和复核边界。",
+    "gold_answer": "当前视野与小肠黏膜相符；部位定位应结合连续帧和解剖标志，并由医生复核。",
+    "facts": [
+      {"id": "cap_f1", "label": "部位判断为小肠", "aliases": ["小肠", "small intestine"], "dimension": "部位定位", "evidence": "EndoBench 公开样例答案：small intestine。"},
+      {"id": "cap_f2", "label": "需要连续帧或解剖标志", "aliases": ["连续帧", "解剖标志", "前后帧", "定位依据"], "dimension": "证据不足识别", "evidence": "单帧定位应说明依据限制。"},
+      {"id": "cap_f3", "label": "保留医生复核边界", "aliases": ["医生复核", "结合完整检查", "仅供教学"], "dimension": "证据不足识别", "evidence": "公开 benchmark 图像不构成临床结论。"}
+    ],
+    "next_recommendation": "继续练习胃、小肠与结直肠的连续帧解剖定位。"
+  }
+]

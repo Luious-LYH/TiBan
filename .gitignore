@@ -8,3 +8,6 @@ __pycache__/
 backend/app/data/*.tmp
 backend/runtime/
 runtime_logs/
+frontend/release/
+frontend/artifacts/
+*.lnk

@@ -30,10 +30,13 @@ from app.schemas import (
 )
 from app.services.audit_service import audit_service, now_iso
 from app.services.dashboard_service import dashboard_service
+from app.services.data_store import reset_runtime_data
 from app.services.demo_check_service import demo_check_service
 from app.services.grading_service import grading_service
 from app.services.memory_service import memory_service
 from app.services.model_service import model_service
+from app.services.portfolio_agent_runtime import portfolio_agent_runtime
+from app.services.portfolio_eval_service import portfolio_eval_service
 from app.services.question_service import question_service
 from app.services.report_service import report_service
 from app.services.skill_registry import skill_registry
@@ -48,7 +51,7 @@ def health() -> dict[str, object]:
     return {
         "status": "ok",
         "service": APP_NAME,
-        "version": "v3.0",
+        "version": "portfolio-v2.0",
         "capabilities": [
             "v3_session",
             "model_evaluation",
@@ -58,6 +61,9 @@ def health() -> dict[str, object]:
             "delivery_report",
             "report_upload_receipt",
             "profile_growth",
+            "runtime_state_isolation",
+            "observable_agent_runtime",
+            "offline_agent_evaluation",
         ],
     }
 
@@ -105,6 +111,57 @@ def platform_delivery_report() -> dict[str, object]:
 @router.post("/platform/demo-check")
 def platform_demo_check(learner_id: str = "demo_learner", persist: bool = False) -> dict[str, object]:
     return v3_facade_service.public_json_payload(demo_check_service.run(learner_id=learner_id, persist=persist))
+
+
+@router.post("/demo/reset")
+def demo_reset() -> dict[str, object]:
+    restored = reset_runtime_data()
+    return {
+        "status": "reset",
+        "restored": restored,
+        "runtime_isolated": True,
+        "message": "演示状态已恢复，版本库中的种子数据未被修改。",
+        "safety_notice": SAFETY_NOTICE,
+    }
+
+
+@router.get("/portfolio/cases")
+def portfolio_cases() -> dict[str, object]:
+    items = portfolio_agent_runtime.list_cases()
+    return {
+        "items": items,
+        "total": len(items),
+        "source": "versioned_portfolio_case_pack",
+        "safety_notice": SAFETY_NOTICE,
+    }
+
+
+@router.post("/agent/runs")
+def portfolio_agent_run(payload: dict[str, object]) -> dict[str, object]:
+    case_id = str(payload.get("case_id") or "").strip()
+    learner_answer = str(payload.get("learner_answer") or "").strip()
+    if not case_id or not learner_answer:
+        raise HTTPException(status_code=400, detail="case_id and learner_answer are required.")
+    try:
+        return portfolio_agent_runtime.run(
+            case_id=case_id,
+            learner_answer=learner_answer,
+            learner_id=str(payload.get("learner_id") or "demo_learner"),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/evals/run")
+def portfolio_eval_run() -> dict[str, object]:
+    return portfolio_eval_service.run()
+
+
+@router.get("/evals/latest")
+def portfolio_eval_latest() -> dict[str, object]:
+    # The suite is intentionally small and deterministic; re-running ensures the
+    # displayed artifact always matches the checked-out implementation.
+    return portfolio_eval_service.run()
 
 
 @router.get("/session")

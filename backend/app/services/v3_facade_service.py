@@ -4,7 +4,6 @@ import re
 import json
 import random
 from collections import Counter
-from hashlib import sha256
 from typing import Any
 from uuid import uuid4
 
@@ -301,21 +300,21 @@ class V3FacadeService:
         ]
 
     def model_evaluation(self) -> dict[str, Any]:
-        cards = self._model_cards()
-        ranking = sorted(cards, key=lambda item: item["metrics"]["综合研修适配度"]["value"], reverse=True)
-        top = ranking[0]
+        # Static scores from earlier demo revisions are intentionally not exposed.
+        # Real model runs are published separately as versioned experiment artifacts.
+        ranking: list[dict[str, Any]] = []
         return {
             "summary": {
-                "title": "内镜智能助手评估池",
-                "headline": "微调模型在多步证据整合和报告表达上表现更稳",
-                "sample_scope": "平台统一内镜数据资源",
-                "model_count": len(cards),
-                "top_model_id": top["id"],
-                "top_model_name": top["display_name"],
-                "updated_at": "2026-06-05",
+                "title": "模型评测实验室",
+                "headline": "仅展示可复现运行结果；历史演示分数已下线",
+                "sample_scope": "等待真实模型实验产物",
+                "model_count": 0,
+                "top_model_id": "",
+                "top_model_name": "暂无真实评测结果",
+                "updated_at": now_iso(),
             },
             "groups": [
-                {"id": "domain", "label": "微调模型", "description": "平台智能助手候选，优先用于研修反馈。"},
+                {"id": "domain", "label": "领域候选模型", "description": "完成真实实验后进入模型池。"},
                 {"id": "general", "label": "通用开源视觉模型", "description": "覆盖通用图像问答能力。"},
                 {"id": "medical", "label": "医学开源视觉模型", "description": "覆盖医学多模态基础能力。"},
                 {"id": "closed", "label": "闭源参考模型", "description": "仅作外部参考对照。"},
@@ -329,12 +328,9 @@ class V3FacadeService:
                 "综合研修适配度",
             ],
             "items": ranking,
-            "radar": [
-                {"metric": metric, **{card["id"]: card["metrics"][metric]["value"] for card in ranking[:5]}}
-                for metric in ["图像问答正确率", "前提鲁棒校验率", "多步证据整合率", "分步证据完整率", "输出可解析率"]
-            ],
-            "complexity_curve": self._complexity_curve(),
-            "attribute_breakdown": self._attribute_breakdown(),
+            "radar": [],
+            "complexity_curve": [],
+            "attribute_breakdown": [],
             "safety_notice": SAFETY_NOTICE,
         }
 
@@ -372,15 +368,40 @@ class V3FacadeService:
             for sample, result in zip(samples, provider_results)
         ]
         aligned = sum(1 for item in evidence if item.get("reference_match") in {"matched", "partial"})
-        seed = int(sha256(model.encode("utf-8", errors="ignore")).hexdigest()[:6], 16)
-        base_score = min(88, 72 + seed % 9 + aligned * 2) if called else 54
+        successful = [result for result in provider_results if result.ok and result.text.strip()]
+        sample_count = max(len(provider_results), 1)
+        weighted_matches = sum(
+            1.0 if item.get("reference_match") == "matched" else 0.5 if item.get("reference_match") == "partial" else 0.0
+            for item in evidence
+        )
+        boundary_hits = sum(
+            1
+            for result in successful
+            if any(term in result.text.lower() for term in ["证据不足", "不能", "无法", "复核", "单帧", "single image", "limitation"])
+        )
+        evidence_hits = sum(
+            1
+            for result in successful
+            if any(term in result.text.lower() for term in ["图像", "观察", "依据", "可见", "evidence", "visible"])
+        )
+        structured_hits = sum(
+            1
+            for result in successful
+            if any(term in result.text.lower() for term in ["字段", "结构化", "1)", "2)", "3)", "structured"])
+        )
+        parse_rate = 100 * len(successful) / sample_count if called else 0.0
+        vqa_rate = 100 * weighted_matches / sample_count if called else 0.0
+        premise_rate = 100 * boundary_hits / sample_count if called else 0.0
+        evidence_rate = 100 * evidence_hits / sample_count if called else 0.0
+        structured_rate = 100 * structured_hits / sample_count if called else 0.0
+        fit_rate = (vqa_rate * 0.35 + premise_rate * 0.2 + evidence_rate * 0.2 + structured_rate * 0.15 + parse_rate * 0.1) if called else 0.0
         metrics = {
-            "图像问答正确率": min(91, base_score + 2),
-            "前提鲁棒校验率": min(90, base_score - 1),
-            "多步证据整合率": min(88, base_score - 4 + aligned),
-            "分步证据完整率": min(89, base_score - 2),
-            "输出可解析率": 99 if called else 62,
-            "综合研修适配度": min(90, base_score),
+            "图像问答正确率": round(vqa_rate, 1),
+            "前提鲁棒校验率": round(premise_rate, 1),
+            "多步证据整合率": round(structured_rate, 1),
+            "分步证据完整率": round(evidence_rate, 1),
+            "输出可解析率": round(parse_rate, 1),
+            "综合研修适配度": round(fit_rate, 1),
         }
         report_fields = self._custom_report_fields(representative.text if called else "", called)
         return {
