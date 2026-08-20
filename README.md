@@ -1,30 +1,31 @@
-# 内镜智训 Agent · 作品集 v2.0
+# 内镜智训 Agent · 作品集 v2.1
 
-面向消化内镜研修的多模态 Agent 作品集 Demo。主演示是一条可观察的
-`Plan → Act → Observe → Verify → Memory` 带教链路；模型页展示真实 GPU
-推理与 QLoRA 训练链路证据，而非硬编码排行榜。
+面向消化内镜研修的多模态 Agent 作品集 Demo。它保留传统题库的“计划—作答—错题—复习”业务闭环，并把 Agent 的受控执行、工具收据、学习状态写入和评测证据放在可观察的主链上。
 
-第一次阅读请从 [`docs/portfolio/00_从这里开始.md`](docs/portfolio/00_从这里开始.md) 开始。
+第一次接手或答辩前，请从 [`docs/portfolio/00_从这里开始.md`](docs/portfolio/00_从这里开始.md) 阅读。
 
-产品主链收束为：
+## 三个入口，一条演示主线
 
-`模型评估 -> 医生研修 -> 证据复盘 -> 报告辅助 -> 能力画像`
+| 入口 | 用途 | 现场展示重点 |
+|---|---|---|
+| `/study` | 研修中心 | 今日自适应计划、病例题库、收藏、错题本、间隔复习与进度 |
+| `/workbench?case=...` | Agent 工作台 | 公开教学图像作答、NDJSON 阶段流、Tool Receipt、Evidence、Memory、Replay |
+| `/lab` | 评测实验室 | Agent 固定回归与模型实验 Artifact |
 
-## 核心页面
+**根路由会直接进入 `/study`**：选择今日计划中的病例进入工作台，完成一次作答后返回研修中心观察错题/进度变化，最后在 `/lab` 展示技术证据。详见 [`04_三分钟演示脚本.md`](docs/portfolio/04_三分钟演示脚本.md)。
 
-- 首页：展示平台价值、智能助手、今日研修入口和能力走势。
-- 模型：查看模型池、多维评估结果、智能助手选择依据和自定义模型体验评估。
-- 研修：完成内镜图像题作答、提交评分、证据复盘、画像更新和下一题推荐。
-- 报告：上传或选择图片，输入简短所见，生成结构化报告草稿，并通过智能修改优化表达。
-- 画像：展示医生能力雷达、成长曲线、薄弱项和最近研修记录。
+## 核心能力
+
+- **研修业务**：5 个公开脱敏教学病例；顺序训练、搜索/部位筛选、收藏、最佳分、尝试记录、错题自动收录与答对消错。
+- **Training Agent**：基于未完成题、错题、复习到期与最低掌握维度生成下一题；学习状态写入可重置运行态，不改版本化题库种子。
+- **Agent Runtime**：`Plan → Act → [Recovery] → Observe → Verify → Memory`；BM25-equivalent 稀疏检索、类型化工具、单次受控重试、Context Manifest、Usage Ledger 和进程内 Checkpoint/Replay。
+- **模型实验**：3 个 VLM 的冻结小样本对比，以及 BF16/INT8/NF4、QLoRA、DPO、结构化 Prompt 消融；DPO 另做 5-seed 复验并对 1 次 NaN 加入 fail-closed 门禁，结果与失败证据均以版本化 Artifact 展示。
 
 ## 技术栈
 
 - 前端：React + Vite + TypeScript、Recharts、lucide-react。
 - 后端：FastAPI + Pydantic。
-- 数据：本地 JSON 教学样例、画像状态、报告知识库、平台模型评估结果。
-- Agent：受控状态机、类型化 Tool Receipt、事实级 Rubric、可解释 Memory Delta。
-- 模型实验：Qwen2.5-VL-3B-Instruct、BF16 推理基准、NF4 QLoRA sanity run。
+- 数据：本地公开教学样例、运行态学习记录、版本化评测 Artifact。
 
 ## 快速启动
 
@@ -36,77 +37,44 @@
 
 一键启动会自动启动本机后端，并使用已经构建好的 `frontend\dist` 打开网页前端；答辩现场不依赖 `node_modules` 或 `npm run dev`。如需真实智能服务，请先在本机环境变量、`code\.env` 或 `code\backend\.env` 中配置 `LLM_BASE_URL` 与 `LLM_API_KEY`，再双击启动。启动脚本只读取本机配置，不会把授权信息写入源码或提交包。
 
-后端：
+开发模式：
 
 ```powershell
 cd backend
 python -m pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8002
-```
 
-前端：
-
-```powershell
-cd frontend
+cd ../frontend
 npm install
 $env:VITE_API_BASE_URL="http://127.0.0.1:8002"
 npm run dev -- --host 127.0.0.1 --port 5174 --strictPort
 ```
 
-答辩包默认不需要运行上面的开发命令；直接双击 `Start-Web-Demo.bat` 即可。
+浏览器打开 `http://127.0.0.1:5174/study`。
 
-浏览器打开：
+## v2.1 主流程接口
 
-```text
-http://127.0.0.1:5174
-```
+- `GET /api/portfolio/study`：今日计划、题库、错题本、复习队列与学习摘要。
+- `POST /api/portfolio/study/favorites/{case_id}`：更新收藏。
+- `GET /api/portfolio/cases`：读取公开教学病例。
+- `POST /api/agent/runs/stream`：NDJSON 真实阶段流；传入 `commit_memory=true` 才提交一次学习状态。
+- `POST /api/agent/runs/{run_id}/replay`：诊断性重放，不重复写入学习记录。
+- `POST /api/agent/retrieve`：可解释稀疏检索。
+- `GET /api/evals/latest`：重新生成并读取 Agent 固定回归。
+- `GET /api/models/evaluation`：读取模型实验 Artifact。
+- `POST /api/demo/reset`：清理运行态演示学习数据。
 
-## 作品集接口
+## 证据边界
 
-主流程使用薄 facade：
-
-- `GET /api/session`
-- `GET /api/models/evaluation`
-- `POST /api/models/custom-evaluate`
-- `GET /api/practice/state`
-- `GET /api/practice/questions`
-- `GET /api/practice/questions/{id}`
-- `POST /api/practice/submit`
-- `POST /api/practice/session`
-- `POST /api/practice/tutor`
-- `GET /api/portfolio/cases`
-- `POST /api/agent/runs`
-- `POST /api/evals/run`
-- `GET /api/evals/latest`
-- `POST /api/demo/reset`
-- `POST /api/report/image`
-- `POST /api/report/generate`
-- `POST /api/report/revise`
-
-旧接口仍保留为内部兼容层，但不作为 v3 主流程入口。
-
-## 演示路径
-
-1. 首页点击“开始演示病例”。
-2. 围绕公开教学图像写一条观察记录并提交。
-3. 展示真实 run ID、五阶段 Trace、工具收据、事实 F1、Memory Delta 与下一题推荐。
-4. 进入模型页，展示可复现的真实 GPU 小样本基线及其失败模式。
-5. 按需补充报告辅助与研修画像，不让它们抢占主演示。
-
-## 安全边界
-
-本项目仅用于教学研修或医生复核前辅助，不作为独立诊断依据。
+- Agent Eval 的 100% 指标来自 **5 个 Golden Cases、19 条固定检索 query、3 类故障注入和 3 条安全探针**的确定性规则回归；它不是模型准确率，也不代表开放域能力。
+- 模型实验使用 10 张公开教学图像的 4/3/3 划分，冻结测试集仅 **3 张图像**；仅供作品集实验比较，不代表泛化或临床验证。
+- 本项目仅供教学研修或医生复核前辅助，不作为独立诊断依据。
 
 不要提交真实密钥、通知地址、服务器密码、患者身份信息或其他敏感数据。
 
 ## 文档
 
 - `docs/portfolio/00_从这里开始.md`
-- `docs/portfolio/项目简历介绍建议-Agent应用.md`
-- `docs/portfolio/项目简历介绍建议-大模型算法.md`
-- `docs/V3_SCOPE_LOCK.md`
-- `docs/V3_IMPLEMENTATION_PLAN.md`
-- `docs/V3_PRESENTATION_GUIDE.md`
-- `docs/V3_SMOKE_TEST.md`
-- `docs/DESKTOP_APP.md`
-- `docs/API_SPEC.md`
+- `docs/portfolio/04_三分钟演示脚本.md`
+- `docs/portfolio/简历项目经历-Agent应用版.md`
+- `docs/portfolio/简历项目经历-大模型算法版.md`

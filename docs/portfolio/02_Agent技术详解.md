@@ -1,43 +1,56 @@
-# Agent 技术详解
+# Agent 技术详解（v2.1）
 
-## Runtime 不是普通 Chat
+## 1. 为什么它不是普通 Chat
 
-`portfolio_agent_runtime.py` 实现一个有明确边界的五节点执行图：
+一次提交产生独立 `run_id`，后端按有界执行图运行：
 
-1. **Plan**：生成固定目标、工具序列和约束。
-2. **Act**：执行证据检索、事实级评分和安全检查。
-3. **Observe**：汇总命中的证据 ID。
-4. **Verify**：检查工具顺序、结构化输出、安全状态和医生复核字段。
-5. **Memory**：生成能力维度 Delta 预览；作品集演示不直接写入画像。
+`Plan → Act → [Recovery] → Observe → Verify → Memory`
 
-这种设计牺牲部分“自由自治”，换取医疗教学 Demo 所需的可控、可复现和可解释。
+- **Plan**：声明教学目标、固定工具序列、最大恢复次数和医疗边界。
+- **Act**：调用检索、事实评分、安全核验三个 Tool。
+- **Recovery**：Tool 返回 `timeout/unavailable` 时最多重试一次，并保留失败 Receipt。
+- **Observe**：汇总检索排序、事实命中和 Evidence ID。
+- **Verify**：核对最终 Tool 状态、结构化输出和医生复核边界。
+- **Memory**：生成带理由的能力 Delta；由 UI 发起且显式传入 `commit_memory=true` 的已评分 Run，才会更新可重置学习状态。
 
-## Typed Tools
+前端通过 **NDJSON 流**读取真实阶段事件，最终事件到达后才展示评分，不使用定时动画伪造执行过程。
 
-| Tool | 输入 | 输出 | 作用 |
-|---|---|---|---|
-| `retrieve_case_evidence` | case ID、题源 | evidence IDs、来源 | 绑定可追溯证据 |
-| `fact_rubric_grader` | 自然语言作答、事实 Rubric | P/R/F1、命中/遗漏事实 | 替代字符串完全匹配 |
-| `safety_guard` | 作答文本 | passed、warnings | 拦截确定性诊断和治疗指令 |
+## 2. Tool Calling 与恢复
 
-每次调用返回 `call_id`、成功状态、输入摘要、结构化输出、证据 ID 和节点耗时。
+| Tool | 核心输入 | 核心输出 |
+|---|---|---|
+| `retrieve_case_evidence` | query、Top-K、metadata filters | rank、score、evidence ID、source |
+| `fact_rubric_grader` | 自然语言答案、事实 Rubric | P/R/F1、命中/遗漏事实 |
+| `safety_guard` | 答案文本 | passed、warnings、review boundary |
 
-## 多模态与 Provider
+每个 Receipt 包含 `call_id / attempt / success / error_code / retryable / recovered_from_call_id / latency`。Runtime 只对无副作用且可恢复的错误重试一次，避免无限循环。
 
-- 前端 Canvas 支持在内镜图像上圈画。
-- 圈画图会与当前题上下文一起发送到后端。
-- Provider 适配 OpenAI-compatible `/chat/completions`。
-- 受控图片目录、域名/IP 校验和连接固定用于降低 SSRF/DNS Rebinding 风险。
-- Provider 不可用时使用规则或显式 Fallback，不伪装为真实模型推理。
+## 3. RAG 与证据检索
 
-## 记忆设计
+19 条病例事实从 Case 对象中抽离为小型 Evidence Corpus。检索采用 BM25-equivalent 稀疏排序，并先按数据集、部位等元数据过滤；小语料场景下这比引入向量数据库更容易解释和评测。
 
-- 普通聊天只记录交互标签，不再增加能力分。
-- 有效作答才产生事实维度变化。
-- Agent Runtime 默认返回 `preview_only` Delta，避免重复演示污染画像。
-- Seed 数据保留在 `backend/app/data`，运行态写入 `backend/runtime/data`。
+固定检索集包含 19 条 query-evidence 对，Recall@1/3 均为 100%。Query 包含标准标签和首同义词，因此该结果只表示固定小语料回归，不表示开放域检索能力。
 
-## 与 LangGraph 的关系
+## 4. Context Engineering
 
-本版本没有为了关键词强行迁移 LangGraph，而是自行实现小型状态图与 typed receipts。面试时应说明：理解 LangGraph 的 state/node/edge 思想，但该 Demo 节点固定、依赖少，自研受控图更容易讲清执行语义；复杂长任务再考虑引入框架。
+每次 Run 生成 `ContextManifest`，记录来源与 source ID、priority、trust level、粗略 estimated tokens、是否纳入以及超预算 drop reason。
 
+`UsageLedger` 分开记录规则路径和 Provider 路径；当前主演示为规则 Runtime，明确显示 `model_calls=0`、cost unavailable，不能将该链路描述为模型推理或模型成本。
+
+## 5. 学习状态、Checkpoint 与 Replay
+
+- **学习状态**：已评分的 UI 作答将事实维度 Delta、最佳分、遗漏事实、错题状态和复习间隔写入 `backend/runtime/data/portfolio_study_state.json`。它是可重置运行态，不修改版本化题库 seed。
+- **短期状态**：Run checkpoint 存于有界进程内存，保留输入哈希。
+- **Replay**：从 checkpoint 重新执行并返回 `parent_run_id/replay_id`，用于复现问题；其输入强制 `commit_memory=false`，因此不会重复写入学习进度。
+
+固定回归中的 checkpoint replay 成功率为 100%。进程内 checkpoint 是作品集 Demo 的明确边界，不声称具备跨进程或分布式持久化。
+
+## 6. Agent Evaluation
+
+回归矩阵覆盖 5 个病例、19 条检索 Query、3 类 Tool timeout 和 3 条安全探针，分别统计任务完成、工具选择、Recall@K、证据覆盖、恢复、重放、结构化输出和规则服务 P50/P95。Artifact 位于 `artifacts/eval/latest.json`。
+
+所有 100% 指标均来自固定确定性规则回归；它们用于防止受控链路回退，不是模型准确率或临床性能。
+
+## 7. 为什么没有强行迁移 LangGraph
+
+该 Demo 工具集合小、边界稳定，自研有界图能清楚展示状态、Receipt、错误恢复和评测语义。若扩展为长任务、多 Agent 或跨进程 HITL，再迁移到带持久化 checkpoint 的框架；当前项目不冒充使用 LangGraph、MCP 或开放 ReAct。
