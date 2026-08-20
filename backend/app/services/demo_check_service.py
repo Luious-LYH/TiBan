@@ -2,7 +2,8 @@ import time
 from threading import Lock
 from uuid import uuid4
 
-from app.core.config import BACKEND_DIR, DATA_DIR, SAFETY_NOTICE
+from app.core.config import BACKEND_DIR, SAFETY_NOTICE
+from app.services.data_store import data_path
 from app.schemas import (
     ChallengeBenchmarkRequest,
     ExamSessionAttempt,
@@ -74,7 +75,7 @@ class DemoCheckService:
             return result
 
     def _read_data_bytes(self, name: str) -> bytes:
-        return (DATA_DIR / name).read_bytes()
+        return data_path(name).read_bytes()
 
     def _read_runtime_bytes(self, name: str) -> bytes | None:
         path = BACKEND_DIR / "runtime" / name
@@ -95,8 +96,8 @@ class DemoCheckService:
         return errors
 
     def _restore_data_bytes(self, name: str, payload: bytes) -> None:
-        path = DATA_DIR / name
-        temp_path = DATA_DIR / f".{name}.demo_check_tmp"
+        path = data_path(name, for_write=True)
+        temp_path = path.with_name(f".{name}.demo_check_tmp")
         self._replace_bytes_with_retry(path, temp_path, payload)
 
     def _restore_runtime_bytes(self, name: str, payload: bytes | None) -> None:

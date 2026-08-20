@@ -234,9 +234,6 @@ class MemoryService:
             generation_mode,
         ]))
         profile.question_type_coverage["带教追问"] = profile.question_type_coverage.get("带教追问", 0) + 1
-        for fact in question.atomic_trace[:2]:
-            old_score = profile.skill_scores.get(fact.skill_dimension, 70)
-            profile.skill_scores[fact.skill_dimension] = self._bounded_score(old_score, 1 if safety_passed else -2)
         if not safety_passed and "安全边界" not in profile.weakness_tags:
             profile.weakness_tags.insert(0, "安全边界")
         profile.training_records.insert(
@@ -254,7 +251,7 @@ class MemoryService:
         write_json("learner_profile.json", profile.model_dump())
         summary = (
             f"已记录带教辅导事件：{question.title}；"
-            f"训练标签 {', '.join(interaction_tags[:3])}；未保存追问原文。"
+            f"训练标签 {', '.join(interaction_tags[:3])}；未保存追问原文，且普通追问不改变能力分。"
         )
         return interaction_tags, summary
 

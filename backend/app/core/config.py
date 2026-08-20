@@ -14,6 +14,7 @@ DATA_DIR = BASE_DIR / "data"
 BACKEND_DIR = BASE_DIR.parent
 PROJECT_DIR = BACKEND_DIR.parent
 UPLOAD_DIR = BACKEND_DIR / "runtime" / "uploads"
+RUNTIME_DATA_DIR = BACKEND_DIR / "runtime" / "data"
 
 load_dotenv(PROJECT_DIR / ".env")
 load_dotenv(BACKEND_DIR / ".env")
