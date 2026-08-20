@@ -2,6 +2,9 @@ import type {
   CustomModelEvaluationResult,
   ImageUploadResponse,
   ModelEvaluationPayload,
+  PortfolioAgentRun,
+  PortfolioCase,
+  PortfolioEvalArtifact,
   ProviderDiagnostics,
   ProviderRequestPreview,
   PracticeQuestionsPayload,
@@ -155,13 +158,13 @@ const modelMetricKeys = ['图像问答正确率', '前提鲁棒校验率', '多�
 
 export const v3DemoModelData: ModelEvaluationPayload = {
   summary: {
-    title: '内镜智能助手评估池',
-    headline: '微调模型在多步观察题和证据完整性上表现最稳',
-    sample_scope: '平台统一内镜数据资源',
-    model_count: 5,
-    top_model_id: 'agent-qwen',
-    top_model_name: '平台智能助手 · 微调模型 Qwen',
-    updated_at: '2026-06-05',
+    title: '模型评测实验室',
+    headline: '后端不可用，当前没有可验证的模型结果',
+    sample_scope: '等待运行真实评测',
+    model_count: 0,
+    top_model_id: '',
+    top_model_name: '暂无真实评测结果',
+    updated_at: '未运行',
   },
   groups: [
     { id: 'domain', label: '微调模型', description: '平台智能助手候选，优先用于研修反馈。' },
@@ -170,34 +173,38 @@ export const v3DemoModelData: ModelEvaluationPayload = {
     { id: 'closed', label: '闭源参考模型', description: '仅作外部参考对照。' },
   ],
   metrics: modelMetricKeys,
-  items: [
-    modelCard('agent-qwen', '平台智能助手 · 微调模型 Qwen', 'domain', '微调模型', [86.4, 74.6, 72.1, 51.0, 97.4, 88.2], true),
-    modelCard('agent-medgemma', '微调模型 MedGemma', 'domain', '微调模型', [84.8, 70.4, 74.5, 67.2, 97.9, 86.9]),
-    modelCard('claude-opus', 'Claude Code opus 4.7', 'closed', '闭源参考模型', [44.6, 67.4, 63.9, 70.2, 99.2, 74.3]),
-    modelCard('gpt55', 'GPT-5.5', 'closed', '闭源参考模型', [61.0, 43.9, 60.8, 57.0, 99.9, 73.5]),
-    modelCard('qwen3-8b', 'Qwen3-VL-8B', 'general', '通用开源视觉模型', [66.0, 48.2, 55.1, 60.8, 99.9, 72.4]),
-  ],
+  items: [],
   radar: [],
   complexity_curve: [],
   attribute_breakdown: [],
   safety_notice: v3SafetyNotice,
 }
 
-function modelCard(id: string, name: string, group: string, groupLabel: string, values: number[], active = false) {
-  return {
-    id,
-    display_name: name,
-    group,
-    group_label: groupLabel,
-    status: active ? '当前助手' : '评测完成',
-    active,
-    metrics: Object.fromEntries(modelMetricKeys.map((key, index) => [key, { value: values[index] ?? 0, source: '平台评估', trend: 'up' }])),
-    recommendation: active ? '当前平台智能助手，用于研修反馈和报告辅助。' : '作为模型池对照，用于能力分布参考。',
-    provenance: { label: '平台统一评估结果', sample_scope: '平台统一内镜数据资源', public_label_only: true },
-  }
-}
-
 export const v3Api = {
+  portfolioCases() {
+    return request<{ items: PortfolioCase[]; total: number; source: string; safety_notice: string }>(
+      '/api/portfolio/cases',
+    )
+  },
+
+  portfolioAgentRun(caseId: string, learnerAnswer: string) {
+    return request<PortfolioAgentRun>(
+      '/api/agent/runs',
+      {
+        method: 'POST',
+        body: JSON.stringify({ case_id: caseId, learner_answer: learnerAnswer, learner_id: 'demo_learner' }),
+      },
+    )
+  },
+
+  portfolioEvalLatest() {
+    return request<PortfolioEvalArtifact>('/api/evals/latest')
+  },
+
+  demoReset() {
+    return request<Record<string, unknown>>('/api/demo/reset', { method: 'POST' })
+  },
+
   practiceState() {
     return request<PracticeState>('/api/practice/state', undefined, v3DemoState)
   },

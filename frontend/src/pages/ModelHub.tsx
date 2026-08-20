@@ -129,11 +129,11 @@ export function ModelHub() {
         <div className="v3-hero-score">
           <span>当前智能助手</span>
           <strong>{normalizeModelCopy(topModel?.display_name || data?.summary.top_model_name || '平台智能助手')}</strong>
-          <small>{normalizeModelCopy(data?.summary.headline || '微调模型更适合内镜研修闭环。')}</small>
+          <small>{normalizeModelCopy(data?.summary.headline || '完成真实评测后展示逐例结果。')}</small>
         </div>
       </section>
 
-      <Card className="v3-model-assignment">
+      {items.length ? <Card className="v3-model-assignment">
         <SectionTitle
           eyebrow="任务分配"
           title="选择研修刷题辅导与报告生成模型"
@@ -156,7 +156,7 @@ export function ModelHub() {
             onReset={() => updateAssignment('reportGenerationModelId')}
           />
         </div>
-      </Card>
+      </Card> : null}
 
       <div
         className="smoke-only-proof"
@@ -174,6 +174,7 @@ export function ModelHub() {
         aria-hidden="true"
       />
 
+      {items.length ? <>
       <div className="v3-model-layout">
         <Card className="v3-model-leader">
           <SectionTitle
@@ -181,7 +182,7 @@ export function ModelHub() {
             title="研修适配度"
             action={<Tag tone="blue">{data?.summary.sample_scope || '平台统一内镜数据资源'}</Tag>}
           />
-          <p className="model-score-notice">能力分数为模型评测演示/预留展示，不代表真实临床性能。</p>
+          <p className="model-score-notice">仅展示真实运行产生的实验指标；结果不代表临床性能。</p>
           <ModelRankBars items={rankBars} />
         </Card>
 
@@ -217,6 +218,14 @@ export function ModelHub() {
           ))}
         </div>
       </Card>
+      </> : data?.experiment ? (
+        <MeasuredModelExperiment experiment={data.experiment} />
+      ) : (
+        <Card className="v3-model-pool">
+          <SectionTitle eyebrow="真实评测门禁" title="暂无可验证的模型实验结果" action={<Tag tone="amber">未运行</Tag>} />
+          <p className="v3-card-intro">历史硬编码排行榜已下线。完成公开教学样例推理后，本页才会读取模型、精度、逐例事实得分、P50/P95、吞吐和峰值显存。</p>
+        </Card>
+      )}
 
       <Card className="v3-custom-model">
         <SectionTitle eyebrow="扩展评估" title="自定义模型评测" action={<Tag tone="amber">体验接入</Tag>} />
@@ -252,6 +261,30 @@ export function ModelHub() {
 
       <SafetyNotice text={data?.safety_notice || v3SafetyNotice} />
     </div>
+  )
+}
+
+function MeasuredModelExperiment({ experiment }: { experiment: NonNullable<ModelEvaluationPayload['experiment']> }) {
+  const metrics = experiment.metrics
+  const values = [
+    ['公开样例', `${metrics.cases} 例`],
+    ['整例全对率', `${(metrics.case_exact_rate * 100).toFixed(1)}%`],
+    ['事实级准确率', `${(metrics.micro_fact_accuracy * 100).toFixed(1)}%`],
+    ['P50 / P95', `${metrics.latency_p50_s.toFixed(3)} / ${metrics.latency_p95_s.toFixed(3)}s`],
+    ['吞吐', `${metrics.throughput_cases_per_min.toFixed(2)} cases/min`],
+    ['生成速度', `${metrics.generation_tokens_per_s.toFixed(2)} tokens/s`],
+    ['峰值显存', `${metrics.peak_gpu_memory_gib.toFixed(2)} GiB`],
+    ['精度与设备', `${experiment.precision} · ${experiment.device}`],
+  ]
+  return (
+    <Card className="v3-model-pool" data-real-model-eval="true">
+      <SectionTitle eyebrow="真实 GPU 运行" title={experiment.model} action={<Tag tone="green">Artifact 已生成</Tag>} />
+      <p className="v3-card-intro">{experiment.scope}。事实级准确率较低本身也是有效结论：它构成后续数据构建与领域适配的可复现基线，而不是被修饰成高分。</p>
+      <div className="v3-metric-row">
+        {values.map(([label, value]) => <span key={label}><b>{value}</b>{label}</span>)}
+      </div>
+      <p className="model-score-notice">结果文件：{experiment.artifact} · 单次确定性推理，不代表临床有效性或统计泛化能力。</p>
+    </Card>
   )
 }
 
@@ -391,17 +424,17 @@ function createCustomPreviewResult(form: { providerName: string; model: string }
     id: `custom_preview_${Date.now()}`,
     display_name: form.providerName || '自定义模型',
     model: form.model || '自定义模型',
-    connection_status: '格式预览',
+    connection_status: '未运行',
     metrics: {
-      图像问答正确率: 76,
-      前提鲁棒校验率: 70,
-      多步证据整合率: 68,
-      分步证据完整率: 72,
-      输出可解析率: 92,
-      综合研修适配度: 74,
+      图像问答正确率: 0,
+      前提鲁棒校验率: 0,
+      多步证据整合率: 0,
+      分步证据完整率: 0,
+      输出可解析率: 0,
+      综合研修适配度: 0,
     },
-    summary: '当前展示小样本评测报告格式预览；正式接入后可替换为后端智能辅助返回。',
-    status_label: '格式预览',
+    summary: '当前未完成真实模型调用，因此不生成占位分数；接入后将由逐例结果自动计算。',
+    status_label: '未运行',
     privacy_status: '一次性授权未保存，完整回复未入库。',
     safety_notice: v3SafetyNotice,
     created_at: new Date().toISOString(),

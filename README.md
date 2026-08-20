@@ -1,8 +1,12 @@
-# 消化内镜研修与模型评测平台
+# 内镜智训 Agent · 作品集 v2.0
 
-面向消化道内镜医师的智能研修与报告辅助平台。
+面向消化内镜研修的多模态 Agent 作品集 Demo。主演示是一条可观察的
+`Plan → Act → Observe → Verify → Memory` 带教链路；模型页展示真实 GPU
+推理与 QLoRA 训练链路证据，而非硬编码排行榜。
 
-v3 将平台收束为一条清晰闭环：
+第一次阅读请从 [`docs/portfolio/00_从这里开始.md`](docs/portfolio/00_从这里开始.md) 开始。
+
+产品主链收束为：
 
 `模型评估 -> 医生研修 -> 证据复盘 -> 报告辅助 -> 能力画像`
 
@@ -19,7 +23,8 @@ v3 将平台收束为一条清晰闭环：
 - 前端：React + Vite + TypeScript、Recharts、lucide-react。
 - 后端：FastAPI + Pydantic。
 - 数据：本地 JSON 教学样例、画像状态、报告知识库、平台模型评估结果。
-- Agent：规则编排 + 可选 OpenAI-compatible 临时调用。
+- Agent：受控状态机、类型化 Tool Receipt、事实级 Rubric、可解释 Memory Delta。
+- 模型实验：Qwen2.5-VL-3B-Instruct、BF16 推理基准、NF4 QLoRA sanity run。
 
 ## 快速启动
 
@@ -56,7 +61,7 @@ npm run dev -- --host 127.0.0.1 --port 5174 --strictPort
 http://127.0.0.1:5174
 ```
 
-## v3 接口
+## 作品集接口
 
 主流程使用薄 facade：
 
@@ -69,6 +74,11 @@ http://127.0.0.1:5174
 - `POST /api/practice/submit`
 - `POST /api/practice/session`
 - `POST /api/practice/tutor`
+- `GET /api/portfolio/cases`
+- `POST /api/agent/runs`
+- `POST /api/evals/run`
+- `GET /api/evals/latest`
+- `POST /api/demo/reset`
 - `POST /api/report/image`
 - `POST /api/report/generate`
 - `POST /api/report/revise`
@@ -77,12 +87,11 @@ http://127.0.0.1:5174
 
 ## 演示路径
 
-1. 打开首页，说明平台闭环。
-2. 进入模型页，查看智能助手的评估依据。
-3. 进入研修页，选择题目并提交答案。
-4. 查看证据复盘、错因标签和下一题推荐。
-5. 进入报告页，生成并修改结构化报告。
-6. 进入画像页，查看医生能力成长。
+1. 首页点击“开始演示病例”。
+2. 围绕公开教学图像写一条观察记录并提交。
+3. 展示真实 run ID、五阶段 Trace、工具收据、事实 F1、Memory Delta 与下一题推荐。
+4. 进入模型页，展示可复现的真实 GPU 小样本基线及其失败模式。
+5. 按需补充报告辅助与研修画像，不让它们抢占主演示。
 
 ## 安全边界
 
@@ -92,6 +101,9 @@ http://127.0.0.1:5174
 
 ## 文档
 
+- `docs/portfolio/00_从这里开始.md`
+- `docs/portfolio/项目简历介绍建议-Agent应用.md`
+- `docs/portfolio/项目简历介绍建议-大模型算法.md`
 - `docs/V3_SCOPE_LOCK.md`
 - `docs/V3_IMPLEMENTATION_PLAN.md`
 - `docs/V3_PRESENTATION_GUIDE.md`

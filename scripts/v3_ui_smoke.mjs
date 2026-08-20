@@ -9,9 +9,9 @@ const port = Number(process.env.ARIS_CDP_PORT || (9300 + Math.floor(Math.random(
 const routes = ['/', '/models', '/practice', '/report', '/profile']
 const artifactDir = path.resolve('frontend/artifacts/v3-smoke-competition')
 const routeReadyText = {
-  '/': '研修闭环',
+  '/': '开始演示病例',
   '/models': '模型依据',
-  '/practice': '医生研修工作台',
+  '/practice': '观察一个病例',
   '/report': '报告辅助',
   '/profile': '研修画像',
 }
@@ -128,18 +128,21 @@ async function inspect(route, width = 1440, height = 1000) {
   await new Promise((resolve) => setTimeout(resolve, 700))
 
   if (route === '/practice') {
-    await client.send('Runtime.evaluate', {
+    const submitted = await client.send('Runtime.evaluate', {
       expression: `(() => {
-        const buttons = [...document.querySelectorAll('button')]
-        const option = buttons.find(b => /食管炎|息肉|证据不足|异常/.test(b.innerText) && !/提交|提示|下一题/.test(b.innerText))
-        option?.click()
-        const submit = buttons.find(b => /提交评分/.test(b.innerText))
+        const textarea = document.querySelector('.practice-free-answer textarea')
+        if (!textarea) return false
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
+        setter.call(textarea, '可见 Z 线，食管黏膜有炎症相关表现，未见明确息肉；需结合完整检查由医生复核。')
+        textarea.dispatchEvent(new Event('input', { bubbles: true }))
+        const submit = [...document.querySelectorAll('button')].find(b => /提交并运行 Agent/.test(b.innerText))
         submit?.click()
-        return Boolean(option && submit)
+        return Boolean(submit)
       })()`,
       returnByValue: true,
     })
-    await waitForText(client, '回答', 7000).catch(() => null)
+    if (!submitted.result?.value) throw new Error('/practice: could not submit Golden Case')
+    await waitForText(client, 'Agent 执行收据', 10000)
     await new Promise((resolve) => setTimeout(resolve, 900))
   }
   if (route === '/report') {
@@ -165,6 +168,9 @@ async function inspect(route, width = 1440, height = 1000) {
         bodySnippet: text.slice(0, 800),
         hasSafety: text.includes('仅供教学'),
         practiceFeedback: text.includes('证据复盘') || text.includes('错因'),
+        agentReceipt: Boolean(document.querySelector('[data-agent-receipt="true"]')),
+        agentTraceSteps: document.querySelectorAll('.agent-run-steps > div').length,
+        agentRunId: /agent_run_[a-z0-9]+/.test(text),
         reportDraft: text.includes('结构化') || text.includes('报告草稿'),
       }
     })()`,
@@ -232,6 +238,11 @@ async function main() {
       failures.push(`nav missing v3 entries: ${nav}`)
     }
     if (!results.find((r) => r.route === '/practice' && r.practiceFeedback)) failures.push('/practice: feedback not observed')
+    for (const item of results.filter((r) => r.route === '/practice')) {
+      if (!item.agentReceipt) failures.push(`/practice@${item.width}: Agent receipt missing`)
+      if (item.agentTraceSteps !== 5) failures.push(`/practice@${item.width}: expected 5 trace steps, got ${item.agentTraceSteps}`)
+      if (!item.agentRunId) failures.push(`/practice@${item.width}: backend run_id missing`)
+    }
     if (!results.find((r) => r.route === '/report' && r.reportDraft)) failures.push('/report: draft not observed')
     console.log(JSON.stringify({ artifactDir, results, failures }, null, 2))
     process.exitCode = failures.length ? 2 : 0

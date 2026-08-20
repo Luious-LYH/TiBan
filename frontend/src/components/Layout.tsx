@@ -1,43 +1,9 @@
-import { ActivitySquare, BarChart3, BookOpenCheck, Database, FileText, Home, ShieldCheck, UserRound } from 'lucide-react'
+import { ActivitySquare, BarChart3, BookOpenCheck, Bot, FileText, Home, ShieldCheck, UserRound } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { v3Api, v3DemoState, v3SafetyNotice } from '../lib/v3Api'
 import type { PracticeState } from '../lib/types'
-
-const modelAssignmentStorageKey = 'aris:model-task-assignment:v1'
-const dailyPlanStorageKey = 'aris:practice:daily-target:v1'
-const defaultDailyTarget = 50
-const extractableDatasetTotal = 308894
-
-type ModelTaskAssignments = {
-  trainingTutorModelId?: string
-  reportGenerationModelId?: string
-  updatedAt?: string
-}
-
-const modelNames: Record<string, string> = {
-  'agent-qwen': '平台智能助手 · 微调模型 Qwen',
-  'agent-medgemma': '微调模型 MedGemma',
-  'claude-opus': 'Claude Code opus 4.7',
-  gpt55: 'GPT-5.5',
-  'qwen3-8b': 'Qwen3-VL-8B',
-}
-
-function readModelAssignments(): ModelTaskAssignments {
-  if (typeof window === 'undefined') return {}
-  try {
-    return JSON.parse(window.localStorage.getItem(modelAssignmentStorageKey) || '{}') as ModelTaskAssignments
-  } catch {
-    return {}
-  }
-}
-
-function readDailyTarget() {
-  if (typeof window === 'undefined') return defaultDailyTarget
-  const stored = Number(window.localStorage.getItem(dailyPlanStorageKey) || defaultDailyTarget)
-  return Number.isFinite(stored) ? Math.max(defaultDailyTarget, stored) : defaultDailyTarget
-}
 
 const navItems = [
   { path: '/', label: '首页', icon: Home },
@@ -50,8 +16,6 @@ const navItems = [
 export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation()
   const [state, setState] = useState<PracticeState>(v3DemoState)
-  const [assignments, setAssignments] = useState<ModelTaskAssignments>(() => readModelAssignments())
-  const [dailyTarget, setDailyTarget] = useState(() => readDailyTarget())
 
   useEffect(() => {
     let mounted = true
@@ -67,29 +31,8 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  useEffect(() => {
-    const syncAssignments = () => setAssignments(readModelAssignments())
-    const syncDailyTarget = () => setDailyTarget(readDailyTarget())
-    window.addEventListener('storage', syncAssignments)
-    window.addEventListener('model-assignment-change', syncAssignments)
-    window.addEventListener('storage', syncDailyTarget)
-    window.addEventListener('daily-plan-change', syncDailyTarget)
-    return () => {
-      window.removeEventListener('storage', syncAssignments)
-      window.removeEventListener('model-assignment-change', syncAssignments)
-      window.removeEventListener('storage', syncDailyTarget)
-      window.removeEventListener('daily-plan-change', syncDailyTarget)
-    }
-  }, [])
-
-  const progress = state.progress
   const physician = state.profile
   const isHome = location.pathname === '/'
-  const assignedModelId = assignments.trainingTutorModelId || assignments.reportGenerationModelId
-  const currentModel = assignedModelId ? modelNames[assignedModelId] || assignedModelId : '平台智能助手 · 微调模型 Qwen'
-  const completedToday = progress?.completed ?? physician?.completed_today ?? 0
-  const effectiveDailyTarget = Math.max(defaultDailyTarget, dailyTarget || progress?.target || physician?.daily_target || defaultDailyTarget)
-  const effectiveProgressPercent = Math.min(100, Math.round((completedToday / effectiveDailyTarget) * 100))
 
   return (
     <div className="app-shell v3-shell">
@@ -99,8 +42,8 @@ export function Layout({ children }: { children: ReactNode }) {
             <ActivitySquare size={22} />
           </div>
           <div>
-            <strong>消化内镜研修与模型评测平台</strong>
-            <span>医生教学研修与模型评测</span>
+            <strong>内镜智训 Agent</strong>
+            <span>多模态医生研修演示</span>
           </div>
         </div>
 
@@ -118,30 +61,27 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="v3-sidebar-card">
-          <span>今日刷题计划</span>
-          <strong>{progress ? `${completedToday}/${effectiveDailyTarget}` : '--'}</strong>
-          <div className="v3-mini-progress">
-            <i style={{ width: `${effectiveProgressPercent}%` }} />
-          </div>
-          <small>{physician?.name || '医生'} · {progress?.review_queue ?? 0} 题待复盘</small>
+          <span>主演示</span>
+          <strong>Golden Demo 就绪</strong>
+          <small>{physician?.name || '研修医师'} · 单病例可追溯闭环</small>
         </div>
 
         <div className="sidebar-evidence live">
           <div className="sidebar-evidence-head">
-            <Database size={16} />
+            <Bot size={16} />
             <div>
-              <span>研修服务已连接</span>
-              <strong>实时研修服务在线</strong>
+              <span>Agent 演示链路</span>
+              <strong>{state.api_source === 'backend' ? '后端研修服务' : '本地演示回退'}</strong>
             </div>
           </div>
           <div className="sidebar-evidence-grid">
             <div>
-              <span>当前模型</span>
-              <strong>{currentModel}</strong>
+              <span>主流程</span>
+              <strong>观察 → 复盘 → 记忆</strong>
             </div>
             <div>
-              <span>数据资源</span>
-              <strong>{extractableDatasetTotal.toLocaleString('zh-CN')} 可提取</strong>
+              <span>输出来源</span>
+              <strong>提交后如实标注</strong>
             </div>
             <div className="wide">
               <span>边界</span>
@@ -161,13 +101,13 @@ export function Layout({ children }: { children: ReactNode }) {
           <div className="top-title-block">
             <p className="top-kicker">面向消化道内镜医师</p>
             <h1>
-              <span className="desktop-title">消化内镜研修与模型评测平台</span>
-              <span className="mobile-title">内镜研修与模型评测</span>
+              <span className="desktop-title">内镜智训 Agent · 医生研修工作台</span>
+              <span className="mobile-title">内镜智训 Agent</span>
             </h1>
           </div>
           <div className={`v3-top-actions ${isHome ? 'home-actions' : 'context-actions'}`}>
-            <Link className="button secondary" to="/models">查看模型池</Link>
-            <Link className="button primary" to="/practice">开始研修</Link>
+            <Link className="button secondary" to="/models">模型评测实验室</Link>
+            <Link className="button primary" to="/practice">演示病例</Link>
           </div>
         </header>
         {children}

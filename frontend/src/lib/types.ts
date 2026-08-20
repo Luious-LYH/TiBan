@@ -910,6 +910,28 @@ export type ModelEvaluationPayload = {
   radar: Record<string, string | number>[]
   complexity_curve: Record<string, string | number>[]
   attribute_breakdown: Record<string, string | number>[]
+  experiment?: {
+    status: string
+    created_at: string
+    scope: string
+    model: string
+    precision: string
+    device: string
+    software: Record<string, string>
+    config: Record<string, unknown>
+    metrics: {
+      cases: number
+      case_exact_rate: number
+      micro_fact_accuracy: number
+      latency_p50_s: number
+      latency_p95_s: number
+      throughput_cases_per_min: number
+      generation_tokens_per_s: number
+      peak_gpu_memory_gib: number
+      wall_time_s: number
+    }
+    artifact: string
+  } | null
   safety_notice: string
   api_source?: 'backend' | 'fallback'
 }
@@ -967,6 +989,101 @@ export type PracticeSubmitResponse = SubmissionResponse & {
     profile_delta: string
     next_step: string
   }
+}
+
+export type PortfolioCaseFact = {
+  id: string
+  label: string
+  aliases: string[]
+  dimension: string
+  evidence: string
+}
+
+export type PortfolioCase = {
+  id: string
+  title: string
+  source_dataset: string
+  source_type: string
+  image_url: string
+  difficulty: string
+  prompt: string
+  gold_answer: string
+  facts: PortfolioCaseFact[]
+  next_recommendation: string
+}
+
+export type PortfolioAgentRun = {
+  run_id: string
+  case_id: string
+  case_title: string
+  learner_id: string
+  status: 'completed' | 'blocked' | string
+  plan: { goal: string; tool_sequence: string[]; constraints: string[] }
+  trace: Array<{
+    node: 'Plan' | 'Act' | 'Observe' | 'Verify' | 'Memory'
+    status: 'completed' | 'blocked'
+    summary: string
+    latency_ms: number
+    receipt_ids: string[]
+  }>
+  tool_receipts: Array<{
+    call_id: string
+    tool_name: string
+    success: boolean
+    input: Record<string, unknown>
+    output: Record<string, unknown>
+    evidence_ids: string[]
+    latency_ms: number
+  }>
+  result: {
+    score: number
+    matched_fact_ids: string[]
+    missed_fact_ids: string[]
+    fact_precision: number
+    fact_recall: number
+    fact_f1: number
+    feedback: string
+    next_recommendation: string
+    observed_evidence: Array<{ evidence_id: string; label: string; evidence: string }>
+  }
+  verification: Record<string, boolean>
+  memory_delta: {
+    learner_id: string
+    mode: string
+    committed: boolean
+    dimension_deltas: Array<{
+      dimension: string
+      before: number
+      delta: number
+      after_preview: number
+      reason: string
+    }>
+    reason: string
+  }
+  doctor_review_required: boolean
+  safety_notice: string
+  created_at: string
+  latency_ms: number
+}
+
+export type PortfolioEvalArtifact = {
+  eval_id: string
+  metric_version: string
+  created_at: string
+  conditions: Record<string, unknown>
+  metrics: {
+    case_count: number
+    task_completion_rate: number
+    tool_selection_accuracy: number
+    evidence_coverage_rate: number
+    safety_pass_rate: number
+    structured_output_rate: number
+    mean_fact_f1: number
+    latency_p50_ms: number
+    latency_p95_ms: number
+  }
+  cases: Array<Record<string, unknown>>
+  safety_probes: Array<Record<string, unknown>>
 }
 
 export type ReportRevisionResponse = {

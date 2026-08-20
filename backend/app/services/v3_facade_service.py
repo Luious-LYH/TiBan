@@ -7,7 +7,7 @@ from collections import Counter
 from typing import Any
 from uuid import uuid4
 
-from app.core.config import SAFETY_NOTICE
+from app.core.config import PROJECT_DIR, SAFETY_NOTICE
 from app.schemas import (
     ExamSessionRequest,
     ReportDraftRequest,
@@ -303,15 +303,16 @@ class V3FacadeService:
         # Static scores from earlier demo revisions are intentionally not exposed.
         # Real model runs are published separately as versioned experiment artifacts.
         ranking: list[dict[str, Any]] = []
+        experiment = self._latest_model_experiment()
         return {
             "summary": {
                 "title": "模型评测实验室",
-                "headline": "仅展示可复现运行结果；历史演示分数已下线",
-                "sample_scope": "等待真实模型实验产物",
-                "model_count": 0,
-                "top_model_id": "",
-                "top_model_name": "暂无真实评测结果",
-                "updated_at": now_iso(),
+                "headline": "真实 GPU 小样本基准；历史演示分数已下线" if experiment else "仅展示可复现运行结果；历史演示分数已下线",
+                "sample_scope": str(experiment.get("scope")) if experiment else "等待真实模型实验产物",
+                "model_count": 1 if experiment else 0,
+                "top_model_id": "measured-vlm" if experiment else "",
+                "top_model_name": str(experiment.get("model")) if experiment else "暂无真实评测结果",
+                "updated_at": str(experiment.get("created_at")) if experiment else now_iso(),
             },
             "groups": [
                 {"id": "domain", "label": "领域候选模型", "description": "完成真实实验后进入模型池。"},
@@ -331,8 +332,37 @@ class V3FacadeService:
             "radar": [],
             "complexity_curve": [],
             "attribute_breakdown": [],
+            "experiment": experiment,
             "safety_notice": SAFETY_NOTICE,
         }
+
+    def _latest_model_experiment(self) -> dict[str, Any] | None:
+        path = PROJECT_DIR / "artifacts" / "model_eval" / "latest.json"
+        if not path.exists():
+            return None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict) or payload.get("status") != "completed":
+            return None
+        metrics = payload.get("metrics")
+        if not isinstance(metrics, dict) or int(metrics.get("cases") or 0) <= 0:
+            return None
+        return self._sanitize_value(
+            {
+                "status": "completed",
+                "created_at": payload.get("created_at"),
+                "scope": payload.get("scope"),
+                "model": payload.get("model"),
+                "precision": payload.get("precision"),
+                "device": payload.get("device"),
+                "software": payload.get("software", {}),
+                "config": payload.get("config", {}),
+                "metrics": metrics,
+                "artifact": "artifacts/model_eval/latest.json",
+            }
+        )
 
     def custom_model_evaluate(self, payload: dict[str, Any]) -> dict[str, Any]:
         default_status = llm_provider.status()
