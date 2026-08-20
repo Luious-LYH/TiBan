@@ -1,70 +1,34 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router-dom'
-import { AlertTriangle, ArrowRight } from 'lucide-react'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
-import { Card } from './components/Primitives'
 
-const Dashboard = lazy(() => import('./pages/Dashboard').then((module) => ({ default: module.Dashboard })))
+const AgentWorkbench = lazy(() => import('./pages/AgentWorkbench').then((module) => ({ default: module.AgentWorkbench })))
+const StudyCenter = lazy(() => import('./pages/StudyCenter').then((module) => ({ default: module.StudyCenter })))
 const ModelHub = lazy(() => import('./pages/ModelHub').then((module) => ({ default: module.ModelHub })))
-const PhysicianProfile = lazy(() =>
-  import('./pages/PhysicianProfile').then((module) => ({ default: module.PhysicianProfile })),
-)
-const ReportDraft = lazy(() => import('./pages/ReportDraft').then((module) => ({ default: module.ReportDraft })))
-const TrainingCenter = lazy(() => import('./pages/TrainingCenter').then((module) => ({ default: module.TrainingCenter })))
-const DeliveryEvidence = lazy(() => import('./pages/DeliveryEvidence').then((module) => ({ default: module.DeliveryEvidence })))
 
 function App() {
-  return (
-    <BrowserRouter>
-      <Layout>
-        <RouteFrame />
-      </Layout>
-    </BrowserRouter>
-  )
+  return <BrowserRouter><Layout><RouteFrame /></Layout></BrowserRouter>
 }
 
 function RouteFrame() {
   const location = useLocation()
   return (
     <ErrorBoundary resetKey={location.pathname}>
-      <Suspense fallback={<RouteLoading />}>
+      <Suspense fallback={<div className="v21-route-loading" aria-label="页面加载中"><span /></div>}>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/models" element={<ModelHub />} />
-          <Route path="/practice" element={<TrainingCenter />} />
-          <Route path="/training" element={<TrainingCenter />} />
-          <Route path="/report" element={<ReportDraft />} />
-          <Route path="/profile" element={<PhysicianProfile />} />
-          <Route path="/delivery" element={<DeliveryEvidence />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/" element={<Navigate to={location.search.includes('case=') ? `/workbench${location.search}` : '/study'} replace />} />
+          <Route path="/workbench" element={<AgentWorkbench />} />
+          <Route path="/study" element={<StudyCenter />} />
+          <Route path="/lab" element={<ModelHub />} />
+          <Route path="/models" element={<Navigate to="/lab" replace />} />
+          <Route path="/agent" element={<Navigate to="/workbench" replace />} />
+          <Route path="/practice" element={<Navigate to="/study" replace />} />
+          <Route path="/training" element={<Navigate to="/study" replace />} />
+          <Route path="*" element={<Navigate to="/study" replace />} />
         </Routes>
       </Suspense>
     </ErrorBoundary>
-  )
-}
-
-function RouteLoading() {
-  return (
-    <div className="route-loading" aria-label="页面加载中">
-      <span />
-    </div>
-  )
-}
-
-function NotFound() {
-  return (
-    <Card className="route-guard-page">
-      <AlertTriangle size={34} />
-      <div>
-        <span className="eyebrow">页面未找到</span>
-        <h2>这个入口已合并到主流程</h2>
-        <p>当前版本聚焦模型评估、医生研修、报告辅助和能力画像。</p>
-        <Link className="button primary" to="/">
-          回到首页 <ArrowRight size={17} />
-        </Link>
-      </div>
-    </Card>
   )
 }
 

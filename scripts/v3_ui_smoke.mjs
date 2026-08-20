@@ -6,20 +6,17 @@ import path from 'node:path'
 
 const frontend = process.env.ARIS_FRONTEND_URL || 'http://127.0.0.1:5173'
 const port = Number(process.env.ARIS_CDP_PORT || (9300 + Math.floor(Math.random() * 600)))
-const routes = ['/', '/models', '/practice', '/report', '/profile']
-const artifactDir = path.resolve('frontend/artifacts/v3-smoke-competition')
+const routes = ['/', '/study', '/workbench', '/lab']
+const artifactDir = path.resolve('frontend/artifacts/v21-smoke')
 const routeReadyText = {
-  '/': '开始演示病例',
-  '/models': '模型依据',
-  '/practice': '观察一个病例',
-  '/report': '报告辅助',
-  '/profile': '研修画像',
+  '/': '今日自适应训练',
+  '/study': '今日自适应训练',
+  '/workbench': '你的观察记录',
+  '/lab': '评测实验室',
 }
 const banned = [
-  'Kvasir', 'EndoBench', 'HyperKvasir', '智能服务', 'fallback', 'api_source',
-  'key_persisted', 'full_response_persisted', '竞赛', '评审', '包装', '提示词',
-  '交付证据', '台账', 'Skills', '训练模型', '医生审核', '学员',
-  '原子事实', '原子证据', '原子查询', '原子错因', '研修对照', '研修对照'
+  'Golden Demo 就绪', '任务分配', '自定义模型评测',
+  '每日目标', '随机题组', '旧模型市场', '运营看板'
 ]
 
 function browserCandidates() {
@@ -127,10 +124,10 @@ async function inspect(route, width = 1440, height = 1000) {
   await waitForText(client, routeReadyText[route] || '消化内镜', 9000)
   await new Promise((resolve) => setTimeout(resolve, 700))
 
-  if (route === '/practice') {
+  if (route === '/workbench') {
     const submitted = await client.send('Runtime.evaluate', {
       expression: `(() => {
-        const textarea = document.querySelector('.practice-free-answer textarea')
+        const textarea = document.querySelector('.v21-answer-field textarea')
         if (!textarea) return false
         const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set
         setter.call(textarea, '可见 Z 线，食管黏膜有炎症相关表现，未见明确息肉；需结合完整检查由医生复核。')
@@ -141,16 +138,25 @@ async function inspect(route, width = 1440, height = 1000) {
       })()`,
       returnByValue: true,
     })
-    if (!submitted.result?.value) throw new Error('/practice: could not submit Golden Case')
-    await waitForText(client, 'Agent 执行收据', 10000)
-    await new Promise((resolve) => setTimeout(resolve, 900))
-  }
-  if (route === '/report') {
+    if (!submitted.result?.value) throw new Error('/workbench: could not submit Golden Case')
+    await waitForText(client, '已完成', 10000)
     await client.send('Runtime.evaluate', {
-      expression: `(() => { const btn = [...document.querySelectorAll('button')].find(b => /生成/.test(b.innerText)); btn?.click(); return Boolean(btn); })()`,
+      expression: `(() => {
+        const buttons = [...document.querySelectorAll('button')]
+        if (${width} < 600) buttons.find(b => /Agent · 已完成/.test(b.innerText))?.click()
+        buttons.find(b => b.innerText.trim() === '运行')?.click()
+        return true
+      })()`,
       returnByValue: true,
     })
-    await new Promise((resolve) => setTimeout(resolve, 1400))
+    await new Promise((resolve) => setTimeout(resolve, 900))
+  }
+  if (route === '/lab') {
+    await client.send('Runtime.evaluate', {
+      expression: `(() => { const button = [...document.querySelectorAll('button')].find(b => /Model Eval/.test(b.innerText)); button?.click(); return Boolean(button) })()`,
+      returnByValue: true,
+    })
+    await waitForText(client, '7 组真实 GPU Run', 7000)
   }
 
   const data = await client.send('Runtime.evaluate', {
@@ -167,17 +173,23 @@ async function inspect(route, width = 1440, height = 1000) {
         overflowX: doc.scrollWidth > doc.clientWidth + 2,
         bodySnippet: text.slice(0, 800),
         hasSafety: text.includes('仅供教学'),
-        practiceFeedback: text.includes('证据复盘') || text.includes('错因'),
-        agentReceipt: Boolean(document.querySelector('[data-agent-receipt="true"]')),
-        agentTraceSteps: document.querySelectorAll('.agent-run-steps > div').length,
+        practiceFeedback: text.includes('证据') || text.includes('事实级评分'),
+        agentReceipt: Boolean(document.querySelector('[data-agent-activity="true"]')),
+        agentTraceSteps: document.querySelectorAll('.v21-timeline > button').length,
         agentRunId: /agent_run_[a-z0-9]+/.test(text),
-        reportDraft: text.includes('结构化') || text.includes('报告草稿'),
+        workbench: Boolean(document.querySelector('[data-v21-workbench="true"]')),
+        modelEvalV21: Boolean(document.querySelector('[data-model-eval-v21="true"]')),
+        dpoStability: Boolean(document.querySelector('[data-dpo-stability="true"]')),
+        studyCenter: Boolean(document.querySelector('[data-study-center="true"]')),
+        studyPlan: Boolean(document.querySelector('[data-study-plan="true"]')),
+        studyLibrary: Boolean(document.querySelector('[data-study-library="true"]')),
+        studyTabs: document.querySelectorAll('[data-study-tab]').length,
       }
     })()`,
     returnByValue: true,
   })
   const screenshot = await client.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true })
-  const safeName = route === '/' ? 'home' : route.replace('/', '')
+  const safeName = route.replace('/', '') || 'home'
   writeFileSync(path.join(artifactDir, `${safeName}-${width}.png`), Buffer.from(screenshot.data, 'base64'))
   await request('GET', `/json/close/${target.id}`, false).catch(() => null)
   client.close()
@@ -223,8 +235,9 @@ async function main() {
     for (const route of routes) {
       results.push(await inspect(route, 1440, 1000))
     }
-    results.push(await inspect('/', 390, 900))
-    results.push(await inspect('/practice', 390, 900))
+    results.push(await inspect('/workbench', 390, 900))
+    results.push(await inspect('/study', 390, 900))
+    results.push(await inspect('/lab', 390, 900))
     for (const item of results) {
       if (item.textLength < 120) failures.push(`${item.route}@${item.width}: text too short`)
       if (item.banned.length) failures.push(`${item.route}@${item.width}: banned visible terms ${item.banned.join(',')}`)
@@ -234,16 +247,26 @@ async function main() {
       if (item.consoleErrors.length) failures.push(`${item.route}@${item.width}: console errors ${item.consoleErrors.join('|')}`)
     }
     const nav = results[0].nav.join('|')
-    if (!nav.includes('首页') || !nav.includes('模型') || !nav.includes('研修') || !nav.includes('报告') || !nav.includes('画像')) {
-      failures.push(`nav missing v3 entries: ${nav}`)
+    if (!nav.includes('Agent 工作台') || !nav.includes('研修中心') || !nav.includes('评测实验室')) {
+      failures.push(`nav missing v2.1 entries: ${nav}`)
     }
-    if (!results.find((r) => r.route === '/practice' && r.practiceFeedback)) failures.push('/practice: feedback not observed')
-    for (const item of results.filter((r) => r.route === '/practice')) {
-      if (!item.agentReceipt) failures.push(`/practice@${item.width}: Agent receipt missing`)
-      if (item.agentTraceSteps !== 5) failures.push(`/practice@${item.width}: expected 5 trace steps, got ${item.agentTraceSteps}`)
-      if (!item.agentRunId) failures.push(`/practice@${item.width}: backend run_id missing`)
+    const root = results.find((item) => item.route === '/')
+    if (!root || root.path !== '/study' || !root.studyCenter) failures.push('/: expected redirect to study center')
+    if (!results.find((r) => r.route === '/workbench' && r.practiceFeedback)) failures.push('/workbench: feedback not observed')
+    for (const item of results.filter((r) => r.route === '/workbench')) {
+      if (!item.workbench) failures.push(`/workbench@${item.width}: workbench missing`)
+      if (!item.agentReceipt) failures.push(`/workbench@${item.width}: Agent activity missing`)
+      if (item.agentTraceSteps < 5) failures.push(`/workbench@${item.width}: expected at least 5 trace steps, got ${item.agentTraceSteps}`)
+      if (!item.agentRunId) failures.push(`/workbench@${item.width}: backend run_id missing`)
     }
-    if (!results.find((r) => r.route === '/report' && r.reportDraft)) failures.push('/report: draft not observed')
+    for (const item of results.filter((r) => r.route === '/lab')) {
+      if (!item.modelEvalV21) failures.push(`/lab@${item.width}: v2.1 model matrix missing`)
+      if (!item.dpoStability) failures.push(`/lab@${item.width}: DPO stability evidence missing`)
+    }
+    for (const item of results.filter((r) => r.route === '/study')) {
+      if (!item.studyCenter || !item.studyPlan || !item.studyLibrary) failures.push(`/study@${item.width}: study surfaces missing`)
+      if (item.studyTabs < 4) failures.push(`/study@${item.width}: expected 4 study tabs, got ${item.studyTabs}`)
+    }
     console.log(JSON.stringify({ artifactDir, results, failures }, null, 2))
     process.exitCode = failures.length ? 2 : 0
   } finally {

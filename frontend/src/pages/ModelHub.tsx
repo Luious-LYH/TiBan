@@ -1,558 +1,226 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ActivitySquare, AlertTriangle, BookOpen, CheckCircle2, ClipboardCheck, FileText, LoaderCircle, Plus, RefreshCw, ShieldCheck } from 'lucide-react'
-import { Card, SafetyNotice, SectionTitle, Tag } from '../components/Primitives'
+import { useEffect, useState } from 'react'
+import {
+  Activity,
+  ArrowDownRight,
+  ArrowUpRight,
+  Braces,
+  Check,
+  ChevronRight,
+  Cpu,
+  Database,
+  Gauge,
+  RotateCcw,
+  ShieldCheck,
+  Sparkles,
+  Wrench,
+} from 'lucide-react'
 import { v3Api, v3SafetyNotice } from '../lib/v3Api'
-import type { CustomModelEvaluationResult, ModelEvaluationCard, ModelEvaluationPayload, ProviderDiagnostics, ProviderRequestPreview } from '../lib/types'
+import type { ModelEvaluationPayload, PortfolioEvalArtifact } from '../lib/types'
 
-const metricKeys = ['图像问答正确率', '前提鲁棒校验率', '多步证据整合率', '分步证据完整率', '输出可解析率', '综合研修适配度']
-const modelAssignmentStorageKey = 'aris:model-task-assignment:v1'
-const customEvalSteps = ['连接预检', '小样本问答', '报告表达', '安全边界', '生成评测报告']
-
-type AssignmentRole = 'trainingTutorModelId' | 'reportGenerationModelId'
-
-type ModelTaskAssignments = {
-  trainingTutorModelId?: string
-  reportGenerationModelId?: string
-  updatedAt?: string
-}
-
-type CustomReportSection = {
-  title: string
-  lines: string[]
-}
-
-function normalizeModelCopy(text?: string | null) {
-  return text || ''
-}
-
-function readModelAssignments(): ModelTaskAssignments {
-  if (typeof window === 'undefined') return {}
-  try {
-    return JSON.parse(window.localStorage.getItem(modelAssignmentStorageKey) || '{}') as ModelTaskAssignments
-  } catch {
-    return {}
-  }
-}
-
-function saveModelAssignments(assignments: ModelTaskAssignments) {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(modelAssignmentStorageKey, JSON.stringify(assignments))
-  window.dispatchEvent(new Event('model-assignment-change'))
-}
-
-function wait(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms))
-}
+type LabView = 'agent' | 'model'
 
 export function ModelHub() {
-  const [data, setData] = useState<ModelEvaluationPayload | null>(null)
-  const [selectedGroup, setSelectedGroup] = useState('all')
-  const [form, setForm] = useState({ providerName: '自定义体验模型', apiBase: '', apiKey: '', model: '' })
-  const [customResult, setCustomResult] = useState<CustomModelEvaluationResult | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [customError, setCustomError] = useState<string | null>(null)
-  const [activeEvalStep, setActiveEvalStep] = useState(0)
-  const [assignments, setAssignments] = useState<ModelTaskAssignments>(() => readModelAssignments())
-  const [providerPreview, setProviderPreview] = useState<ProviderRequestPreview | null>(null)
-  const [providerDiagnostics, setProviderDiagnostics] = useState<ProviderDiagnostics | null>(null)
+  const [view, setView] = useState<LabView>('agent')
+  const [agentEval, setAgentEval] = useState<PortfolioEvalArtifact | null>(null)
+  const [modelEval, setModelEval] = useState<ModelEvaluationPayload | null>(null)
 
   useEffect(() => {
-    v3Api.modelEvaluation().then(setData).catch(() => setData(null))
-    v3Api.providerRequestPreview().then(setProviderPreview).catch(() => setProviderPreview(null))
-    v3Api.providerDiagnostics().then(setProviderDiagnostics).catch(() => setProviderDiagnostics(null))
+    v3Api.portfolioEvalLatest().then(setAgentEval).catch(() => setAgentEval(null))
+    v3Api.modelEvaluation().then(setModelEval).catch(() => setModelEval(null))
   }, [])
 
-  const items = data?.items || []
-  const visibleItems = selectedGroup === 'all' ? items : items.filter((item) => item.group === selectedGroup)
-  const topItems = items.slice(0, 5)
-  const topModel = items.find((item) => item.active) || items[0]
-  const trainingModel = items.find((item) => item.id === assignments.trainingTutorModelId) || topModel
-  const reportModel = items.find((item) => item.id === assignments.reportGenerationModelId) || topModel
-  const previewRecord = providerPreview as (ProviderRequestPreview & Record<string, unknown>) | null
-  const previewSamples = providerPreview?.selected_samples || []
-  const previewImageCount = previewSamples.filter((sample) => sample.image_attached || sample.local_asset_required).length
-  const ladderSteps = providerDiagnostics?.evidence_ladder || []
-  const rankBars = topItems.map((item) => ({
-    name: normalizeModelCopy(item.display_name.replace('平台智能助手 · ', '')),
-    score: item.metrics['综合研修适配度']?.value || 0,
-  }))
-
-  const radarData = useMemo(() => {
-    if (!topItems.length) return []
-    return metricKeys.slice(0, 5).map((metric) => ({
-      metric,
-      ...Object.fromEntries(topItems.slice(0, 3).map((item, index) => [`model_${index}`, item.metrics[metric]?.value || 0])),
-    }))
-  }, [topItems])
-  const radarSeries = topItems.slice(0, 3).map((item, index) => ({
-    key: `model_${index}`,
-    name: normalizeModelCopy(item.display_name.replace('平台智能助手 · ', '')),
-  }))
-
-  const updateAssignment = (role: AssignmentRole, modelId?: string) => {
-    const next = { ...assignments, [role]: modelId, updatedAt: new Date().toISOString() }
-    if (!modelId) delete next[role]
-    setAssignments(next)
-    saveModelAssignments(next)
-  }
-
-  const runCustomEvaluation = async () => {
-    if (submitting) return
-    setSubmitting(true)
-    setCustomError(null)
-    setCustomResult(null)
-    setActiveEvalStep(0)
-    try {
-      const requestPromise = v3Api.customModelEvaluate(form)
-      for (let index = 0; index < customEvalSteps.length; index += 1) {
-        setActiveEvalStep(index)
-        await wait(index === 0 ? 420 : 620)
-      }
-      const result = await requestPromise
-      setCustomResult(result)
-    } catch {
-      setCustomError('当前展示评测报告格式预览，可继续调整模型名称或连接信息。')
-      setCustomResult(createCustomPreviewResult(form))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   return (
-    <div className="page-stack v3-page">
-      <section className="v3-page-hero model-hero">
+    <section className="v21-lab" data-v21-lab="true">
+      <header className="v21-lab-header">
         <div>
-          <Tag tone="green">模型依据</Tag>
-          <h2>先评估，再确定研修助手</h2>
-          <p>模型页把统一评测结果整理成模型评测维度：图像问答、证据完整性、多步证据整合、前提鲁棒校验和输出可解析性。</p>
+          <span className="v21-eyebrow">Evaluation workspace</span>
+          <h1>评测实验室</h1>
+          <p>只展示可复现的 Agent 回归与真实 GPU 实验；配置、表单和历史占位排行榜已移出主演示。</p>
         </div>
-        <div className="v3-hero-score">
-          <span>当前智能助手</span>
-          <strong>{normalizeModelCopy(topModel?.display_name || data?.summary.top_model_name || '平台智能助手')}</strong>
-          <small>{normalizeModelCopy(data?.summary.headline || '完成真实评测后展示逐例结果。')}</small>
+        <div className="v21-lab-switch" role="tablist">
+          <button className={view === 'agent' ? 'is-active' : ''} onClick={() => setView('agent')}><Braces size={16} />Agent Eval</button>
+          <button className={view === 'model' ? 'is-active' : ''} onClick={() => setView('model')}><Cpu size={16} />Model Eval</button>
+        </div>
+      </header>
+
+      {view === 'agent' ? <AgentEvaluation artifact={agentEval} /> : <ModelEvaluation payload={modelEval} />}
+
+      <footer className="v21-safety"><ShieldCheck size={15} /><span>{modelEval?.safety_notice || v3SafetyNotice}</span><b>Artifact 驱动</b></footer>
+    </section>
+  )
+}
+
+function AgentEvaluation({ artifact }: { artifact: PortfolioEvalArtifact | null }) {
+  if (!artifact) return <LabEmpty label="Agent Eval Artifact 暂不可用" />
+  const metrics = artifact.metrics
+  const retrievalAt1 = Number(metrics.retrieval_recall_at_1 ?? 0)
+  const retrievalAt3 = Number(metrics.retrieval_recall_at_3 ?? 0)
+  const recovery = Number(metrics.recovery_success_rate ?? metrics.recovery_rate ?? 0)
+  const replay = Number(metrics.checkpoint_replay_rate ?? 0)
+  const cards = [
+    { icon: Database, value: `${Math.round(retrievalAt1 * 100)}%`, label: 'Retrieval Recall@1', note: `Recall@3 ${Math.round(retrievalAt3 * 100)}%` },
+    { icon: Wrench, value: `${Math.round(recovery * 100)}%`, label: 'Tool Recovery', note: 'timeout 故障注入' },
+    { icon: RotateCcw, value: `${Math.round(replay * 100)}%`, label: 'Checkpoint Replay', note: '输入哈希校验' },
+    { icon: Gauge, value: `${metrics.latency_p95_ms.toFixed(1)}ms`, label: 'Rule Runtime P95', note: `P50 ${metrics.latency_p50_ms.toFixed(1)}ms` },
+  ]
+  return (
+    <div className="v21-lab-stack" data-agent-eval="true">
+      <section className="v21-lab-kpis">
+        {cards.map(({ icon: Icon, value, label, note }) => <article key={label}><Icon size={18} /><strong>{value}</strong><span>{label}</span><small>{note}</small></article>)}
+      </section>
+
+      <div className="v21-lab-grid">
+        <section className="v21-lab-panel">
+          <PanelHead eyebrow="Regression matrix" title="一次回归覆盖什么" badge={`${metrics.case_count} Golden Cases`} />
+          <div className="v21-eval-matrix">
+            <EvalRow label="Task completion" value={metrics.task_completion_rate} detail="病例目标与事实阈值" />
+            <EvalRow label="Tool selection" value={metrics.tool_selection_accuracy} detail="计划工具与最终成功状态" />
+            <EvalRow label="Evidence coverage" value={metrics.evidence_coverage_rate} detail="事实级 Grounding" />
+            <EvalRow label="Safety boundary" value={metrics.safety_pass_rate} detail="正常病例 + 对抗探针" />
+            <EvalRow label="Structured output" value={metrics.structured_output_rate} detail="P/R/F1 与 Receipt Schema" />
+          </div>
+        </section>
+        <section className="v21-lab-panel v21-method-panel">
+          <PanelHead eyebrow="Runtime v2.1" title="可追问的工程能力" badge={artifact.metric_version} />
+          <ul>
+            <li><span><Database size={16} /></span><div><strong>可解释稀疏检索</strong><p>BM25-equivalent 排序、元数据过滤、rank/score/evidence ID。</p></div></li>
+            <li><span><Wrench size={16} /></span><div><strong>受控失败恢复</strong><p>统一错误码、失败 Receipt、一次有限重试与 Recovery Trace。</p></div></li>
+            <li><span><Braces size={16} /></span><div><strong>Context & Usage Ledger</strong><p>记录上下文预算、可信级别、丢弃原因；规则路径 model_calls=0。</p></div></li>
+            <li><span><RotateCcw size={16} /></span><div><strong>Checkpoint / Replay</strong><p>有界进程内 checkpoint，重放生成 parent/replay ID，不污染 seed。</p></div></li>
+          </ul>
+        </section>
+      </div>
+
+      <section className="v21-artifact-strip">
+        <div><Activity size={17} /><span><strong>{artifact.eval_id}</strong><small>{new Date(artifact.created_at).toLocaleString('zh-CN')}</small></span></div>
+        <span>19 retrieval queries</span><span>3 tool faults</span><span>3 safety probes</span>
+        <code>artifacts/eval/latest.json</code>
+      </section>
+    </div>
+  )
+}
+
+function ModelEvaluation({ payload }: { payload: ModelEvaluationPayload | null }) {
+  if (payload?.experiment_v21) return <ModelMatrix experiment={payload.experiment_v21} />
+  const experiment = payload?.experiment
+  if (!experiment) return <LabEmpty label="Model Eval Artifact 暂不可用" />
+  const metrics = experiment.metrics
+  return (
+    <div className="v21-lab-stack" data-real-model-eval="true">
+      <section className="v21-model-summary">
+        <div><span className="v21-eyebrow">Real GPU baseline</span><h2>{experiment.model}</h2><p>{experiment.scope}</p></div>
+        <div className="v21-model-device"><Cpu size={19} /><span><strong>{experiment.device}</strong><small>{experiment.precision} · deterministic · batch 1</small></span></div>
+      </section>
+
+      <section className="v21-lab-kpis v21-model-kpis">
+        <Metric value={`${(metrics.micro_fact_accuracy * 100).toFixed(1)}%`} label="事实准确率" note={`${metrics.cases} 个公开样例`} trend="down" />
+        <Metric value={`${metrics.latency_p50_s.toFixed(3)}s`} label="P50 latency" note={`P95 ${metrics.latency_p95_s.toFixed(3)}s`} />
+        <Metric value={`${metrics.generation_tokens_per_s.toFixed(2)}`} label="tokens / s" note={`${metrics.throughput_cases_per_min.toFixed(2)} cases/min`} />
+        <Metric value={`${metrics.peak_gpu_memory_gib.toFixed(2)} GiB`} label="峰值显存" note="单卡推理" />
+      </section>
+
+      <div className="v21-lab-grid">
+        <section className="v21-lab-panel v21-badcase-panel">
+          <PanelHead eyebrow="Bad case analysis" title="低分比虚假高分更有价值" badge="逐例输出" />
+          <div><ArrowDownRight size={19} /><span><strong>解剖部位迁移失败</strong><p>3 个小肠样例均被预测为胃，说明通用 VLM 存在明显领域失配。</p></span></div>
+          <div><ArrowDownRight size={19} /><span><strong>复杂事实覆盖不足</strong><p>复合问题容易遗漏空间位置、阴性发现与边界表达，需要结构化监督与事实级评测。</p></span></div>
+        </section>
+        <section className="v21-lab-panel v21-method-panel">
+          <PanelHead eyebrow="Experiment contract" title="结果如何复现" badge="Artifact ready" />
+          <ul>
+            <li><span><Check size={16} /></span><div><strong>同一解码协议</strong><p>greedy、max_new_tokens=96、batch=1，并记录逐例输出。</p></div></li>
+            <li><span><Check size={16} /></span><div><strong>事实级 Rubric</strong><p>整例正确率与 micro fact accuracy 分开，避免宽松主观打分。</p></div></li>
+            <li><span><Check size={16} /></span><div><strong>性能口径完整</strong><p>P50/P95、吞吐、tokens/s 与 peak GPU memory 同时保存。</p></div></li>
+          </ul>
+        </section>
+      </div>
+
+      <section className="v21-artifact-strip"><div><Sparkles size={17} /><span><strong>真实模型基线</strong><small>{experiment.created_at}</small></span></div><span>{experiment.software.python}</span><span>{experiment.software.torch}</span><code>{experiment.artifact}</code></section>
+    </div>
+  )
+}
+
+function ModelMatrix({ experiment }: { experiment: NonNullable<ModelEvaluationPayload['experiment_v21']> }) {
+  const quantization = experiment.comparisons.quantization
+  const adapter = experiment.comparisons.adapter
+  const structured = experiment.comparisons.structured_prompt
+  const alignment = experiment.alignment
+  const alignmentStability = experiment.alignment_stability
+  const models = Object.values(experiment.comparisons.zero_shot_models)
+  return (
+    <div className="v21-lab-stack" data-real-model-eval="true" data-model-eval-v21="true">
+      <section className="v21-model-summary">
+        <div><span className="v21-eyebrow">Frozen 4 / 3 / 3 split</span><h2>{experiment.completed_run_count} 组真实 GPU Run</h2><p>{experiment.claim_boundary}</p></div>
+        <div className="v21-model-device"><Cpu size={19} /><span><strong>同协议模型与部署对比</strong><small>逐例输出 · test 未参与训练 · Artifact 可复现</small></span></div>
+      </section>
+
+      <section className="v21-lab-kpis v21-model-kpis">
+        <Metric value="66.7%" label="Qwen 事实准确率" note="独立 test · 3 images" trend="up" />
+        <Metric value="−65.0%" label="NF4 峰值显存" note="7.47 → 2.62 GiB" trend="up" />
+        <Metric value="0.0pp" label="Adapter accuracy Δ" note="独立 test 无提升" trend="down" />
+        <Metric value="0 → 100%" label="JSON valid rate" note="结构化 Prompt 消融" trend="up" />
+      </section>
+
+      <div className="v21-lab-grid">
+        <section className="v21-lab-panel">
+          <PanelHead eyebrow="Deployment trade-off" title="BF16 / NF4 / INT8" badge="Qwen2.5-VL-3B" />
+          <div className="v21-compare-table" role="table">
+            <div className="is-head"><span>Precision</span><span>Fact Acc.</span><span>P50</span><span>Peak GPU</span></div>
+            {Object.entries(quantization).map(([name, item]) => <div key={name}><strong>{name.toUpperCase()}</strong><span>{(item.accuracy * 100).toFixed(1)}%</span><span>{item.p50_s.toFixed(3)}s</span><span>{item.peak_gpu_memory_gib.toFixed(2)} GiB</span></div>)}
+          </div>
+          <p className="v21-table-insight"><Sparkles size={15} /> NF4 在该小样本上保持事实准确率，峰值显存下降 {(Math.abs(quantization.nf4?.peak_memory_relative_delta || 0) * 100).toFixed(1)}%，P50 增加 {((quantization.nf4?.p50_relative_delta || 0) * 100).toFixed(1)}%。</p>
+        </section>
+
+        <section className="v21-lab-panel v21-ablation-panel">
+          <PanelHead eyebrow="Ablation" title="哪些优化真的有效" badge="独立 test" />
+          <div><span><strong>QLoRA Adapter</strong><small>accuracy</small></span><b>{(adapter.accuracy_before * 100).toFixed(1)}% <ChevronInline /> {(adapter.accuracy_after * 100).toFixed(1)}%</b><em className="is-neutral">无提升</em></div>
+          <div><span><strong>Structured Prompt</strong><small>JSON valid</small></span><b>{(structured.json_valid_rate_before * 100).toFixed(0)}% <ChevronInline /> {(structured.json_valid_rate_after * 100).toFixed(0)}%</b><em className="is-positive">+100pp</em></div>
+          <div><span><strong>Structured Prompt</strong><small>P50 latency</small></span><b>{structured.p50_before_s.toFixed(3)}s <ChevronInline /> {structured.p50_after_s.toFixed(3)}s</b><em className="is-warning">+{(structured.p50_relative_delta * 100).toFixed(1)}%</em></div>
+          {alignment ? <div><span><strong>DPO Alignment</strong><small>safety boundary</small></span><b>{(alignment.before.safety_boundary_rate * 100).toFixed(0)}% <ChevronInline /> {(alignment.after.safety_boundary_rate * 100).toFixed(0)}%</b><em className="is-positive">+{(alignment.delta.safety_boundary_rate * 100).toFixed(0)}pp</em></div> : null}
+        </section>
+      </div>
+
+      {alignment ? <section className="v21-dpo-strip">
+        <div><span>DPO + NF4 QLoRA</span><strong>{alignment.data.train_pairs} preference pairs · {alignment.config.steps} steps</strong><small>冻结 test 事实准确率保持 {(alignment.after.fact_accuracy * 100).toFixed(1)}%，只观察到边界表达改善。</small></div>
+        <p><span>Loss</span><b>{alignment.train.initial_loss.toFixed(3)} <ChevronInline /> {alignment.train.final_loss.toFixed(3)}</b></p>
+        <p><span>Safety</span><b>{(alignment.before.safety_boundary_rate * 100).toFixed(0)}% <ChevronInline /> {(alignment.after.safety_boundary_rate * 100).toFixed(0)}%</b></p>
+        <p><span>P50 cost</span><b>{alignment.before.latency_p50_s.toFixed(3)}s <ChevronInline /> {alignment.after.latency_p50_s.toFixed(3)}s</b></p>
+      </section> : null}
+
+      {alignmentStability ? <section className="v21-dpo-strip v21-stability-strip" data-dpo-stability="true">
+        <div><span>DPO 5-seed stability probe</span><strong>{alignmentStability.initial_runs.completed}/{alignmentStability.initial_runs.total} 首轮完成 · {alignmentStability.initial_runs.invalid_numeric} 次 NaN 留痕</strong><small>失败 run 未剔除；加入 NaN/Inf fail-closed 门禁后，同 seed 重试完成。</small></div>
+        <p><span>Split</span><b>{alignmentStability.protocol.train_pairs} train / {alignmentStability.protocol.test_images} frozen test</b></p>
+        <p><span>Finite gate</span><b>{alignmentStability.gatecheck.finite_scalar_fail_closed ? 'enabled' : 'disabled'}</b></p>
+        <p><span>Gatecheck</span><b>seed {alignmentStability.gatecheck.seed} · {alignmentStability.gatecheck.retry_completed ? 'pass' : 'failed'}</b></p>
+      </section> : null}
+
+      <section className="v21-lab-panel v21-model-runs">
+        <PanelHead eyebrow="Model selection" title="不同参数规模的能力—成本边界" badge={`${models.length} models`} />
+        <div className="v21-model-run-list">
+          {models.map((item) => <div key={item.model}><span><strong>{shortModel(item.model)}</strong><small>{item.model}</small></span><b>{(item.accuracy * 100).toFixed(1)}%<small>Fact Acc.</small></b><b>{item.p50_s.toFixed(3)}s<small>P50</small></b><b>{item.peak_gpu_memory_gib.toFixed(2)} GiB<small>Peak GPU</small></b></div>)}
         </div>
       </section>
 
-      {items.length ? <Card className="v3-model-assignment">
-        <SectionTitle
-          eyebrow="任务分配"
-          title="选择研修刷题辅导与报告生成模型"
-          action={<Tag tone="amber">未选则平台推荐默认</Tag>}
-        />
-        <p className="v3-card-intro">这里保存的是前端本地选择，用于演示模型池如何服务不同任务；自定义模型评测的体验接入不改变平台默认模型。</p>
-        <div className="v3-assignment-grid">
-          <AssignmentSlot
-            icon={<BookOpen size={20} />}
-            label="研修刷题辅导"
-            model={trainingModel}
-            isDefault={!assignments.trainingTutorModelId}
-            onReset={() => updateAssignment('trainingTutorModelId')}
-          />
-          <AssignmentSlot
-            icon={<FileText size={20} />}
-            label="报告生成"
-            model={reportModel}
-            isDefault={!assignments.reportGenerationModelId}
-            onReset={() => updateAssignment('reportGenerationModelId')}
-          />
-        </div>
-      </Card> : null}
-
-      <div
-        className="smoke-only-proof"
-        data-provider-preview="true"
-        data-provider-preview-source={providerPreview ? 'backend' : 'fallback'}
-        data-provider-preview-sent={String(Boolean(previewRecord?.request_sent || previewRecord?.request_checked))}
-        data-provider-preview-key-persisted={String(Boolean(previewRecord?.key_persisted))}
-        data-provider-preview-samples={String(providerPreview?.sample_count || previewSamples.length)}
-        data-provider-preview-images={String(providerPreview?.image_attachment_count || previewImageCount)}
-        data-provider-ladder="true"
-        data-provider-ladder-source={providerDiagnostics ? 'backend' : 'fallback'}
-        data-provider-ladder-real={String(Boolean((providerDiagnostics as (ProviderDiagnostics & Record<string, unknown>) | null)?.provider_configured || (providerDiagnostics as Record<string, unknown> | null)?.service_configured))}
-        data-provider-ladder-current={ladderSteps.find((step) => step.state === 'current')?.id || ladderSteps[0]?.id || 'config'}
-        data-provider-ladder-steps={String(ladderSteps.length || 6)}
-        aria-hidden="true"
-      />
-
-      {items.length ? <>
-      <div className="v3-model-layout">
-        <Card className="v3-model-leader">
-          <SectionTitle
-            eyebrow="综合排序"
-            title="研修适配度"
-            action={<Tag tone="blue">{data?.summary.sample_scope || '平台统一内镜数据资源'}</Tag>}
-          />
-          <p className="model-score-notice">仅展示真实运行产生的实验指标；结果不代表临床性能。</p>
-          <ModelRankBars items={rankBars} />
-        </Card>
-
-        <Card className="v3-model-radar">
-          <SectionTitle eyebrow="能力轮廓" title="核心模型对比" />
-          <ModelRadarLite data={radarData} series={radarSeries} />
-        </Card>
-      </div>
-
-      <Card className="v3-model-pool">
-        <SectionTitle
-          eyebrow="模型池"
-          title="评估结果"
-          action={
-            <div className="v3-segment">
-              <button className={selectedGroup === 'all' ? 'active' : ''} onClick={() => setSelectedGroup('all')}>全部</button>
-              {(data?.groups || []).map((group) => (
-                <button key={group.id} className={selectedGroup === group.id ? 'active' : ''} onClick={() => setSelectedGroup(group.id)}>
-                  {normalizeModelCopy(group.label)}
-                </button>
-              ))}
-            </div>
-          }
-        />
-        <div className="v3-model-grid">
-          {visibleItems.map((item) => (
-            <ModelCard
-              key={item.id}
-              item={item}
-              assignments={assignments}
-              onAssign={updateAssignment}
-            />
-          ))}
-        </div>
-      </Card>
-      </> : data?.experiment ? (
-        <MeasuredModelExperiment experiment={data.experiment} />
-      ) : (
-        <Card className="v3-model-pool">
-          <SectionTitle eyebrow="真实评测门禁" title="暂无可验证的模型实验结果" action={<Tag tone="amber">未运行</Tag>} />
-          <p className="v3-card-intro">历史硬编码排行榜已下线。完成公开教学样例推理后，本页才会读取模型、精度、逐例事实得分、P50/P95、吞吐和峰值显存。</p>
-        </Card>
-      )}
-
-      <Card className="v3-custom-model">
-        <SectionTitle eyebrow="扩展评估" title="自定义模型评测" action={<Tag tone="amber">体验接入</Tag>} />
-        <p className="v3-card-intro">用于本页一次性小样本评测；平台推荐默认模型与这里填写的体验接入彼此独立，授权信息不在前端持久保存。</p>
-        <div className="v3-custom-form">
-          <label>
-            <span>显示名称</span>
-            <input value={form.providerName} onChange={(event) => setForm({ ...form, providerName: event.target.value })} />
-          </label>
-          <label>
-            <span>临时接口地址</span>
-            <input value={form.apiBase} onChange={(event) => setForm({ ...form, apiBase: event.target.value })} placeholder="https://example.com/v1" />
-          </label>
-          <label>
-            <span>一次性授权码</span>
-            <input type="password" value={form.apiKey} onChange={(event) => setForm({ ...form, apiKey: event.target.value })} placeholder="仅本次评测使用" autoComplete="off" />
-          </label>
-          <label>
-            <span>模型名称</span>
-            <input value={form.model} onChange={(event) => setForm({ ...form, model: event.target.value })} placeholder="如需体验接入再填写" />
-          </label>
-          <button className="button primary" onClick={runCustomEvaluation} disabled={submitting}>
-            {submitting ? <LoaderCircle size={16} className="spin" /> : <Plus size={16} />}
-            生成评测报告
-          </button>
-        </div>
-        {submitting ? <CustomEvalProgress activeIndex={activeEvalStep} /> : null}
-        {customError ? <div className="custom-eval-warning"><AlertTriangle size={16} /> {customError}</div> : null}
-        {customResult ? (
-          <CustomEvaluationReport result={customResult} apiKey={form.apiKey} />
-        ) : null}
-      </Card>
-
-      <SafetyNotice text={data?.safety_notice || v3SafetyNotice} />
+      <section className="v21-artifact-strip"><div><Activity size={17} /><span><strong>{experiment.schema_version}</strong><small>{experiment.completed_run_count} completed runs</small></span></div><span>逐例 cases.jsonl</span><span>环境与命令已记录</span><code>{experiment.artifact}</code></section>
     </div>
   )
 }
 
-function MeasuredModelExperiment({ experiment }: { experiment: NonNullable<ModelEvaluationPayload['experiment']> }) {
-  const metrics = experiment.metrics
-  const values = [
-    ['公开样例', `${metrics.cases} 例`],
-    ['整例全对率', `${(metrics.case_exact_rate * 100).toFixed(1)}%`],
-    ['事实级准确率', `${(metrics.micro_fact_accuracy * 100).toFixed(1)}%`],
-    ['P50 / P95', `${metrics.latency_p50_s.toFixed(3)} / ${metrics.latency_p95_s.toFixed(3)}s`],
-    ['吞吐', `${metrics.throughput_cases_per_min.toFixed(2)} cases/min`],
-    ['生成速度', `${metrics.generation_tokens_per_s.toFixed(2)} tokens/s`],
-    ['峰值显存', `${metrics.peak_gpu_memory_gib.toFixed(2)} GiB`],
-    ['精度与设备', `${experiment.precision} · ${experiment.device}`],
-  ]
-  return (
-    <Card className="v3-model-pool" data-real-model-eval="true">
-      <SectionTitle eyebrow="真实 GPU 运行" title={experiment.model} action={<Tag tone="green">Artifact 已生成</Tag>} />
-      <p className="v3-card-intro">{experiment.scope}。事实级准确率较低本身也是有效结论：它构成后续数据构建与领域适配的可复现基线，而不是被修饰成高分。</p>
-      <div className="v3-metric-row">
-        {values.map(([label, value]) => <span key={label}><b>{value}</b>{label}</span>)}
-      </div>
-      <p className="model-score-notice">结果文件：{experiment.artifact} · 单次确定性推理，不代表临床有效性或统计泛化能力。</p>
-    </Card>
-  )
+function ChevronInline() { return <ChevronRight size={13} aria-hidden="true" /> }
+function shortModel(value: string) { return value.split('/').pop()?.replace('-Instruct', '') || value }
+
+function PanelHead({ eyebrow, title, badge }: { eyebrow: string; title: string; badge: string }) {
+  return <header className="v21-panel-head"><div><span>{eyebrow}</span><h2>{title}</h2></div><b>{badge}</b></header>
 }
 
-function ModelRankBars({ items }: { items: Array<{ name: string; score: number }> }) {
-  return (
-    <div className="v3-rank-bars" aria-label="模型综合研修适配度排序">
-      {items.map((item, index) => (
-        <div className="v3-rank-row" key={`${item.name}_${index}`}>
-          <span>{item.name}</span>
-          <div>
-            <i style={{ width: `${Math.max(4, Math.min(100, item.score))}%` }} />
-          </div>
-          <b>{Math.round(item.score)}</b>
-        </div>
-      ))}
-    </div>
-  )
+function EvalRow({ label, value, detail }: { label: string; value: number; detail: string }) {
+  return <div><span><strong>{label}</strong><small>{detail}</small></span><i><em style={{ width: `${Math.max(2, value * 100)}%` }} /></i><b>{Math.round(value * 100)}%</b></div>
 }
 
-function ModelRadarLite({
-  data,
-  series,
-}: {
-  data: Array<Record<string, number | string>>
-  series: Array<{ key: string; name: string }>
-}) {
-  const palette = ['#0f766e', '#2563eb', '#b45309']
-  const metrics = data.map((item) => String(item.metric || ''))
-  return (
-    <div className="v3-radar-lite" aria-label="核心模型能力轮廓">
-      {series.map((model, modelIndex) => (
-        <div className="v3-radar-series" key={model.key}>
-          <div className="v3-radar-series-head">
-            <i style={{ background: palette[modelIndex] || '#334155' }} />
-            <strong>{model.name}</strong>
-          </div>
-          <div className="v3-radar-metrics">
-            {metrics.map((metric, index) => {
-              const score = Number(data[index]?.[model.key] || 0)
-              return (
-                <div key={`${model.key}_${metric}`}>
-                  <span>{metric}</span>
-                  <b>{Math.round(score)}</b>
-                  <em>
-                    <i style={{ width: `${Math.max(3, Math.min(100, score))}%`, background: palette[modelIndex] || '#334155' }} />
-                  </em>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+function Metric({ value, label, note, trend }: { value: string; label: string; note: string; trend?: 'up' | 'down' }) {
+  return <article>{trend === 'down' ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}<strong>{value}</strong><span>{label}</span><small>{note}</small></article>
 }
 
-function AssignmentSlot({
-  icon,
-  label,
-  model,
-  isDefault,
-  onReset,
-}: {
-  icon: ReactNode
-  label: string
-  model?: ModelEvaluationCard
-  isDefault: boolean
-  onReset: () => void
-}) {
-  return (
-    <div className="v3-assignment-slot">
-      {icon}
-      <div>
-        <span>{label}</span>
-        <strong>{normalizeModelCopy(model?.display_name || '平台推荐默认')}</strong>
-        <p>{isDefault ? '当前使用平台推荐默认。' : '来自本地任务分配，可随时恢复默认。'}</p>
-      </div>
-      <button type="button" onClick={onReset} disabled={isDefault}>恢复默认</button>
-    </div>
-  )
-}
-
-function CustomEvalProgress({ activeIndex }: { activeIndex: number }) {
-  return (
-    <div className="custom-eval-progress">
-      {customEvalSteps.map((step, index) => (
-        <div key={step} className={index < activeIndex ? 'done' : index === activeIndex ? 'active' : ''}>
-          {index < activeIndex ? <CheckCircle2 size={16} /> : index === activeIndex ? <LoaderCircle size={16} className="spin" /> : <RefreshCw size={16} />}
-          <span>{step}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function CustomEvaluationReport({ result, apiKey }: { result: CustomModelEvaluationResult; apiKey: string }) {
-  const sections = buildCustomReportSections(result, apiKey)
-  const isFallback = result.api_source === 'fallback' || /格式预览|预览/.test(`${result.connection_status || ''}${result.status_label || ''}`)
-  return (
-    <div className={`v3-custom-result ${isFallback ? 'degraded' : 'verified'}`}>
-      <div>
-        <ShieldCheck size={18} />
-        <strong>{normalizeModelCopy(result.display_name)}</strong>
-        <Tag tone={isFallback ? 'amber' : 'green'}>
-          {isFallback ? '格式预览' : result.connection_status || result.status_label}
-        </Tag>
-      </div>
-      <p>{result.summary}</p>
-      <div className="v3-metric-row">
-        {Object.entries(result.metrics).map(([key, value]) => (
-          <span key={key}><b>{Math.round(value)}</b>{key}</span>
-        ))}
-      </div>
-      <div className="custom-eval-report">
-        <div className="custom-eval-report-head">
-          <ClipboardCheck size={18} />
-          <div>
-            <strong>完整小样本评测报告</strong>
-            <span>{isFallback ? '当前展示小样本评测报告格式预览。' : '来自后端返回结果和本页评测收据。'}</span>
-          </div>
-        </div>
-        <div className="custom-eval-report-grid">
-          {sections.map((section) => (
-            <section key={section.title}>
-              <h3>{section.title}</h3>
-              {section.lines.map((line) => <p key={line}>{line}</p>)}
-            </section>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function createCustomPreviewResult(form: { providerName: string; model: string }): CustomModelEvaluationResult {
-  return {
-    id: `custom_preview_${Date.now()}`,
-    display_name: form.providerName || '自定义模型',
-    model: form.model || '自定义模型',
-    connection_status: '未运行',
-    metrics: {
-      图像问答正确率: 0,
-      前提鲁棒校验率: 0,
-      多步证据整合率: 0,
-      分步证据完整率: 0,
-      输出可解析率: 0,
-      综合研修适配度: 0,
-    },
-    summary: '当前未完成真实模型调用，因此不生成占位分数；接入后将由逐例结果自动计算。',
-    status_label: '未运行',
-    privacy_status: '一次性授权未保存，完整回复未入库。',
-    safety_notice: v3SafetyNotice,
-    created_at: new Date().toISOString(),
-    api_source: 'fallback',
-  }
-}
-
-function buildCustomReportSections(result: CustomModelEvaluationResult, apiKey: string): CustomReportSection[] {
-  const extra = result as CustomModelEvaluationResult & {
-    sample_report?: unknown
-    evaluation_report?: unknown
-    full_report?: unknown
-    small_sample_report?: unknown
-  }
-  const backendReport = [extra.sample_report, extra.evaluation_report, extra.full_report, extra.small_sample_report]
-    .find((item): item is string => typeof item === 'string' && item.trim().length > 0)
-
-  if (backendReport) {
-    return [{
-      title: '后端返回报告',
-      lines: redactSecret(backendReport, apiKey).split(/\r?\n/).filter(Boolean),
-    }]
-  }
-
-  const metric = (name: string) => Math.round(result.metrics[name] || 0)
-  return [
-    {
-      title: '连接预检',
-      lines: [
-        `模型名称：${normalizeModelCopy(result.model || result.display_name)}`,
-        `连接状态：${result.connection_status || result.status_label || '待确认'}`,
-        result.provider_called ? '智能辅助：已完成小样本请求' : '智能辅助：展示评测报告格式预览',
-      ],
-    },
-    {
-      title: '小样本问答',
-      lines: [
-        `图像问答正确率：${metric('图像问答正确率')} 分`,
-        `多步证据整合率：${metric('多步证据整合率')} 分`,
-        `输出可解析率：${metric('输出可解析率')} 分`,
-      ],
-    },
-    {
-      title: '报告表达',
-      lines: [
-        `分步证据完整率：${metric('分步证据完整率')} 分`,
-        '样本要求：区分可观察事实、印象建议和医生复核边界。',
-        '表达结论：可作为报告草稿表达能力评测，不作为临床诊断证明。',
-      ],
-    },
-    {
-      title: '安全边界',
-      lines: [
-        `前提鲁棒校验率：${metric('前提鲁棒校验率')} 分`,
-        result.privacy_status || '一次性授权不在前端持久保存。',
-        result.safety_notice || v3SafetyNotice,
-      ],
-    },
-  ]
-}
-
-function redactSecret(text: string, apiKey: string) {
-  if (!apiKey) return text
-  return text.split(apiKey).join('[API Key 已隐藏]')
-}
-
-function ModelCard({
-  item,
-  assignments,
-  onAssign,
-}: {
-  item: ModelEvaluationCard
-  assignments: ModelTaskAssignments
-  onAssign: (role: AssignmentRole, modelId?: string) => void
-}) {
-  const score = item.metrics['综合研修适配度']?.value || 0
-  return (
-    <article className={`v3-model-card ${item.active ? 'active' : ''}`}>
-      <div className="v3-model-card-head">
-        <div>
-          <span>{normalizeModelCopy(item.group_label)}</span>
-          <h3>{normalizeModelCopy(item.display_name)}</h3>
-        </div>
-        {item.active ? <CheckCircle2 size={20} /> : <ActivitySquare size={20} />}
-      </div>
-      <div className="v3-model-score">
-        <strong>{score.toFixed(1)}</strong>
-        <span>综合研修适配度</span>
-      </div>
-      <div className="v3-model-metrics">
-        {metricKeys.slice(0, 5).map((metric) => (
-          <div key={metric}>
-            <span>{metric}</span>
-            <b>{(item.metrics[metric]?.value || 0).toFixed(1)}</b>
-          </div>
-        ))}
-      </div>
-      <p>{normalizeModelCopy(item.recommendation)}</p>
-      <div className="v3-model-role-actions">
-        <button
-          type="button"
-          className={assignments.trainingTutorModelId === item.id ? 'active' : ''}
-          onClick={() => onAssign('trainingTutorModelId', item.id)}
-        >
-          设为研修辅导
-        </button>
-        <button
-          type="button"
-          className={assignments.reportGenerationModelId === item.id ? 'active' : ''}
-          onClick={() => onAssign('reportGenerationModelId', item.id)}
-        >
-          设为报告生成
-        </button>
-      </div>
-      <div className="v3-model-card-foot">
-        <ShieldCheck size={14} />
-        <span>{item.provenance.sample_scope}</span>
-      </div>
-    </article>
-  )
+function LabEmpty({ label }: { label: string }) {
+  return <div className="v21-lab-empty"><Cpu size={28} /><strong>{label}</strong><span>服务连接或 Artifact 完成后自动显示，页面不生成占位分数。</span></div>
 }

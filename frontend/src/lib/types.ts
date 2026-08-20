@@ -932,6 +932,112 @@ export type ModelEvaluationPayload = {
     }
     artifact: string
   } | null
+  experiment_v21?: {
+    schema_version: string
+    status: string
+    claim_boundary: string
+    completed_run_count: number
+    runs: Record<string, {
+      cases: number
+      case_exact_rate: number
+      micro_fact_accuracy: number
+      latency_p50_s: number
+      latency_p95_s: number
+      throughput_cases_per_min: number
+      generation_tokens_per_s: number
+      peak_gpu_memory_gib: number
+      model_memory_footprint_gib: number
+      model_load_s: number
+      wall_time_s: number
+    }>
+    comparisons: {
+      quantization: Record<string, {
+        accuracy: number
+        p50_s: number
+        peak_gpu_memory_gib: number
+        accuracy_delta: number
+        p50_relative_delta: number
+        peak_memory_relative_delta: number
+      }>
+      adapter: {
+        accuracy_before: number
+        accuracy_after: number
+        accuracy_delta: number
+        p50_before_s: number
+        p50_after_s: number
+        p50_relative_delta: number
+      }
+      structured_prompt: {
+        accuracy_before: number
+        accuracy_after: number
+        accuracy_delta: number
+        p50_before_s: number
+        p50_after_s: number
+        p50_relative_delta: number
+        json_valid_rate_before: number
+        json_valid_rate_after: number
+      }
+      zero_shot_models: Record<string, {
+        model: string
+        accuracy: number
+        p50_s: number
+        peak_gpu_memory_gib: number
+      }>
+    }
+    alignment?: {
+      schema_version: string
+      status: string
+      claim_boundary: string
+      model: string
+      method: string
+      data: { train_pairs: number; test_images: number; split_overlap: number }
+      config: { steps: number; beta: number; learning_rate: number; lora_rank: number; batch_size: number }
+      before: { cases: number; fact_accuracy: number; json_valid_rate: number; safety_boundary_rate: number; latency_p50_s: number }
+      after: { cases: number; fact_accuracy: number; json_valid_rate: number; safety_boundary_rate: number; latency_p50_s: number }
+      delta: { fact_accuracy: number; json_valid_rate: number; safety_boundary_rate: number }
+      train: {
+        initial_loss: number
+        final_loss: number
+        final_cycle_preference_rate: number
+        peak_gpu_memory_gib: number
+        trainable_parameters: number
+        trainable_ratio: number
+        adapter_size_bytes: number
+      }
+    } | null
+    alignment_stability?: {
+      schema_version: string
+      status: 'completed_with_observed_failure' | string
+      claim_boundary: string
+      protocol: {
+        seeds: number[]
+        train_pairs: number
+        test_images: number
+        split_overlap: number
+        steps: number
+        beta: number
+        learning_rate: number
+      }
+      initial_runs: {
+        total: number
+        completed: number
+        invalid_numeric: number
+        successful_safety_boundary_rate: number
+        successful_fact_accuracy: number
+        successful_json_valid_rate: number
+      }
+      gatecheck: {
+        seed: number
+        finite_scalar_fail_closed: boolean
+        retry_completed: boolean
+        safety_boundary_rate: number
+        fact_accuracy: number
+        json_valid_rate: number
+      }
+      artifact: string
+    } | null
+    artifact: string
+  } | null
   safety_notice: string
   api_source?: 'backend' | 'fallback'
 }
@@ -1012,15 +1118,83 @@ export type PortfolioCase = {
   next_recommendation: string
 }
 
+export type PortfolioStudyCase = {
+  id: string
+  title: string
+  source_dataset: string
+  source_type: string
+  image_url: string
+  difficulty: string
+  prompt: string
+  body_part: string
+  tags: string[]
+  estimated_minutes: number
+  completed: boolean
+  best_score: number | null
+  wrong: boolean
+  favorited: boolean
+  last_practiced_at?: string | null
+  recommendation_reason?: string | null
+  progress?: {
+    attempt_count?: number
+    last_score?: number
+    best_score?: number
+    completed?: boolean
+    is_wrong?: boolean
+    review_interval_days?: number
+    review_due_at?: string | null
+    review_stage?: string
+    review_due?: boolean
+    mastery?: number
+  }
+}
+
+export type PortfolioStudyPayload = {
+  learner: {
+    completed_today: number
+    daily_target: number
+    streak_days: number
+    total_completed: number
+    accuracy: number | null
+    wrong_count: number
+    favorite_count: number
+  }
+  today_plan: {
+    title: string
+    reason: string
+    generated_by: string
+    items: PortfolioStudyCase[]
+  }
+  library: {
+    items: PortfolioStudyCase[]
+    body_parts: string[]
+  }
+  continue_case_id?: string | null
+  source: 'backend' | 'fallback' | string
+  safety_notice: string
+}
+
+export type PortfolioAdaptiveRecommendation = {
+  case_id: string
+  case_title: string
+  strategy: 'unfinished_first' | 'weakness_and_spaced_review' | string
+  priority: 'high' | 'normal' | string
+  weakest_dimension?: string | null
+  mastery?: number
+  reason: string
+}
+
 export type PortfolioAgentRun = {
   run_id: string
+  parent_run_id?: string | null
+  replay_id?: string | null
   case_id: string
   case_title: string
   learner_id: string
   status: 'completed' | 'blocked' | string
-  plan: { goal: string; tool_sequence: string[]; constraints: string[] }
+  plan: { policy_id?: string; goal: string; tool_sequence: string[]; max_replans?: number; constraints: string[] }
   trace: Array<{
-    node: 'Plan' | 'Act' | 'Observe' | 'Verify' | 'Memory'
+    node: 'Plan' | 'Act' | 'Recovery' | 'Observe' | 'Verify' | 'Memory'
     status: 'completed' | 'blocked'
     summary: string
     latency_ms: number
@@ -1034,7 +1208,28 @@ export type PortfolioAgentRun = {
     output: Record<string, unknown>
     evidence_ids: string[]
     latency_ms: number
+    attempt?: number
+    error_code?: 'timeout' | 'unavailable' | 'validation_error' | 'tool_exception' | null
+    retryable?: boolean
+    recovered_from_call_id?: string | null
   }>
+  retrieval?: {
+    retrieval_mode: string
+    query: string
+    top_k: number
+    metadata_filters: Record<string, string>
+    candidate_count: number
+    items: Array<{
+      rank: number
+      score: number
+      evidence_id: string
+      label: string
+      evidence: string
+      source_dataset: string
+      case_id: string
+      metadata: Record<string, string>
+    }>
+  }
   result: {
     score: number
     matched_fact_ids: string[]
@@ -1044,6 +1239,7 @@ export type PortfolioAgentRun = {
     fact_f1: number
     feedback: string
     next_recommendation: string
+    adaptive_recommendation?: PortfolioAdaptiveRecommendation | null
     observed_evidence: Array<{ evidence_id: string; label: string; evidence: string }>
   }
   verification: Record<string, boolean>
@@ -1059,12 +1255,57 @@ export type PortfolioAgentRun = {
       reason: string
     }>
     reason: string
+    review_schedule?: {
+      interval_days: number
+      due_at: string
+      stage: 'relearn_now' | 'review_tomorrow' | 'spaced_review' | string
+    }
+    adaptive_recommendation?: PortfolioAdaptiveRecommendation | null
+  }
+  context_manifest?: {
+    budget_tokens: number
+    estimator: string
+    included_estimated_tokens: number
+    total_estimated_tokens: number
+    chunks: Array<{
+      source_type: string
+      source_id: string
+      priority: number
+      trust_level: string
+      char_count: number
+      estimated_tokens: number
+      included: boolean
+      drop_reason?: string | null
+    }>
+  }
+  usage_ledger?: {
+    execution_mode: string
+    model_calls: number
+    prompt_tokens: number
+    completion_tokens: number
+    provider_usage?: Record<string, unknown> | null
+    estimated_context_tokens: number
+    estimated_cost?: number | null
+    currency?: string | null
+    source: string
+  }
+  checkpoint?: {
+    checkpoint_id: string
+    replayable: boolean
+    storage: string
+    input_hash: string
+    contains_raw_input_in_response: boolean
   }
   doctor_review_required: boolean
   safety_notice: string
   created_at: string
   latency_ms: number
 }
+
+export type PortfolioAgentStreamEvent =
+  | { event: 'stage'; stage: PortfolioAgentRun['trace'][number] }
+  | { event: 'final'; run: PortfolioAgentRun }
+  | { event: 'error'; error_code: string; message: string }
 
 export type PortfolioEvalArtifact = {
   eval_id: string
@@ -1081,6 +1322,11 @@ export type PortfolioEvalArtifact = {
     mean_fact_f1: number
     latency_p50_ms: number
     latency_p95_ms: number
+    retrieval_recall_at_1?: number
+    retrieval_recall_at_3?: number
+    recovery_success_rate?: number
+    recovery_rate?: number
+    checkpoint_replay_rate?: number
   }
   cases: Array<Record<string, unknown>>
   safety_probes: Array<Record<string, unknown>>

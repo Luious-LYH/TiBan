@@ -3,7 +3,9 @@ import type {
   ImageUploadResponse,
   ModelEvaluationPayload,
   PortfolioAgentRun,
+  PortfolioAgentStreamEvent,
   PortfolioCase,
+  PortfolioStudyPayload,
   PortfolioEvalArtifact,
   ProviderDiagnostics,
   ProviderRequestPreview,
@@ -38,6 +40,49 @@ async function request<T>(path: string, init?: RequestInit, localData?: T): Prom
     }
   }
   if (localData !== undefined) return localData
+  throw lastError
+}
+
+async function streamAgentRun(
+  caseId: string,
+  learnerAnswer: string,
+  onEvent: (event: PortfolioAgentStreamEvent) => void,
+): Promise<PortfolioAgentRun> {
+  let lastError: unknown
+  for (const base of [activeBase, ...baseCandidates.filter((item) => item !== activeBase)]) {
+    try {
+      const response = await fetch(`${base}/api/agent/runs/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ case_id: caseId, learner_answer: learnerAnswer, learner_id: 'demo_learner', commit_memory: true }),
+      })
+      if (!response.ok || !response.body) throw new Error(`${response.status} ${response.statusText}`)
+      activeBase = base
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let finalRun: PortfolioAgentRun | null = null
+      while (true) {
+        const { value, done } = await reader.read()
+        buffer += decoder.decode(value, { stream: !done })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          const event = JSON.parse(line) as PortfolioAgentStreamEvent
+          onEvent(event)
+          if (event.event === 'final') finalRun = event.run
+          if (event.event === 'error') throw new Error(event.message || event.error_code)
+        }
+        if (done) break
+      }
+      if (!finalRun) throw new Error('Agent stream ended without a final run.')
+      return finalRun
+    } catch (error) {
+      lastError = error
+      if (configuredBase) break
+    }
+  }
   throw lastError
 }
 
@@ -187,14 +232,41 @@ export const v3Api = {
     )
   },
 
+  portfolioStudy() {
+    return request<PortfolioStudyPayload>('/api/portfolio/study')
+  },
+
+  portfolioStudyFavorite(caseId: string, favorited: boolean) {
+    return request<Record<string, unknown>>(
+      `/api/portfolio/study/favorites/${encodeURIComponent(caseId)}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ favorited, learner_id: 'demo_learner' }),
+      },
+      { case_id: caseId, favorited, source: 'local_fallback' },
+    )
+  },
+
   portfolioAgentRun(caseId: string, learnerAnswer: string) {
     return request<PortfolioAgentRun>(
       '/api/agent/runs',
       {
         method: 'POST',
-        body: JSON.stringify({ case_id: caseId, learner_answer: learnerAnswer, learner_id: 'demo_learner' }),
+        body: JSON.stringify({ case_id: caseId, learner_answer: learnerAnswer, learner_id: 'demo_learner', commit_memory: true }),
       },
     )
+  },
+
+  portfolioAgentRunStream(
+    caseId: string,
+    learnerAnswer: string,
+    onEvent: (event: PortfolioAgentStreamEvent) => void,
+  ) {
+    return streamAgentRun(caseId, learnerAnswer, onEvent)
+  },
+
+  portfolioAgentReplay(runId: string) {
+    return request<PortfolioAgentRun>(`/api/agent/runs/${encodeURIComponent(runId)}/replay`, { method: 'POST' })
   },
 
   portfolioEvalLatest() {
