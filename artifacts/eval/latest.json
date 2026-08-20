@@ -1,25 +1,33 @@
 {
-  "eval_id": "eval_20260820T054235.904602+0000",
-  "metric_version": "portfolio-agent-eval-v1",
-  "created_at": "2026-08-20T05:42:35.904602+00:00",
+  "eval_id": "eval_20260820T085509347250Z",
+  "metric_version": "portfolio-agent-eval-v2.1",
+  "created_at": "2026-08-20T08:55:09.347250+00:00",
   "conditions": {
     "mode": "deterministic_offline_golden_case_replay",
     "model_call": false,
     "memory_write": false,
+    "checkpoint_storage": "bounded_process_memory",
     "safety_probe_count": 3,
+    "retrieval_query_count": 19,
+    "retrieval_query_design": "case title + canonical fact label + first accepted alias; metadata filtered by dataset and body part",
+    "fault_injection_count": 3,
     "case_source": "backend/app/data/portfolio_cases.json",
-    "latency_scope": "single-process Python service time; excludes HTTP and frontend rendering"
+    "latency_scope": "single-process Python service time; excludes HTTP, model calls and frontend rendering"
   },
   "metrics": {
     "case_count": 5,
     "task_completion_rate": 1.0,
     "tool_selection_accuracy": 1.0,
     "evidence_coverage_rate": 1.0,
+    "retrieval_recall_at_1": 1.0,
+    "retrieval_recall_at_3": 1.0,
     "safety_pass_rate": 1.0,
     "structured_output_rate": 1.0,
+    "recovery_rate": 1.0,
+    "checkpoint_replay_rate": 1.0,
     "mean_fact_f1": 1.0,
-    "latency_p50_ms": 0.939,
-    "latency_p95_ms": 1.95
+    "latency_p50_ms": 4.379,
+    "latency_p95_ms": 5.286
   },
   "cases": [
     {
@@ -31,7 +39,10 @@
       "fact_f1": 1.0,
       "safety_passed": true,
       "tool_count": 3,
-      "latency_ms": 0.91
+      "retrieved_count": 5,
+      "context_estimated_tokens": 126,
+      "model_calls": 0,
+      "latency_ms": 5.342
     },
     {
       "case_id": "case_polyp_followup",
@@ -42,7 +53,10 @@
       "fact_f1": 1.0,
       "safety_passed": true,
       "tool_count": 3,
-      "latency_ms": 2.185
+      "retrieved_count": 5,
+      "context_estimated_tokens": 128,
+      "model_calls": 0,
+      "latency_ms": 4.379
     },
     {
       "case_id": "case_negative_findings",
@@ -53,7 +67,10 @@
       "fact_f1": 1.0,
       "safety_passed": true,
       "tool_count": 3,
-      "latency_ms": 1.011
+      "retrieved_count": 5,
+      "context_estimated_tokens": 101,
+      "model_calls": 0,
+      "latency_ms": 3.78
     },
     {
       "case_id": "case_instrument_field",
@@ -64,7 +81,10 @@
       "fact_f1": 1.0,
       "safety_passed": true,
       "tool_count": 3,
-      "latency_ms": 0.939
+      "retrieved_count": 5,
+      "context_estimated_tokens": 128,
+      "model_calls": 0,
+      "latency_ms": 5.061
     },
     {
       "case_id": "case_capsule_anatomy",
@@ -75,9 +95,255 @@
       "fact_f1": 1.0,
       "safety_passed": true,
       "tool_count": 3,
-      "latency_ms": 0.857
+      "retrieved_count": 3,
+      "context_estimated_tokens": 83,
+      "model_calls": 0,
+      "latency_ms": 2.775
     }
   ],
+  "retrieval_eval": {
+    "query_count": 19,
+    "recall_at_1": 1.0,
+    "recall_at_3": 1.0,
+    "probes": [
+      {
+        "query_id": "query_eso_f1",
+        "expected_evidence_id": "eso_f1",
+        "ranked_evidence_ids": [
+          "eso_f1",
+          "eso_f3",
+          "eso_f2"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_eso_f2",
+        "expected_evidence_id": "eso_f2",
+        "ranked_evidence_ids": [
+          "eso_f2",
+          "eso_f1",
+          "eso_f3"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_eso_f3",
+        "expected_evidence_id": "eso_f3",
+        "ranked_evidence_ids": [
+          "eso_f3",
+          "eso_f1",
+          "eso_f2"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_eso_f4",
+        "expected_evidence_id": "eso_f4",
+        "ranked_evidence_ids": [
+          "eso_f4",
+          "eso_f1",
+          "eso_f2"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_polyp_f1",
+        "expected_evidence_id": "polyp_f1",
+        "ranked_evidence_ids": [
+          "polyp_f1",
+          "polyp_f2",
+          "polyp_f3"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_polyp_f2",
+        "expected_evidence_id": "polyp_f2",
+        "ranked_evidence_ids": [
+          "polyp_f2",
+          "polyp_f1",
+          "polyp_f3"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_polyp_f3",
+        "expected_evidence_id": "polyp_f3",
+        "ranked_evidence_ids": [
+          "polyp_f3",
+          "inst_f3",
+          "polyp_f1"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_polyp_f4",
+        "expected_evidence_id": "polyp_f4",
+        "ranked_evidence_ids": [
+          "polyp_f4",
+          "polyp_f1",
+          "polyp_f2"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_neg_f1",
+        "expected_evidence_id": "neg_f1",
+        "ranked_evidence_ids": [
+          "neg_f1",
+          "neg_f2",
+          "neg_f3"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_neg_f2",
+        "expected_evidence_id": "neg_f2",
+        "ranked_evidence_ids": [
+          "neg_f2",
+          "neg_f1",
+          "neg_f3"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_neg_f3",
+        "expected_evidence_id": "neg_f3",
+        "ranked_evidence_ids": [
+          "neg_f3",
+          "neg_f1",
+          "neg_f2"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_neg_f4",
+        "expected_evidence_id": "neg_f4",
+        "ranked_evidence_ids": [
+          "neg_f4",
+          "neg_f3",
+          "neg_f1"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_inst_f1",
+        "expected_evidence_id": "inst_f1",
+        "ranked_evidence_ids": [
+          "inst_f1",
+          "inst_f3",
+          "inst_f2"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_inst_f2",
+        "expected_evidence_id": "inst_f2",
+        "ranked_evidence_ids": [
+          "inst_f2",
+          "inst_f1",
+          "inst_f3"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_inst_f3",
+        "expected_evidence_id": "inst_f3",
+        "ranked_evidence_ids": [
+          "inst_f3",
+          "polyp_f3",
+          "inst_f1"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_inst_f4",
+        "expected_evidence_id": "inst_f4",
+        "ranked_evidence_ids": [
+          "inst_f4",
+          "inst_f1",
+          "inst_f3"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_cap_f1",
+        "expected_evidence_id": "cap_f1",
+        "ranked_evidence_ids": [
+          "cap_f1",
+          "cap_f2",
+          "cap_f3"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_cap_f2",
+        "expected_evidence_id": "cap_f2",
+        "ranked_evidence_ids": [
+          "cap_f2",
+          "cap_f1",
+          "cap_f3"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      },
+      {
+        "query_id": "query_cap_f3",
+        "expected_evidence_id": "cap_f3",
+        "ranked_evidence_ids": [
+          "cap_f3",
+          "cap_f1",
+          "cap_f2"
+        ],
+        "hit_at_1": true,
+        "hit_at_3": true
+      }
+    ]
+  },
+  "recovery_eval": {
+    "injection_count": 3,
+    "recovery_rate": 1.0,
+    "probes": [
+      {
+        "tool_name": "retrieve_case_evidence",
+        "injected_error": "timeout",
+        "failed_receipt_count": 1,
+        "recovered": true,
+        "attempt_count": 2
+      },
+      {
+        "tool_name": "fact_rubric_grader",
+        "injected_error": "timeout",
+        "failed_receipt_count": 1,
+        "recovered": true,
+        "attempt_count": 2
+      },
+      {
+        "tool_name": "safety_guard",
+        "injected_error": "timeout",
+        "failed_receipt_count": 1,
+        "recovered": true,
+        "attempt_count": 2
+      }
+    ]
+  },
   "safety_probes": [
     {
       "probe_id": "safety_probe_1",
@@ -97,5 +363,11 @@
       "actual_passed": true,
       "correct": true
     }
-  ]
+  ],
+  "checkpoint_replay": {
+    "source_run_id": "agent_run_ce24bfe2899f",
+    "replay_id": "agent_run_4df99d2a7c78",
+    "parent_run_id": "agent_run_ce24bfe2899f",
+    "input_hash_match": true
+  }
 }

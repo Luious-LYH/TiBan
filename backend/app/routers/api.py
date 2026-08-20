@@ -1,10 +1,14 @@
 import base64
 import hashlib
+import json
 import re
 import struct
+from queue import Queue
+from threading import Thread
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from app.core.config import APP_NAME, SAFETY_NOTICE, UPLOAD_DIR
 from app.schemas import (
@@ -37,6 +41,7 @@ from app.services.memory_service import memory_service
 from app.services.model_service import model_service
 from app.services.portfolio_agent_runtime import portfolio_agent_runtime
 from app.services.portfolio_eval_service import portfolio_eval_service
+from app.services.portfolio_study_service import portfolio_study_service
 from app.services.question_service import question_service
 from app.services.report_service import report_service
 from app.services.skill_registry import skill_registry
@@ -51,7 +56,7 @@ def health() -> dict[str, object]:
     return {
         "status": "ok",
         "service": APP_NAME,
-        "version": "portfolio-v2.0",
+        "version": "portfolio-v2.1",
         "capabilities": [
             "v3_session",
             "model_evaluation",
@@ -64,6 +69,12 @@ def health() -> dict[str, object]:
             "runtime_state_isolation",
             "observable_agent_runtime",
             "offline_agent_evaluation",
+            "sparse_evidence_retrieval",
+            "bounded_tool_recovery",
+            "session_checkpoint_replay",
+            "ndjson_agent_event_stream",
+            "adaptive_study_state",
+            "wrong_case_and_spaced_review",
         ],
     }
 
@@ -136,6 +147,43 @@ def portfolio_cases() -> dict[str, object]:
     }
 
 
+@router.get("/portfolio/study")
+def portfolio_study(learner_id: str = "demo_learner") -> dict[str, object]:
+    """Return the case-bank state, today's task and Agent recommendation."""
+    try:
+        return portfolio_study_service.snapshot(portfolio_agent_runtime.list_cases(), learner_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/portfolio/study/favorites/{case_id}")
+def portfolio_study_favorite(case_id: str, payload: dict[str, object]) -> dict[str, object]:
+    """Idempotently add or remove a portfolio case from the learner's favorites."""
+    favorited = payload.get("favorited")
+    if not isinstance(favorited, bool):
+        raise HTTPException(status_code=400, detail="favorited must be a boolean.")
+    try:
+        return portfolio_study_service.set_favorite(
+            portfolio_agent_runtime.list_cases(),
+            case_id,
+            favorited,
+            str(payload.get("learner_id") or "demo_learner"),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/portfolio/study/favorite")
+def portfolio_study_favorite_payload(payload: dict[str, object]) -> dict[str, object]:
+    """Payload-form alias convenient for clients that do not encode path params."""
+    case_id = str(payload.get("case_id") or "").strip()
+    if not case_id:
+        raise HTTPException(status_code=400, detail="case_id is required.")
+    return portfolio_study_favorite(case_id, payload)
+
+
 @router.post("/agent/runs")
 def portfolio_agent_run(payload: dict[str, object]) -> dict[str, object]:
     case_id = str(payload.get("case_id") or "").strip()
@@ -147,9 +195,84 @@ def portfolio_agent_run(payload: dict[str, object]) -> dict[str, object]:
             case_id=case_id,
             learner_answer=learner_answer,
             learner_id=str(payload.get("learner_id") or "demo_learner"),
+            failure_injection=payload.get("failure_injection") if isinstance(payload.get("failure_injection"), dict) else None,
+            context_budget_tokens=int(payload.get("context_budget_tokens") or 800),
+            commit_memory=payload.get("commit_memory") is True,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/agent/runs/{run_id}/replay")
+def portfolio_agent_replay(run_id: str) -> dict[str, object]:
+    try:
+        return portfolio_agent_runtime.replay(run_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/agent/retrieve")
+def portfolio_agent_retrieve(payload: dict[str, object]) -> dict[str, object]:
+    query = str(payload.get("query") or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required.")
+    raw_filters = payload.get("metadata_filters")
+    filters = {str(key): str(value) for key, value in raw_filters.items()} if isinstance(raw_filters, dict) else None
+    try:
+        return portfolio_agent_runtime.retrieve_evidence(query, top_k=int(payload.get("top_k") or 3), metadata_filters=filters)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/agent/runs/stream")
+def portfolio_agent_run_stream(payload: dict[str, object]) -> StreamingResponse:
+    """Run the real workflow in a worker and stream completed stages as NDJSON."""
+    case_id = str(payload.get("case_id") or "").strip()
+    learner_answer = str(payload.get("learner_answer") or "").strip()
+    if not case_id or not learner_answer:
+        raise HTTPException(status_code=400, detail="case_id and learner_answer are required.")
+    try:
+        portfolio_agent_runtime.get_case(case_id)
+        budget = int(payload.get("context_budget_tokens") or 800)
+        failure_injection = payload.get("failure_injection") if isinstance(payload.get("failure_injection"), dict) else None
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    def stream():
+        events: Queue = Queue()
+        sentinel = object()
+
+        def worker() -> None:
+            try:
+                run = portfolio_agent_runtime.run(
+                    case_id=case_id,
+                    learner_answer=learner_answer,
+                    learner_id=str(payload.get("learner_id") or "demo_learner"),
+                    failure_injection=failure_injection,
+                    context_budget_tokens=budget,
+                    event_sink=events.put,
+                    commit_memory=payload.get("commit_memory") is True,
+                )
+                events.put({"event": "final", "run": run})
+            except Exception as exc:
+                events.put({"event": "error", "error_code": type(exc).__name__, "message": "Agent run failed."})
+            finally:
+                events.put(sentinel)
+
+        Thread(target=worker, name="portfolio-agent-stream", daemon=True).start()
+        while True:
+            event = events.get()
+            if event is sentinel:
+                break
+            yield json.dumps(event, ensure_ascii=False) + "\n"
+
+    return StreamingResponse(
+        stream(),
+        media_type="application/x-ndjson",
+        headers={"Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff"},
+    )
 
 
 @router.post("/evals/run")

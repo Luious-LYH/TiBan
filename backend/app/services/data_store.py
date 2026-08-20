@@ -13,6 +13,7 @@ MUTABLE_DATA_FILES = {
     "learner_profile.json",
     "model_admission_state.json",
     "models.json",
+    "portfolio_study_state.json",
 }
 
 
@@ -43,6 +44,7 @@ def reset_runtime_data() -> list[str]:
             restored.append(name)
         elif runtime_path.exists():
             runtime_path.unlink()
+            restored.append(name)
     return restored
 
 
