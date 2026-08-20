@@ -304,6 +304,7 @@ class V3FacadeService:
         # Real model runs are published separately as versioned experiment artifacts.
         ranking: list[dict[str, Any]] = []
         experiment = self._latest_model_experiment()
+        experiment_v21 = self._latest_model_experiment_v21()
         return {
             "summary": {
                 "title": "模型评测实验室",
@@ -333,8 +334,55 @@ class V3FacadeService:
             "complexity_curve": [],
             "attribute_breakdown": [],
             "experiment": experiment,
+            "experiment_v21": experiment_v21,
             "safety_notice": SAFETY_NOTICE,
         }
+
+    def _latest_model_experiment_v21(self) -> dict[str, Any] | None:
+        path = PROJECT_DIR / "artifacts" / "model_eval_v21" / "aggregate_summary.json"
+        if not path.exists():
+            return None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(payload, dict) or payload.get("status") != "completed":
+            return None
+        runs = payload.get("runs")
+        comparisons = payload.get("comparisons")
+        if not isinstance(runs, dict) or not runs or not isinstance(comparisons, dict):
+            return None
+        alignment = None
+        alignment_path = PROJECT_DIR / "artifacts" / "model_eval_v21" / "results" / "dpo_alignment" / "summary.json"
+        if alignment_path.exists():
+            try:
+                candidate = json.loads(alignment_path.read_text(encoding="utf-8"))
+                if isinstance(candidate, dict) and candidate.get("status") == "completed":
+                    alignment = candidate
+            except (OSError, json.JSONDecodeError):
+                alignment = None
+        alignment_stability = None
+        stability_path = PROJECT_DIR / "artifacts" / "model_eval_v21" / "dpo_stability_summary.json"
+        if stability_path.exists():
+            try:
+                candidate = json.loads(stability_path.read_text(encoding="utf-8"))
+                if isinstance(candidate, dict) and candidate.get("status") == "completed_with_observed_failure":
+                    alignment_stability = candidate
+            except (OSError, json.JSONDecodeError):
+                alignment_stability = None
+        return self._sanitize_value(
+            {
+                "schema_version": payload.get("schema_version"),
+                "status": "completed",
+                "claim_boundary": payload.get("claim_boundary"),
+                "completed_run_count": int(payload.get("completed_run_count") or len(runs)),
+                "runs": runs,
+                "comparisons": comparisons,
+                "alignment": alignment,
+                "alignment_stability": alignment_stability,
+                "artifact": "artifacts/model_eval_v21/aggregate_summary.json",
+            }
+        )
 
     def _latest_model_experiment(self) -> dict[str, Any] | None:
         path = PROJECT_DIR / "artifacts" / "model_eval" / "latest.json"

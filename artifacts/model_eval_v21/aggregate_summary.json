@@ -1,0 +1,169 @@
+{
+  "schema_version": "model_eval_v21.aggregate.1",
+  "status": "completed",
+  "claim_boundary": "10 public teaching images with a 4/3/3 split; test has 3 images; not clinical validation",
+  "completed_run_count": 7,
+  "runs": {
+    "llava_ov_05b_bf16_plain_test": {
+      "cases": 3,
+      "case_exact_rate": 0.6666666666666666,
+      "micro_fact_accuracy": 0.6666666666666666,
+      "latency_p50_s": 0.0907262722030282,
+      "latency_p95_s": 0.6314289695583284,
+      "throughput_cases_per_min": 176.5273173205785,
+      "generation_tokens_per_s": 40.17091544315384,
+      "peak_gpu_memory_gib": 1.9977083206176758,
+      "model_memory_footprint_gib": 1.6646059826016426,
+      "model_load_s": 1.766944277100265,
+      "wall_time_s": 1.0196722112596035
+    },
+    "qwen25_3b_bf16_adapter_test": {
+      "cases": 3,
+      "case_exact_rate": 0.6666666666666666,
+      "micro_fact_accuracy": 0.6666666666666666,
+      "latency_p50_s": 0.2889716774225235,
+      "latency_p95_s": 0.37509627230465414,
+      "throughput_cases_per_min": 167.41332479732392,
+      "generation_tokens_per_s": 11.455129829208792,
+      "peak_gpu_memory_gib": 7.479942321777344,
+      "model_memory_footprint_gib": 7.000405624508858,
+      "model_load_s": 3.860542400740087,
+      "wall_time_s": 1.0751832341775298
+    },
+    "qwen25_3b_bf16_plain_test": {
+      "cases": 3,
+      "case_exact_rate": 0.6666666666666666,
+      "micro_fact_accuracy": 0.6666666666666666,
+      "latency_p50_s": 0.30810412392020226,
+      "latency_p95_s": 0.3225358375348151,
+      "throughput_cases_per_min": 179.6463694312321,
+      "generation_tokens_per_s": 12.363733169457765,
+      "peak_gpu_memory_gib": 7.473075866699219,
+      "model_memory_footprint_gib": 6.993539169430733,
+      "model_load_s": 3.7159217530861497,
+      "wall_time_s": 1.0019684815779328
+    },
+    "qwen25_3b_bf16_structured_test": {
+      "cases": 3,
+      "case_exact_rate": 0.6666666666666666,
+      "micro_fact_accuracy": 0.6666666666666666,
+      "latency_p50_s": 0.3495306773111224,
+      "latency_p95_s": 0.5232851571403444,
+      "throughput_cases_per_min": 133.1031057695323,
+      "generation_tokens_per_s": 19.36146058116506,
+      "peak_gpu_memory_gib": 7.473194122314453,
+      "model_memory_footprint_gib": 6.993539169430733,
+      "model_load_s": 3.484585527330637,
+      "wall_time_s": 1.3523350860923529
+    },
+    "qwen25_3b_int8_plain_test": {
+      "cases": 3,
+      "case_exact_rate": 0.6666666666666666,
+      "micro_fact_accuracy": 0.6666666666666666,
+      "latency_p50_s": 0.6285293744876981,
+      "latency_p95_s": 1.022016101423651,
+      "throughput_cases_per_min": 76.56268726223641,
+      "generation_tokens_per_s": 4.905387062022797,
+      "peak_gpu_memory_gib": 4.295368194580078,
+      "model_memory_footprint_gib": 3.7886746674776077,
+      "model_load_s": 5.5193755170330405,
+      "wall_time_s": 2.3510146578773856
+    },
+    "qwen25_3b_nf4_plain_test": {
+      "cases": 3,
+      "case_exact_rate": 0.6666666666666666,
+      "micro_fact_accuracy": 0.6666666666666666,
+      "latency_p50_s": 0.34382930863648653,
+      "latency_p95_s": 0.446255452092737,
+      "throughput_cases_per_min": 143.4952873557756,
+      "generation_tokens_per_s": 9.608534643798539,
+      "peak_gpu_memory_gib": 2.6187987327575684,
+      "model_memory_footprint_gib": 2.1862424165010452,
+      "model_load_s": 5.905671129003167,
+      "wall_time_s": 1.254396595992148
+    },
+    "smolvlm_256m_bf16_plain_test": {
+      "cases": 3,
+      "case_exact_rate": 0.3333333333333333,
+      "micro_fact_accuracy": 0.3333333333333333,
+      "latency_p50_s": 0.20054462645202875,
+      "latency_p95_s": 0.26340410830453037,
+      "throughput_cases_per_min": 101.21137080734162,
+      "generation_tokens_per_s": 17.929841586173392,
+      "peak_gpu_memory_gib": 2.7818851470947266,
+      "model_memory_footprint_gib": 0.4777405261993408,
+      "model_load_s": 2.004861324094236,
+      "wall_time_s": 1.7784562995657325
+    }
+  },
+  "comparisons": {
+    "quantization": {
+      "bf16": {
+        "accuracy": 0.6666666666666666,
+        "p50_s": 0.30810412392020226,
+        "peak_gpu_memory_gib": 7.473075866699219,
+        "accuracy_delta": 0.0,
+        "p50_relative_delta": 0.0,
+        "peak_memory_relative_delta": 0.0
+      },
+      "nf4": {
+        "accuracy": 0.6666666666666666,
+        "p50_s": 0.34382930863648653,
+        "peak_gpu_memory_gib": 2.6187987327575684,
+        "accuracy_delta": 0.0,
+        "p50_relative_delta": 0.11595166030798391,
+        "peak_memory_relative_delta": -0.6495688282214288
+      },
+      "int8": {
+        "accuracy": 0.6666666666666666,
+        "p50_s": 0.6285293744876981,
+        "peak_gpu_memory_gib": 4.295368194580078,
+        "accuracy_delta": 0.0,
+        "p50_relative_delta": 1.0399901386924788,
+        "peak_memory_relative_delta": -0.42522084999555904
+      }
+    },
+    "adapter": {
+      "before_run": "qwen25_3b_bf16_plain_test",
+      "after_run": "qwen25_3b_bf16_adapter_test",
+      "accuracy_before": 0.6666666666666666,
+      "accuracy_after": 0.6666666666666666,
+      "accuracy_delta": 0.0,
+      "p50_before_s": 0.30810412392020226,
+      "p50_after_s": 0.2889716774225235,
+      "p50_relative_delta": -0.06209733986758965
+    },
+    "structured_prompt": {
+      "before_run": "qwen25_3b_bf16_plain_test",
+      "after_run": "qwen25_3b_bf16_structured_test",
+      "accuracy_before": 0.6666666666666666,
+      "accuracy_after": 0.6666666666666666,
+      "accuracy_delta": 0.0,
+      "p50_before_s": 0.30810412392020226,
+      "p50_after_s": 0.3495306773111224,
+      "p50_relative_delta": 0.13445634178414786,
+      "json_valid_rate_before": 0.0,
+      "json_valid_rate_after": 1.0
+    },
+    "zero_shot_models": {
+      "qwen25_3b_bf16_plain_test": {
+        "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+        "accuracy": 0.6666666666666666,
+        "p50_s": 0.30810412392020226,
+        "peak_gpu_memory_gib": 7.473075866699219
+      },
+      "smolvlm_256m_bf16_plain_test": {
+        "model": "HuggingFaceTB/SmolVLM-256M-Instruct",
+        "accuracy": 0.3333333333333333,
+        "p50_s": 0.20054462645202875,
+        "peak_gpu_memory_gib": 2.7818851470947266
+      },
+      "llava_ov_05b_bf16_plain_test": {
+        "model": "llava-hf/llava-onevision-qwen2-0.5b-ov-hf",
+        "accuracy": 0.6666666666666666,
+        "p50_s": 0.0907262722030282,
+        "peak_gpu_memory_gib": 1.9977083206176758
+      }
+    }
+  }
+}

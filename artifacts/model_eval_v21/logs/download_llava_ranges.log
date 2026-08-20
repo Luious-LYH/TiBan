@@ -1,0 +1,9 @@
+part=4 status=downloaded bytes=223430710
+part=7 status=downloaded bytes=223430710
+part=2 status=downloaded bytes=223430710
+part=3 status=downloaded bytes=223430710
+part=0 status=downloaded bytes=223430710
+part=6 status=downloaded bytes=223430710
+part=5 status=downloaded bytes=223430710
+part=1 status=downloaded bytes=223430710
+status=verified output=models/llava/model.safetensors size=1787445680 sha256=07b3362c3412de79baf2379e44e5b0b2a8f4b965ebebd11d7b5b3eb4450fe96e

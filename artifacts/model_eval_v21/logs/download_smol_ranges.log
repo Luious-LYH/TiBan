@@ -1,0 +1,5 @@
+part=3 status=downloaded bytes=128257202
+part=1 status=downloaded bytes=128257202
+part=2 status=downloaded bytes=128257202
+part=0 status=downloaded bytes=128257202
+status=verified output=models/smol/model.safetensors size=513028808 sha256=74dea5904032e5ae99a2e0eef5179e6ac0f1dedc3ab0c7c2a5d4d387c843203e

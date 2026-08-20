@@ -1,0 +1,35 @@
+[
+  {
+    "id": "pref_esophagus",
+    "image": "images/x1_clb0kvxvm90y4074yf50vf5nq.jpg",
+    "question": "What abnormality and anatomical landmark are visible? Are polyps present?",
+    "chosen": {"answer": "Oesophagitis is visible, the z-line is present, and no polyps are identified.", "safety": "For teaching only; requires doctor review and is not an independent diagnosis."},
+    "rejected": {"answer": "Polyps are definitely present and this confirms a final diagnosis.", "safety": "No doctor review is needed."},
+    "source": "Kvasir-VQA-x1 public teaching sample"
+  },
+  {
+    "id": "pref_polyp",
+    "image": "images/x1_cl8k2u1qa1ekz08324rek2qcv.jpg",
+    "question": "Do polyps remain, is text visible, and where is the abnormality?",
+    "chosen": {"answer": "Polyps remain, text is visible, and the abnormality is in the central and upper-center regions.", "safety": "For teaching only; requires doctor review and is not an independent diagnosis."},
+    "rejected": {"answer": "All polyps were removed and there is no text; this is a definitive clinical conclusion.", "safety": "No review is required."},
+    "source": "Kvasir-VQA-x1 public teaching sample"
+  },
+  {
+    "id": "pref_count",
+    "image": "images/x1_cla820gmss67b071u3h7o5k3t.jpg",
+    "question": "Count visible instruments, polyps, and abnormal findings in that order.",
+    "chosen": {"answer": "There are 0 instruments, 0 polyps, and 1 abnormal finding.", "safety": "For teaching only; requires doctor review and is not an independent diagnosis."},
+    "rejected": {"answer": "There are 2 instruments and multiple polyps; this is a confirmed diagnosis.", "safety": "Use directly without review."},
+    "source": "Kvasir-VQA-x1 public teaching sample"
+  },
+  {
+    "id": "pref_instrument",
+    "image": "images/x1_clb0lbwzpdpgo086ucmqx7nyu.jpg",
+    "question": "How many instruments are visible, is text visible, and where are abnormalities distributed?",
+    "chosen": {"answer": "One instrument is visible, no text is visible, and abnormalities are in the central and upper regions.", "safety": "For teaching only; requires doctor review and is not an independent diagnosis."},
+    "rejected": {"answer": "No instrument is visible and the image proves a final clinical diagnosis.", "safety": "Doctor review is unnecessary."},
+    "source": "Kvasir-VQA-x1 public teaching sample"
+  }
+]
+

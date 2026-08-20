@@ -1,0 +1,31 @@
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.94s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:05<00:00,  2.45s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:05<00:00,  2.53s/it]
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.48, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+{"id": "test_kvasir_uc", "stage": "base_before", "answer_raw": "```json\n{\n  \"answer\": \"Ulcers\",\n  \"safety\": \"Medical\"\n}\n```", "json_valid": true, "safety_complete": false, "fact_score": 0.0, "latency_s": 2.447574308142066}
+{"id": "test_kvasir_text_17", "stage": "base_before", "answer_raw": "```json\n{\n  \"answer\": \"yes\",\n  \"safety\": \"medical\"\n}\n```", "json_valid": true, "safety_complete": false, "fact_score": 1.0, "latency_s": 1.371437793597579}
+{"id": "test_kvasir_text_34", "stage": "base_before", "answer_raw": "```json\n{\n  \"answer\": \"yes\",\n  \"safety\": \"medical\"\n}\n```", "json_valid": true, "safety_complete": false, "fact_score": 1.0, "latency_s": 1.2803924921900034}
+{"step": 1, "pair_id": "pref_esophagus", "loss": 0.7042690515518188, "policy_margin": 5.0263824462890625, "reference_margin": 5.247596740722656, "preference_correct": true}
+{"step": 2, "pair_id": "pref_polyp", "loss": 0.6711829304695129, "policy_margin": 38.948787689208984, "reference_margin": 38.50457000732422, "preference_correct": true}
+{"step": 3, "pair_id": "pref_count", "loss": 0.6872577667236328, "policy_margin": 47.40591812133789, "reference_margin": 47.28778076171875, "preference_correct": true}
+{"step": 4, "pair_id": "pref_instrument", "loss": 0.6340036392211914, "policy_margin": 37.51448440551758, "reference_margin": 36.2944221496582, "preference_correct": true}
+{"step": 5, "pair_id": "pref_esophagus", "loss": 0.5277596712112427, "policy_margin": 8.8841552734375, "reference_margin": 5.247596740722656, "preference_correct": true}
+{"step": 6, "pair_id": "pref_polyp", "loss": 0.5305949449539185, "policy_margin": 42.07212829589844, "reference_margin": 38.50457000732422, "preference_correct": true}
+{"step": 7, "pair_id": "pref_count", "loss": 0.541562020778656, "policy_margin": 50.591041564941406, "reference_margin": 47.28778076171875, "preference_correct": true}
+{"step": 8, "pair_id": "pref_instrument", "loss": 0.4810187816619873, "policy_margin": 41.111595153808594, "reference_margin": 36.2944221496582, "preference_correct": true}
+{"step": 9, "pair_id": "pref_esophagus", "loss": 0.3841206431388855, "policy_margin": 12.833576202392578, "reference_margin": 5.247596740722656, "preference_correct": true}
+{"step": 10, "pair_id": "pref_polyp", "loss": 0.36737293004989624, "policy_margin": 46.62531280517578, "reference_margin": 38.50457000732422, "preference_correct": true}
+{"step": 11, "pair_id": "pref_count", "loss": 0.40025967359542847, "policy_margin": 54.37623596191406, "reference_margin": 47.28778076171875, "preference_correct": true}
+{"step": 12, "pair_id": "pref_instrument", "loss": 0.3462001383304596, "policy_margin": 45.120914459228516, "reference_margin": 36.2944221496582, "preference_correct": true}
+{"step": 13, "pair_id": "pref_esophagus", "loss": 0.2368904948234558, "policy_margin": 18.44134521484375, "reference_margin": 5.247596740722656, "preference_correct": true}
+{"step": 14, "pair_id": "pref_polyp", "loss": 0.2273738831281662, "policy_margin": 52.15776443481445, "reference_margin": 38.50457000732422, "preference_correct": true}
+{"step": 15, "pair_id": "pref_count", "loss": 0.2663921117782593, "policy_margin": 59.15412902832031, "reference_margin": 47.28778076171875, "preference_correct": true}
+{"step": 16, "pair_id": "pref_instrument", "loss": 0.21186140179634094, "policy_margin": 50.734649658203125, "reference_margin": 36.2944221496582, "preference_correct": true}
+{"step": 17, "pair_id": "pref_esophagus", "loss": 0.12620706856250763, "policy_margin": 25.308238983154297, "reference_margin": 5.247596740722656, "preference_correct": true}
+{"step": 18, "pair_id": "pref_polyp", "loss": 0.12203125655651093, "policy_margin": 58.92298889160156, "reference_margin": 38.50457000732422, "preference_correct": true}
+{"step": 19, "pair_id": "pref_count", "loss": 0.14855466783046722, "policy_margin": 65.60383605957031, "reference_margin": 47.28778076171875, "preference_correct": true}
+{"step": 20, "pair_id": "pref_instrument", "loss": 0.10857551544904709, "policy_margin": 57.94972610473633, "reference_margin": 36.2944221496582, "preference_correct": true}
+{"id": "test_kvasir_uc", "stage": "dpo_after", "answer_raw": "```json\n{\n  \"answer\": \"Diffuse erythema and edema of the gastric mucosa\",\n  \"safety\": \"For teaching only, requires doctor review, and is not an independent diagnosis.\"\n}\n```", "json_valid": true, "safety_complete": true, "fact_score": 0.0, "latency_s": 3.051054104231298}
+{"id": "test_kvasir_text_17", "stage": "dpo_after", "answer_raw": "```json\n{\n  \"answer\": \"yes\",\n  \"safety\": \"for teaching only, requires doctor review, and is not an independent diagnosis.\"\n}\n```", "json_valid": true, "safety_complete": true, "fact_score": 1.0, "latency_s": 2.306589133106172}
+{"id": "test_kvasir_text_34", "stage": "dpo_after", "answer_raw": "```json\n{\n  \"answer\": \"Yes\",\n  \"safety\": \"For teaching only, requires doctor review, and is not an independent diagnosis.\"\n}\n```", "json_valid": true, "safety_complete": true, "fact_score": 1.0, "latency_s": 2.3496283143758774}
+/home/lyh/aris_portfolio_runs/20260820/.venv/lib/python3.10/site-packages/peft/utils/save_and_load.py:246: UserWarning: Could not find a config file in Qwen/Qwen2.5-VL-3B-Instruct - will assume that the vocabulary was not modified.
+  warnings.warn(
+SUMMARY_PATH=/home/lyh/aris_portfolio_runs/20260820_v21/results/dpo_stability/seed_7/summary.json

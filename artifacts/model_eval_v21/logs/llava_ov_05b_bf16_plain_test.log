@@ -1,0 +1,10 @@
+Sliding Window Attention is enabled but not implemented for `sdpa`; unexpected results may be encountered.
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.48, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+Setting `pad_token_id` to `eos_token_id`:151645 for open-end generation.
+Setting `pad_token_id` to `eos_token_id`:151645 for open-end generation.
+{"id": "test_kvasir_uc", "split": "test", "source": "Kvasir-VQA public teaching sample", "answer_raw": "The abnormality visible in this endoscopy image is a large, dark, and irregularly shaped mass in the lower part of the gastrointestinal tract.", "answer_scored": "The abnormality visible in this endoscopy image is a large, dark, and irregularly shaped mass in the lower part of the gastrointestinal tract.", "gold_answer": "ulcerative colitis", "fact_hits": [false], "fact_score": 0.0, "latency_s": 0.6915070470422506, "generated_tokens": 31}
+Setting `pad_token_id` to `eos_token_id`:151645 for open-end generation.
+{"id": "test_kvasir_text_17", "split": "test", "source": "Kvasir-VQA public teaching sample", "answer_raw": "Yes", "answer_scored": "Yes", "gold_answer": "yes", "fact_hits": [true], "fact_score": 1.0, "latency_s": 0.0907262722030282, "generated_tokens": 2}
+Setting `pad_token_id` to `eos_token_id`:151645 for open-end generation.
+{"id": "test_kvasir_text_34", "split": "test", "source": "Kvasir-VQA public teaching sample", "answer_raw": "Yes", "answer_scored": "Yes", "gold_answer": "yes", "fact_hits": [true], "fact_score": 1.0, "latency_s": 0.08904381282627583, "generated_tokens": 2}
+SUMMARY_PATH=/home/lyh/aris_portfolio_runs/20260820_v21/results/llava_ov_05b_bf16_plain_test/summary.json

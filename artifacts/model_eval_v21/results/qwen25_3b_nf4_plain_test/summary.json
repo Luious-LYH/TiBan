@@ -1,0 +1,43 @@
+{
+  "schema_version": "model_eval_v21.1",
+  "status": "completed",
+  "run_id": "qwen25_3b_nf4_plain_test",
+  "created_at": "2026-08-20T07:07:18.560623+00:00",
+  "scope": "public teaching samples only; deterministic portfolio benchmark; not clinical validation",
+  "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "family": "qwen25",
+  "precision": "nf4",
+  "adapter": false,
+  "adapter_path_label": null,
+  "split": "test",
+  "prompt_mode": "plain",
+  "device": "NVIDIA GeForce RTX 4090",
+  "software": {
+    "python": "3.10.12",
+    "torch": "2.4.1+cu121",
+    "transformers": "4.49.0",
+    "accelerate": "1.2.1",
+    "peft": "0.14.0",
+    "bitsandbytes": "0.45.2"
+  },
+  "config": {
+    "batch_size": 1,
+    "do_sample": false,
+    "max_new_tokens": 64,
+    "warmup": 1,
+    "command": "benchmark.py --run-id qwen25_3b_nf4_plain_test --model Qwen/Qwen2.5-VL-3B-Instruct --family qwen25 --precision nf4 --split test"
+  },
+  "metrics": {
+    "cases": 3,
+    "case_exact_rate": 0.6666666666666666,
+    "micro_fact_accuracy": 0.6666666666666666,
+    "latency_p50_s": 0.34382930863648653,
+    "latency_p95_s": 0.446255452092737,
+    "throughput_cases_per_min": 143.4952873557756,
+    "generation_tokens_per_s": 9.608534643798539,
+    "peak_gpu_memory_gib": 2.6187987327575684,
+    "model_memory_footprint_gib": 2.1862424165010452,
+    "model_load_s": 5.905671129003167,
+    "wall_time_s": 1.254396595992148
+  }
+}

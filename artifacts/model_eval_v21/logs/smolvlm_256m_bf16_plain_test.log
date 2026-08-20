@@ -1,0 +1,4 @@
+{"id": "test_kvasir_uc", "split": "test", "source": "Kvasir-VQA public teaching sample", "answer_raw": " N:Gn.", "answer_scored": "N:Gn.", "gold_answer": "ulcerative colitis", "fact_hits": [false], "fact_score": 0.0, "latency_s": 0.27038849517703056, "generated_tokens": 6}
+{"id": "test_kvasir_text_17", "split": "test", "source": "Kvasir-VQA public teaching sample", "answer_raw": " No.", "answer_scored": "No.", "gold_answer": "yes", "fact_hits": [false], "fact_score": 0.0, "latency_s": 0.19834217242896557, "generated_tokens": 3}
+{"id": "test_kvasir_text_34", "split": "test", "source": "Kvasir-VQA public teaching sample", "answer_raw": " Yes.", "answer_scored": "Yes.", "gold_answer": "yes", "fact_hits": [true], "fact_score": 1.0, "latency_s": 0.20054462645202875, "generated_tokens": 3}
+SUMMARY_PATH=/home/lyh/aris_portfolio_runs/20260820_v21/results/smolvlm_256m_bf16_plain_test/summary.json

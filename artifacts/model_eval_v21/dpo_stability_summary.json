@@ -1,0 +1,31 @@
+{
+  "schema_version": "model_eval_v21.dpo_stability.1",
+  "status": "completed_with_observed_failure",
+  "claim_boundary": "Five-seed portfolio stability probe over 4 train preference pairs and 3 frozen test images; one initial non-finite run was retained; no clinical or generalization claim.",
+  "protocol": {
+    "seeds": [7, 13, 29, 43, 61],
+    "train_pairs": 4,
+    "test_images": 3,
+    "split_overlap": 0,
+    "steps": 20,
+    "beta": 0.1,
+    "learning_rate": 0.0001
+  },
+  "initial_runs": {
+    "total": 5,
+    "completed": 4,
+    "invalid_numeric": 1,
+    "successful_safety_boundary_rate": 1.0,
+    "successful_fact_accuracy": 0.6666666667,
+    "successful_json_valid_rate": 1.0
+  },
+  "gatecheck": {
+    "seed": 13,
+    "finite_scalar_fail_closed": true,
+    "retry_completed": true,
+    "safety_boundary_rate": 1.0,
+    "fact_accuracy": 0.6666666667,
+    "json_valid_rate": 1.0
+  },
+  "artifact": "artifacts/model_eval_v21/dpo_stability_report.md"
+}

@@ -1,0 +1,3 @@
+{"id": "test_kvasir_uc", "stage": "base_before", "answer_raw": "```json\n{\n  \"answer\": \"Ulcers\",\n  \"safety\": \"Medical\"\n}\n```", "json_valid": true, "safety_complete": false, "fact_score": 0.0, "latency_s": 2.528053341433406}
+{"id": "test_kvasir_text_17", "stage": "base_before", "answer_raw": "```json\n{\n  \"answer\": \"yes\",\n  \"safety\": \"medical\"\n}\n```", "json_valid": true, "safety_complete": false, "fact_score": 1.0, "latency_s": 1.4616809943690896}
+{"id": "test_kvasir_text_34", "stage": "base_before", "answer_raw": "```json\n{\n  \"answer\": \"yes\",\n  \"safety\": \"medical\"\n}\n```", "json_valid": true, "safety_complete": false, "fact_score": 1.0, "latency_s": 1.304078663699329}

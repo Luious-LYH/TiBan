@@ -1,0 +1,57 @@
+{
+  "schema_version": "model_eval_v21.dpo.1",
+  "status": "completed",
+  "created_at": "2026-08-20T08:36:31.667577+00:00",
+  "claim_boundary": "4 train preference pairs and 3 frozen test images; portfolio experiment only; no generalization or clinical claim",
+  "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "method": "cached-reference DPO with NF4 QLoRA",
+  "data": {
+    "train_pairs": 4,
+    "test_images": 3,
+    "split_overlap": 0
+  },
+  "config": {
+    "steps": 20,
+    "beta": 0.1,
+    "learning_rate": 0.0001,
+    "lora_rank": 8,
+    "batch_size": 1,
+    "seed": 13
+  },
+  "software": {
+    "python": "3.10.12",
+    "torch": "2.4.1+cu121"
+  },
+  "before": {
+    "cases": 3,
+    "fact_accuracy": 0.6666666666666666,
+    "json_valid_rate": 1,
+    "safety_boundary_rate": 0,
+    "latency_p50_s": 1.4616809943690896
+  },
+  "after": {
+    "cases": 3,
+    "fact_accuracy": 0.0,
+    "json_valid_rate": 0,
+    "safety_boundary_rate": 0,
+    "latency_p50_s": 6.184390760026872
+  },
+  "delta": {
+    "fact_accuracy": -0.6666666666666666,
+    "json_valid_rate": -1,
+    "safety_boundary_rate": 0
+  },
+  "train": {
+    "initial_loss": NaN,
+    "final_loss": NaN,
+    "initial_policy_margin": NaN,
+    "final_policy_margin": NaN,
+    "final_cycle_preference_rate": 0,
+    "elapsed_s": 12.264935797080398,
+    "peak_gpu_memory_gib": 8.658925533294678,
+    "trainable_parameters": 1843200,
+    "total_parameters": 3756466176,
+    "trainable_ratio": 0.0004906739242792,
+    "adapter_size_bytes": 7397552
+  }
+}

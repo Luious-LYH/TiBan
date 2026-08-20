@@ -1,0 +1,8 @@
+Using Python 3.10.12 environment at: /home/lyh/aris_portfolio_runs/20260820/.venv
+Resolved 2 packages in 2.43s
+Downloading sentencepiece (1.3MiB)
+ Downloaded sentencepiece
+Prepared 2 packages in 2.85s
+Installed 2 packages in 30ms
+ + protobuf==7.35.1
+ + sentencepiece==0.2.2

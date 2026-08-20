@@ -1,0 +1,18 @@
+[
+  {
+    "chosen_logp": -64.73115539550781,
+    "rejected_logp": -70.08293151855469
+  },
+  {
+    "chosen_logp": NaN,
+    "rejected_logp": NaN
+  },
+  {
+    "chosen_logp": NaN,
+    "rejected_logp": NaN
+  },
+  {
+    "chosen_logp": -45.631690979003906,
+    "rejected_logp": -81.92924499511719
+  }
+]

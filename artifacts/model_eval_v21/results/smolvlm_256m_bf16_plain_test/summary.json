@@ -1,0 +1,43 @@
+{
+  "schema_version": "model_eval_v21.1",
+  "status": "completed",
+  "run_id": "smolvlm_256m_bf16_plain_test",
+  "created_at": "2026-08-20T07:31:53.668389+00:00",
+  "scope": "public teaching samples only; deterministic portfolio benchmark; not clinical validation",
+  "model": "HuggingFaceTB/SmolVLM-256M-Instruct",
+  "family": "auto",
+  "precision": "bf16",
+  "adapter": false,
+  "adapter_path_label": null,
+  "split": "test",
+  "prompt_mode": "plain",
+  "device": "NVIDIA GeForce RTX 4090",
+  "software": {
+    "python": "3.10.12",
+    "torch": "2.4.1+cu121",
+    "transformers": "4.49.0",
+    "accelerate": "1.2.1",
+    "peft": "0.14.0",
+    "bitsandbytes": "0.45.2"
+  },
+  "config": {
+    "batch_size": 1,
+    "do_sample": false,
+    "max_new_tokens": 64,
+    "warmup": 1,
+    "command": "benchmark.py --run-id smolvlm_256m_bf16_plain_test --model HuggingFaceTB/SmolVLM-256M-Instruct --family auto --precision bf16 --split test"
+  },
+  "metrics": {
+    "cases": 3,
+    "case_exact_rate": 0.3333333333333333,
+    "micro_fact_accuracy": 0.3333333333333333,
+    "latency_p50_s": 0.20054462645202875,
+    "latency_p95_s": 0.26340410830453037,
+    "throughput_cases_per_min": 101.21137080734162,
+    "generation_tokens_per_s": 17.929841586173392,
+    "peak_gpu_memory_gib": 2.7818851470947266,
+    "model_memory_footprint_gib": 0.4777405261993408,
+    "model_load_s": 2.004861324094236,
+    "wall_time_s": 1.7784562995657325
+  }
+}

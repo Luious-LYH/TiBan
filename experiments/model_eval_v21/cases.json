@@ -1,0 +1,94 @@
+[
+  {
+    "id": "train_x1_esophagus",
+    "split": "train",
+    "source": "Kvasir-VQA-x1 public teaching sample",
+    "image": "images/x1_clb0kvxvm90y4074yf50vf5nq.jpg",
+    "question": "What abnormality and anatomical landmark are visible? Are polyps present? Answer briefly from visible evidence only.",
+    "answer": "Oesophagitis is visible, the z-line is present, and no polyps are identified.",
+    "expected_facts": [["oesophagitis", "esophagitis"], ["z-line", "z line"], ["no polyp", "no polyps", "no evidence of polyp"]]
+  },
+  {
+    "id": "train_x1_polyp",
+    "split": "train",
+    "source": "Kvasir-VQA-x1 public teaching sample",
+    "image": "images/x1_cl8k2u1qa1ekz08324rek2qcv.jpg",
+    "question": "Do polyps remain, is text visible, and where is the abnormality? Answer briefly from visible evidence only.",
+    "answer": "Polyps remain, text is visible, and the abnormality is in the central and upper-center regions.",
+    "expected_facts": [["polyps remain", "polyp present"], ["text visible", "text is visible", "text present"], ["central", "center"]]
+  },
+  {
+    "id": "train_x1_count",
+    "split": "train",
+    "source": "Kvasir-VQA-x1 public teaching sample",
+    "image": "images/x1_cla820gmss67b071u3h7o5k3t.jpg",
+    "question": "Count visible instruments, polyps, and abnormal findings. Return the three counts in that order.",
+    "answer": "There are 0 instruments, 0 polyps, and 1 abnormal finding.",
+    "expected_facts": [["0 instrument", "no instrument"], ["0 polyp", "no polyp"], ["1 abnormal", "one abnormal", "1 finding"]]
+  },
+  {
+    "id": "train_x1_instrument",
+    "split": "train",
+    "source": "Kvasir-VQA-x1 public teaching sample",
+    "image": "images/x1_clb0lbwzpdpgo086ucmqx7nyu.jpg",
+    "question": "How many instruments are visible, is text visible, and where are abnormalities distributed? Answer briefly.",
+    "answer": "One instrument is visible, no text is visible, and abnormalities are in the central and upper regions.",
+    "expected_facts": [["1 instrument", "one instrument"], ["no text", "text is not visible"], ["central", "center"]]
+  },
+  {
+    "id": "dev_endo_0",
+    "split": "dev",
+    "source": "EndoBench public teaching sample",
+    "image": "images/endo_image_0.jpg",
+    "question": "Which digestive organ is depicted: esophagus, small intestine, large intestine, or stomach? Return one option.",
+    "answer": "small intestine",
+    "expected_facts": [["small intestine"]]
+  },
+  {
+    "id": "dev_endo_1",
+    "split": "dev",
+    "source": "EndoBench public teaching sample",
+    "image": "images/endo_image_1.jpg",
+    "question": "Which digestive organ is depicted: small intestine, large intestine, esophagus, or stomach? Return one option.",
+    "answer": "small intestine",
+    "expected_facts": [["small intestine"]]
+  },
+  {
+    "id": "dev_endo_2",
+    "split": "dev",
+    "source": "EndoBench public teaching sample",
+    "image": "images/endo_image_2.jpg",
+    "question": "Which digestive organ is depicted: esophagus, stomach, large intestine, or small intestine? Return one option.",
+    "answer": "small intestine",
+    "expected_facts": [["small intestine"]]
+  },
+  {
+    "id": "test_kvasir_uc",
+    "split": "test",
+    "source": "Kvasir-VQA public teaching sample",
+    "image": "images/kv_cla820gl0s3nv071u4fgd7xgq.jpg",
+    "question": "What abnormality is visible in this endoscopy image? Answer with the finding only.",
+    "answer": "ulcerative colitis",
+    "expected_facts": [["ulcerative colitis"]]
+  },
+  {
+    "id": "test_kvasir_text_17",
+    "split": "test",
+    "source": "Kvasir-VQA public teaching sample",
+    "image": "images/kv_cla820gl0s3nz071uch6e0sas.jpg",
+    "question": "Is text visible in the image? Answer yes or no.",
+    "answer": "yes",
+    "answer_type": "binary",
+    "expected_facts": [["yes", "text is visible", "text visible", "text present"]]
+  },
+  {
+    "id": "test_kvasir_text_34",
+    "split": "test",
+    "source": "Kvasir-VQA public teaching sample",
+    "image": "images/kv_cla820gl0s3o3071ufxqh1brg.jpg",
+    "question": "Is text visible in the image? Answer yes or no.",
+    "answer": "yes",
+    "answer_type": "binary",
+    "expected_facts": [["yes", "text is visible", "text visible", "text present"]]
+  }
+]
