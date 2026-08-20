@@ -154,7 +154,7 @@ class DemoCheckService:
             TutorChatRequest(
                 question_id=question.id,
                 learner_id=learner_id,
-                message="请用证据边界提醒我如何复盘这张公开样例图像，不要泄露额外诊断结论。",
+                message="请用观察依据提醒我如何复盘这张公开样例图像，不要泄露额外诊断结论。",
             )
         )
         challenge = tutor_orchestrator.challenge_benchmark(
@@ -231,7 +231,7 @@ class DemoCheckService:
             user_id=learner_id,
             entity_id=question.id,
             summary=(
-                "演示闭环自检完成：公开样例提交、Agent 辅导、挑战基准、报告草稿、报告修改评分、"
+                "演示闭环自检完成：公开样例提交、带教辅导、挑战基准、报告草稿、报告修改评分、"
                 "考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计链路均已触发。"
             ),
             risk_level="medium",
@@ -324,7 +324,7 @@ class DemoCheckService:
         tutor_detail = (
             str(tutor.get("memory_summary") or "已记录训练标签，不保存追问原文。")
             if persist
-            else "沙盒已验证 Agent 辅导画像回灌路径，返回前自动恢复；不保存追问原文。"
+            else "沙盒已验证带教辅导画像回灌路径，返回前自动恢复；不保存追问原文。"
         )
         challenge_detail = (
             f"{challenge.get('benchmark_name', '挑战基准')} · 与医师答案{'一致' if challenge.get('same_as_doctor') else '不一致'}；"
@@ -345,7 +345,7 @@ class DemoCheckService:
             },
             {
                 "id": "tutor_agent",
-                "label": "Agent 辅导",
+                "label": "带教辅导",
                 "status": tutor_mode,
                 "detail": tutor_detail,
                 "tone": "green" if tutor.get("profile_updated") else "blue",
@@ -396,7 +396,7 @@ class DemoCheckService:
                 "detail": (
                     f"{approved_card.reviewer_name or '医生'} 已审核同一张卡片，打印/分享状态：{approved_card.share_status}。"
                     if persist
-                    else "沙盒已验证同 card_id 医生审核、分享解锁和 patient_card_approve 审计，返回前自动恢复。"
+                    else "沙盒已验证同 card_id 医生审核、分享开放和 patient_card_approve 审计，返回前自动恢复。"
                 ),
                 "tone": "green" if approved_card.share_status == "reviewed_ready_to_share" else "amber",
             },

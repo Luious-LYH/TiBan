@@ -2,555 +2,1105 @@
   {
     "id": "q001",
     "title": "胃窦黏膜基础识别",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成胃镜视野：胃窦黏膜轻度发红，局部可见浅表糜烂样改变。",
-    "case_summary": "教学样例。学员需要先判断是否存在可描述的黏膜异常，而不是直接下诊断。",
+    "image_url": "/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg",
+    "image_placeholder": "真实公开样例胃镜视野：胃窦黏膜轻度发红，局部可见浅表糜烂样改变。",
+    "case_summary": "教学样例。医生需要先判断是否存在可描述的黏膜异常，而不是直接下诊断。",
     "question": "从该内镜教学图像中，最合适的初步观察结论是？",
-    "options": ["可见局部黏膜发红/浅表糜烂样改变", "明确早期胃癌", "食管静脉曲张破裂", "证据不足，无法描述任何异常"],
+    "options": [
+      "可见局部黏膜发红/浅表糜烂样改变",
+      "明确早期胃癌",
+      "食管静脉曲张破裂",
+      "证据不足，无法描述任何异常"
+    ],
     "answer": "可见局部黏膜发红/浅表糜烂样改变",
     "explanation": "图像支持描述局部黏膜发红和浅表糜烂样改变，但不能据此给出明确肿瘤诊断。",
     "complexity": 1,
     "question_class": "基础识别",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q001_f1", "fact": "画面中存在黏膜颜色改变", "expected": "应识别为可描述异常", "supported": true, "evidence": "视野中央偏右区域较周围更红", "skill_dimension": "病灶识别"},
-      {"id": "q001_f2", "fact": "不能单凭该图给出恶性诊断", "expected": "应保留不确定性", "supported": true, "evidence": "缺少病理、染色放大或连续视角", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q001_f1",
+        "fact": "画面中存在黏膜颜色改变",
+        "expected": "应识别为可描述异常",
+        "supported": true,
+        "evidence": "视野中央偏右区域较周围更红",
+        "skill_dimension": "病灶识别"
+      },
+      {
+        "id": "q001_f2",
+        "fact": "不能单凭该图给出恶性诊断",
+        "expected": "应保留不确定性",
+        "supported": true,
+        "evidence": "缺少病理、染色放大或连续视角",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["黏膜观察", "证据边界", "基础识别"],
+    "teaching_tags": [
+      "黏膜观察",
+      "观察依据",
+      "基础识别"
+    ],
     "difficulty": "入门",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q002",
     "title": "部位定位：胃窦与胃体区分",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成内镜图：皱襞较细，远端胃窦样视野。",
-    "case_summary": "同一教学图像用于训练部位定位与图像证据表达。",
-    "question": "结合图像特征，当前训练题更倾向于哪个观察部位？",
-    "options": ["胃窦", "十二指肠乳头", "直肠", "回盲瓣"],
+    "image_url": "/assets/real_samples/x1_cl8k2u1qa1ekz08324rek2qcv.jpg",
+    "image_placeholder": "真实公开样例内镜图：皱襞较细，远端胃窦样视野。",
+    "case_summary": "同一教学图像用于研修部位定位与图像证据表达。",
+    "question": "结合图像特征，当前研修题更倾向于哪个观察部位？",
+    "options": [
+      "胃窦",
+      "十二指肠乳头",
+      "直肠",
+      "回盲瓣"
+    ],
     "answer": "胃窦",
     "explanation": "视野以胃窦样黏膜和较浅皱襞为主；其他选项缺少对应解剖标志。",
     "complexity": 1,
     "question_class": "部位定位",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q002_f1", "fact": "图像呈上消化道胃腔黏膜视野", "expected": "排除结直肠标志", "supported": true, "evidence": "未见结肠袋、回盲瓣或肠腔半月襞", "skill_dimension": "部位定位"},
-      {"id": "q002_f2", "fact": "缺少十二指肠乳头标志", "expected": "不应选择十二指肠乳头", "supported": true, "evidence": "未见乳头样隆起和胆胰开口区域", "skill_dimension": "部位定位"}
+      {
+        "id": "q002_f1",
+        "fact": "图像呈上消化道胃腔黏膜视野",
+        "expected": "排除结直肠标志",
+        "supported": true,
+        "evidence": "未见结肠袋、回盲瓣或肠腔半月襞",
+        "skill_dimension": "部位定位"
+      },
+      {
+        "id": "q002_f2",
+        "fact": "缺少十二指肠乳头标志",
+        "expected": "不应选择十二指肠乳头",
+        "supported": true,
+        "evidence": "未见乳头样隆起和胆胰开口区域",
+        "skill_dimension": "部位定位"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["解剖定位", "胃窦", "排除法"],
+    "teaching_tags": [
+      "解剖定位",
+      "胃窦",
+      "排除法"
+    ],
     "difficulty": "入门",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q003",
     "title": "病变属性：糜烂与隆起",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成胃镜视野：浅表黏膜破损，无明显结节性隆起。",
-    "case_summary": "训练学员区分表浅改变和占位样改变。",
+    "image_url": "/assets/real_samples/x1_cla820gmss67b071u3h7o5k3t.jpg",
+    "image_placeholder": "真实公开样例胃镜视野：浅表黏膜破损，无明显结节性隆起。",
+    "case_summary": "帮助医生区分表浅改变和占位样改变。",
     "question": "关于画面中可疑改变的属性，哪项表述更稳妥？",
-    "options": ["浅表糜烂样改变", "巨大息肉样隆起", "活动性喷射出血", "明确穿孔"],
+    "options": [
+      "浅表糜烂样改变",
+      "巨大息肉样隆起",
+      "活动性喷射出血",
+      "明确穿孔"
+    ],
     "answer": "浅表糜烂样改变",
     "explanation": "图像可支持浅表糜烂样改变；没有巨大隆起、喷射出血或穿孔证据。",
     "complexity": 2,
     "question_class": "病变属性",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q003_f1", "fact": "局部表面连续性轻度中断", "expected": "考虑糜烂样描述", "supported": true, "evidence": "中央局部浅表色泽改变和表面粗糙", "skill_dimension": "属性判断"},
-      {"id": "q003_f2", "fact": "未见明显占位性突起", "expected": "不应描述巨大息肉", "supported": true, "evidence": "黏膜轮廓未形成清楚蒂部或球形隆起", "skill_dimension": "属性判断"}
+      {
+        "id": "q003_f1",
+        "fact": "局部表面连续性轻度中断",
+        "expected": "考虑糜烂样描述",
+        "supported": true,
+        "evidence": "中央局部浅表色泽改变和表面粗糙",
+        "skill_dimension": "属性判断"
+      },
+      {
+        "id": "q003_f2",
+        "fact": "未见明显占位性突起",
+        "expected": "不应描述巨大息肉",
+        "supported": true,
+        "evidence": "黏膜轮廓未形成清楚蒂部或球形隆起",
+        "skill_dimension": "属性判断"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["病变属性", "糜烂", "鉴别描述"],
+    "teaching_tags": [
+      "病变属性",
+      "糜烂",
+      "鉴别描述"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q004",
-    "title": "复杂组合：观察事实与安全边界",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成内镜视野：轻度发红，疑似浅表糜烂。",
-    "case_summary": "训练从观察事实到结论边界的多步表达。",
-    "question": "哪种回答最符合教学平台的安全表达？",
-    "options": ["可描述为黏膜发红伴浅表糜烂样改变，需结合病史和医生复核", "可直接判断为胃癌并建议手术", "图像正常且无需记录", "应立即给患者开具根除方案"],
+    "title": "一图多问：观察事实与安全边界",
+    "image_url": "/assets/real_samples/x1_clb0lbwzpdpgo086ucmqx7nyu.jpg",
+    "image_placeholder": "真实公开样例内镜视野：轻度发红，疑似浅表糜烂。",
+    "case_summary": "研修从观察事实到结论边界的多步表达。",
+    "question": "哪种回答最符合平台的安全表达？",
+    "options": [
+      "可描述为黏膜发红伴浅表糜烂样改变，需结合病史和医生复核",
+      "可直接判断为胃癌并建议手术",
+      "图像正常且无需记录",
+      "应立即给患者开具根除方案"
+    ],
     "answer": "可描述为黏膜发红伴浅表糜烂样改变，需结合病史和医生复核",
-    "explanation": "训练平台应强调观察依据、有限结论和医生复核，不输出治疗方案或最终诊断。",
+    "explanation": "平台应强调观察依据、有限结论和医生复核，不输出治疗方案或最终诊断。",
     "complexity": 3,
-    "question_class": "复杂组合",
+    "question_class": "一图多问",
     "source_type": "公开综合基准",
     "atomic_trace": [
-      {"id": "q004_f1", "fact": "存在可描述的黏膜异常", "expected": "描述观察事实", "supported": true, "evidence": "红斑和浅表破损样区域", "skill_dimension": "事实组合"},
-      {"id": "q004_f2", "fact": "临床结论需要额外信息", "expected": "提示复核和上下文", "supported": true, "evidence": "单帧图像不能替代病理和完整检查", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q004_f1",
+        "fact": "存在可描述的黏膜异常",
+        "expected": "描述观察事实",
+        "supported": true,
+        "evidence": "红斑和浅表破损样区域",
+        "skill_dimension": "事实组合"
+      },
+      {
+        "id": "q004_f2",
+        "fact": "临床结论需要额外信息",
+        "expected": "提示复核和上下文",
+        "supported": true,
+        "evidence": "单帧图像不能替代病理和完整检查",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["多步推理", "安全表达", "医生复核"],
+    "teaching_tags": [
+      "多步推理",
+      "安全表达",
+      "医生复核"
+    ],
     "difficulty": "挑战",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q005",
-    "title": "错误前提：图中是否一定有息肉",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成胃镜视野：可见黏膜发红，无明确息肉蒂或隆起边界。",
-    "case_summary": "题干故意诱导学员接受未被图像支持的前提。",
+    "title": "过度推断：图中是否一定有息肉",
+    "image_url": "/assets/real_samples/kv_cla820gl0s3nv071u4fgd7xgq.jpg",
+    "image_placeholder": "真实公开样例胃镜视野：可见黏膜发红，无明确息肉蒂或隆起边界。",
+    "case_summary": "题干故意诱导医生接受未被图像支持的前提。",
     "question": "题干称“该息肉的大小最可能是多少”，你应如何处理？",
-    "options": ["指出证据不足：图中未明确显示息肉", "估计为2厘米并建议切除", "默认存在息肉并选择最大值", "直接判断为腺瘤"],
+    "options": [
+      "指出证据不足：图中未明确显示息肉",
+      "估计为2厘米并建议切除",
+      "默认存在息肉并选择最大值",
+      "直接判断为腺瘤"
+    ],
     "answer": "指出证据不足：图中未明确显示息肉",
-    "explanation": "题干预设了图像未支持的息肉前提，正确做法是识别错误前提并说明证据不足。",
+    "explanation": "题干预设了图像未支持的息肉前提，正确做法是识别过度推断并说明证据不足。",
     "complexity": 2,
-    "question_class": "错误前提",
+    "question_class": "报告纠错",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q005_f1", "fact": "题干假设存在息肉", "expected": "先验证前提", "supported": false, "evidence": "未见明确隆起、蒂部或边界", "skill_dimension": "证据不足识别"},
-      {"id": "q005_f2", "fact": "不应凭空估计大小", "expected": "拒绝无依据测量", "supported": true, "evidence": "单帧无测量标尺且目标不明确", "skill_dimension": "数量判断"}
+      {
+        "id": "q005_f1",
+        "fact": "题干假设存在息肉",
+        "expected": "先验证前提",
+        "supported": false,
+        "evidence": "未见明确隆起、蒂部或边界",
+        "skill_dimension": "证据不足识别"
+      },
+      {
+        "id": "q005_f2",
+        "fact": "不应凭空估计大小",
+        "expected": "拒绝无依据测量",
+        "supported": true,
+        "evidence": "单帧无测量标尺且目标不明确",
+        "skill_dimension": "数量判断"
+      }
     ],
     "false_premise_flag": true,
-    "teaching_tags": ["错误前提", "证据不足", "幻觉防护"],
+    "teaching_tags": [
+      "过度推断",
+      "证据不足",
+      "幻觉防护"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q006",
     "title": "报告纠错：最终诊断越界",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成胃镜视野：轻度红斑与表浅改变。",
-    "case_summary": "训练识别报告草稿中的越权表述。",
+    "image_url": "/assets/real_samples/kv_cla820gl0s3nz071uch6e0sas.jpg",
+    "image_placeholder": "真实公开样例胃镜视野：轻度红斑与表浅改变。",
+    "case_summary": "研修识别报告草稿中的越权表述。",
     "question": "下面哪句最应从报告草稿中改写？",
-    "options": ["本图明确证明患者患胃癌", "胃窦黏膜局部发红", "局部浅表糜烂样改变", "建议结合临床和医生复核"],
+    "options": [
+      "本图明确证明患者患胃癌",
+      "胃窦黏膜局部发红",
+      "局部浅表糜烂样改变",
+      "建议结合临床和医生复核"
+    ],
     "answer": "本图明确证明患者患胃癌",
     "explanation": "单张教学图像不能证明胃癌，报告草稿应避免最终诊断和夸大确定性。",
     "complexity": 2,
     "question_class": "报告纠错",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q006_f1", "fact": "报告中存在最终诊断表述", "expected": "应改为待复核描述", "supported": true, "evidence": "“明确证明”属于过度确定", "skill_dimension": "证据不足识别"},
-      {"id": "q006_f2", "fact": "观察描述可以保留", "expected": "区分事实与诊断", "supported": true, "evidence": "发红、糜烂样改变属于可观察描述", "skill_dimension": "事实组合"}
+      {
+        "id": "q006_f1",
+        "fact": "报告中存在最终诊断表述",
+        "expected": "应改为待复核描述",
+        "supported": true,
+        "evidence": "“明确证明”属于过度确定",
+        "skill_dimension": "证据不足识别"
+      },
+      {
+        "id": "q006_f2",
+        "fact": "观察描述可以保留",
+        "expected": "区分事实与诊断",
+        "supported": true,
+        "evidence": "发红、糜烂样改变属于可观察描述",
+        "skill_dimension": "事实组合"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["报告安全", "确定性控制", "审核前辅助"],
+    "teaching_tags": [
+      "报告安全",
+      "确定性控制",
+      "复核前辅助"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q007",
     "title": "一图多问：病灶数量意识",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成图像中以一个可疑浅表改变区域为主。",
-    "case_summary": "同一图像训练数量判断和不确定性表达。",
+    "image_url": "/assets/real_samples/kv_cla820gl0s3o3071ufxqh1brg.jpg",
+    "image_placeholder": "真实公开样例图像中以一个可疑浅表改变区域为主。",
+    "case_summary": "同一图像研修数量判断和不确定性表达。",
     "question": "对于可疑浅表改变数量，最稳妥的回答是？",
-    "options": ["图中主要可见一个可疑区域，仍需多角度复核", "至少十个病灶", "完全无法观察图像内容", "可确定全胃弥漫癌变"],
+    "options": [
+      "图中主要可见一个可疑区域，仍需多角度复核",
+      "至少十个病灶",
+      "完全无法观察图像内容",
+      "可确定全胃弥漫癌变"
+    ],
     "answer": "图中主要可见一个可疑区域，仍需多角度复核",
     "explanation": "单帧教学图可描述主要可疑区域，但全胃范围和真实数量需要完整检查视角确认。",
     "complexity": 2,
     "question_class": "一图多问",
     "source_type": "公开复杂问答",
     "atomic_trace": [
-      {"id": "q007_f1", "fact": "主要可疑区域数量有限", "expected": "避免夸大数量", "supported": true, "evidence": "画面中只有一处主要色泽和表面改变", "skill_dimension": "数量判断"},
-      {"id": "q007_f2", "fact": "完整数量需要多视角", "expected": "表达复核需求", "supported": true, "evidence": "单帧不能覆盖全腔", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q007_f1",
+        "fact": "主要可疑区域数量有限",
+        "expected": "避免夸大数量",
+        "supported": true,
+        "evidence": "画面中只有一处主要色泽和表面改变",
+        "skill_dimension": "数量判断"
+      },
+      {
+        "id": "q007_f2",
+        "fact": "完整数量需要多视角",
+        "expected": "表达复核需求",
+        "supported": true,
+        "evidence": "单帧不能覆盖全腔",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["数量判断", "一图多问", "复核意识"],
+    "teaching_tags": [
+      "数量判断",
+      "一图多问",
+      "复核意识"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q008",
     "title": "证据不足：是否可判幽门螺杆菌感染",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成胃镜视野：轻度炎症样表现。",
-    "case_summary": "训练将内镜表现与病因判断分开。",
+    "image_url": "/assets/real_samples/endo_image_0.jpg",
+    "image_placeholder": "真实公开样例胃镜视野：轻度炎症样表现。",
+    "case_summary": "研修将内镜表现与病因判断分开。",
     "question": "仅凭该图像，能否确定存在幽门螺杆菌感染？",
-    "options": ["不能确定，需要检测或临床资料支持", "可以确定并直接开药", "可以排除所有感染", "可以确定为病毒感染"],
+    "options": [
+      "不能确定，需要检测或临床资料支持",
+      "可以确定并直接开药",
+      "可以排除所有感染",
+      "可以确定为病毒感染"
+    ],
     "answer": "不能确定，需要检测或临床资料支持",
     "explanation": "内镜表现可能提示炎症背景，但病因需要检测或更多临床资料支持。",
     "complexity": 2,
-    "question_class": "错误前提",
+    "question_class": "报告纠错",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q008_f1", "fact": "内镜图像不能独立证明病因", "expected": "回答证据不足", "supported": true, "evidence": "缺少快速尿素酶、病理或呼气试验信息", "skill_dimension": "证据不足识别"},
-      {"id": "q008_f2", "fact": "不能生成治疗方案", "expected": "不越过教学边界", "supported": true, "evidence": "平台用途为教学和审核前辅助", "skill_dimension": "事实组合"}
+      {
+        "id": "q008_f1",
+        "fact": "内镜图像不能独立证明病因",
+        "expected": "回答证据不足",
+        "supported": true,
+        "evidence": "缺少快速尿素酶、病理或呼气试验信息",
+        "skill_dimension": "证据不足识别"
+      },
+      {
+        "id": "q008_f2",
+        "fact": "不能生成治疗方案",
+        "expected": "不越过教学边界",
+        "supported": true,
+        "evidence": "平台用途为教学和复核前辅助",
+        "skill_dimension": "事实组合"
+      }
     ],
     "false_premise_flag": true,
-    "teaching_tags": ["病因边界", "证据不足", "安全审查"],
+    "teaching_tags": [
+      "病因边界",
+      "证据不足",
+      "安全复核"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q009",
     "title": "基础识别：正常结构与病变混淆",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成视野包含胃黏膜皱襞和局部颜色差异。",
-    "case_summary": "训练学员避免将所有皱襞都当作病灶。",
+    "image_url": "/assets/real_samples/endo_image_1.jpg",
+    "image_placeholder": "真实公开样例视野包含胃黏膜皱襞和局部颜色差异。",
+    "case_summary": "帮助医生避免将所有皱襞都当作病灶。",
     "question": "看到黏膜皱襞时，正确的观察态度是？",
-    "options": ["结合形态、色泽、表面和连续视角判断", "所有皱襞都代表息肉", "皱襞一定是癌变", "无需记录任何结构"],
+    "options": [
+      "结合形态、色泽、表面和连续视角判断",
+      "所有皱襞都代表息肉",
+      "皱襞一定是癌变",
+      "无需记录任何结构"
+    ],
     "answer": "结合形态、色泽、表面和连续视角判断",
     "explanation": "皱襞是常见结构，是否异常需结合多项图像特征和连续观察。",
     "complexity": 1,
     "question_class": "基础识别",
     "source_type": "公开基础问答",
     "atomic_trace": [
-      {"id": "q009_f1", "fact": "皱襞可为正常解剖结构", "expected": "避免病灶化误判", "supported": true, "evidence": "胃腔内可见自然黏膜皱襞", "skill_dimension": "病灶识别"},
-      {"id": "q009_f2", "fact": "判断异常需多特征组合", "expected": "观察形态、色泽和表面", "supported": true, "evidence": "单一皱襞形态不足以下结论", "skill_dimension": "事实组合"}
+      {
+        "id": "q009_f1",
+        "fact": "皱襞可为正常解剖结构",
+        "expected": "避免病灶化误判",
+        "supported": true,
+        "evidence": "胃腔内可见自然黏膜皱襞",
+        "skill_dimension": "病灶识别"
+      },
+      {
+        "id": "q009_f2",
+        "fact": "判断异常需多特征组合",
+        "expected": "观察形态、色泽和表面",
+        "supported": true,
+        "evidence": "单一皱襞形态不足以下结论",
+        "skill_dimension": "事实组合"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["正常结构", "误判防护", "基础识别"],
+    "teaching_tags": [
+      "正常结构",
+      "误判防护",
+      "基础识别"
+    ],
     "difficulty": "入门",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q010",
-    "title": "部位定位：上消化道训练",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成上消化道内镜视野。",
-    "case_summary": "训练识别题目所属检查类型。",
-    "question": "从图像和题源标签看，本题最适合作为什么训练？",
-    "options": ["胃镜观察训练", "胸片判读训练", "皮肤镜训练", "心电图训练"],
-    "answer": "胃镜观察训练",
-    "explanation": "图像为内镜腔内视野，适合作为胃镜观察和描述训练。",
+    "title": "部位定位：上消化道研修",
+    "image_url": "/assets/real_samples/endo_image_2.jpg",
+    "image_placeholder": "真实公开样例上消化道内镜视野。",
+    "case_summary": "研修识别题目所属检查类型。",
+    "question": "从图像和题源标签看，本题最适合作为什么研修？",
+    "options": [
+      "胃镜观察研修",
+      "胸片判读研修",
+      "皮肤镜研修",
+      "心电图研修"
+    ],
+    "answer": "胃镜观察研修",
+    "explanation": "图像为内镜腔内视野，适合作为胃镜观察和描述研修。",
     "complexity": 1,
     "question_class": "部位定位",
     "source_type": "公开基础问答",
     "atomic_trace": [
-      {"id": "q010_f1", "fact": "图像来自腔内内镜视野", "expected": "归类为内镜训练", "supported": true, "evidence": "圆形内镜视野和黏膜纹理", "skill_dimension": "部位定位"},
-      {"id": "q010_f2", "fact": "不属于放射或心电信号", "expected": "排除非内镜任务", "supported": true, "evidence": "没有X线影像或电生理波形", "skill_dimension": "事实组合"}
+      {
+        "id": "q010_f1",
+        "fact": "图像来自腔内内镜视野",
+        "expected": "归类为内镜研修",
+        "supported": true,
+        "evidence": "圆形内镜视野和黏膜纹理",
+        "skill_dimension": "部位定位"
+      },
+      {
+        "id": "q010_f2",
+        "fact": "不属于放射或心电信号",
+        "expected": "排除非内镜任务",
+        "supported": true,
+        "evidence": "没有X线影像或电生理波形",
+        "skill_dimension": "事实组合"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["任务定位", "胃镜", "基础"],
+    "teaching_tags": [
+      "任务定位",
+      "胃镜",
+      "基础"
+    ],
     "difficulty": "入门",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q011",
     "title": "病变属性：出血判断",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成图像中无喷射性血流或血凝块。",
-    "case_summary": "训练区分红斑与活动性出血。",
+    "image_url": "/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg",
+    "image_placeholder": "真实公开样例图像中无喷射性血流或血凝块。",
+    "case_summary": "研修区分红斑与活动性出血。",
     "question": "关于活动性出血，哪项最准确？",
-    "options": ["未见明确活动性出血证据", "可见喷射性动脉出血", "可见大量黑色血凝块", "已发生失血性休克"],
+    "options": [
+      "未见明确活动性出血证据",
+      "可见喷射性动脉出血",
+      "可见大量黑色血凝块",
+      "已发生失血性休克"
+    ],
     "answer": "未见明确活动性出血证据",
     "explanation": "图中可见红斑样改变，但没有喷射血流、渗血或血凝块等活动性出血证据。",
     "complexity": 2,
     "question_class": "病变属性",
     "source_type": "公开复杂问答",
     "atomic_trace": [
-      {"id": "q011_f1", "fact": "红色区域不等同活动性出血", "expected": "区分颜色与出血迹象", "supported": true, "evidence": "未见血流、血凝块或新鲜血液覆盖", "skill_dimension": "属性判断"},
-      {"id": "q011_f2", "fact": "休克无法从图像判断", "expected": "避免临床状态臆断", "supported": true, "evidence": "缺少生命体征和病史", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q011_f1",
+        "fact": "红色区域不等同活动性出血",
+        "expected": "区分颜色与出血迹象",
+        "supported": true,
+        "evidence": "未见血流、血凝块或新鲜血液覆盖",
+        "skill_dimension": "属性判断"
+      },
+      {
+        "id": "q011_f2",
+        "fact": "休克无法从图像判断",
+        "expected": "避免临床状态臆断",
+        "supported": true,
+        "evidence": "缺少生命体征和病史",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["出血判断", "属性判断", "安全边界"],
+    "teaching_tags": [
+      "出血判断",
+      "属性判断",
+      "安全边界"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q012",
-    "title": "复杂组合：证据链排序",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成内镜图用于证据链训练。",
-    "case_summary": "学员需要按观察事实、解释、限制条件排序。",
-    "question": "以下哪种思考顺序最适合内镜训练？",
-    "options": ["先描述图像证据，再给可能解释，最后说明限制", "先给最终诊断，再找证据", "直接选择治疗方案", "忽略图像只看题干"],
+    "title": "一图多问：证据链排序",
+    "image_url": "/assets/real_samples/x1_cl8k2u1qa1ekz08324rek2qcv.jpg",
+    "image_placeholder": "真实公开样例内镜图用于证据链研修。",
+    "case_summary": "医生需要按观察事实、解释、限制条件排序。",
+    "question": "以下哪种思考顺序最适合内镜研修？",
+    "options": [
+      "先描述图像证据，再给可能解释，最后说明限制",
+      "先给最终诊断，再找证据",
+      "直接选择治疗方案",
+      "忽略图像只看题干"
+    ],
     "answer": "先描述图像证据，再给可能解释，最后说明限制",
-    "explanation": "可解释训练强调从图像证据出发，并明确不确定性和复核需求。",
+    "explanation": "可解释研修强调从图像证据出发，并明确不确定性和复核需求。",
     "complexity": 3,
-    "question_class": "复杂组合",
+    "question_class": "一图多问",
     "source_type": "公开综合基准",
     "atomic_trace": [
-      {"id": "q012_f1", "fact": "医学教学反馈需要证据先行", "expected": "从观察事实开始", "supported": true, "evidence": "atomic_trace 可拆分图像证据", "skill_dimension": "事实组合"},
-      {"id": "q012_f2", "fact": "最终诊疗不属于平台输出", "expected": "保留医生审核", "supported": true, "evidence": "安全规则限制自动诊断和治疗建议", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q012_f1",
+        "fact": "医学教学反馈需要证据先行",
+        "expected": "从观察事实开始",
+        "supported": true,
+        "evidence": "证据点可拆分图像证据",
+        "skill_dimension": "事实组合"
+      },
+      {
+        "id": "q012_f2",
+        "fact": "最终诊疗不属于平台输出",
+        "expected": "保留医生复核",
+        "supported": true,
+        "evidence": "安全规则限制自动诊断和治疗建议",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["证据链", "可解释性", "多步推理"],
+    "teaching_tags": [
+      "证据链",
+      "可解释性",
+      "多步推理"
+    ],
     "difficulty": "挑战",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q013",
-    "title": "错误前提：图像质量是否足够",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成图像清晰度一般，局部反光。",
-    "case_summary": "训练低质量图像下的谨慎回答。",
+    "title": "过度推断：图像质量是否足够",
+    "image_url": "/assets/real_samples/x1_cla820gmss67b071u3h7o5k3t.jpg",
+    "image_placeholder": "真实公开样例图像清晰度一般，局部反光。",
+    "case_summary": "研修低质量图像下的谨慎回答。",
     "question": "若题干要求“根据该模糊区域精确判断病理类型”，最安全的回答是？",
-    "options": ["图像证据不足，不能精确判断病理类型", "直接判断为低分化癌", "直接判断为良性", "给出化疗方案"],
+    "options": [
+      "图像证据不足，不能精确判断病理类型",
+      "直接判断为低分化癌",
+      "直接判断为良性",
+      "给出化疗方案"
+    ],
     "answer": "图像证据不足，不能精确判断病理类型",
     "explanation": "病理类型不能由模糊单帧图像精确判断，需要病理和医生复核。",
     "complexity": 2,
-    "question_class": "错误前提",
+    "question_class": "报告纠错",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q013_f1", "fact": "题干要求超出图像能力", "expected": "拒绝精确病理判断", "supported": false, "evidence": "缺少组织病理证据", "skill_dimension": "证据不足识别"},
-      {"id": "q013_f2", "fact": "不能输出治疗方案", "expected": "保持教学边界", "supported": true, "evidence": "平台仅用于教学和审核前辅助", "skill_dimension": "事实组合"}
+      {
+        "id": "q013_f1",
+        "fact": "题干要求超出图像能力",
+        "expected": "拒绝精确病理判断",
+        "supported": false,
+        "evidence": "缺少组织病理证据",
+        "skill_dimension": "证据不足识别"
+      },
+      {
+        "id": "q013_f2",
+        "fact": "不能输出治疗方案",
+        "expected": "保持教学边界",
+        "supported": true,
+        "evidence": "平台仅用于教学和复核前辅助",
+        "skill_dimension": "事实组合"
+      }
     ],
     "false_premise_flag": true,
-    "teaching_tags": ["图像质量", "病理边界", "错误前提"],
+    "teaching_tags": [
+      "图像质量",
+      "病理边界",
+      "过度推断"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q014",
     "title": "报告纠错：患者身份字段",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "报告安全训练题，无需真实身份信息。",
-    "case_summary": "训练报告草稿中的隐私边界。",
-    "question": "教学平台生成报告草稿时，哪类内容不应出现在 mock 数据中？",
-    "options": ["真实姓名、身份证号、住院号", "检查类型", "结构化所见", "医生复核点"],
+    "image_url": "/assets/real_samples/x1_clb0lbwzpdpgo086ucmqx7nyu.jpg",
+    "image_placeholder": "报告安全研修题，无需真实身份信息。",
+    "case_summary": "研修报告草稿中的隐私边界。",
+    "question": "平台生成报告草稿时，哪类内容不应出现在 示例数据中？",
+    "options": [
+      "真实姓名、身份证号、住院号",
+      "检查类型",
+      "结构化所见",
+      "医生复核点"
+    ],
     "answer": "真实姓名、身份证号、住院号",
     "explanation": "平台只使用脱敏教学样例，不应包含任何可识别患者身份的信息。",
     "complexity": 1,
     "question_class": "报告纠错",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q014_f1", "fact": "真实身份信息不应进入演示数据", "expected": "识别隐私风险", "supported": true, "evidence": "安全规则禁止患者姓名、证件号、住院号", "skill_dimension": "事实组合"},
-      {"id": "q014_f2", "fact": "结构化所见可以使用脱敏样例", "expected": "保留教学价值", "supported": true, "evidence": "报告草稿服务仅处理示例文本", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q014_f1",
+        "fact": "真实身份信息不应进入演示数据",
+        "expected": "识别隐私风险",
+        "supported": true,
+        "evidence": "安全规则禁止患者姓名、证件号、住院号",
+        "skill_dimension": "事实组合"
+      },
+      {
+        "id": "q014_f2",
+        "fact": "结构化所见可以使用脱敏样例",
+        "expected": "保留教学价值",
+        "supported": true,
+        "evidence": "报告草稿服务仅处理示例文本",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["隐私保护", "报告安全", "脱敏数据"],
+    "teaching_tags": [
+      "隐私保护",
+      "报告安全",
+      "脱敏数据"
+    ],
     "difficulty": "入门",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q015",
     "title": "一图多问：教学标签选择",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成胃镜教学图像。",
-    "case_summary": "训练将单题映射到教学能力标签。",
+    "image_url": "/assets/real_samples/kv_cla820gl0s3nv071u4fgd7xgq.jpg",
+    "image_placeholder": "真实公开样例胃镜教学图像。",
+    "case_summary": "将单题映射到教学能力标签。",
     "question": "该题最应该加强哪个能力维度？",
-    "options": ["病灶识别与证据边界", "抗生素剂量计算", "麻醉深度监测", "医保编码"],
-    "answer": "病灶识别与证据边界",
+    "options": [
+      "病灶识别与观察依据",
+      "抗生素剂量计算",
+      "麻醉深度监测",
+      "医保编码"
+    ],
+    "answer": "病灶识别与观察依据",
     "explanation": "本题围绕内镜观察事实和不确定性表达，不涉及处方、麻醉或医保。",
     "complexity": 2,
     "question_class": "一图多问",
     "source_type": "公开复杂问答",
     "atomic_trace": [
-      {"id": "q015_f1", "fact": "题目需要识别图像异常", "expected": "定位病灶识别能力", "supported": true, "evidence": "选项围绕观察结论", "skill_dimension": "病灶识别"},
-      {"id": "q015_f2", "fact": "题目强调不可过度诊断", "expected": "加入证据边界训练", "supported": true, "evidence": "解释要求医生复核", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q015_f1",
+        "fact": "题目需要识别图像异常",
+        "expected": "定位病灶识别能力",
+        "supported": true,
+        "evidence": "选项围绕观察结论",
+        "skill_dimension": "病灶识别"
+      },
+      {
+        "id": "q015_f2",
+        "fact": "题目强调不可过度诊断",
+        "expected": "加入观察依据",
+        "supported": true,
+        "evidence": "解释要求医生复核",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["能力映射", "病灶识别", "证据边界"],
+    "teaching_tags": [
+      "能力映射",
+      "病灶识别",
+      "观察依据"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q016",
     "title": "证据不足：活检建议边界",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成内镜图，无真实患者上下文。",
-    "case_summary": "训练教学建议和临床操作建议的边界。",
-    "question": "学员问“是否必须立即活检”，平台应如何回答？",
-    "options": ["提示需由医生结合完整检查和临床情况决定", "命令立即活检", "保证不需要活检", "推荐具体治疗药物"],
+    "image_url": "/assets/real_samples/kv_cla820gl0s3nz071uch6e0sas.jpg",
+    "image_placeholder": "真实公开样例内镜图，无真实患者上下文。",
+    "case_summary": "区分教学建议和临床操作建议的边界。",
+    "question": "医生问“是否必须立即活检”，平台应如何回答？",
+    "options": [
+      "提示需由医生结合完整检查和临床情况决定",
+      "命令立即活检",
+      "保证不需要活检",
+      "推荐具体治疗药物"
+    ],
     "answer": "提示需由医生结合完整检查和临床情况决定",
     "explanation": "平台可以说明复核点，但不能替代医生决定临床操作。",
     "complexity": 3,
-    "question_class": "错误前提",
+    "question_class": "报告纠错",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q016_f1", "fact": "活检属于临床操作决策", "expected": "要求医生判断", "supported": true, "evidence": "缺少完整检查、病史和风险评估", "skill_dimension": "证据不足识别"},
-      {"id": "q016_f2", "fact": "平台可给复核点", "expected": "提供教学辅助而非命令", "supported": true, "evidence": "医生审核前辅助定位", "skill_dimension": "事实组合"}
+      {
+        "id": "q016_f1",
+        "fact": "活检属于临床操作决策",
+        "expected": "要求医生判断",
+        "supported": true,
+        "evidence": "缺少完整检查、病史和风险评估",
+        "skill_dimension": "证据不足识别"
+      },
+      {
+        "id": "q016_f2",
+        "fact": "平台可给复核点",
+        "expected": "提供教学辅助而非命令",
+        "supported": true,
+        "evidence": "医生复核前辅助定位",
+        "skill_dimension": "事实组合"
+      }
     ],
     "false_premise_flag": true,
-    "teaching_tags": ["临床边界", "医生复核", "安全审查"],
+    "teaching_tags": [
+      "临床边界",
+      "医生复核",
+      "安全复核"
+    ],
     "difficulty": "挑战",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q017",
     "title": "基础识别：反光伪影",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成内镜图局部有高亮反光。",
-    "case_summary": "训练识别反光伪影对判断的影响。",
+    "image_url": "/assets/real_samples/kv_cla820gl0s3o3071ufxqh1brg.jpg",
+    "image_placeholder": "真实公开样例内镜图局部有高亮反光。",
+    "case_summary": "研修识别反光伪影对判断的影响。",
     "question": "内镜图像中的强反光区域应如何处理？",
-    "options": ["作为可能伪影，避免直接当成病灶依据", "一定是溃疡", "一定是出血", "可以忽略全部图像"],
+    "options": [
+      "作为可能伪影，避免直接当成病灶依据",
+      "一定是溃疡",
+      "一定是出血",
+      "可以忽略全部图像"
+    ],
     "answer": "作为可能伪影，避免直接当成病灶依据",
     "explanation": "反光可能遮挡表面细节，需要结合其他视角和区域判断。",
     "complexity": 1,
     "question_class": "基础识别",
     "source_type": "公开基础问答",
     "atomic_trace": [
-      {"id": "q017_f1", "fact": "强反光可能是成像伪影", "expected": "不作为唯一病灶证据", "supported": true, "evidence": "内镜照明可造成局部高亮", "skill_dimension": "病灶识别"},
-      {"id": "q017_f2", "fact": "伪影会影响细节判断", "expected": "需要多角度复核", "supported": true, "evidence": "局部表面纹理被高亮覆盖", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q017_f1",
+        "fact": "强反光可能是成像伪影",
+        "expected": "不作为唯一病灶证据",
+        "supported": true,
+        "evidence": "内镜照明可造成局部高亮",
+        "skill_dimension": "病灶识别"
+      },
+      {
+        "id": "q017_f2",
+        "fact": "伪影会影响细节判断",
+        "expected": "需要多角度复核",
+        "supported": true,
+        "evidence": "局部表面纹理被高亮覆盖",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["伪影", "基础识别", "图像质量"],
+    "teaching_tags": [
+      "伪影",
+      "基础识别",
+      "图像质量"
+    ],
     "difficulty": "入门",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q018",
     "title": "病变属性：炎症样表达",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成图：局部黏膜红斑，表面轻微粗糙。",
-    "case_summary": "训练将炎症样表现作为描述而非病因诊断。",
+    "image_url": "/assets/real_samples/endo_image_0.jpg",
+    "image_placeholder": "真实公开样例图：局部黏膜红斑，表面轻微粗糙。",
+    "case_summary": "研修将炎症样表现作为描述而非病因诊断。",
     "question": "“炎症样表现”的合理含义是？",
-    "options": ["描述红斑/糜烂等观察表现，需复核病因", "等同明确感染", "等同恶性肿瘤", "等同无需随访"],
+    "options": [
+      "描述红斑/糜烂等观察表现，需复核病因",
+      "等同明确感染",
+      "等同恶性肿瘤",
+      "等同无需随访"
+    ],
     "answer": "描述红斑/糜烂等观察表现，需复核病因",
     "explanation": "炎症样是描述性表达，不应自动推导为具体病因或最终诊断。",
     "complexity": 2,
     "question_class": "病变属性",
     "source_type": "公开复杂问答",
     "atomic_trace": [
-      {"id": "q018_f1", "fact": "红斑/糜烂可构成炎症样描述", "expected": "使用描述性语言", "supported": true, "evidence": "图中局部色泽和表面改变", "skill_dimension": "属性判断"},
-      {"id": "q018_f2", "fact": "炎症样不等于具体病因", "expected": "避免因果过推", "supported": true, "evidence": "缺少检测和病理资料", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q018_f1",
+        "fact": "红斑/糜烂可构成炎症样描述",
+        "expected": "使用描述性语言",
+        "supported": true,
+        "evidence": "图中局部色泽和表面改变",
+        "skill_dimension": "属性判断"
+      },
+      {
+        "id": "q018_f2",
+        "fact": "炎症样不等于具体病因",
+        "expected": "避免因果过推",
+        "supported": true,
+        "evidence": "缺少检测和病理资料",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["炎症样", "描述语言", "病因边界"],
+    "teaching_tags": [
+      "炎症样",
+      "描述语言",
+      "病因边界"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q019",
-    "title": "复杂组合：下一题推荐逻辑",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成训练图像。",
-    "case_summary": "训练系统如何根据错因推荐下一题。",
-    "question": "如果学员把红斑误判为明确肿瘤，下一题最应推荐？",
-    "options": ["证据不足与安全表达训练", "处方剂量训练", "医保结算训练", "影像三维重建训练"],
-    "answer": "证据不足与安全表达训练",
-    "explanation": "误把描述性发现上升为最终诊断，说明应加强证据边界和安全表达。",
+    "title": "一图多问：下一题推荐逻辑",
+    "image_url": "/assets/real_samples/endo_image_1.jpg",
+    "image_placeholder": "真实公开样例研修图像。",
+    "case_summary": "系统如何根据错因推荐下一题。",
+    "question": "如果医生把红斑误判为明确肿瘤，下一题最应推荐？",
+    "options": [
+      "证据不足与安全表达研修",
+      "处方剂量研修",
+      "医保结算研修",
+      "影像三维重建研修"
+    ],
+    "answer": "证据不足与安全表达研修",
+    "explanation": "误把描述性发现上升为最终诊断，说明应加强观察依据和安全表达。",
     "complexity": 3,
-    "question_class": "复杂组合",
+    "question_class": "一图多问",
     "source_type": "公开综合基准",
     "atomic_trace": [
-      {"id": "q019_f1", "fact": "错因涉及过度诊断", "expected": "标记证据不足", "supported": true, "evidence": "将红斑直接等同肿瘤", "skill_dimension": "证据不足识别"},
-      {"id": "q019_f2", "fact": "推荐应围绕薄弱能力", "expected": "推荐错误前提/安全题", "supported": true, "evidence": "learner_profile 使用 weakness_tags", "skill_dimension": "事实组合"}
+      {
+        "id": "q019_f1",
+        "fact": "错因涉及过度诊断",
+        "expected": "标记证据不足",
+        "supported": true,
+        "evidence": "将红斑直接等同肿瘤",
+        "skill_dimension": "证据不足识别"
+      },
+      {
+        "id": "q019_f2",
+        "fact": "推荐应围绕薄弱能力",
+        "expected": "推荐过度推断/安全表达题",
+        "supported": true,
+        "evidence": "能力画像记录薄弱项标签",
+        "skill_dimension": "事实组合"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["下一题推荐", "错因驱动", "证据不足"],
+    "teaching_tags": [
+      "下一题推荐",
+      "错因驱动",
+      "证据不足"
+    ],
     "difficulty": "挑战",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q020",
     "title": "报告纠错：用词稳健性",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "报告草稿训练题。",
-    "case_summary": "训练将过强结论改写为审核前草稿。",
+    "image_url": "/assets/real_samples/endo_image_2.jpg",
+    "image_placeholder": "报告草稿研修题。",
+    "case_summary": "将过强结论改写为复核前草稿。",
     "question": "哪种改写最稳健？原句：该图证实患者已出现严重胃病。",
-    "options": ["图像示局部黏膜异常表现，建议医生结合完整检查复核", "患者一定严重胃病", "无需复查", "直接开具最终诊断证明"],
+    "options": [
+      "图像示局部黏膜异常表现，建议医生结合完整检查复核",
+      "患者一定严重胃病",
+      "无需复查",
+      "直接开具最终诊断证明"
+    ],
     "answer": "图像示局部黏膜异常表现，建议医生结合完整检查复核",
     "explanation": "改写应保留观察事实，去除未经支持的严重程度和最终诊断。",
     "complexity": 2,
     "question_class": "报告纠错",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q020_f1", "fact": "原句存在严重程度夸大", "expected": "改为观察事实", "supported": true, "evidence": "“严重胃病”缺少客观分级依据", "skill_dimension": "证据不足识别"},
-      {"id": "q020_f2", "fact": "改写保留医生复核", "expected": "医生审核前辅助", "supported": true, "evidence": "包含结合完整检查复核", "skill_dimension": "事实组合"}
+      {
+        "id": "q020_f1",
+        "fact": "原句存在严重程度夸大",
+        "expected": "改为观察事实",
+        "supported": true,
+        "evidence": "“严重胃病”缺少客观分级依据",
+        "skill_dimension": "证据不足识别"
+      },
+      {
+        "id": "q020_f2",
+        "fact": "改写保留医生复核",
+        "expected": "医生复核前辅助",
+        "supported": true,
+        "evidence": "包含结合完整检查复核",
+        "skill_dimension": "事实组合"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["报告改写", "稳健表达", "医生审核"],
+    "teaching_tags": [
+      "报告改写",
+      "稳健表达",
+      "医生复核"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q021",
-    "title": "错误前提：患者症状臆断",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
+    "title": "过度推断：患者症状臆断",
+    "image_url": "/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg",
     "image_placeholder": "图像不包含症状信息。",
-    "case_summary": "训练不能从图像臆断症状。",
+    "case_summary": "研修不能从图像臆断症状。",
     "question": "题干问“患者一定有剧烈腹痛吗”，正确回答是？",
-    "options": ["不能从图像确定症状，需要病史", "一定有剧烈腹痛", "一定没有任何症状", "可以据此判断休克"],
+    "options": [
+      "不能从图像确定症状，需要病史",
+      "一定有剧烈腹痛",
+      "一定没有任何症状",
+      "可以据此判断休克"
+    ],
     "answer": "不能从图像确定症状，需要病史",
     "explanation": "症状属于病史信息，不能由单张内镜教学图像直接确定。",
     "complexity": 2,
-    "question_class": "错误前提",
+    "question_class": "报告纠错",
     "source_type": "教学样例",
     "atomic_trace": [
-      {"id": "q021_f1", "fact": "图像不包含主诉和症状", "expected": "回答证据不足", "supported": false, "evidence": "无病史字段或生命体征", "skill_dimension": "证据不足识别"},
-      {"id": "q021_f2", "fact": "不能推断休克", "expected": "拒绝临床状态臆断", "supported": true, "evidence": "缺少血压、心率、出血量等信息", "skill_dimension": "事实组合"}
+      {
+        "id": "q021_f1",
+        "fact": "图像不包含主诉和症状",
+        "expected": "回答证据不足",
+        "supported": false,
+        "evidence": "无病史字段或生命体征",
+        "skill_dimension": "证据不足识别"
+      },
+      {
+        "id": "q021_f2",
+        "fact": "不能推断休克",
+        "expected": "拒绝临床状态臆断",
+        "supported": true,
+        "evidence": "缺少血压、心率、出血量等信息",
+        "skill_dimension": "事实组合"
+      }
     ],
     "false_premise_flag": true,
-    "teaching_tags": ["症状边界", "错误前提", "病史需求"],
+    "teaching_tags": [
+      "症状边界",
+      "过度推断",
+      "病史需求"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q022",
     "title": "一图多问：查看依据按钮",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成内镜训练图，右侧辅导面板展示依据。",
-    "case_summary": "训练学员用依据解释答案。",
+    "image_url": "/assets/real_samples/x1_cl8k2u1qa1ekz08324rek2qcv.jpg",
+    "image_placeholder": "真实公开样例内镜研修图，右侧辅导面板展示依据。",
+    "case_summary": "帮助医生用依据解释答案。",
     "question": "点击“查看依据”时，系统最应展示什么？",
-    "options": ["与答案相关的 atomic facts 和图像观察证据", "无依据的最终诊断", "患者身份证号", "真实模型密钥"],
-    "answer": "与答案相关的 atomic facts 和图像观察证据",
-    "explanation": "查看依据应展示可审计的原子事实和证据，不展示隐私或密钥。",
+    "options": [
+      "与答案相关的证据点和图像观察证据",
+      "无依据的最终诊断",
+      "患者身份证号",
+      "模型授权信息"
+    ],
+    "answer": "与答案相关的证据点和图像观察证据",
+    "explanation": "查看依据应展示可复盘的证据点和观察依据，不展示隐私或授权信息。",
     "complexity": 2,
     "question_class": "一图多问",
     "source_type": "公开复杂问答",
     "atomic_trace": [
-      {"id": "q022_f1", "fact": "依据应为 atomic facts", "expected": "展示可解释证据", "supported": true, "evidence": "题目包含 atomic_trace", "skill_dimension": "事实组合"},
-      {"id": "q022_f2", "fact": "不应展示敏感信息", "expected": "隐私和密钥安全", "supported": true, "evidence": "安全规则禁止身份和密钥", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q022_f1",
+        "fact": "依据应为证据点",
+        "expected": "展示可解释证据",
+        "supported": true,
+        "evidence": "题目包含证据点",
+        "skill_dimension": "事实组合"
+      },
+      {
+        "id": "q022_f2",
+        "fact": "不应展示敏感信息",
+        "expected": "隐私和密钥安全",
+        "supported": true,
+        "evidence": "安全规则禁止身份和密钥",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["查看依据", "可解释性", "审计"],
+    "teaching_tags": [
+      "查看依据",
+      "可解释性",
+      "审计"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q023",
-    "title": "部位定位：公开数据集启发",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成教学图；页面文档引用 Kvasir/HyperKvasir 作为公开方向参考。",
-    "case_summary": "训练将公开数据集映射到课程类型，而不直接混入真实数据。",
-    "question": "借鉴 Kvasir/HyperKvasir 时，第一版平台最适合怎么做？",
-    "options": ["用其任务分层思想设计 mock 课程和接口预留", "直接声称完成临床验证", "把真实患者信息写入仓库", "跳过医生审核"],
-    "answer": "用其任务分层思想设计 mock 课程和接口预留",
-    "explanation": "第一版应借鉴公开数据集的任务结构，不声称真实评测或临床验证。",
+    "title": "部位定位：平台图像资源启发",
+    "image_url": "/assets/real_samples/x1_cla820gmss67b071u3h7o5k3t.jpg",
+    "image_placeholder": "真实公开样例教学图；用于说明平台内镜图像资源的题型分层。",
+    "case_summary": "将平台内镜图像资源映射到研修任务类型。",
+    "question": "面对一组新的内镜图像资源，最适合先归入哪类研修任务？",
+    "options": [
+      "按观察目标拆分为识别、定位、属性和观察依据题",
+      "直接声称完成临床验证",
+      "把真实患者信息写入仓库",
+      "跳过医生复核"
+    ],
+    "answer": "按观察目标拆分为识别、定位、属性和观察依据题",
+    "explanation": "研修资源应先按医生需要掌握的观察目标分层，再进入题库和复盘流程。",
     "complexity": 2,
     "question_class": "部位定位",
     "source_type": "公开综合基准",
     "atomic_trace": [
-      {"id": "q023_f1", "fact": "公开数据集可提供任务分层参考", "expected": "用于课程设计", "supported": true, "evidence": "模型看板和文档标注 mock/reserved", "skill_dimension": "事实组合"},
-      {"id": "q023_f2", "fact": "真实临床验证未实现", "expected": "不能夸大", "supported": true, "evidence": "当前阶段非目标为真实评测流水线", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q023_f1",
+        "fact": "平台图像资源可提供任务分层参考",
+        "expected": "用于研修题设计",
+        "supported": true,
+        "evidence": "题型分层覆盖识别、定位、属性和观察依据",
+        "skill_dimension": "事实组合"
+      },
+      {
+        "id": "q023_f2",
+        "fact": "资源入库需要保持教学边界",
+        "expected": "不能夸大",
+        "supported": true,
+        "evidence": "先进入研修题库和复盘流程，再逐步扩展能力评估",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["公开数据集", "课程映射", "评测预留"],
+    "teaching_tags": [
+      "平台图像资源",
+      "题型分层",
+      "研修任务"
+    ],
     "difficulty": "进阶",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   },
   {
     "id": "q024",
-    "title": "复杂组合：完整演示闭环",
-    "image_url": "/assets/synthetic-endoscopy-training.svg",
-    "image_placeholder": "合成内镜训练图像与智能辅导流程。",
-    "case_summary": "终局演示题：从提示、提交、错因到下一题推荐。",
-    "question": "一个高质量内镜训练 Agent 的闭环应包含哪些关键环节？",
-    "options": ["提示、作答、评分、原子事实反馈、安全审查、记忆更新、下一题推荐", "只输出答案", "只展示模型排行榜", "只生成科普海报"],
-    "answer": "提示、作答、评分、原子事实反馈、安全审查、记忆更新、下一题推荐",
-    "explanation": "平台核心价值是受控教学工作流：既能训练，也能解释、审计和更新学员画像。",
+    "title": "一图多问：完整演示闭环",
+    "image_url": "/assets/real_samples/x1_clb0lbwzpdpgo086ucmqx7nyu.jpg",
+    "image_placeholder": "真实公开样例内镜研修图像与智能辅导流程。",
+    "case_summary": "综合研修题：从提示、提交、错因到下一题推荐。",
+    "question": "一个高质量内镜研修带教闭环应包含哪些关键环节？",
+    "options": [
+      "提示、作答、评分、证据点反馈、安全复核、记忆更新、下一题推荐",
+      "只输出答案",
+      "只展示模型排行榜",
+      "只生成科普海报"
+    ],
+    "answer": "提示、作答、评分、证据点反馈、安全复核、记忆更新、下一题推荐",
+    "explanation": "平台核心价值是受控教学工作流：既能研修，也能解释、审计和更新医生画像。",
     "complexity": 3,
-    "question_class": "复杂组合",
+    "question_class": "一图多问",
     "source_type": "公开综合基准",
     "atomic_trace": [
-      {"id": "q024_f1", "fact": "训练闭环需要多 Agent/Skill 协作", "expected": "覆盖提示、评分、反馈和推荐", "supported": true, "evidence": "系统包含 Tutor、ErrorAnalysis、Safety、Memory、Audit", "skill_dimension": "事实组合"},
-      {"id": "q024_f2", "fact": "只给答案不能形成教学闭环", "expected": "强调错因和记忆", "supported": true, "evidence": "learner_profile 和 audit_logs 记录过程", "skill_dimension": "证据不足识别"}
+      {
+        "id": "q024_f1",
+        "fact": "研修闭环需要多个智能模块协作",
+        "expected": "覆盖提示、评分、反馈和推荐",
+        "supported": true,
+        "evidence": "系统包含智能辅导、错因分析、安全边界、能力画像和过程记录",
+        "skill_dimension": "事实组合"
+      },
+      {
+        "id": "q024_f2",
+        "fact": "只给答案不能形成教学闭环",
+        "expected": "强调错因和记忆",
+        "supported": true,
+        "evidence": "能力画像和过程记录共同沉淀研修表现",
+        "skill_dimension": "证据不足识别"
+      }
     ],
     "false_premise_flag": false,
-    "teaching_tags": ["演示闭环", "多Agent", "Memory"],
+    "teaching_tags": [
+      "研修闭环",
+      "多智能模块",
+      "能力画像"
+    ],
     "difficulty": "挑战",
     "doctor_review_required": true,
-    "safety_notice": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+    "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
   }
 ]
-
-

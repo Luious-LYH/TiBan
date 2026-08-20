@@ -1,110 +1,100 @@
-# 内镜智训Agent
+# 消化内镜研修与模型评测平台
 
-面向消化道内镜医师培训的智能辅导平台。当前 v2.0 实现可运行、可演示、可答辩的 Web 原型：训练驾驶舱、题库/错题/收藏/考试、右侧 Agent 辅导、医生 vs 后端挑战基准比拼、交互式错误前提训练、诊断报告中心、报告修改训练、医师画像、科普卡片、受控 Skills、Memory、模型准入探测和审计日志。
+面向消化道内镜医师的智能研修与报告辅助平台。
 
-> 本项目仅用于教学训练和医生审核前辅助，不替代临床诊断。真实评测流水线暂未开发；v2.0 支持 OpenAI-compatible Provider 连通性/教学推理探测，并在 UI 中明确标出 `provider`、`rule`、`fallback` 模式。
+v3 将平台收束为一条清晰闭环：
+
+`模型评估 -> 医生研修 -> 证据复盘 -> 报告辅助 -> 能力画像`
+
+## 核心页面
+
+- 首页：展示平台价值、智能助手、今日研修入口和能力走势。
+- 模型：查看模型池、多维评估结果、智能助手选择依据和自定义模型体验评估。
+- 研修：完成内镜图像题作答、提交评分、证据复盘、画像更新和下一题推荐。
+- 报告：上传或选择图片，输入简短所见，生成结构化报告草稿，并通过智能修改优化表达。
+- 画像：展示医生能力雷达、成长曲线、薄弱项和最近研修记录。
 
 ## 技术栈
 
-- Frontend: React + Vite + TypeScript, lucide-react, Recharts
-- Backend: FastAPI + Pydantic
-- Data: 本地 JSON 状态 + 真实公开图文样例映射 + 报告/卡片知识库
-- Agent: 规则/模板编排 + OpenAI-compatible Provider 可选调用
-- Safety: 统一 safety_notice、doctor_review_required、敏感标记脱敏、审计日志
+- 前端：React + Vite + TypeScript、Recharts、lucide-react。
+- 后端：FastAPI + Pydantic。
+- 数据：本地 JSON 教学样例、画像状态、报告知识库、平台模型评估结果。
+- Agent：规则编排 + 可选 OpenAI-compatible 临时调用。
 
 ## 快速启动
 
+一键启动网页演示：
+
+```powershell
+.\Start-Web-Demo.bat
+```
+
+一键启动会自动启动本机后端，并使用已经构建好的 `frontend\dist` 打开网页前端；答辩现场不依赖 `node_modules` 或 `npm run dev`。如需真实智能服务，请先在本机环境变量、`code\.env` 或 `code\backend\.env` 中配置 `LLM_BASE_URL` 与 `LLM_API_KEY`，再双击启动。启动脚本只读取本机配置，不会把授权信息写入源码或提交包。
+
 后端：
 
-```bash
+```powershell
 cd backend
 python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --reload --port 8000
+python -m uvicorn app.main:app --reload --port 8002
 ```
 
 前端：
 
-```bash
+```powershell
 cd frontend
 npm install
-npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+$env:VITE_API_BASE_URL="http://127.0.0.1:8002"
+npm run dev -- --host 127.0.0.1 --port 5174 --strictPort
 ```
 
-浏览器打开：`http://localhost:5173`
+答辩包默认不需要运行上面的开发命令；直接双击 `Start-Web-Demo.bat` 即可。
 
-`--strictPort` 用于避免本机已有旧 Vite 进程占用 `5173` 时自动漂到 `5174`，导致浏览器仍看到旧路由图。若启动失败，先停止旧前端进程再重启。
+浏览器打开：
 
-如果本机 `8000` 被旧版后端占用，可把最新后端改到 `8001`：
-
-```bash
-cd backend
-python -m uvicorn app.main:app --reload --port 8001
+```text
+http://127.0.0.1:5174
 ```
 
-前端未显式设置 `VITE_API_BASE_URL` 时，会按 `http://127.0.0.1:8000`、`http://127.0.0.1:8001` 自动探测后端，并优先选择 `/api/health` 暴露 v2.0 capabilities（Provider 联调状态检查、Provider Base URL 预检、Provider 请求预演、Provider 视觉自检、Provider 自检收据、模型准入收据、知识库来源链、沙盒自检、挑战基准、挑战审计收据、科普卡片收据、Skill 运行收据和交付证据报告）的服务；如果需要固定端口，可在启动前设置 `VITE_API_BASE_URL`。
+## v3 接口
 
-## 版本与交付证据
+主流程使用薄 facade：
 
-- v1.1 已提交：`c2833c4 v1.1 医师培训闭环迭代`；仓库初始化提交：`9dfd6de 初始化`。
-- v2.0 关键交付提交：`07d047b v2.0 增加交付证据前端页面`；后续文档收口提交用于补齐启动、演示和验证口径。
-- 答辩时建议先打开 `/delivery`：该页调用 `GET /api/platform/delivery-report`，展示医师对象、核心闭环证据、知识库来源链、审计分布、Provider 配置/自检/准入调用三层状态、验证命令和 `report_integrity`。`configured` 只代表后端具备调用条件，`real_inference_verified` 才代表已有成功自检或样例级准入调用证据。前端会对自由文本做二次脱敏；fallback 时只显示“前端预览”，不会标成后端证据通过。
-- `node scripts\ui_smoke.mjs` 会检查 `/delivery` 的 `data-delivery-source=backend` 且 `data-delivery-integrity=clean`，避免旧前端路由、后端断连或只读完整性异常被误判为通过。
-- 可导出 Markdown 证据包：`python scripts\export_delivery_report.py --output docs\DELIVERY_EVIDENCE_REPORT.md`。
+- `GET /api/session`
+- `GET /api/models/evaluation`
+- `POST /api/models/custom-evaluate`
+- `GET /api/practice/state`
+- `GET /api/practice/questions`
+- `GET /api/practice/questions/{id}`
+- `POST /api/practice/submit`
+- `POST /api/practice/session`
+- `POST /api/practice/tutor`
+- `POST /api/report/image`
+- `POST /api/report/generate`
+- `POST /api/report/revise`
 
-## 可选真实 Provider 配置
+旧接口仍保留为内部兼容层，但不作为 v3 主流程入口。
 
-复制 `.env.example` 为 `.env`，只在本机填写真实配置：
+## 演示路径
 
-```bash
-LLM_PROVIDER=openai_compatible
-LLM_BASE_URL=https://your-provider.example/v1
-LLM_API_KEY=your-local-key
-LLM_MODEL=your-model-name
-LLM_TIMEOUT_SECONDS=25
-```
-
-不要把 `.env`、真实 key、服务器密码或患者身份信息提交到 git。模型准入页会先显示 Provider 联调状态检查，说明 `.env` 缺失项、公开样例数量、最近自检/准入审计和隐私边界，但不会返回 key/base 明文。模型准入页和报告中心都支持请求级临时配置；临时 key 不保存，只有填写临时 base 或 key 时，页面模型名才会随本次请求覆盖后端 `.env` 默认值。
-
-## v2.0 演示路径
-
-1. 首页总览：先看“平台真实性与演示路径”“可核验证据收据”“真实样例覆盖总账”和“真实数据来源链”，确认后端、公开样例、画像、报告/科普知识库、Provider、自检/准入、挑战基准审计和审计日志状态；覆盖总账来自 `/api/platform/readiness.real_sample_coverage`，会显示 `real_sample_knowledge.json` 记录数、映射题目数、数据集/用途分布和图片资产校验；来源链会列出 `real_sample_knowledge.json`、`report_knowledge_base.json`、`card_template_knowledge.json` 的条数、样例 ID 和消费页面；“沙盒自检”会真实跑通训练提交、Agent 辅导、挑战基准、报告草稿、报告修改评分和审计链路后自动恢复数据，“写入演示画像”才保留留痕。
-2. 交付证据 `/delivery`：确认页面显示 `backend live`、`只读且无密钥`、平台就绪度、工作流 proof、知识库来源、审计计数、Provider 三层证据和验证命令。这个页面适合回答“你怎么证明它不是静态页”，也适合说明“Provider 已配置不等于真实推理已验证”。
-3. 训练中心：顶部先展示林知远医师的本轮任务队列、今日进度、薄弱标签、最近考试和画像写入状态；提交答案、收藏、Agent 追问和考试交卷后会刷新后端画像。右侧 Agent 默认只辅导当前题，不提前泄露参考答案；考试模式有全局 session 倒计时、累计战报、交卷复盘入口；比拼模式提交前锁住证据页，提交后调用后端挑战基准，并在比分板展示最近 `challenge_benchmark` 后端审计收据；Provider 可用时用 Provider 作答，不通时明确回退公开标注 fallback。
-4. 错因分析：查看 atomic facts、错因标签和下一题推荐。
-5. 错误前提训练：先让林知远医师独立判断题干是否成立，提交后才解锁证据不足事实、得分和复盘建议。
-6. 报告中心：选择真实公开样例或上传图片，在流程工作台中完成“图像/所见 -> 草稿 -> 证据台账 -> 医师复核”；可用后端 `.env` 或页面临时 Provider 做一次真实推理，公开 VQA 标注默认收进来源台账，不伪装成医生报告结论。
-7. 报告修改训练：AI judge 评分后回灌林知远医师画像，并返回下一步专项训练入口；评分后的建议改写或医生修改稿摘要可带入科普卡片工作室生成待审核草稿；可选 Provider 评阅会显示 `provider/rule/fallback`、延迟和来源台账。
-8. 模型准入：先看 Provider 联调状态检查，确认当前是 `provider`、`rule` 还是 `fallback`，以及缺少哪些 `.env` 配置和最近审计。再看“Provider 请求预演包”：后端会按文本自检、视觉自检或样例准入模式生成 dry-run 收据，展示 endpoint path、请求体字段、真实公开样例绑定、图片附加计划和隐私边界；预演不接收真实 key 字符串、不发送 Provider 请求、不写审计或准入状态。预演通过后再做 Provider 文本轻量自检或视觉通道自检确认通道可用；视觉自检只证明后端已将公开样例图片附加到多模态请求，不发送参考标注、不更新准入状态。随后使用最多 3 个公开样例做 blind probe 准入检查，并展示 `model_admission` 审计 ID 与模型准入收据。模型卡片默认只是能力看板；只有最近准入摘要满足真实 Provider 调用、公开标注对齐和安全阈值，且目标不是 mock 模型时，才允许写入“待人工复核候选”。
-9. 科普卡片、Skills、审计日志：展示患者沟通卡片生成收据、医生审核闸门、后端 Skill 运行收据、`skill_run` 审计 ID、输入/执行来源和关键事件记录。
-
-详细操作手册见 [docs/V2_USER_GUIDE.md](docs/V2_USER_GUIDE.md)。
-
-## 功能真实性矩阵
-
-| 模块 | v2.0 模式 | 数据来源 | 说明 |
-|---|---|---|---|
-| 题库训练 | backend rule | `questions.json` + `real_sample_knowledge.json` + `learner_profile.json` | 公开样例优先展示，支持错题/收藏/筛选；训练页顶部任务队列读取林知远医师画像，显示今日进度、薄弱项、最近考试和下一组训练入口；提交答案、收藏、Agent 追问和考试交卷后刷新画像；考试模式有全局倒计时、累计正确率、平均分，交卷后通过 `/api/learner/exam-session` 写入画像和审计 |
-| 首页闭环自检 | backend sandbox / persistence | 公开样例 + `learner_profile.json` + `audit_logs.json` | `persist=false` 真实写入后自动恢复，`persist=true` 才保留演示画像和审计；首页同时展示 `real_sample_coverage` 和 `knowledge_source_chain`，说明真实样例记录数、映射题目数、图片资产校验以及本地知识库被哪些功能消费 |
-| 右侧 Agent | provider / rule / fallback | 当前题、atomic facts、公开图片 | Provider 未配置时使用规则辅导；提交前不展示参考答案；挑战模式提交后才调用后端挑战基准，比分板只在真实后端审计存在时显示最近 `challenge_benchmark` 收据，基准不重复回灌画像；追问会回灌训练事件但不保存原文 |
-| 错误前提训练 | backend rule | false-premise 题库 + atomic facts | 先作答后解锁证据不足事实、得分和复盘建议 |
-| 报告中心 | provider / rule / fallback | 医生输入、公开样例来源台账、模板 KB、上传图片 | 流程工作台展示数据/Provider/模板状态；报告生成显示 `source_trace`、Provider 状态和 `evidence_ledger`；报告评分返回画像回灌与 `recommended_drills`，推荐链接会携带 `source=report_judge`、`drill` 和合法 `question_class`，进入训练中心后显示专项任务卡并按题类筛选，提交训练题后才继续回灌医师画像；也可把建议改写或医生修改稿摘要带入科普卡片待审流程 |
-| Skills 中心 | backend rule / fallback | `skills.json` + 当前题/报告/卡片服务 | 页面展示运行摘要、`skill_run_receipt`、审计 ID、输入来源、执行来源和工作区跳转；前端 fallback 只显示本地预览且不伪造审计 ID；完整 JSON 仅放在开发细节折叠项 |
-| 模型准入 | provider status check / request preview / text/visual self-test / blind provider probe / rule draft | 公开样例 + 可选 Provider | 联调状态检查只读展示 Provider 配置布尔值、缺失项、公开样例数、最近自检/准入审计和隐私边界，不返回 key/base 明文；请求预演包由后端 dry-run 生成，展示 endpoint path、请求体字段、样例绑定、图片附加计划和隐私边界，且 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`；文本自检只验证文字通道；视觉自检会把一张公开内镜图以 `image_url` data URL 附加到请求，但不发送参考标注、不更新准入状态；自检返回 `self_test_receipt` 和 `provider_self_test` 审计 ID；逐样例准入不泄露参考标注，返回 provider answer、对齐状态、evidence、`admission_receipt` 和 `model_admission` 审计 ID；最近准入摘要不保存 key/base；模型卡片未过真实 Provider/公开标注对齐闸门时只作看板，mock 模型不能写入待复核候选 |
-| 交付证据 | backend read-only | `/api/platform/delivery-report` + readiness + audit | `/delivery` 页面和导出脚本读取同一个只读报告；Provider 状态拆成 `configured`、`self_test_verified`、`admission_provider_called` 和 `real_inference_verified`，配置齐全不等于真实调用已验证；UI smoke 要求后端来源和 `report_integrity=clean`，并检查 Provider 证据 data attrs；自由文本二次脱敏，不返回 API key、Provider base 或完整模型回复 |
-| 科普卡片 | rule | 医生审核前文本 + 卡片模板 KB + 公开样例图像池 | 图片选择优先读取 `/api/knowledge/real-samples` 映射出的公开样例，后端不可用时才回退本地资产；生成草稿后显示 `source_trace`、模板知识库和 `patient_card` 审计收据；可从报告修改训练带入建议改写或医生修改稿摘要；默认锁定打印/分享；医生完成审核清单后通过同一 `card_id` 解锁，并写入 `patient_card_approve` 审计日志 |
-| Memory | rule persistence | `learner_profile.json` | 提交题目、考试 Session、报告 judge 和 Agent 追问都会更新训练记录、能力分与弱项标签；考试汇总不重复增加单题题量 |
-| 审计日志 | backend persistence | `audit_logs.json` | 记录题目、辅导、报告、上传、准入等事件 |
-
-## 外部参考
-
-- [HyperKvasir](https://www.nature.com/articles/s41597-020-00622-y)：GI 内镜图像/视频数据底座，公开论文说明包含 110,079 张图像和 374 个视频。
-- [Kvasir-VQA-x1](https://github.com/simula/Kvasir-VQA-x1)：GI 内镜 MedVQA 数据集与复杂度分层思路。
-- [MediaEval Medico 2025](https://github.com/simula/MediaEval-Medico-2025)：GI VQA 与多模态解释评测方向。
+1. 打开首页，说明平台闭环。
+2. 进入模型页，查看智能助手的评估依据。
+3. 进入研修页，选择题目并提交答案。
+4. 查看证据复盘、错因标签和下一题推荐。
+5. 进入报告页，生成并修改结构化报告。
+6. 进入画像页，查看医生能力成长。
 
 ## 安全边界
 
-- 不处理真实患者身份信息。
-- 不写入真实 API key、服务器密码、Webhook 或 token。
-- 不输出最终临床诊断或治疗方案。
-- 报告草稿和科普卡片均要求医生审核。
-- 模型准入探测只验证教学场景连通性和边界，不代表真实临床评测。
+本项目仅用于教学研修或医生复核前辅助，不作为独立诊断依据。
+
+不要提交真实密钥、通知地址、服务器密码、患者身份信息或其他敏感数据。
+
+## 文档
+
+- `docs/V3_SCOPE_LOCK.md`
+- `docs/V3_IMPLEMENTATION_PLAN.md`
+- `docs/V3_PRESENTATION_GUIDE.md`
+- `docs/V3_SMOKE_TEST.md`
+- `docs/DESKTOP_APP.md`
+- `docs/API_SPEC.md`

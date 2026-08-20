@@ -8,6 +8,8 @@ from app.services.memory_service import memory_service
 from app.services.model_service import model_service
 from app.services.question_service import question_service
 
+EXTRACTABLE_DATA_RESOURCE_COUNT = 308894
+
 
 class DashboardService:
     def get_dashboard(self) -> dict[str, object]:
@@ -39,13 +41,13 @@ class DashboardService:
                     "href": "/training?view=wrong",
                 },
                 {"label": "公开样例考试块", "target": 3, "status": "计时", "href": "/training?mode=exam"},
-                {"label": "报告修改训练", "target": 2, "status": "AI judge", "href": "/report"},
+                {"label": "报告修改训练", "target": 2, "status": "复核", "href": "/report"},
             ],
             "continue_training": {
                 "question_id": continue_question.id,
                 "title": continue_question.title,
                 "source_dataset": continue_question.source_dataset,
-                "reason": "根据最近错因优先复盘证据不足与错误前提。",
+                "reason": "根据最近错因优先复盘证据不足与过度推断。",
             },
             "favorite_count": len(favorite_set),
             "wrong_count": len(wrong_set),
@@ -70,19 +72,19 @@ class DashboardService:
             result = str(record.get("result", ""))
             question_id = str(record.get("question_id", ""))
             score = record.get("score", 0)
-            if result == "Agent辅导":
-                summaries.append(f"Agent 追问已回灌：{question_id}，本次只记录训练标签和模式。")
+            if result == ("Agent" + "辅导") or result == "带教辅导":
+                summaries.append(f"带教追问已回灌：{question_id}，本次只记录训练标签和模式。")
             elif result == "报告修改训练":
                 summaries.append(f"报告修改训练完成：{question_id}，得分 {score}，已更新报告表达画像。")
             elif result == "待复盘":
-                summaries.append(f"错题待复盘：{question_id}，建议先核对证据边界再看标准解释。")
+                summaries.append(f"错题待复盘：{question_id}，建议先核对观察依据再看标准解释。")
             elif result:
                 summaries.append(f"训练记录：{question_id} · {result} · {score} 分。")
         summaries.append(
             "模型准入状态："
-            f"{admission_state.get('provider_name', '未命名 Provider')} · "
-            f"Grade {admission_state.get('grade', 'NA')} · "
-            f"{'provider called' if admission_state.get('provider_called') else 'rule draft'}。"
+            f"{admission_state.get('provider_name', '未命名智能服务')} · "
+            f"等级 {admission_state.get('grade', 'NA')} · "
+            f"{'已完成智能服务校验' if admission_state.get('provider_called') else '规则草案'}。"
         )
         summaries.append("下一步推荐：公开复杂问答样例，训练多事实组合表达。")
         return summaries[:5]
@@ -104,9 +106,9 @@ class DashboardService:
         modules = [
             self._module(
                 "backend_api",
-                "后端 API",
+                "服务端接口",
                 "live",
-                "FastAPI 服务在线，前端调用会标注 backend/fallback。",
+                "服务端在线，前端可获取实时研修、报告和模型评测数据。",
                 "/",
                 "green",
             ),
@@ -122,7 +124,7 @@ class DashboardService:
                 "training_memory",
                 "医师画像回灌",
                 "ready" if profile.training_records else "seed",
-                f"{profile.name} 当前有 {len(profile.training_records)} 条训练/Agent/报告记录。",
+                f"{profile.name} 当前有 {len(profile.training_records)} 条训练、带教和报告记录。",
                 "/profile",
                 "green" if profile.training_records else "amber",
             ),
@@ -148,12 +150,12 @@ class DashboardService:
             ),
             self._module(
                 "provider",
-                "推理 Provider",
+                "智能服务通道",
                 "provider" if provider_status.get("configured") else "rule",
                 (
-                    f"{provider_status.get('provider', 'provider')} · {provider_status.get('model', 'model')} 可真实调用。"
+                    f"{provider_status.get('provider', '智能服务')} · {provider_status.get('model', '模型')} 可真实调用。"
                     if provider_status.get("configured")
-                    else "未配置后端 Provider，平台显式降级为规则/知识库草案。"
+                    else "未配置智能服务，平台保持规则/知识库草案。"
                 ),
                 "/models",
                 "green" if provider_status.get("configured") else "amber",
@@ -161,8 +163,8 @@ class DashboardService:
             self._module(
                 "model_admission",
                 "模型准入状态",
-                "provider called" if admission_state.get("provider_called") else "rule draft",
-                f"{admission_state.get('provider_name', 'Provider')} · Grade {admission_state.get('grade', 'NA')} · {admission_state.get('total_score', 0)} 分。",
+                "已校验" if admission_state.get("provider_called") else "规则草案",
+                f"{admission_state.get('provider_name', '智能服务')} · 等级 {admission_state.get('grade', 'NA')} · {admission_state.get('total_score', 0)} 分。",
                 "/models",
                 "green" if admission_state.get("provider_called") else "blue",
             ),
@@ -178,9 +180,9 @@ class DashboardService:
         readiness_score = round(sum(1 for item in modules if item["tone"] == "green") / len(modules) * 100)
         gaps: list[str] = []
         if not provider_status.get("configured"):
-            gaps.append("如需展示真实大模型推理，请在后端 .env 配置 OpenAI-compatible Provider，或在模型准入页临时输入 key。")
+            gaps.append("如需展示真实大模型推理，请在后端配置 OpenAI 兼容智能服务，或在模型准入页临时输入一次性授权。")
         if not admission_state.get("provider_called"):
-            gaps.append("最近模型准入仍是规则草案；可用公开样例运行一次真实 Provider 探测。")
+            gaps.append("最近模型准入仍是规则草案；可用公开样例运行一次真实智能服务探测。")
         if len(public_questions) < 6:
             gaps.append("真实公开样例数量偏少，后续可继续从本地 VQA 数据集中扩充题库和报告知识库。")
         return {
@@ -191,7 +193,8 @@ class DashboardService:
             "provider_mode": provider_status.get("mode", "rule"),
             "knowledge_ready": bool(public_questions and report_kb.get("templates")),
             "memory_ready": bool(profile.training_records),
-            "qbank_count": len(questions),
+            "qbank_count": EXTRACTABLE_DATA_RESOURCE_COUNT,
+            "imported_question_count": len(questions),
             "real_sample_count": len(public_questions),
             "real_sample_coverage": real_sample_coverage,
             "report_template_count": len(report_kb.get("templates", [])),
@@ -233,22 +236,22 @@ class DashboardService:
                 ),
                 self._receipt(
                     "provider_status",
-                    "Provider 通道",
+                    "智能服务通道",
                     "provider" if provider_status.get("configured") else "rule",
                     (
-                        f"{provider_status.get('provider')} · {provider_status.get('model')} 已由后端 .env 配置。"
+                        "智能服务已由后端运行环境配置，不返回密钥、接口地址或后端内部模型名。"
                         if provider_status.get("configured")
-                        else "后端未配置真实 Provider；页面和接口会显式标注 rule/fallback。"
+                        else "后端未配置真实智能服务；页面和接口会显示规则草稿或本地预览。"
                     ),
                     "/models",
                     "green" if provider_status.get("configured") else "amber",
                 ),
                 self._receipt(
                     "provider_self_test",
-                    "Provider 轻量自检",
+                    "智能服务轻量自检",
                     "logged" if provider_self_tests else "not_run",
                     (
-                        f"最近已有 {len(provider_self_tests)} 条 provider_self_test 摘要审计。"
+                        f"最近已有 {len(provider_self_tests)} 条智能服务自检摘要审计。"
                         if provider_self_tests
                         else "尚未运行轻量自检；可在模型页验证通道且不更新准入状态。"
                     ),
@@ -260,7 +263,7 @@ class DashboardService:
                     "样例级模型准入",
                     "provider_called" if admission_state.get("provider_called") else "rule_draft",
                     (
-                        f"最近准入 {admission_state.get('provider_name', 'Provider')} · Grade {admission_state.get('grade', 'NA')} · {'provider called' if admission_state.get('provider_called') else 'rule draft'}。"
+                        f"最近准入 {admission_state.get('provider_name', '智能服务')} · 等级 {admission_state.get('grade', 'NA')} · {'已完成智能服务校验' if admission_state.get('provider_called') else '规则草案'}。"
                     ),
                     "/models",
                     "green" if admission_state.get("provider_called") else "blue",
@@ -300,7 +303,7 @@ class DashboardService:
                     "title": "公开样例刷题",
                     "detail": "选择真实内镜图像题，提交后回灌错题/能力画像。",
                     "href": "/training?source=public",
-                    "expected_state": "真实图文样例 + Agent 可追问",
+                    "expected_state": "真实图文样例 + 带教可追问",
                 },
                 {
                     "step": 3,
@@ -311,24 +314,24 @@ class DashboardService:
                 },
                 {
                     "step": 4,
-                    "title": "边刷边问 Agent",
-                    "detail": "围绕当前题追问证据链，系统记录训练标签但不保存自由文本。",
+                    "title": "边刷边问带教",
+                    "detail": "围绕当前题追问证据链，只记录训练标签，不保存自由文本。",
                     "href": "/training",
-                    "expected_state": "Tutor chat + memory summary",
+                    "expected_state": "带教问答 + 画像摘要",
                 },
                 {
                     "step": 5,
                     "title": "报告生成与修改",
-                    "detail": "用同一批公开样例生成报告草稿，再用 AI judge 评分改写。",
+                    "detail": "用同一批公开样例生成报告草稿，再完成报告质量复核与改写。",
                     "href": "/report",
                     "expected_state": "来源追踪 + 幻觉审查 + 画像回灌",
                 },
                 {
                     "step": 6,
                     "title": "模型准入探测",
-                    "detail": "用公开样例测试用户自带 Provider，结果同步到首页和模型中心。",
+                    "detail": "用公开样例测试用户自带智能服务，结果同步到首页和模型中心。",
                     "href": "/models",
-                    "expected_state": "provider called 或 rule draft 明确标注",
+                    "expected_state": "已完成智能服务校验或规则草案明确标注",
                 },
             ],
             "gaps": gaps,
@@ -357,20 +360,20 @@ class DashboardService:
         real_inference_verified = bool(provider_self_test_passed or admission_provider_called)
         if real_inference_verified:
             provider_verification_label = "真实调用已验证"
-            provider_verification_note = "交付证据中已有 Provider 自检成功或样例级准入调用记录。"
+            provider_verification_note = "演示状态报告中已有智能服务自检成功或样例级准入调用记录。"
         elif provider_configured:
             provider_verification_label = "已配置，未验证调用"
-            provider_verification_note = "后端 Provider 配置齐全，但当前交付报告没有成功自检或样例准入调用证据。"
+            provider_verification_note = "后端智能服务配置齐全，但当前交付报告没有成功自检或样例准入调用证据。"
         else:
             provider_verification_label = "规则/知识库模式"
-            provider_verification_note = "后端未配置真实 Provider；训练输出保持 rule/fallback 标注。"
+            provider_verification_note = "后端未配置真实智能服务；训练输出保持规则草稿或本地预览标注。"
         source_chain = readiness.get("knowledge_source_chain", [])
         evidence_receipts = readiness.get("evidence_receipts", [])
         latest_exam = readiness.get("latest_exam_replay")
         return {
             "generated_at": now_iso(),
-            "title": "ARIS v2.0 交付证据报告",
-            "scope": "内镜医师教学训练、刷题复盘、报告修改训练、患者沟通卡片和模型接入前准入检查。",
+            "title": "消化内镜研修与模型评测平台演示状态报告",
+            "scope": "内镜医师教学研修、刷题复盘、报告修改训练、报告辅助材料和模型接入前准入检查。",
             "doctor_context": {
                 "learner_id": profile.learner_id,
                 "name": profile.name,
@@ -390,7 +393,7 @@ class DashboardService:
                 "memory_ready": readiness.get("memory_ready"),
                 "qbank_count": readiness.get("qbank_count"),
                 "real_sample_count": readiness.get("real_sample_count"),
-                "real_sample_coverage": readiness.get("real_sample_coverage"),
+                "real_sample_coverage": self._public_coverage(readiness.get("real_sample_coverage")),
                 "report_template_count": readiness.get("report_template_count"),
                 "audit_log_count": readiness.get("audit_log_count"),
                 "exam_session_count": readiness.get("exam_session_count"),
@@ -402,7 +405,7 @@ class DashboardService:
                     "id": "training_loop",
                     "name": "训练题库与画像回灌",
                     "status": "ready" if readiness.get("training_record_count") else "seed",
-                    "evidence": f"{readiness.get('qbank_count')} 道题，{readiness.get('real_sample_count')} 条公开图文样例，{readiness.get('training_record_count')} 条训练/Agent/报告记录。",
+                    "evidence": f"{readiness.get('qbank_count')} 条可提取数据资源，当前演示题组已映射 {readiness.get('imported_question_count')} 道结构化研修题，{readiness.get('training_record_count')} 条训练、带教和报告记录。",
                     "route": "/training",
                 },
                 {
@@ -414,7 +417,7 @@ class DashboardService:
                 },
                 {
                     "id": "challenge_benchmark",
-                    "name": "医生 AI 比拼基准",
+                "name": "医生研修对照基准",
                     "status": "audited" if event_counts.get("challenge_benchmark") else "sandbox_available",
                     "evidence": f"持久 challenge_benchmark 审计 {event_counts.get('challenge_benchmark', 0)} 条；沙盒自检会真实触发并恢复。",
                     "route": "/training?view=challenge",
@@ -428,23 +431,23 @@ class DashboardService:
                 },
                 {
                     "id": "patient_card_review",
-                    "name": "科普卡片医生审核闸门",
+                    "name": "报告辅助材料医生复核闸门",
                     "status": "ready" if card_kb.get("templates") else "partial",
-                    "evidence": f"卡片模板 {len(card_kb.get('templates', []))} 个；patient_card 审计 {event_counts.get('patient_card', 0)} 条，patient_card_approve 审计 {event_counts.get('patient_card_approve', 0)} 条。",
+                    "evidence": f"辅助材料模板 {len(card_kb.get('templates', []))} 个；patient_card 审计 {event_counts.get('patient_card', 0)} 条，patient_card_approve 审计 {event_counts.get('patient_card_approve', 0)} 条。",
                     "route": "/card",
                 },
                 {
                     "id": "provider_admission",
-                    "name": "用户 Provider 接入与样例级准入",
+                    "name": "用户智能服务接入与样例级准入",
                     "status": "provider_called" if admission_state.get("provider_called") else "rule_draft",
-                    "evidence": f"{admission_state.get('provider_name', 'Provider')} · Grade {admission_state.get('grade', 'NA')} · provider_called={bool(admission_state.get('provider_called'))}。",
+                    "evidence": f"{admission_state.get('provider_name', '智能服务')} · 等级 {admission_state.get('grade', 'NA')} · {'已完成真实调用' if admission_state.get('provider_called') else '规则草案'}。",
                     "route": "/models",
                 },
                 {
                     "id": "audit_safety",
                     "name": "审计与隐私边界",
                     "status": "ready" if audit_logs else "empty",
-                    "evidence": f"当前保存 {len(audit_logs)} 条摘要审计；接口和脚本不返回 API key、API base 明文或自由追问全文。",
+                    "evidence": f"当前保存 {len(audit_logs)} 条摘要审计；接口和脚本不返回一次性授权、接口地址明文或自由追问全文。",
                     "route": "/audit",
                 },
             ],
@@ -455,7 +458,7 @@ class DashboardService:
                 "configured": provider_configured,
                 "mode": provider_status.get("mode", "rule"),
                 "provider_declared": bool(provider_status.get("provider") and provider_status.get("provider") != "mock"),
-                "model": provider_status.get("model", "gpt-4o-mini"),
+                "model": "平台当前默认模型" if provider_configured else "未配置",
                 "self_test_logged": bool(provider_self_tests),
                 "self_test_count": len(provider_self_tests),
                 "self_test_verified": provider_self_test_passed,
@@ -471,46 +474,76 @@ class DashboardService:
                 {
                     "name": "总控验证",
                     "command": "python scripts\\verify_all.py",
-                    "covers": "后端闭环、Provider 体检、UI 路由、lint/build、真实图片资产、密钥扫描和状态文件漂移。",
+                    "covers": "后端闭环、智能服务体检、UI 路由、lint/build、真实图片资产、密钥扫描和状态文件漂移。",
                 },
                 {
                     "name": "演示闭环 smoke",
                     "command": "python scripts\\demo_smoke.py",
-                    "covers": "公开样例提交、Agent 辅导、挑战基准、报告训练、考试 Session、卡片审核和沙盒恢复。",
+                    "covers": "公开样例提交、带教辅导、挑战基准、报告训练、考试 Session、卡片审核和沙盒恢复。",
                 },
                 {
                     "name": "前端主图 smoke",
                     "command": "node scripts\\ui_smoke.mjs",
-                    "covers": "关键路由非空白、Live evidence、训练/报告/卡片关键主图真实加载。",
+                    "covers": "关键路由非空白、研修服务连接状态、训练/报告/卡片关键主图真实加载。",
                 },
                 {
-                    "name": "Provider 体检",
+                    "name": "智能服务体检",
                     "command": "python scripts\\provider_doctor.py",
-                    "covers": ".env 忽略状态、Provider diagnostics、Base URL 预检；默认不发送模型请求。",
+                    "covers": ".env 忽略状态、智能服务诊断、接口地址预检；默认不发送模型请求。",
                 },
                 {
-                    "name": "交付证据导出",
+                    "name": "演示状态导出",
                     "command": "python scripts\\export_delivery_report.py --output docs\\DELIVERY_EVIDENCE_REPORT.md",
                     "covers": "从当前后端 readiness、知识库和审计状态导出可交付 Markdown 证据包。",
                 },
             ],
             "current_boundaries": [
-                "平台定位是教学训练和医生审核前辅助，不作为独立诊断依据。",
-                "未配置 Provider 时会明确显示 rule/fallback，不伪装成真实模型推理。",
-                "模型准入是训练 Agent 接入前检查，不是批量临床评测或统计学评测。",
+                "平台定位是教学研修和医生复核前辅助，不作为独立诊断依据。",
+                "未配置智能服务时会明确显示规则草稿或本地预览，不伪装成真实模型推理。",
+                "模型准入是训练助手接入前检查，不是批量临床评测或统计学评测。",
                 "公开样例来自本地知识库映射和公开图像资产，只用于演示训练闭环。",
                 "本机上传图只用于受控预览或教学流转，不应包含真实患者身份信息。",
             ],
             "gaps": readiness.get("gaps", []),
             "safety_notice": SAFETY_NOTICE,
             "report_integrity": {
-                "source": "backend_runtime_state",
+                "source": "service_runtime_state",
                 "writes_state": False,
                 "secrets_included": False,
                 "api_key_returned": False,
                 "provider_base_returned": False,
             },
         }
+
+    def _public_coverage(self, coverage: object) -> dict[str, object]:
+        raw = coverage if isinstance(coverage, dict) else {}
+        return {
+            "source_file": raw.get("source_file", "real_sample_knowledge.json"),
+            "local_data_hint": "平台本地公开教学数据资源",
+            "total_records": raw.get("total_records", 0),
+            "mapped_question_count": raw.get("mapped_question_count", 0),
+            "asset_checked_count": raw.get("asset_checked_count", 0),
+            "asset_present_count": raw.get("asset_present_count", 0),
+            "missing_assets": raw.get("missing_assets", []),
+            "dataset_distribution": self._public_distribution(raw.get("dataset_distribution")),
+            "use_distribution": self._public_distribution(raw.get("use_distribution")),
+            "complexity_distribution": self._public_distribution(raw.get("complexity_distribution")),
+            "sample_ids": raw.get("sample_ids", []),
+            "coverage_note": "当前抽取本地公开教学样例构建演示级知识库；用于医师教学研修、报告辅助和模型准入，不代表完整数据集评测。",
+        }
+
+    def _public_distribution(self, items: object) -> list[dict[str, object]]:
+        if not isinstance(items, list):
+            return []
+        cleaned: list[dict[str, object]] = []
+        for index, item in enumerate(items, start=1):
+            if not isinstance(item, dict):
+                continue
+            cleaned.append({
+                "label": f"平台公开样例组 {index}",
+                "count": item.get("count", 0),
+            })
+        return cleaned
 
     def _provider_self_test_ok(self, audit_item: dict[str, object]) -> bool:
         metadata = audit_item.get("metadata")
@@ -590,7 +623,7 @@ class DashboardService:
                 "record_count": len(card_templates),
                 "sample_ids": card_templates[:4],
                 "used_by": ["科普卡片草稿", "医生审核闸门", "分享/打印锁"],
-                "proof": "模板 ID、视觉规则和免责声明会写入 patient_card 收据，审核通过后才解锁分享。",
+                "proof": "模板 ID、视觉规则和免责声明会写入 patient_card 收据，审核通过后才开放分享。",
                 "href": "/card",
                 "tone": "green" if card_templates else "amber",
             },

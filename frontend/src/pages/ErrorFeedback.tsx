@@ -153,7 +153,7 @@ export function ErrorFeedback({
 
 function buildReviewSnapshot(question: Question): SubmissionResponse {
   const wrongOption = question.options.find((option) => option !== question.answer) || question.answer
-  const errorTags = question.false_premise_flag ? ['错误前提', '证据不足'] : ['证据不足']
+  const errorTags = question.false_premise_flag ? ['过度推断', '证据不足'] : ['证据不足']
   const focusedFacts = question.atomic_trace.filter((fact) => !fact.supported || fact.skill_dimension === '证据不足识别')
   return {
     id: `review_${question.id}`,
@@ -165,7 +165,7 @@ function buildReviewSnapshot(question: Question): SubmissionResponse {
     error_tags: errorTags,
     fact_feedback: focusedFacts.length ? focusedFacts : question.atomic_trace,
     explanation: `复盘快照：${question.explanation} 请对照参考答案重新检查证据链。`,
-    next_recommendation: question.false_premise_flag ? '建议继续练习错误前提与证据不足判断题。' : '建议回到错题本，继续练习证据链表达。',
+    next_recommendation: question.false_premise_flag ? '建议继续练习报告纠错与证据不足判断题。' : '建议回到错题本，继续练习证据链表达。',
     created_at: new Date().toISOString(),
     profile_updated: false,
     doctor_review_required: true,

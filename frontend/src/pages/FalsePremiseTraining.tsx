@@ -30,7 +30,7 @@ export function FalsePremiseTraining({ onSubmission }: { onSubmission?: (submiss
   const question = questions[index % Math.max(questions.length, 1)] || mockQuestions.find((q) => q.false_premise_flag) || mockQuestions[0]
   const unsupportedFact = question.atomic_trace.find((fact) => !fact.supported)
   const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0
-  const apiSource = submission?.api_source === 'fallback' ? 'frontend fallback' : submission ? 'backend live' : '等待提交'
+  const apiSource = submission?.api_source === 'fallback' ? '本地预览' : submission ? '服务端已连接' : '等待提交'
 
   const submit = async () => {
     if (!selected || submission) return
@@ -58,9 +58,9 @@ export function FalsePremiseTraining({ onSubmission }: { onSubmission?: (submiss
     <div className="page-stack">
       <Card className="focus-band premise-hero">
         <div>
-          <span className="eyebrow">False premise guard</span>
-          <h2>错误前提训练靶场</h2>
-          <p>林知远医师先独立判断题干假设是否被图像支持，提交后才解锁答案、证据链和模型准入参考。</p>
+          <span className="eyebrow">前提鲁棒训练</span>
+          <h2>模型前提鲁棒评测样例</h2>
+          <p>先判断题干假设是否真的被图像支持；提交后再对照答案、证据链和复盘建议。</p>
         </div>
         <ShieldCheck size={42} />
       </Card>
@@ -88,23 +88,23 @@ export function FalsePremiseTraining({ onSubmission }: { onSubmission?: (submiss
       <div className="premise-training-grid">
         <Card className="image-panel">
           <SectionTitle eyebrow={question.source_dataset} title="公开内镜样例" />
-          <img className="endo-image" src={question.image_url || '/assets/synthetic-endoscopy-training.svg'} alt="错误前提训练内镜图像" />
+          <img className="endo-image" src={question.image_url || '/assets/real_samples/kv_cla820gl0s3nv071u4fgd7xgq.jpg'} alt="模型评测用内镜图像" />
           <p className="muted">{question.image_placeholder}</p>
           <div className="case-box">{question.case_summary}</div>
           <div className="tag-row">
             <Tag tone="blue">{question.body_part}</Tag>
             <Tag tone="amber">{question.difficulty}</Tag>
-            <Tag tone="red">错误前提</Tag>
+            <Tag tone="red">前提鲁棒</Tag>
           </div>
           <div className="source-note">{question.citation_note}</div>
         </Card>
 
         <Card>
-          <SectionTitle eyebrow={question.question_class} title={question.title} action={<Tag tone={submission ? 'green' : 'amber'}>{submission ? '已解锁' : '独立判断中'}</Tag>} />
+          <SectionTitle eyebrow={question.question_class} title={question.title} action={<Tag tone={submission ? 'green' : 'amber'}>{submission ? '已复盘' : '独立判断中'}</Tag>} />
           <p className="question-text">{question.question}</p>
           <div className="premise-box premise-locked">
             <AlertTriangle size={18} />
-            <span>{submission ? '已解锁题干前提审查结果。' : '提交前仅提示：先找图像证据，再判断题干是否越界；不要因为题干强叙述而默认成立。'}</span>
+            <span>{submission ? '题干前提审查结果已整理。' : '先找图像证据，再判断题干是否越界；不要因为题干语气肯定就默认成立。'}</span>
           </div>
           <div className="option-list">
             {question.options.map((option) => {
@@ -134,7 +134,7 @@ export function FalsePremiseTraining({ onSubmission }: { onSubmission?: (submiss
           </div>
           {submission ? (
             <div className={`result-box ${submission.is_correct ? 'correct' : 'wrong'}`}>
-              <strong>{submission.is_correct ? '识别成功' : '需要复盘错误前提'}</strong>
+              <strong>{submission.is_correct ? '识别成功' : '需要复盘过度推断'}</strong>
               <span>得分 {submission.score} · {submission.error_tags.join('、') || '无错因'}</span>
               <p>{submission.explanation}</p>
             </div>
@@ -159,7 +159,7 @@ export function FalsePremiseTraining({ onSubmission }: { onSubmission?: (submiss
             </>
           ) : (
             <div className="empty-state">
-              提交后解锁原子事实、证据不足原因和复盘建议。这个页面可作为“模型准入测试”的错误前提样例，也可作为医师训练题。
+              完成判断后，会在这里看到原子事实、证据不足原因和复盘建议。
             </div>
           )}
           <div className="tag-row">

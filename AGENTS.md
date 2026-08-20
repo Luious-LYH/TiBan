@@ -2,7 +2,7 @@
 
 ## Project Identity
 
-Project: **内镜智训Agent：面向消化道内镜医师培训的智能辅导平台**
+Project: **消化内镜研修与模型评测平台**
 
 This repository is for medical education, intelligent tutoring, explainable error feedback, and doctor-review-before-use assistance. It must never present itself as an autonomous clinical diagnosis system.
 
@@ -28,4 +28,3 @@ This repository is for medical education, intelligent tutoring, explainable erro
 - Keep API fields aligned with `03_系统需求规格与接口数据字典.md`.
 - Frontend API calls must include backend fallback behavior.
 - Backend must start with `uvicorn app.main:app --reload` from the `backend` directory.
-

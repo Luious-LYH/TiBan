@@ -4,134 +4,218 @@
   "title": "消化内镜进修医师",
   "department": "消化内镜中心",
   "hospital": "示范教学医院",
-  "training_stage": "进阶规范化训练第 3 周",
-  "training_goal": "在 4 周内提升证据边界、病灶属性判断和结构化报告表达能力",
-  "total_questions": 25,
-  "accuracy": 0.56,
-  "completed_today": 6,
-  "daily_target": 12,
+  "training_stage": "进阶规范化研修第 3 周",
+  "training_goal": "提升观察依据、病灶属性判断和结构化报告表达能力",
+  "total_questions": 70,
+  "accuracy": 0.51,
+  "completed_today": 50,
+  "daily_target": 50,
   "streak_days": 5,
   "favorite_questions": [
+    "public_real_endo_0_single",
+    "public_real_kv_17_judge",
+    "public_real_kv_34_multi",
     "q004",
-    "public_real_x1_0",
     "q020"
   ],
   "wrong_questions": [
+    "public_real_x1_3_multi",
+    "public_real_x1_0_report",
+    "public_real_endo_0_single",
+    "public_real_kv_17_qa",
+    "public_real_endo_2_multi",
+    "public_real_x1_2_multi",
+    "public_real_kv_34_multi",
+    "public_real_kv_0_single",
+    "public_real_x1_0_multi",
+    "public_real_kv_0",
+    "q011",
+    "public_real_x1_6",
+    "public_real_x1_3",
+    "public_real_x1_0",
     "q004",
-    "q005",
-    "q008",
-    "q013"
+    "q008"
   ],
   "skill_scores": {
-    "病灶识别": 78,
-    "部位定位": 76,
-    "属性判断": 64,
-    "数量判断": 67,
-    "事实组合": 68,
-    "证据不足识别": 47
+    "病灶识别": 88,
+    "部位定位": 94,
+    "属性判断": 96,
+    "数量判断": 65,
+    "事实组合": 96,
+    "证据不足识别": 96
   },
   "weakness_tags": [
-    "黏膜观察",
+    "问答评分",
+    "一图多问",
+    "过度诊断",
+    "病变属性",
+    "观察依据不足",
     "证据不足",
-    "错误前提",
-    "报告安全"
+    "过度推断"
   ],
   "recent_errors": [
-    "q004",
-    "q003",
-    "q002",
-    "q001",
-    "q005",
-    "q008",
-    "q013"
+    "public_real_x1_3_multi",
+    "public_real_x1_0_report",
+    "public_real_endo_0_single",
+    "public_real_kv_17_qa",
+    "public_real_endo_2_multi",
+    "public_real_x1_2_multi",
+    "public_real_endo_1_multi",
+    "public_real_kv_17_judge"
   ],
   "recommended_question_classes": [
-    "错误前提",
-    "复杂组合",
-    "报告纠错"
+    "报告纠错",
+    "一图多问"
   ],
   "growth_trend": [
     {
-      "date": "05-27",
-      "accuracy": 48,
-      "evidence": 41,
-      "report": 58
+      "date": "2026-07-19",
+      "accuracy": 52,
+      "evidence": 96,
+      "report": 96
     },
     {
-      "date": "05-28",
+      "date": "2026-07-19",
+      "accuracy": 52,
+      "evidence": 96,
+      "report": 96
+    },
+    {
+      "date": "2026-07-19",
       "accuracy": 51,
-      "evidence": 43,
-      "report": 61
+      "evidence": 96,
+      "report": 96
     },
     {
-      "date": "05-29",
-      "accuracy": 54,
-      "evidence": 45,
-      "report": 63
+      "date": "2026-07-19",
+      "accuracy": 51,
+      "evidence": 96,
+      "report": 96
     },
     {
-      "date": "05-30",
-      "accuracy": 55,
-      "evidence": 46,
-      "report": 65
+      "date": "2026-07-20",
+      "accuracy": 51,
+      "evidence": 96,
+      "report": 96
     },
     {
-      "date": "06-01",
-      "accuracy": 56,
-      "evidence": 47,
-      "report": 68
+      "date": "2026-07-20",
+      "accuracy": 51,
+      "evidence": 96,
+      "report": 96
+    },
+    {
+      "date": "2026-07-20",
+      "accuracy": 51,
+      "evidence": 96,
+      "report": 96
+    },
+    {
+      "date": "2026-07-20",
+      "accuracy": 51,
+      "evidence": 96,
+      "report": 96
     }
   ],
   "training_records": [
     {
-      "date": "2026-06-02",
-      "question_id": "exam_seed_session",
-      "score": 67,
-      "result": "考试Session 3题/67%"
+      "date": "2026-07-20",
+      "question_id": "public_real_endo_0_report",
+      "score": 0,
+      "result": "带教辅导"
     },
     {
-      "date": "2026-06-02",
-      "question_id": "q004",
-      "score": 35,
+      "date": "2026-07-20",
+      "question_id": "public_real_x1_6_qa",
+      "score": 0,
+      "result": "带教辅导"
+    },
+    {
+      "date": "2026-07-20",
+      "question_id": "public_real_x1_0_multi",
+      "score": 0,
+      "result": "带教辅导"
+    },
+    {
+      "date": "2026-07-20",
+      "question_id": "public_real_kv_34_single",
+      "score": 0,
+      "result": "带教辅导"
+    },
+    {
+      "date": "2026-07-19",
+      "question_id": "public_real_kv_34_multi",
+      "score": 0,
+      "result": "带教辅导"
+    },
+    {
+      "date": "2026-07-19",
+      "question_id": "public_real_x1_3_multi",
+      "score": 0,
       "result": "待复盘"
     },
     {
-      "date": "2026-06-02",
-      "question_id": "public_real_x1_0",
-      "score": 80,
-      "result": "公开样例完成"
+      "date": "2026-07-19",
+      "question_id": "public_real_x1_3_report",
+      "score": 0,
+      "result": "带教辅导"
     },
     {
-      "date": "2026-06-01",
-      "question_id": "q020",
-      "score": 92,
-      "result": "正确"
+      "date": "2026-07-19",
+      "question_id": "public_real_x1_2_multi",
+      "score": 0,
+      "result": "带教辅导"
+    },
+    {
+      "date": "2026-07-19",
+      "question_id": "public_real_x1_2_multi",
+      "score": 0,
+      "result": "带教辅导"
+    },
+    {
+      "date": "2026-07-19",
+      "question_id": "public_real_kv_34_qa",
+      "score": 0,
+      "result": "带教辅导"
+    },
+    {
+      "date": "2026-07-19",
+      "question_id": "public_real_kv_34_qa",
+      "score": 0,
+      "result": "带教辅导"
+    },
+    {
+      "date": "2026-07-19",
+      "question_id": "public_real_kv_34_qa",
+      "score": 0,
+      "result": "带教辅导"
     }
   ],
   "exam_sessions": [
     {
       "id": "exam_session_seed",
       "session_id": "exam_seed_session",
-      "date": "2026-06-02",
+      "date": "2026-06-05",
       "answered_count": 3,
       "correct_count": 2,
       "accuracy": 67,
-      "average_score": 67,
+      "average_score": 74,
       "wrong_questions": [
         "q004"
       ],
       "elapsed_seconds": 418,
       "finished_reason": "manual_submit",
       "profile_updated": true,
-      "created_at": "2026-06-02T12:36:20.000000Z"
+      "created_at": "2026-06-05T12:36:20.000000Z"
     }
   ],
   "question_type_coverage": {
-    "单选": 16,
+    "单选": 18,
     "多选": 4,
     "判断": 3,
-    "问答评分": 1,
-    "报告修改": 1
+    "问答评分": 2,
+    "报告修改": 30,
+    "带教追问": 90
   },
-  "updated_at": "2026-06-02T12:35:59.503322Z"
+  "updated_at": "2026-07-20T01:17:39.972965Z"
 }

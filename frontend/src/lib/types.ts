@@ -165,7 +165,7 @@ export type Question = {
   answer: string
   explanation: string
   complexity: 1 | 2 | 3
-  question_class: '基础识别' | '部位定位' | '病变属性' | '复杂组合' | '错误前提' | '报告纠错' | '一图多问'
+  question_class: '基础识别' | '部位定位' | '病变属性' | '报告纠错' | '一图多问'
   source_type: '公开基础问答' | '公开复杂问答' | '公开综合基准' | '医院合作中文病例' | '教学样例'
   atomic_trace: AtomicFact[]
   false_premise_flag: boolean
@@ -867,6 +867,119 @@ export type ImageUploadResponse = {
   audit_logged: boolean
   audit_log_id?: string | null
   doctor_review_required: boolean
+  safety_notice: string
+  created_at: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type MetricValue = {
+  value: number
+  source: string
+  trend?: string
+}
+
+export type ModelEvaluationCard = {
+  id: string
+  display_name: string
+  group: 'domain' | 'general' | 'medical' | 'closed' | string
+  group_label: string
+  status: string
+  active: boolean
+  metrics: Record<string, MetricValue>
+  recommendation: string
+  provenance: {
+    label: string
+    sample_scope: string
+    public_label_only: boolean
+  }
+}
+
+export type ModelEvaluationPayload = {
+  summary: {
+    title: string
+    headline: string
+    sample_scope: string
+    model_count: number
+    top_model_id: string
+    top_model_name: string
+    updated_at: string
+  }
+  groups: { id: string; label: string; description: string }[]
+  metrics: string[]
+  items: ModelEvaluationCard[]
+  radar: Record<string, string | number>[]
+  complexity_curve: Record<string, string | number>[]
+  attribute_breakdown: Record<string, string | number>[]
+  safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type CustomModelEvaluationResult = {
+  id: string
+  display_name: string
+  model: string
+  connection_status?: string
+  evaluation_mode?: string
+  provider_called?: boolean
+  metrics: Record<string, number>
+  summary: string
+  status_label: string
+  provider_status?: ProviderStatus
+  key_persisted?: boolean
+  full_response_persisted?: boolean
+  privacy_status?: string
+  safety_notice: string
+  created_at: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type PracticeState = {
+  profile: LearnerProfile
+  progress: {
+    completed: number
+    target: number
+    percent: number
+    review_queue: number
+  }
+  wrong_questions: string[]
+  favorite_questions: string[]
+  next_plan: { label: string; count: number; reason: string }[]
+  question_types: { name: string; summary: string; tone: string }[]
+  safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type PracticeQuestionsPayload = {
+  items: Question[]
+  total: number
+  pool_total?: number
+  pool_seed?: number | null
+  available_type_counts?: Record<string, number>
+  question_types: PracticeState['question_types']
+  safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type PracticeSubmitResponse = SubmissionResponse & {
+  profile?: LearnerProfile
+  practice_summary?: {
+    result: string
+    profile_delta: string
+    next_step: string
+  }
+}
+
+export type ReportRevisionResponse = {
+  id: string
+  revised_report: string
+  instruction: string
+  judge: ReportJudge
+  generation_mode?: GenerationMode | string
+  provider_status?: ProviderStatus
+  generation_info?: Record<string, unknown>
+  source_trace?: SourceTraceItem[]
+  key_persisted?: boolean
+  privacy_status?: string
   safety_notice: string
   created_at: string
   api_source?: 'backend' | 'fallback'

@@ -1,3 +1,9 @@
+# 归档提示
+
+本文包含 v1/v2 技术演进内容，保留作内部追溯，不作为 v3 展示入口。v3 对外架构和接口请以 `README.md` 与 `docs/API_SPEC.md` 为准。
+
+---
+
 # ARCHITECTURE
 
 ## 四层结构
@@ -22,7 +28,7 @@ flowchart TD
 - `question_service`: 题库读取和筛选。
 - `grading_service`: 规则评分、错因标签、atomic feedback、下一题推荐。
 - `tutor_orchestrator`: 提示、讲解、当前题 chat 和挑战基准；chat 可选调用 Provider 并回灌训练标签，`challenge_benchmark` 只在医师提交后调用，Provider 失败时回退公开标注 fallback，只写审计不重复更新画像。
-- `report_service`: 报告草稿、报告修改评分和科普卡片；报告输出 `source_trace`、`evidence_ledger`、`generation_mode`，上传图片会把 `image_upload` 审计 ID/hash/尺寸绑定回报告证据台账，科普卡片生成草稿并通过同一 `card_id` 审核解锁，输出 `review_status`、`share_status` 和审核步骤。
+- `report_service`: 报告草稿、报告修改评分和科普卡片；报告输出 `source_trace`、`evidence_ledger`、`generation_mode`，上传图片会把 `image_upload` 审计 ID/hash/尺寸绑定回报告证据台账，科普卡片生成草稿并通过同一 `card_id` 完成审核开放，输出 `review_status`、`share_status` 和审核步骤。
 - `llm_provider`: OpenAI-compatible `/chat/completions` 适配器；只允许公开样例图片和 `runtime/uploads` 受控图片进入视觉输入。
 - `skill_registry`: 受控技能注册和调用。
 - `memory_service`: 学员画像、错题、能力分更新。
@@ -37,7 +43,7 @@ flowchart TD
 - `/feedback`: 原子事实错因反馈
 - `/false-premise`: 错误前提训练
 - `/report`: 报告中心，支持公开样例、图片上传、结构化草稿、来源追踪和报告修改评分
-- `/card`: 科普卡片，支持草稿生成、医生审核闸门、审核后打印/分享解锁
+- `/card`: 科普卡片，支持草稿生成、医生审核闸门、审核后开放打印/分享
 - `/models`: 模型准入与测试中心，展示后端 Provider 状态、样例级 blind probe evidence、对齐状态和规则草案
 - `/skills`: Skills 中心
 - `/audit`: 审计日志

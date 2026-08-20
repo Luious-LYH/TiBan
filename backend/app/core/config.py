@@ -5,8 +5,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-APP_NAME = "endo-zhixun-agent-backend"
-SAFETY_NOTICE = "仅供教学训练或医生审核前辅助，不作为独立诊断依据。"
+APP_NAME = "消化内镜研修与模型评测平台"
+SAFETY_NOTICE = "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
 DEMO_LEARNER_ID = "demo_learner"
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -18,10 +18,28 @@ UPLOAD_DIR = BACKEND_DIR / "runtime" / "uploads"
 load_dotenv(PROJECT_DIR / ".env")
 load_dotenv(BACKEND_DIR / ".env")
 
-LLM_PROVIDER = os.getenv("LLM_PROVIDER", "mock")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").rstrip("/")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
+def _env_first(*names: str, default: str = "") -> str:
+    for name in names:
+        value = os.getenv(name)
+        if value is not None and value.strip():
+            return value.strip()
+    return default
+
+
+LLM_PROVIDER = _env_first("LLM_PROVIDER", "OPENAI_PROVIDER", default="openai_compatible")
+LLM_BASE_URL = _env_first("LLM_BASE_URL", "OPENAI_BASE_URL").rstrip("/")
+LLM_API_KEY = _env_first("LLM_API_KEY", "OPENAI_API_KEY")
+LLM_MODEL = _env_first("LLM_MODEL", "OPENAI_MODEL", default="gpt-5.6-sol")
+_reasoning_effort_raw = _env_first("model_reasoning_effort", "LLM_MODEL_REASONING_EFFORT", "MODEL_REASONING_EFFORT")
+LLM_MODEL_REASONING_EFFORT = {
+    "低": "low",
+    "中": "medium",
+    "高": "high",
+}.get(_reasoning_effort_raw.strip().lower(), _reasoning_effort_raw.strip().lower())
+LLM_FALLBACK_PROVIDER = _env_first("LLM_FALLBACK_PROVIDER", default="openai_compatible")
+LLM_FALLBACK_BASE_URL = _env_first("LLM_FALLBACK_BASE_URL").rstrip("/")
+LLM_FALLBACK_API_KEY = _env_first("LLM_FALLBACK_API_KEY")
+LLM_FALLBACK_MODEL = _env_first("LLM_FALLBACK_MODEL", default=LLM_MODEL)
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
 
 

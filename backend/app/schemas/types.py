@@ -28,7 +28,7 @@ class Question(BaseModel):
     answer: str
     explanation: str
     complexity: Literal[1, 2, 3]
-    question_class: Literal["基础识别", "部位定位", "病变属性", "复杂组合", "错误前提", "报告纠错", "一图多问"]
+    question_class: Literal["基础识别", "部位定位", "病变属性", "报告纠错", "一图多问"]
     source_type: Literal["公开基础问答", "公开复杂问答", "公开综合基准", "医院合作中文病例", "教学样例"]
     atomic_trace: list[AtomicFact]
     false_premise_flag: bool
@@ -138,6 +138,9 @@ class TutorChatRequest(BaseModel):
     question_id: str
     message: str
     learner_id: str = "demo_learner"
+    selected_answer: str | None = None
+    display_model_name: str | None = None
+    annotated_image_data_url: str | None = None
 
 
 class TutorChatResponse(BaseModel):
@@ -183,11 +186,11 @@ class LearnerProfile(BaseModel):
     department: str = "消化内镜中心"
     hospital: str = "示范教学医院"
     training_stage: str = "进阶规范化训练"
-    training_goal: str = "提升内镜图像观察、证据边界与报告表达能力"
+    training_goal: str = "提升内镜图像观察、观察依据与报告表达能力"
     total_questions: int
     accuracy: float
     completed_today: int = 6
-    daily_target: int = 12
+    daily_target: int = 50
     streak_days: int = 5
     favorite_questions: list[str] = Field(default_factory=list)
     wrong_questions: list[str] = Field(default_factory=list)
@@ -370,7 +373,7 @@ class ModelAdmissionTestRequest(BaseModel):
     api_key: str | None = None
     model: str | None = None
     selected_sample_ids: list[str] = Field(default_factory=list)
-    test_focus: list[str] = Field(default_factory=lambda: ["基础识别", "错误前提", "报告安全"])
+    test_focus: list[str] = Field(default_factory=lambda: ["基础识别", "前提鲁棒", "报告安全"])
 
 
 class ProviderRequestPreviewRequest(BaseModel):
@@ -379,7 +382,7 @@ class ProviderRequestPreviewRequest(BaseModel):
     api_key_present: bool = False
     model: str | None = None
     selected_sample_ids: list[str] = Field(default_factory=list)
-    test_focus: list[str] = Field(default_factory=lambda: ["基础识别", "错误前提", "报告安全"])
+    test_focus: list[str] = Field(default_factory=lambda: ["基础识别", "前提鲁棒", "报告安全"])
     preview_mode: Literal["text_self_test", "visual_self_test", "admission"] = "admission"
 
 

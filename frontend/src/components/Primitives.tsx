@@ -1,12 +1,12 @@
-import type { HTMLAttributes, ReactNode } from 'react'
+import { forwardRef, type HTMLAttributes, type ReactNode } from 'react'
 
 type CardProps = HTMLAttributes<HTMLElement> & {
   children: ReactNode
 }
 
-export function Card({ children, className = '', ...props }: CardProps) {
-  return <section {...props} className={`card ${className}`}>{children}</section>
-}
+export const Card = forwardRef<HTMLElement, CardProps>(function Card({ children, className = '', ...props }, ref) {
+  return <section ref={ref} {...props} className={`card ${className}`}>{children}</section>
+})
 
 export function SectionTitle({
   eyebrow,

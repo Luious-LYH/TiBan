@@ -58,15 +58,87 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
 
 
 class LLMProvider:
+    def _local_demo_provider_paths(self) -> list[Path]:
+        return [
+            config.PROJECT_DIR / ".demo_llm_providers.json",
+            config.BACKEND_DIR / ".demo_llm_providers.json",
+        ]
+
+    def _local_demo_provider_entries(self) -> list[dict[str, Any]]:
+        for path in self._local_demo_provider_paths():
+            if not path.exists():
+                continue
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if isinstance(payload, list):
+                entries = payload
+            elif isinstance(payload, dict):
+                entries = payload.get("providers", [])
+            else:
+                entries = []
+            return [entry for entry in entries if isinstance(entry, dict)]
+        return []
+
+    def _local_demo_provider_attempts(self) -> list[dict[str, str]]:
+        attempts: list[dict[str, str]] = []
+        for entry in self._local_demo_provider_entries():
+            base_url = self._normalize_base_url(str(entry.get("base_url") or entry.get("api_base") or ""))
+            api_key = str(entry.get("api_key") or entry.get("key") or "").strip()
+            model = str(entry.get("model") or config.LLM_MODEL or "gpt-5.6-sol").strip()
+            provider = str(entry.get("provider") or "openai_compatible").strip()
+            if provider and base_url and self._is_usable_api_key(api_key) and model and provider != "mock":
+                attempts.append(
+                    {
+                        "provider": provider,
+                        "base_url": base_url,
+                        "api_key": api_key,
+                        "model": model,
+                    }
+                )
+        return attempts
+
+    def _local_demo_provider_hosts(self) -> set[str]:
+        hosts: set[str] = set()
+        for attempt in self._local_demo_provider_attempts():
+            try:
+                parsed = urllib.parse.urlsplit(attempt["base_url"])
+            except ValueError:
+                continue
+            hostname = self._parsed_hostname(parsed)
+            if hostname:
+                hosts.add(hostname)
+        return hosts
+
     def status(self) -> dict[str, Any]:
-        configured = bool(config.LLM_BASE_URL and config.LLM_API_KEY and config.LLM_PROVIDER != "mock")
+        demo_attempts = self._local_demo_provider_attempts()
+        demo_configured = bool(demo_attempts)
+        primary_configured = bool(
+            config.LLM_BASE_URL
+            and self._is_usable_api_key(config.LLM_API_KEY)
+            and config.LLM_PROVIDER != "mock"
+        )
+        fallback_configured = bool(
+            config.LLM_FALLBACK_BASE_URL
+            and self._is_usable_api_key(config.LLM_FALLBACK_API_KEY)
+            and config.LLM_FALLBACK_PROVIDER != "mock"
+        )
+        configured = demo_configured or primary_configured or fallback_configured
+        active_provider = demo_attempts[0]["provider"] if demo_configured else config.LLM_PROVIDER if primary_configured else config.LLM_FALLBACK_PROVIDER
+        active_model = demo_attempts[0]["model"] if demo_configured else config.LLM_MODEL if primary_configured else config.LLM_FALLBACK_MODEL
         return {
             "configured": configured,
-            "provider": config.LLM_PROVIDER,
-            "base_url_configured": bool(config.LLM_BASE_URL),
-            "api_key_configured": bool(config.LLM_API_KEY),
-            "model": config.LLM_MODEL,
+            "provider": active_provider,
+            "base_url_configured": bool(demo_configured or config.LLM_BASE_URL or config.LLM_FALLBACK_BASE_URL),
+            "api_key_configured": bool(
+                demo_configured
+                or self._is_usable_api_key(config.LLM_API_KEY)
+                or self._is_usable_api_key(config.LLM_FALLBACK_API_KEY)
+            ),
+            "model": active_model,
             "mode": "provider" if configured else "rule",
+            "fallback_provider_configured": fallback_configured,
             "private_host_allowlist_configured": bool(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
             "private_host_allowlist_count": len(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
             "safety_notice": "真实 provider 仅用于公开教学样例和医生审核前辅助，不上传真实患者身份信息。",
@@ -210,14 +282,121 @@ class LLMProvider:
         model: str | None = None,
         provider: str | None = None,
     ) -> LLMResult:
-        effective_provider = provider or config.LLM_PROVIDER
-        effective_base_url = self._normalize_base_url(base_url if base_url is not None else config.LLM_BASE_URL)
-        effective_api_key = api_key if api_key is not None else config.LLM_API_KEY
-        effective_model = model or config.LLM_MODEL
         image_data = self._image_data_url(image_path) if image_path else None
         image_attached = bool(image_data)
-        if not (effective_base_url and effective_api_key and effective_provider != "mock"):
-            return LLMResult(False, "", "rule", effective_provider, effective_model, "provider_not_configured", image_attached=image_attached)
+        attempts = self._provider_attempts(base_url=base_url, api_key=api_key, model=model, provider=provider)
+        if not attempts:
+            return LLMResult(False, "", "rule", provider or config.LLM_PROVIDER, model or config.LLM_MODEL, "provider_not_configured", image_attached=image_attached)
+
+        last_result: LLMResult | None = None
+        for attempt in attempts:
+            result = self._chat_once(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                image_data=image_data,
+                image_attached=image_attached,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                effective_provider=attempt["provider"],
+                effective_base_url=attempt["base_url"],
+                effective_api_key=attempt["api_key"],
+                effective_model=attempt["model"],
+            )
+            if result.ok:
+                return result
+            last_result = result
+        return last_result or LLMResult(False, "", "rule", provider or config.LLM_PROVIDER, model or config.LLM_MODEL, "provider_not_configured", image_attached=image_attached)
+
+    def _provider_attempts(
+        self,
+        *,
+        base_url: str | None,
+        api_key: str | None,
+        model: str | None,
+        provider: str | None,
+    ) -> list[dict[str, str]]:
+        explicit_provider_requested = bool((base_url or "").strip() or (api_key or "").strip())
+        candidates: list[dict[str, str | None]] = []
+        if explicit_provider_requested:
+            candidates.append(
+                {
+                    "provider": provider or config.LLM_PROVIDER,
+                    "base_url": self._normalize_base_url(base_url or ""),
+                    "api_key": api_key or "",
+                    "model": model or config.LLM_MODEL,
+                }
+            )
+        else:
+            candidates.extend(self._local_demo_provider_attempts())
+        candidates.extend(
+            [
+                {
+                    "provider": provider or config.LLM_PROVIDER,
+                    "base_url": self._normalize_base_url(config.LLM_BASE_URL),
+                    "api_key": config.LLM_API_KEY,
+                    "model": model or config.LLM_MODEL,
+                },
+                {
+                    "provider": config.LLM_FALLBACK_PROVIDER,
+                    "base_url": self._normalize_base_url(config.LLM_FALLBACK_BASE_URL),
+                    "api_key": config.LLM_FALLBACK_API_KEY,
+                    "model": config.LLM_FALLBACK_MODEL,
+                },
+            ]
+        )
+        attempts: list[dict[str, str]] = []
+        seen: set[tuple[str, str, str, str]] = set()
+        for candidate in candidates:
+            provider_value = str(candidate["provider"] or "")
+            base_value = str(candidate["base_url"] or "")
+            key_value = str(candidate["api_key"] or "")
+            model_value = str(candidate["model"] or "")
+            if not (provider_value and base_value and self._is_usable_api_key(key_value) and provider_value != "mock"):
+                continue
+            fingerprint = (provider_value, base_value, key_value, model_value)
+            if fingerprint in seen:
+                continue
+            seen.add(fingerprint)
+            attempts.append({
+                "provider": provider_value,
+                "base_url": base_value,
+                "api_key": key_value,
+                "model": model_value,
+            })
+        return attempts
+
+    def _is_usable_api_key(self, value: str | None) -> bool:
+        key = str(value or "").strip()
+        if not key:
+            return False
+        lowered = key.lower()
+        if lowered.startswith(("http://", "https://")):
+            return False
+        placeholders = {
+            "sk-****",
+            "your-api-key",
+            "your_api_key",
+            "api-key",
+            "apikey",
+            "test",
+            "demo",
+        }
+        return lowered not in placeholders
+
+    def _chat_once(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        image_data: str | None,
+        image_attached: bool,
+        temperature: float,
+        max_tokens: int,
+        effective_provider: str,
+        effective_base_url: str,
+        effective_api_key: str,
+        effective_model: str,
+    ) -> LLMResult:
 
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
         user_content: str | list[dict[str, Any]]
@@ -236,6 +415,8 @@ class LLMProvider:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        if config.LLM_MODEL_REASONING_EFFORT:
+            body["model_reasoning_effort"] = config.LLM_MODEL_REASONING_EFFORT
         try:
             started = time.perf_counter()
             last_error = "provider_error"
@@ -473,7 +654,7 @@ class LLMProvider:
             ipaddress.ip_address(canonical)
             return False
         except ValueError:
-            return canonical in config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST
+            return canonical in config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST or canonical in self._local_demo_provider_hosts()
 
     def _is_allowlisted_private_address(self, address: ipaddress._BaseAddress) -> bool:
         if self._is_metadata_address(address):

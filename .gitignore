@@ -3,6 +3,7 @@ dist/
 __pycache__/
 *.pyc
 .env
+.demo_llm_providers.json
 .venv/
 backend/app/data/*.tmp
 backend/runtime/

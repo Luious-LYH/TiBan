@@ -61,7 +61,7 @@ class SkillRegistry:
             question = question_service.get_question(str(payload.get("question_id", "q005")), request.learner_id)
             result = {
                 "false_premise": question.false_premise_flag,
-                "message": "该题包含错误前提或证据不足训练。" if question.false_premise_flag else "该题未标记为错误前提题。",
+                "message": "该题包含过度推断或证据不足训练。" if question.false_premise_flag else "该题未标记为过度推断题。",
                 "atomic_trace": [fact.model_dump() for fact in question.atomic_trace],
                 "doctor_review_required": True,
                 "safety_notice": SAFETY_NOTICE,
@@ -214,7 +214,7 @@ class SkillRegistry:
                 "source_type": "tutor_service",
                 "label": "Tutor 编排服务",
                 "used": True,
-                "detail": "来自当前题、原子事实和安全边界。",
+                "detail": "来自当前题、原子事实和复核边界。",
             }]
         if result.get("log_id"):
             return [{
@@ -236,7 +236,7 @@ class SkillRegistry:
             "feedback": [{"label": "查看错因复盘", "href": "/feedback"}],
             "report": [{"label": "进入报告训练", "href": "/report"}],
             "card": [{"label": "进入科普卡片审核", "href": "/card"}],
-            "safety": [{"label": "进入错误前提训练", "href": "/false-premise"}],
+            "safety": [{"label": "进入模型前提鲁棒评测", "href": "/models"}],
             "audit": [{"label": "查看审计日志", "href": "/audit"}],
         }
         return action_map.get(category, [{"label": "返回训练中心", "href": "/training"}])

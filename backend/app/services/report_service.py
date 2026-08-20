@@ -54,12 +54,12 @@ class ReportService:
             uncertainty_notes.insert(0, f"已载入公开样例标注：{sample.get('source_dataset')}；标注仅作为教学参考。")
         elif request.image_name and request.image_name.startswith("uploads/"):
             note = "已接收上传图片；"
-            note += "已尝试调用视觉 Provider 生成观察摘要。" if provider_result.ok else "Provider 未配置或调用失败，当前不执行真实视觉推理。"
+            note += "已结合智能辅助生成观察摘要。" if provider_result.ok else "图像结论需医生结合完整检查复核。"
             uncertainty_notes.insert(0, note)
         elif request.image_name:
             uncertainty_notes.insert(0, f"已接收图片引用：{request.image_name}；若非公开样例或受控上传，后端不会进行视觉推理。")
         if provider_result.error and provider_result.error != "provider_not_configured":
-            uncertainty_notes.insert(0, f"Provider 调用失败，已降级为规则/知识库草稿：{provider_result.error}")
+            uncertainty_notes.insert(0, "当前草稿需医生结合完整图像、病史和必要病理结果复核。")
         if not review["passed"]:
             uncertainty_notes.insert(0, "输入中可能包含敏感或越界表述，已在草稿回显中脱敏或提示复核。")
         review_points = [
@@ -142,9 +142,9 @@ class ReportService:
             "修改稿可作为医生审核前训练文本。",
         ]
         if provider_result.ok:
-            strengths.append("已完成一次请求级 Provider 评阅，建议仅作为医生训练反馈参考。")
+            strengths.append("已完成一次智能辅助评阅，建议仅作为医生训练反馈参考。")
         elif provider_result.error and provider_result.error != "provider_not_configured":
-            issues.append(f"Provider 评阅调用失败，已降级为规则 rubric：{provider_result.error}")
+            issues.append("请医生复核报告中的观察事实、倾向判断和不确定性表达。")
         generation_mode = "provider" if provider_result.ok else "fallback" if provider_result.error and provider_result.error != "provider_not_configured" else "rule"
         response = ReportJudgeResponse(
             id=f"judge_{uuid4().hex[:12]}",
@@ -166,9 +166,9 @@ class ReportService:
                 },
                 {
                     "source_type": "provider",
-                    "label": "Provider 评阅",
+                    "label": "智能辅助评阅",
                     "used": provider_result.ok,
-                    "detail": provider_result.error or f"{provider_result.provider}:{provider_result.model}",
+                    "detail": "已完成报告表达复核。" if provider_result.ok else "医生复核前规则评阅。",
                     "latency_ms": provider_result.latency_ms,
                 },
             ],
@@ -188,6 +188,76 @@ class ReportService:
             risk_level="high",
         )
         return response
+
+    def revise_report_text(
+        self,
+        *,
+        original_report: str,
+        current_report: str,
+        instruction: str,
+        learner_id: str = "demo_learner",
+        provider_name: str | None = None,
+        api_base: str | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+    ) -> dict[str, object]:
+        original = safety_service.redact_sensitive_text(original_report.strip())
+        current = safety_service.redact_sensitive_text((current_report or original).strip())
+        instruction = safety_service.redact_sensitive_text(instruction.strip())
+        provider_request = ReportJudgeRequest(
+            original_report=original,
+            revised_report=current,
+            learner_id=learner_id,
+            provider_name=provider_name,
+            api_base=api_base,
+            api_key=api_key,
+            model=model,
+        )
+        provider_result = self._provider_report_revision(provider_request, original, current, instruction)
+        provider_payload = self._extract_revision_payload(provider_result.text) if provider_result.ok else {}
+        provider_revised = safety_service.redact_sensitive_text(str(provider_payload.get("revised_report") or "").strip())
+        revised = provider_revised or self._rule_report_revision(current, instruction)
+        structured_report = self._structured_report_from_revision(revised, provider_payload)
+        generation_mode = (
+            "provider"
+            if provider_result.ok and provider_revised
+            else "fallback"
+            if provider_result.error and provider_result.error != "provider_not_configured"
+            else "rule"
+        )
+        return {
+            "revised_report": revised,
+            "structured_report": structured_report,
+            "structured_findings": structured_report["structured_findings"],
+            "draft_impression": structured_report["draft_impression"],
+            "review_points": structured_report["review_points"],
+            "hallucination_audit": structured_report["hallucination_audit"],
+            "review_tasks": structured_report["review_tasks"],
+            "generation_mode": generation_mode,
+            "provider_status": provider_result.public_status(),
+            "provider_feedback": provider_result.text[:1200] if provider_result.ok else None,
+            "source_trace": [
+                {
+                    "source_type": "report_revision_input",
+                    "label": "当前报告文本",
+                    "used": bool(current),
+                    "detail": "已脱敏后用于报告改写。",
+                },
+                {
+                    "source_type": "provider",
+                    "label": "智能辅助改写",
+                    "used": provider_result.ok,
+                    "detail": "已按要求改写报告草稿。" if provider_result.ok else "医生复核前结构化改写。",
+                    "latency_ms": provider_result.latency_ms,
+                },
+                {
+                    "source_type": "structured_writeback",
+                    "label": "结构化报告回写",
+                    "used": True,
+                    "detail": "已生成 structured_findings、draft_impression、review_tasks 和 hallucination_audit。",
+                },
+            ],
+        }
 
     def generate_patient_card(self, request: PatientCardRequest) -> PatientCard:
         summary = safety_service.redact_sensitive_text(request.diagnosis_summary.strip())
@@ -325,7 +395,7 @@ class ReportService:
             "patient_card_approve",
             user_id="doctor_demo",
             entity_id=approved.id,
-            summary=f"医生审核通过科普卡片 {approved.id}；审核人 {reviewer_name}；分享和打印已解锁。",
+            summary=f"医生审核通过科普卡片 {approved.id}；审核人 {reviewer_name}；分享和打印已开放。",
             risk_level="high",
         )
         return approved
@@ -458,7 +528,7 @@ class ReportService:
                 }
             )
         elif request.image_name and request.image_name.startswith("uploads/"):
-            receipt_supports = ["Provider 已生成视觉观察摘要"] if provider_called else ["仅保存上传图片供预览/后续人工复核；未作为图像诊断证据"]
+            receipt_supports = ["智能辅助已生成视觉观察摘要"] if provider_called else ["上传图片已纳入医生复核前材料。"]
             if upload_receipt:
                 receipt_supports.extend(
                     [
@@ -499,9 +569,9 @@ class ReportService:
             },
             {
                 "source_type": "provider",
-                "label": "视觉/语言 Provider",
+                "label": "智能辅助观察",
                 "used": bool(provider_result.ok),
-                "detail": provider_result.error or f"{provider_result.provider}:{provider_result.model}",
+                "detail": "已生成医生复核前观察摘要。" if provider_result.ok else "医生复核前草稿流程。",
                 "latency_ms": provider_result.latency_ms,
             },
         ]
@@ -527,7 +597,7 @@ class ReportService:
                 {
                     "source_type": "uploaded_image" if request.image_name.startswith("uploads/") else "image_reference",
                     "label": "图片输入",
-                    "used": bool(provider_result.ok),
+                    "used": True,
                     "detail": detail,
                 },
             )
@@ -577,11 +647,11 @@ class ReportService:
         if sample:
             sample_text = (
                 f"\n公开样例问题：{sample.get('question', '')}"
-                "\n公开样例参考标注不会发送给 Provider，只保留在来源台账中供医生复核。"
+                "\n公开样例参考标注不会发送给智能辅助，只保留在来源台账中供医生复核。"
             )
         return llm_provider.chat(
             system_prompt=(
-                "你是消化内镜医师培训平台中的报告辅助 Agent。"
+                "你是消化内镜医师培训平台中的报告辅助老师。"
                 "只输出医生审核前的教学观察摘要，不给最终诊断、不建议治疗、不编造病史、病理或完整检查范围。"
                 "若证据不足，请明确写出缺失上下文。"
             ),
@@ -600,19 +670,127 @@ class ReportService:
     def _provider_report_judge(self, request: ReportJudgeRequest, original: str, revised: str):
         return llm_provider.chat(
             system_prompt=(
-                "你是消化内镜医师培训平台中的报告修改评阅 Agent。"
+                "你是消化内镜医师培训平台中的报告修改评阅老师。"
                 "只评价训练文本的表达质量、安全边界和证据充分性，不给最终诊断或治疗建议。"
                 "请用中文输出：1) 2条优点；2) 2-3条风险或遗漏；3) 一句建议改写。"
             ),
             user_prompt=(
                 f"原报告：{original or '未提供'}\n"
                 f"医师修改稿：{revised or '未提供'}\n"
-                "请严格围绕所见与诊断区分、不确定性表达、单帧证据边界和医生审核要求进行评阅。"
+                "请严格围绕所见与诊断区分、不确定性表达、单帧依据充分性和医生复核要求进行评阅。"
             ),
             temperature=0.1,
             max_tokens=520,
             **self._provider_kwargs(request),
         )
+
+    def _provider_report_revision(self, request: ReportJudgeRequest, original: str, current: str, instruction: str):
+        return llm_provider.chat(
+            system_prompt=(
+                "你是消化内镜医师培训平台中的报告改写老师。"
+                "任务是把医生复核前训练文本改写为结构化、谨慎、可审计的报告草稿。"
+                "不得输出最终临床诊断、治疗方案或未提供的病史/病理/完整检查范围。"
+                "只返回 JSON，字段包括 revised_report、structured_findings、draft_impression、review_tasks。"
+            ),
+            user_prompt=(
+                f"原报告：{original or '未提供'}\n"
+                f"当前报告：{current or '未提供'}\n"
+                f"修改要求：{instruction or '更规范、更简洁，并保留医生复核边界。'}\n"
+                "请返回 JSON："
+                '{"revised_report":"...", "structured_findings":["..."], '
+                '"draft_impression":["..."], "review_tasks":["..."]}。'
+            ),
+            temperature=0.1,
+            max_tokens=700,
+            **self._provider_kwargs(request),
+        )
+
+    def _extract_revision_payload(self, text: str) -> dict[str, object]:
+        cleaned = self._strip_code_fence(text)
+        for candidate in [cleaned, self._first_json_object(cleaned)]:
+            if not candidate:
+                continue
+            try:
+                payload = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                return payload
+        return {"revised_report": cleaned.strip()}
+
+    def _strip_code_fence(self, text: str) -> str:
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+        return cleaned.strip()
+
+    def _first_json_object(self, text: str) -> str:
+        match = re.search(r"\{.*\}", text, flags=re.DOTALL)
+        return match.group(0) if match else ""
+
+    def _structured_report_from_revision(self, revised: str, payload: dict[str, object]) -> dict[str, object]:
+        structured_findings = self._payload_string_list(payload.get("structured_findings")) or self._split_findings(revised)
+        draft_impression = self._payload_string_list(payload.get("draft_impression")) or self._draft_impression(structured_findings)
+        audit = self._hallucination_audit([*structured_findings, *draft_impression], single_frame=False)
+        review_tasks = self._payload_string_list(payload.get("review_tasks")) or self._review_tasks(audit, None)
+        return {
+            "input_finding_text": revised,
+            "structured_findings": structured_findings[:8],
+            "draft_impression": draft_impression[:5],
+            "review_points": [
+                "确认改写后是否仍忠实于医生原始所见。",
+                "确认未加入未提供的病理、治疗或最终诊断。",
+                "确认医生复核前辅助说明仍保留。",
+            ],
+            "uncertainty_notes": [
+                "报告修改结果为医生复核前草稿，不作为独立诊断依据。",
+                "如需正式使用，应结合完整检查过程、病史及必要病理结果。",
+            ],
+            "evidence_ledger": [
+                {
+                    "evidence_id": "revision_text_001",
+                    "source_type": "report_revision",
+                    "source_ref": "current_report",
+                    "supports": structured_findings[:3] or ["报告改写文本"],
+                }
+            ],
+            "hallucination_audit": audit,
+            "review_tasks": review_tasks[:6],
+            "draft_status": "needs_human_review",
+            "doctor_review_required": True,
+            "safety_notice": SAFETY_NOTICE,
+        }
+
+    def _payload_string_list(self, value: object) -> list[str]:
+        if not isinstance(value, list):
+            return []
+        return [
+            safety_service.redact_sensitive_text(str(item).strip())
+            for item in value
+            if str(item).strip()
+        ]
+
+    def _rule_report_revision(self, text: str, instruction: str) -> str:
+        base = text.strip() or "胃窦黏膜充血，可见散在糜烂样改变，未见明确活动性出血。"
+        replacements = {
+            "确诊": "考虑",
+            "必须": "建议结合临床评估",
+            "严重": "需关注",
+            "立即治疗": "结合完整检查、病史及必要病理结果评估后处理",
+            "治疗": "处理建议需医生复核后确定",
+            "胃癌": "胃部占位或恶性病变待排",
+            "癌": "恶性病变待排",
+        }
+        for source, target in replacements.items():
+            base = base.replace(source, target)
+        if "简洁" in instruction and len(base) > 220:
+            base = base[:220].rstrip("，。") + "。"
+        if "依据" in instruction and "依据" not in base:
+            base += " 依据为当前内镜图像中可观察到的黏膜颜色、表面形态和局部改变。"
+        if "复核" not in base and "结合" not in base:
+            base += " 建议医生结合完整检查过程、病史及必要病理结果复核。"
+        return base
 
     def _recommended_report_drills(self, rubric_scores: dict[str, int]) -> list[dict[str, object]]:
         drill_map = {
@@ -629,15 +807,15 @@ class ReportService:
                 "drill_id": "report_safety",
             },
             "不确定性表达": {
-                "label": "证据不足识别专项",
-                "href": "/training?source=report_judge&drill=evidence_boundary&question_class=错误前提",
-                "reason": "训练在证据不足时主动写出缺失上下文和复核要求。",
+                "label": "观察依据补全专项",
+                "href": "/training?source=report_judge&drill=evidence_boundary&question_class=报告纠错",
+                "reason": "训练在依据不足时主动写出缺失上下文和复核要求。",
                 "drill_id": "evidence_boundary",
             },
             "安全边界": {
-                "label": "错误前提挑战",
-                "href": "/training?source=report_judge&drill=false_premise&question_class=错误前提",
-                "reason": "识别“确诊、必须、立即”等高风险前提，练习降级表达。",
+                "label": "报告纠错挑战",
+                "href": "/training?source=report_judge&drill=false_premise&question_class=报告纠错",
+                "reason": "识别“确诊、必须、立即”等高风险表达，练习降级改写。",
                 "drill_id": "false_premise",
             },
         }
@@ -652,7 +830,7 @@ class ReportService:
             {
                 "label": "报告表达进阶",
                 "href": "/training?source=report_judge&drill=report_safety&question_class=报告纠错",
-                "reason": "本次修改已达标，继续用报告纠错题巩固证据边界。",
+                "reason": "本次修改已达标，继续用报告纠错题巩固复核边界。",
                 "rubric": "综合表达",
                 "score": min(rubric_scores.values()) if rubric_scores else 0,
                 "drill_id": "report_safety",

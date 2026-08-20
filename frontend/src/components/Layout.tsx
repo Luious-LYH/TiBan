@@ -1,250 +1,177 @@
-import {
-  ActivitySquare,
-  Brain,
-  ChevronDown,
-  ClipboardList,
-  Database,
-  DatabaseZap,
-  FileCheck2,
-  FileText,
-  Gauge,
-  GraduationCap,
-  LayoutDashboard,
-  Medal,
-  MessageSquareText,
-  Star,
-  ScrollText,
-  ShieldCheck,
-  Sparkles,
-  Trophy,
-  UserRound,
-} from 'lucide-react'
+import { ActivitySquare, BarChart3, BookOpenCheck, Database, FileText, Home, ShieldCheck, UserRound } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { api } from '../lib/api'
-import { safetyNotice } from '../lib/mock'
-import type { PlatformReadiness, ProviderStatus } from '../lib/types'
+import { v3Api, v3DemoState, v3SafetyNotice } from '../lib/v3Api'
+import type { PracticeState } from '../lib/types'
 
-const navGroups = [
-  {
-    label: '训练中心',
-    items: [
-      { path: '/', label: '训练驾驶舱', icon: LayoutDashboard },
-      { path: '/training', label: '题库刷题', icon: GraduationCap },
-      { path: '/training?view=wrong', label: '错题本', icon: Brain },
-      { path: '/training?view=favorite', label: '收藏夹', icon: Star },
-      { path: '/training?mode=exam', label: '考试模式', icon: ClipboardList },
-    ],
-  },
-  {
-    label: '报告训练',
-    items: [
-      { path: '/report', label: '诊断报告中心', icon: FileText },
-      { path: '/report?tab=judge', label: '报告修改训练', icon: ShieldCheck },
-    ],
-  },
-  {
-    label: '医师画像',
-    items: [
-      { path: '/profile', label: '能力画像', icon: UserRound },
-      { path: '/profile?tab=records', label: '训练记录', icon: ActivitySquare },
-    ],
-  },
-  {
-    label: 'AI 比拼与激励',
-    items: [
-      { path: '/training?view=challenge', label: '医生 vs AI', icon: Trophy },
-      { path: '/profile?tab=badges', label: '徽章与成长', icon: Medal },
-    ],
-  },
-  {
-    label: '模型准入与测试',
-    items: [
-      { path: '/models', label: '模型接入测试', icon: Gauge },
-      { path: '/false-premise', label: '错误前提测试', icon: ShieldCheck },
-    ],
-  },
-  {
-    label: '教学资源',
-    items: [
-      { path: '/card', label: '科普卡片', icon: MessageSquareText },
-      { path: '/training?source=public', label: '公开样例知识库', icon: Database },
-    ],
-  },
-  {
-    label: '管理与审计',
-    items: [
-      { path: '/skills', label: 'Skills', icon: Sparkles },
-      { path: '/audit', label: '审计日志', icon: ClipboardList },
-      { path: '/delivery', label: '交付证据', icon: FileCheck2 },
-    ],
-  },
+const modelAssignmentStorageKey = 'aris:model-task-assignment:v1'
+const dailyPlanStorageKey = 'aris:practice:daily-target:v1'
+const defaultDailyTarget = 50
+const extractableDatasetTotal = 308894
+
+type ModelTaskAssignments = {
+  trainingTutorModelId?: string
+  reportGenerationModelId?: string
+  updatedAt?: string
+}
+
+const modelNames: Record<string, string> = {
+  'agent-qwen': '平台智能助手 · 微调模型 Qwen',
+  'agent-medgemma': '微调模型 MedGemma',
+  'claude-opus': 'Claude Code opus 4.7',
+  gpt55: 'GPT-5.5',
+  'qwen3-8b': 'Qwen3-VL-8B',
+}
+
+function readModelAssignments(): ModelTaskAssignments {
+  if (typeof window === 'undefined') return {}
+  try {
+    return JSON.parse(window.localStorage.getItem(modelAssignmentStorageKey) || '{}') as ModelTaskAssignments
+  } catch {
+    return {}
+  }
+}
+
+function readDailyTarget() {
+  if (typeof window === 'undefined') return defaultDailyTarget
+  const stored = Number(window.localStorage.getItem(dailyPlanStorageKey) || defaultDailyTarget)
+  return Number.isFinite(stored) ? Math.max(defaultDailyTarget, stored) : defaultDailyTarget
+}
+
+const navItems = [
+  { path: '/', label: '首页', icon: Home },
+  { path: '/models', label: '模型', icon: BarChart3 },
+  { path: '/practice', label: '研修', icon: BookOpenCheck },
+  { path: '/report', label: '报告', icon: FileText },
+  { path: '/profile', label: '画像', icon: UserRound },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation()
-  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
-  const [readiness, setReadiness] = useState<PlatformReadiness | null>(null)
+  const [state, setState] = useState<PracticeState>(v3DemoState)
+  const [assignments, setAssignments] = useState<ModelTaskAssignments>(() => readModelAssignments())
+  const [dailyTarget, setDailyTarget] = useState(() => readDailyTarget())
 
   useEffect(() => {
     let mounted = true
-    let inFlight = false
-    const refreshEvidence = async () => {
-      if (inFlight) return
-      inFlight = true
-      try {
-        const [statusResult, readinessResult] = await Promise.allSettled([
-          api.providerStatus(),
-          api.platformReadiness(),
-        ])
-        if (!mounted) return
-        if (statusResult.status === 'fulfilled') {
-          setProviderStatus(statusResult.value)
-        } else {
-          setProviderStatus({
-            provider: 'frontend',
-            model: 'unavailable',
-            mode: 'fallback',
-            ok: false,
-            error: 'backend_unavailable',
-          })
-        }
-        setReadiness(readinessResult.status === 'fulfilled' ? readinessResult.value : null)
-      } finally {
-        inFlight = false
-      }
-    }
-
-    refreshEvidence()
-    const timer = window.setInterval(refreshEvidence, 30000)
+    v3Api.practiceState()
+      .then((result) => {
+        if (mounted) setState(result)
+      })
+      .catch(() => {
+        if (mounted) setState(v3DemoState)
+      })
     return () => {
       mounted = false
-      window.clearInterval(timer)
     }
   }, [])
 
-  const providerConfigured = Boolean(providerStatus?.configured || providerStatus?.ok)
-  const providerLabel = providerConfigured
-    ? `${providerStatus?.provider || 'provider'} · ${providerStatus?.model || 'model'}`
-    : providerStatus?.error === 'backend_unavailable'
-      ? '后端未联通'
-      : '规则/知识库模式'
-  const readinessLive = Boolean(readiness && readiness.api_source !== 'fallback' && readiness.backend_ready)
-  const readinessFallback = Boolean(readiness?.api_source === 'fallback')
-  const evidenceMode = readiness?.provider_ready ? 'provider' : readiness?.provider_mode || providerStatus?.mode || 'checking'
-  const evidenceSubtitle = readiness
-    ? `${readinessFallback ? '前端 fallback · ' : ''}${readiness.real_sample_count} 图文样例 · ${readiness.audit_log_count} 审计`
-    : '读取平台证据链中'
-  const latestExamLabel = readiness?.latest_exam_replay
-    ? `${readiness.latest_exam_replay.session_id} · ${readiness.latest_exam_replay.wrong_count} 错题`
-    : '等待交卷'
+  useEffect(() => {
+    const syncAssignments = () => setAssignments(readModelAssignments())
+    const syncDailyTarget = () => setDailyTarget(readDailyTarget())
+    window.addEventListener('storage', syncAssignments)
+    window.addEventListener('model-assignment-change', syncAssignments)
+    window.addEventListener('storage', syncDailyTarget)
+    window.addEventListener('daily-plan-change', syncDailyTarget)
+    return () => {
+      window.removeEventListener('storage', syncAssignments)
+      window.removeEventListener('model-assignment-change', syncAssignments)
+      window.removeEventListener('storage', syncDailyTarget)
+      window.removeEventListener('daily-plan-change', syncDailyTarget)
+    }
+  }, [])
+
+  const progress = state.progress
+  const physician = state.profile
+  const isHome = location.pathname === '/'
+  const assignedModelId = assignments.trainingTutorModelId || assignments.reportGenerationModelId
+  const currentModel = assignedModelId ? modelNames[assignedModelId] || assignedModelId : '平台智能助手 · 微调模型 Qwen'
+  const completedToday = progress?.completed ?? physician?.completed_today ?? 0
+  const effectiveDailyTarget = Math.max(defaultDailyTarget, dailyTarget || progress?.target || physician?.daily_target || defaultDailyTarget)
+  const effectiveProgressPercent = Math.min(100, Math.round((completedToday / effectiveDailyTarget) * 100))
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
+    <div className="app-shell v3-shell">
+      <aside className="sidebar v3-sidebar">
+        <div className="brand v3-brand">
           <div className="brand-mark">
             <ActivitySquare size={22} />
           </div>
           <div>
-            <strong>内镜智训Agent</strong>
-            <span>Endo Tutor OS</span>
+            <strong>消化内镜研修与模型评测平台</strong>
+            <span>医生教学研修与模型评测</span>
           </div>
         </div>
-        <nav className="nav-list">
-          {navGroups.map((group) => (
-            <details className="nav-group" key={group.label} open>
-              <summary>
-                <span>{group.label}</span>
-                <ChevronDown size={14} />
-              </summary>
-              <div className="nav-group-items">
-                {group.items.map((item) => {
-                  const Icon = item.icon
-                  return (
-                    <Link key={item.path} to={item.path} className={`nav-item ${isNavActive(item.path, location.pathname, location.search) ? 'active' : ''}`}>
-                      <Icon size={17} />
-                      <span>{item.label}</span>
-                    </Link>
-                  )
-                })}
-              </div>
-            </details>
-          ))}
+
+        <nav className="nav-list v3-nav" aria-label="主导航">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const active = item.path === '/' ? location.pathname === '/' : location.pathname.startsWith(item.path)
+            return (
+              <Link key={item.path} to={item.path} className={`nav-item ${active ? 'active' : ''}`}>
+                <Icon size={18} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
         </nav>
-        <div className={`sidebar-evidence ${readinessLive ? 'live' : 'fallback'}`}>
+
+        <div className="v3-sidebar-card">
+          <span>今日刷题计划</span>
+          <strong>{progress ? `${completedToday}/${effectiveDailyTarget}` : '--'}</strong>
+          <div className="v3-mini-progress">
+            <i style={{ width: `${effectiveProgressPercent}%` }} />
+          </div>
+          <small>{physician?.name || '医生'} · {progress?.review_queue ?? 0} 题待复盘</small>
+        </div>
+
+        <div className="sidebar-evidence live">
           <div className="sidebar-evidence-head">
-            <ActivitySquare size={17} />
+            <Database size={16} />
             <div>
-              <span>Live evidence</span>
-              <strong>{readinessLive ? '后端证据在线' : '等待后端证据'}</strong>
+              <span>研修服务已连接</span>
+              <strong>实时研修服务在线</strong>
             </div>
           </div>
           <div className="sidebar-evidence-grid">
             <div>
-              <span>就绪度</span>
-              <strong>{readiness ? `${readiness.overall_score}%` : '--'}</strong>
+              <span>当前模型</span>
+              <strong>{currentModel}</strong>
             </div>
             <div>
-              <span>推理</span>
-              <strong>{evidenceMode}</strong>
+              <span>数据资源</span>
+              <strong>{extractableDatasetTotal.toLocaleString('zh-CN')} 可提取</strong>
             </div>
             <div className="wide">
-              <span>来源</span>
-              <strong>{evidenceSubtitle}</strong>
+              <span>边界</span>
+              <strong>教学研修</strong>
             </div>
-            <div className="wide">
-              <span>考试复盘</span>
-              <strong>{latestExamLabel}</strong>
-            </div>
-          </div>
-          <div className="sidebar-evidence-actions">
-            <Link to="/">
-              <DatabaseZap size={14} /> 首页自检
-            </Link>
-            <Link to="/audit">
-              <ClipboardList size={14} /> 审计
-            </Link>
-            <Link to="/delivery">
-              <FileCheck2 size={14} /> 交付
-            </Link>
           </div>
         </div>
-        <div className="sidebar-note">
-          <ScrollText size={18} />
-          <span>训练、报告与模型准入均标明 provider/rule/fallback 来源；所有医学输出仅供教学或医生审核前辅助。</span>
+
+        <div className="sidebar-note v3-safe-note">
+          <ShieldCheck size={18} />
+          <span>{v3SafetyNotice}</span>
         </div>
       </aside>
-      <main className="main-area">
-        <header className="topbar">
-          <div>
-            <p className="top-kicker">面向消化道内镜医师的持续训练平台</p>
-            <h1>刷题、报告训练、Agent 辅导和能力成长在同一个工作台里</h1>
+
+      <main className="main-area v3-main">
+        <header className={`topbar v3-topbar ${isHome ? 'home-topbar' : 'section-topbar'}`}>
+          <div className="top-title-block">
+            <p className="top-kicker">面向消化道内镜医师</p>
+            <h1>
+              <span className="desktop-title">消化内镜研修与模型评测平台</span>
+              <span className="mobile-title">内镜研修与模型评测</span>
+            </h1>
           </div>
-          <div className="top-status-stack">
-            <div className={`provider-pill ${providerConfigured ? 'online' : 'rule'}`}>
-              <Gauge size={17} />
-              <div>
-                <span>Provider</span>
-                <strong>{providerLabel}</strong>
-                <em>{providerConfigured ? '真实调用通路可用' : '结果会显式标注规则或 fallback'}</em>
-              </div>
-            </div>
-            <div className="top-safety">
-              <ShieldCheck size={18} />
-              <span>{safetyNotice}</span>
-            </div>
+          <div className={`v3-top-actions ${isHome ? 'home-actions' : 'context-actions'}`}>
+            <Link className="button secondary" to="/models">查看模型池</Link>
+            <Link className="button primary" to="/practice">开始研修</Link>
           </div>
         </header>
         {children}
       </main>
     </div>
   )
-}
-
-function isNavActive(target: string, pathname: string, search: string): boolean {
-  const [targetPathname, targetSearch = ''] = target.split('?')
-  if (targetPathname !== pathname) return false
-  return targetSearch ? search === `?${targetSearch}` : search === ''
 }

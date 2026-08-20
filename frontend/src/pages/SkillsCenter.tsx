@@ -46,25 +46,25 @@ export function SkillsCenter() {
   const activeQuestion = questions.find((item) => item.id === selectedQuestionId) || questions[0]
   const receipt = runView ? skillRunReceipt(runView.result) : null
   const auditReceiptLabel = receipt?.audit_log_id
-    ? 'audit receipt'
+    ? '审计收据'
     : runView?.result.api_source === 'fallback'
-      ? 'local preview'
-      : 'audit when run'
+      ? '本地预览'
+      : '运行后审计'
 
   return (
     <div className="page-stack">
       <Card className="focus-band">
         <div>
-          <span className="eyebrow">Controlled skills</span>
-          <h2>受控 Agent Skills 编排台</h2>
-          <p>把 Tutor、评分、报告、卡片和安全审查拆成可审计技能；医生端只看到运行摘要，开发细节按需展开。</p>
+          <span className="eyebrow">受控技能</span>
+          <h2>受控研修技能编排台</h2>
+          <p>把带教辅导、评分、报告、卡片和安全审查拆成可审计技能；医生端只看到运行摘要，开发细节按需展开。</p>
         </div>
         <Sparkles size={42} />
       </Card>
 
       <Card className="skill-console">
         <div>
-          <span className="eyebrow">Run context</span>
+          <span className="eyebrow">运行上下文</span>
           <h3>当前运行样例</h3>
           <p>{activeQuestion ? `${activeQuestion.title} · ${activeQuestion.source_dataset}` : '默认训练题样例'}</p>
         </div>
@@ -77,8 +77,8 @@ export function SkillsCenter() {
           </select>
         </label>
         <div className="skill-console-status">
-          <Tag tone={runView?.result.api_source === 'fallback' ? 'amber' : 'green'}>{runView?.result.api_source === 'fallback' ? 'fallback preview' : 'backend capable'}</Tag>
-          <Tag tone="amber">doctor review</Tag>
+          <Tag tone={runView?.result.api_source === 'fallback' ? 'amber' : 'green'}>{runView?.result.api_source === 'fallback' ? '本地预览' : '服务端可用'}</Tag>
+          <Tag tone="amber">医生复核</Tag>
           <Tag tone={receipt?.audit_log_id ? 'blue' : 'neutral'}>{auditReceiptLabel}</Tag>
         </div>
       </Card>
@@ -102,9 +102,9 @@ export function SkillsCenter() {
       {runView ? (
         <Card className="skill-result-card">
           <SectionTitle
-            eyebrow="Skill result"
+            eyebrow="技能结果"
             title="最近一次受控调用"
-            action={<Tag tone={runView.result.api_source === 'fallback' ? 'amber' : 'green'}>{String(runView.result.api_source || 'backend')}</Tag>}
+            action={<Tag tone={runView.result.api_source === 'fallback' ? 'amber' : 'green'}>{runView.result.api_source === 'fallback' ? '本地预览' : '服务端返回'}</Tag>}
           />
           <div className="skill-result-head">
             <div>
@@ -134,7 +134,7 @@ export function SkillsCenter() {
               <div className="skill-receipt-head">
                 <CheckCircle2 size={18} />
                 <div>
-                  <strong>{runView.result.api_source === 'fallback' ? '本地技能预览' : '后端 Skill 运行收据'}</strong>
+                  <strong>{runView.result.api_source === 'fallback' ? '本地技能预览' : '服务端技能运行收据'}</strong>
                   <span>{receipt.audit_log_id ? `已写入 skill_run 审计：${receipt.audit_log_id}` : '当前没有后端审计 ID；仅作前端预览。'}</span>
                 </div>
               </div>
@@ -162,7 +162,7 @@ export function SkillsCenter() {
             <Link to="/audit">审计日志 <ArrowRight size={15} /></Link>
           </div>
           <details className="skill-json-details">
-            <summary>开发细节与完整 JSON</summary>
+            <summary>高级排查信息</summary>
             <pre className="json-view">{JSON.stringify(runView.result, null, 2)}</pre>
           </details>
           <div className="safety-mini">{String(runView.result.safety_notice || safetyNotice)}</div>
@@ -202,7 +202,7 @@ function buildSkillPayload(skill: SkillDefinition, question: Question): SkillRun
   if (skill.id === 'audit_log') {
     return {
       event_type: 'skill_run',
-      summary: `Skills 编排演示：${skill.name} 已完成一次受控调用。`,
+      summary: `技能编排演示：${skill.name} 已完成一次受控调用。`,
     }
   }
   return { question_id: question.id }
@@ -236,12 +236,12 @@ function summarizeSkillResult(result: Record<string, unknown>): string {
   if (typeof result.explanation === 'string') return result.explanation
   if (typeof result.message === 'string') return result.message
   if (Array.isArray(result.atomic_feedback)) return `返回 ${result.atomic_feedback.length} 条原子反馈。`
-  if (Array.isArray(result.atomic_trace)) return `返回 ${result.atomic_trace.length} 条错误前提证据。`
+  if (Array.isArray(result.atomic_trace)) return `返回 ${result.atomic_trace.length} 条前提鲁棒证据。`
   if (Array.isArray(result.recommendations)) return `生成 ${result.recommendations.length} 条下一步训练建议。`
   if (result.draft && typeof result.draft === 'object') return '已生成医生审核前结构化报告草稿。'
   if (result.card && typeof result.card === 'object') return '已生成医生审核前科普卡片草稿。'
   if (typeof result.log_id === 'string') return `审计记录已写入：${result.log_id}`
-  return 'Skill 已完成受控运行。'
+  return '技能已完成受控运行。'
 }
 
 function primarySkillDetail(result: Record<string, unknown>): string {

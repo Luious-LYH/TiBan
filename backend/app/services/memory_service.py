@@ -21,6 +21,53 @@ class MemoryService:
             for cls in profile.recommended_question_classes
         ]
 
+    def mentor_agent_advice(self) -> dict[str, object]:
+        profile = self.get_profile()
+        weakest = sorted(profile.skill_scores.items(), key=lambda item: item[1])[:3]
+        recent_records = profile.training_records[:5]
+        favorite_count = len(profile.favorite_questions)
+        wrong_count = len(profile.wrong_questions)
+        focus_plan = []
+        if weakest:
+            focus_plan.append(f"优先复盘 {weakest[0][0]}，当前能力分 {weakest[0][1]}。")
+        if wrong_count:
+            focus_plan.append(f"先处理 {wrong_count} 道错题，再进入新题组。")
+        if favorite_count:
+            focus_plan.append(f"每天用 5 分钟回看 {favorite_count} 道收藏题，巩固稳定表达。")
+        if "报告纠错" in profile.recommended_question_classes:
+            focus_plan.append("本周安排报告修改题，训练所见、倾向判断和复核边界。")
+        if not focus_plan:
+            focus_plan.append("继续保持综合题组训练，并补充一图多问题检验迁移能力。")
+        return {
+            "agent_name": "带教老师",
+            "memory_scope": [
+                "研修作答记录",
+                "错题与收藏题",
+                "带教追问记录",
+                "报告修改评分",
+                "能力画像变化",
+            ],
+            "learner_snapshot": {
+                "name": profile.name,
+                "training_stage": profile.training_stage,
+                "total_questions": profile.total_questions,
+                "accuracy": profile.accuracy,
+                "weakness_tags": profile.weakness_tags[:6],
+                "weakest_dimensions": [{"dimension": key, "score": value} for key, value in weakest],
+                "favorite_count": favorite_count,
+                "wrong_count": wrong_count,
+            },
+            "personalized_advice": focus_plan[:4],
+            "next_check_in": "下一次完成 5 道题或 1 次报告修改后，带教老师会更新建议。",
+            "recent_memory": [
+                f"{item.get('date')} · {item.get('result')} · {item.get('score')}分"
+                for item in recent_records
+            ],
+            "doctor_review_required": True,
+            "safety_notice": SAFETY_NOTICE,
+            "created_at": now_iso(),
+        }
+
     def record_submission(self, submission: SubmissionResponse) -> LearnerProfile:
         profile = self.get_profile()
         total = profile.total_questions + 1
@@ -145,8 +192,8 @@ class MemoryService:
 
         weakness_map = {
             "所见与诊断区分": "报告安全",
-            "不确定性表达": "证据不足",
-            "安全边界": "错误前提",
+            "不确定性表达": "观察依据不足",
+            "安全边界": "过度推断",
         }
         for rubric, tag in weakness_map.items():
             if judge.rubric_scores.get(rubric, 0) < 20 and tag not in profile.weakness_tags:
@@ -176,17 +223,17 @@ class MemoryService:
         profile.growth_trend = self._append_growth(profile)
         profile.updated_at = now_iso()
         write_json("learner_profile.json", profile.model_dump())
-        return f"已回灌林知远医师画像：报告修改 {judge.score} 分，事实组合/证据边界能力已更新。"
+        return f"已回灌林知远医师画像：报告修改 {judge.score} 分，事实组合/观察依据能力已更新。"
 
     def record_tutor_interaction(self, question: Question, *, generation_mode: str, safety_passed: bool) -> tuple[list[str], str]:
         profile = self.get_profile()
         interaction_tags = list(dict.fromkeys([
             *question.teaching_tags[:3],
             *(fact.skill_dimension for fact in question.atomic_trace[:2]),
-            *([] if safety_passed else ["安全边界"]),
+            *([] if safety_passed else ["医生复核边界"]),
             generation_mode,
         ]))
-        profile.question_type_coverage["Agent追问"] = profile.question_type_coverage.get("Agent追问", 0) + 1
+        profile.question_type_coverage["带教追问"] = profile.question_type_coverage.get("带教追问", 0) + 1
         for fact in question.atomic_trace[:2]:
             old_score = profile.skill_scores.get(fact.skill_dimension, 70)
             profile.skill_scores[fact.skill_dimension] = self._bounded_score(old_score, 1 if safety_passed else -2)
@@ -198,7 +245,7 @@ class MemoryService:
                 "date": now_iso()[:10],
                 "question_id": question.id,
                 "score": 0,
-                "result": "Agent辅导",
+                "result": "带教辅导",
             },
         )
         profile.training_records = profile.training_records[:12]
@@ -206,7 +253,7 @@ class MemoryService:
         profile.updated_at = now_iso()
         write_json("learner_profile.json", profile.model_dump())
         summary = (
-            f"已记录 Agent 辅导事件：{question.title}；"
+            f"已记录带教辅导事件：{question.title}；"
             f"训练标签 {', '.join(interaction_tags[:3])}；未保存追问原文。"
         )
         return interaction_tags, summary
@@ -233,7 +280,7 @@ class MemoryService:
             "latest_exam_session": exam_sessions[0] if exam_sessions else None,
             "review_queue": len(profile.wrong_questions or profile.recent_errors),
             "next_plan": [
-                {"label": "证据不足复盘", "count": 4, "reason": "最近错因集中在错误前提和过度诊断"},
+                {"label": "观察依据复盘", "count": 4, "reason": "最近错因集中在依据不足和过度诊断"},
                 {"label": "公开样例考试块", "count": 3, "reason": "使用 EndoBench/Kvasir 样例检验迁移能力"},
                 {"label": "报告修改训练", "count": 2, "reason": "强化所见与诊断边界"},
             ],

@@ -1,4 +1,5 @@
 from uuid import uuid4
+import re
 
 from app.core.config import SAFETY_NOTICE
 from app.schemas import AtomicFact, Question, SubmissionRequest, SubmissionResponse
@@ -11,7 +12,7 @@ class GradingService:
     def grade(self, request: SubmissionRequest, *, record: bool = True) -> SubmissionResponse:
         question = question_service.get_question(request.question_id, request.learner_id)
         selected = request.selected_answer.strip()
-        is_correct = selected == question.answer
+        is_correct = self._is_correct_answer(question, selected)
         score = 100 if is_correct else 35 if self._is_safety_aware_wrong(selected) else 0
         error_tags = self._error_tags(question, selected, is_correct)
         feedback = self._fact_feedback(question, is_correct)
@@ -44,28 +45,42 @@ class GradingService:
         return response
 
     def recommend_next(self, question: Question, error_tags: list[str]) -> str:
-        if question.false_premise_flag or "证据不足" in error_tags:
-            return "建议继续练习错误前提与证据不足判断题。"
+        if question.false_premise_flag or "观察依据不足" in error_tags or "证据不足" in error_tags:
+            return "建议继续练习观察依据复盘与过度推断识别题。"
         if "过度诊断" in error_tags:
             return "建议进入报告纠错和安全表达训练。"
         if question.question_class in {"基础识别", "部位定位"}:
-            return "建议进入病变属性或复杂组合题，练习证据链表达。"
-        return "建议选择一题复杂组合题，巩固观察事实、解释和限制条件。"
+            return "建议进入病变属性或一图多问题，练习观察依据表达。"
+        return "建议选择一题一图多问题，巩固观察事实、解释和限制条件。"
 
     def _is_safety_aware_wrong(self, selected: str) -> bool:
         keywords = ["证据不足", "复核", "不能确定", "不适用"]
         return any(keyword in selected for keyword in keywords)
+
+    def _is_correct_answer(self, question: Question, selected: str) -> bool:
+        if question.question_type == "多选":
+            selected_items = self._split_answer_items(selected)
+            answer_items = self._split_answer_items(question.answer)
+            return bool(selected_items) and selected_items == answer_items
+        return selected == question.answer
+
+    def _split_answer_items(self, value: str) -> set[str]:
+        return {
+            item.strip()
+            for item in re.split(r"[；;]", value or "")
+            if item.strip()
+        }
 
     def _error_tags(self, question: Question, selected: str, is_correct: bool) -> list[str]:
         if is_correct:
             return []
         tags: list[str] = []
         if question.false_premise_flag:
-            tags.append("错误前提")
+            tags.append("过度推断")
         if any(token in selected for token in ["癌", "手术", "开药", "治疗", "严重"]):
             tags.append("过度诊断")
         if not any(token in selected for token in ["证据不足", "复核", "观察", "描述", "不能确定"]):
-            tags.append("证据不足")
+            tags.append("观察依据不足")
         if not tags:
             tags.append(question.teaching_tags[0])
         return list(dict.fromkeys(tags))

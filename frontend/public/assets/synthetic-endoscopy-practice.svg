@@ -1,0 +1,35 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#0b1117"/>
+  <defs>
+    <radialGradient id="scope" cx="50%" cy="48%" r="48%">
+      <stop offset="0%" stop-color="#f5b08b"/>
+      <stop offset="42%" stop-color="#c66f59"/>
+      <stop offset="74%" stop-color="#8c3f3a"/>
+      <stop offset="100%" stop-color="#111820"/>
+    </radialGradient>
+    <radialGradient id="light" cx="44%" cy="38%" r="45%">
+      <stop offset="0%" stop-color="#ffe2c8" stop-opacity=".85"/>
+      <stop offset="40%" stop-color="#f2a783" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#6f2d33" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+  </defs>
+  <circle cx="640" cy="360" r="330" fill="url(#scope)"/>
+  <circle cx="640" cy="360" r="304" fill="url(#light)"/>
+  <path d="M319 360c112-84 210-112 334-97 141 17 205 85 307 44" stroke="#773136" stroke-width="38" stroke-linecap="round" opacity=".38" filter="url(#soft)"/>
+  <path d="M342 473c108-62 217-83 349-50 102 25 167 86 271 83" stroke="#f1a27f" stroke-width="26" stroke-linecap="round" opacity=".55" filter="url(#soft)"/>
+  <path d="M396 253c78 38 143 34 216 3 110-46 207-31 279 23" stroke="#ffcab0" stroke-width="16" stroke-linecap="round" opacity=".32"/>
+  <path d="M364 579c138-33 258-29 371 21 61 27 113 33 180 12" stroke="#5c2730" stroke-width="34" stroke-linecap="round" opacity=".28" filter="url(#soft)"/>
+  <ellipse cx="725" cy="360" rx="86" ry="54" fill="#b94542" opacity=".72"/>
+  <ellipse cx="716" cy="352" rx="54" ry="31" fill="#df7766" opacity=".82"/>
+  <ellipse cx="740" cy="374" rx="28" ry="15" fill="#7f3035" opacity=".55"/>
+  <circle cx="533" cy="276" r="22" fill="#ffe8cf" opacity=".45"/>
+  <circle cx="486" cy="408" r="14" fill="#fff0d9" opacity=".36"/>
+  <circle cx="816" cy="248" r="19" fill="#ffd8bc" opacity=".34"/>
+  <circle cx="640" cy="360" r="334" stroke="#192532" stroke-width="22"/>
+  <circle cx="640" cy="360" r="348" stroke="#05080d" stroke-width="34"/>
+  <path d="M278 356c36-188 185-315 361-315 183 0 318 125 363 284" stroke="#ffffff" stroke-opacity=".08" stroke-width="12" stroke-linecap="round"/>
+</svg>
+

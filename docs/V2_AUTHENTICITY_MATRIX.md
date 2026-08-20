@@ -1,37 +1,43 @@
+# 归档提示
+
+本文是 v2 阶段真实性矩阵，保留作内部追溯，不作为 v3 展示入口。v3 对外口径已收束为：首页 / 模型 / 研修 / 报告 / 画像。
+
+---
+
 # V2.0 Authenticity Matrix
 
-本文件用于答辩和后续开发审查：每个核心功能必须说明真实数据、规则逻辑、Provider 调用和 fallback 的边界。
+本文件用于答辩和后续开发审查：每个核心功能必须说明真实数据、规则逻辑、智能服务 调用和 fallback 的边界。
 
 ## 模式定义
 
 | 模式 | 含义 | UI 标识 |
 |---|---|---|
-| `provider` | 成功调用 OpenAI-compatible `/chat/completions`，可包含公开样例图片或受控上传图片 | 绿色 badge、Provider 名称、模型名、延迟 |
-| `rule` | 未配置 Provider，后端使用规则、模板、JSON 知识库完成教学输出 | 蓝色 badge、`provider_not_configured` |
-| `fallback` | Provider 失败或前端无法连接后端，使用前端/后端降级内容 | amber badge、失败原因 |
+| `智能服务` | 成功调用 OpenAI-compatible `/chat/completions`，可包含公开样例图片或受控上传图片 | 绿色 badge、智能服务 名称、模型名、延迟 |
+| `rule` | 未配置 智能服务，后端使用规则、模板、JSON 知识库完成教学输出 | 蓝色 badge、`智能服务_not_configured` |
+| `fallback` | 智能服务 失败或前端无法连接后端，使用前端/后端降级内容 | amber badge、失败原因 |
 
 ## 功能矩阵
 
-| 模块 | 当前实现 | 真实来源 | Provider 使用 | 仍需改进 |
+| 模块 | 当前实现 | 真实来源 | 智能服务 使用 | 仍需改进 |
 |---|---|---|---|---|
-| 首页闭环自检 | 手动点击“沙盒自检”后，后端选择公开样例，串联提交答案、Agent 辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计摘要，并返回 9 张证据收据；沙盒模式返回前自动恢复画像、审计和 `patient_cards.json`，正式按钮才保留留痕；`real_sample_coverage` 展示真实样例 KB 记录数、映射题量、图片资产校验、数据集/用途分布，`knowledge_source_chain` 展示本地知识库文件、记录数、样例 ID 和消费页面 | `real_sample_knowledge.json`, `frontend/public/assets/real_samples`, `report_knowledge_base.json`, `card_template_knowledge.json`, `learner_profile.json`, `audit_logs.json`, `backend/runtime/patient_cards.json`, 现有训练/报告/卡片服务 | 不额外伪造 Provider；各子链路按自身配置返回 `provider`/`rule`/`fallback`；沙盒会验证本轮包含 `challenge_benchmark`、`exam_session`、`patient_card` 和 `patient_card_approve` 审计但返回前恢复；后端不可用时前端不伪造通过；覆盖总账和来源链只证明知识库被平台引用，不代表批量临床评测 | 后续可增加独立多医师 demo sandbox profile、演示批次编号和更多本地 VQA 样例映射 |
-| 训练题库 | 公开样例优先、支持筛选/收藏/错题；考试模式已升级为全局 session、累计战报、交卷复盘入口，交卷后持久化整场摘要；挑战模式医师提交后才同步后端基准，并在比分板展示最近真实后端 `challenge_benchmark` 审计收据 | `questions.json`, `real_sample_knowledge.json`, `learner_profile.json`, `audit_logs.json` | 右侧 chat 可调用 Provider，失败后规则辅导；考试中隐藏提示和自由追问；挑战基准 Provider 可用时独立作答，失败时公开标注 fallback；审计收据只从后端 `/api/audit` 读取，前端 fallback 不算已连接 | 后续可扩展多医师考试表、班级排名和正式试卷管理 |
-| 右侧 Agent | `辅导/证据/对照` 三段式面板，提交前隐藏参考答案；挑战模式提交前锁住证据页和基准；追问回灌训练事件 | 当前题、atomic facts、公开图片 URL | `tutor_orchestrator.chat` 调用 Provider；`tutor_orchestrator.challenge_benchmark` 只在提交后调用 Provider/公开标注 fallback | chat 仅保存题号/标签/模式，不保存医师追问原文；挑战基准只写 `challenge_benchmark` 审计，不重复写医师画像；后端不可用时不伪造挑战审计收据 |
-| 错因复盘 | 本轮提交进入时显示真实提交；直接打开时从后端错题本恢复最近复盘题并标注为 review snapshot，错误答案显示为“复盘示例答案” | `learner_profile.json` wrong/recent errors、`questions` API、atomic facts | 不调用 Provider | 复盘快照不伪装成真实用户提交，不重复写入画像；后续可加正式 submission history 表 |
-| 错误前提训练 | 医师先独立作答，提交后解锁证据不足事实、原子证据、得分和复盘建议 | false-premise 题库、atomic facts、公开图像 | 不直接调用 Provider；可作为模型准入样例 | 后续可加入限时 drill 和更多拒答题型 |
-| 报告中心 | 流程工作台展示图像/所见、草稿生成、复核台账；公开 VQA 标注默认收进来源台账；支持上传图片、图像证据收据、结构化报告草稿、幻觉审查、报告修改评分、`recommended_drills`，评分后可跳入训练中心专项任务卡并按合法题类筛选，以及带入科普卡片待审草稿 | 医生输入、公开样例来源台账、模板 KB、`backend/runtime/uploads`、`image_upload` 审计、题库题类 | `/report/image-upload` 校验 PNG/JPEG/WebP 头和尺寸，写入受控目录与 `image_upload` 摘要审计；`report_service` 会把同一上传的 `audit_log_id`、hash 和尺寸回填到 `evidence_ledger/source_trace`，并可用后端 `.env` 或请求级临时 Provider 生成视觉/文本观察摘要；请求级 Provider 区域复用 Base URL 预检，预检不需要 key、不发送模型请求、不写审计，未通过时前端阻断报告生成和 AI judge；推荐链接携带 `source=report_judge`、`drill` 和 `question_class` | Provider 反馈仅作训练建议，仍需医生审核；上传收据证明受控上传和报告台账绑定，不代表自动诊断；报告评分先写入画像，后续专项训练只有在医师提交题目后才继续回灌；报告到卡片只传递建议改写或医生修改稿摘要，不代表已审核报告；后续可接真实专家评分 |
-| 模型准入 | Provider 联调状态检查 + 真实推理证据阶梯 + Provider 请求预演包 + Provider 文本/视觉自检 + 最多 3 个公开样例 blind probe 准入检查、样例级 evidence、检查清单分、`self_test_receipt` / `admission_receipt`，并写入最近准入摘要；模型卡片默认是能力看板，`/models/select` 只有通过后端准入闸门才写入待人工复核候选 | `real_sample_knowledge.json`, `model_admission_state.json`, `audit_logs.json`, `models.json` | 联调状态检查只读返回 Provider 配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要、六步 `evidence_ladder` 和下一步动作，不返回 key/base 明文或完整模型回复；证据阶梯将配置、Base 预检、dry-run、自检、公开样例准入和候选启用拆开，preflight/dry-run 不等于真实模型调用；请求预演包来自 `/api/provider/request-preview`，只接收 `api_key_present` 布尔值，展示 endpoint path、请求字段、样例绑定、图片附加计划和隐私边界，且不发送 Provider 请求、不写审计或状态；文本自检只发安全短提示词；视觉自检会把一张公开样例图片附加到多模态请求，但不发送参考标注、不更新准入状态；样例准入不向 Provider 泄露参考标注，返回后再做公开标注粗粒度对齐；准入收据证明 `model_admission` 审计和平台状态摘要；未满足真实 Provider 调用、公开标注对齐、安全阈值或目标为 mock 时，后端返回 400，前端不提供 fallback 成功 | 联调状态检查、Base 预检和请求预演不等于真实模型调用；未做批量临床评测和统计置信区间 |
-| 科普卡片 | 卡片模板、后端公开样例图像池、动画卡片、本机图片预览、报告修改训练来源提示、草稿生成收据、医生审核闸门、审核后打印/分享解锁 | `card_template_knowledge.json` + `/api/knowledge/real-samples` 公开样例配图 + 医师输入摘要、报告 judge 建议改写或医生修改稿摘要 + `audit_logs.json` | 暂不调用 Provider | `patient_card` 生成收据只证明草稿生成和审计写入，不代表医生审核通过；公开样例图只作医生审核前卡片配图，不代表自动诊断；从报告训练带入的摘要通过前端路由状态传递，不写入 URL；本机上传图只保留当前浏览器预览，不写入后端卡片记录；后续可接报告中心已审核结论一键带入 |
+| 首页闭环自检 | 手动点击“沙盒自检”后，后端选择公开样例，串联提交答案、带教辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计摘要，并返回 9 张证据收据；沙盒模式返回前自动恢复画像、审计和 `patient_cards.json`，正式按钮才保留留痕；`real_sample_coverage` 展示真实样例 KB 记录数、映射题量、图片资产校验、数据集/用途分布，`knowledge_source_chain` 展示本地知识库文件、记录数、样例 ID 和消费页面 | `real_sample_knowledge.json`, `frontend/public/assets/real_samples`, `report_knowledge_base.json`, `card_template_knowledge.json`, `learner_profile.json`, `audit_logs.json`, `backend/runtime/patient_cards.json`, 现有训练/报告/卡片服务 | 不额外伪造 智能服务；各子链路按自身配置返回 `智能服务`/`rule`/`fallback`；沙盒会验证本轮包含 `challenge_benchmark`、`exam_session`、`patient_card` 和 `patient_card_approve` 审计但返回前恢复；后端不可用时前端不伪造通过；覆盖总账和来源链只证明知识库被平台引用，不代表批量临床评测 | 后续可增加独立多医师 demo sandbox profile、演示批次编号和更多本地 VQA 样例映射 |
+| 训练题库 | 公开样例优先、支持筛选/收藏/错题；考试模式已升级为全局 session、累计战报、交卷复盘入口，交卷后持久化整场摘要；挑战模式医师提交后才同步后端基准，并在比分板展示最近真实后端 `challenge_benchmark` 审计收据 | `questions.json`, `real_sample_knowledge.json`, `learner_profile.json`, `audit_logs.json` | 右侧 chat 可调用 智能服务，失败后规则辅导；考试中隐藏提示和自由追问；挑战基准 智能服务 可用时独立作答，失败时公开标注 fallback；审计收据只从后端 `/api/audit` 读取，前端 fallback 不算已连接 | 后续可扩展多医师考试表、班级排名和正式试卷管理 |
+| 右侧带教 | `辅导/证据/对照` 三段式面板，提交前隐藏参考答案；挑战模式提交前锁住证据页和基准；追问回灌训练事件 | 当前题、atomic facts、公开图片 URL | `tutor_orchestrator.chat` 调用 智能服务；`tutor_orchestrator.challenge_benchmark` 只在提交后调用 智能服务/公开标注 fallback | chat 仅保存题号/标签/模式，不保存医师追问原文；挑战基准只写 `challenge_benchmark` 审计，不重复写医师画像；后端不可用时不伪造挑战审计收据 |
+| 错因复盘 | 本轮提交进入时显示真实提交；直接打开时从后端错题本恢复最近复盘题并标注为 review snapshot，错误答案显示为“复盘示例答案” | `learner_profile.json` wrong/recent errors、`questions` API、atomic facts | 不调用 智能服务 | 复盘快照不伪装成真实用户提交，不重复写入画像；后续可加正式 submission history 表 |
+| 错误前提训练 | 医师先独立作答，提交后展示证据不足事实、原子证据、得分和复盘建议 | false-premise 题库、atomic facts、公开图像 | 不直接调用 智能服务；可作为模型准入样例 | 后续可加入限时 drill 和更多拒答题型 |
+| 报告中心 | 流程工作台展示图像/所见、草稿生成、复核台账；公开 VQA 标注默认收进来源台账；支持上传图片、图像证据收据、结构化报告草稿、幻觉审查、报告修改评分、`recommended_drills`，评分后可跳入训练中心专项任务卡并按合法题类筛选，以及带入科普卡片待审草稿 | 医生输入、公开样例来源台账、模板 KB、`backend/runtime/uploads`、`image_upload` 审计、题库题类 | `/report/image-upload` 校验 PNG/JPEG/WebP 头和尺寸，写入受控目录与 `image_upload` 摘要审计；`report_service` 会把同一上传的 `audit_log_id`、hash 和尺寸回填到 `evidence_ledger/source_trace`，并可用后端 `.env` 或请求级临时 智能服务 生成视觉/文本观察摘要；请求级 智能服务 区域复用 Base URL 预检，预检不需要 key、不发送模型请求、不写审计，未通过时前端阻断报告生成和 报告质量复核；推荐链接携带 `source=report_judge`、`drill` 和 `question_class` | 智能服务 反馈仅作训练建议，仍需医生审核；上传收据证明受控上传和报告台账绑定，不代表自动诊断；报告评分先写入画像，后续专项训练只有在医师提交题目后才继续回灌；报告到卡片只传递建议改写或医生修改稿摘要，不代表已审核报告；后续可接真实专家评分 |
+| 模型准入 | 智能服务 联调状态检查 + 真实推理证据阶梯 + 智能服务 请求预演包 + 智能服务 文本/视觉自检 + 最多 3 个公开样例 blind probe 准入检查、样例级 evidence、检查清单分、`self_test_receipt` / `admission_receipt`，并写入最近准入摘要；模型卡片默认是能力看板，`/models/select` 只有通过后端准入闸门才写入待人工复核候选 | `real_sample_knowledge.json`, `model_admission_state.json`, `audit_logs.json`, `models.json` | 联调状态检查只读返回 智能服务 配置布尔值、缺失项、公开样例数量、最近自检/准入审计摘要、六步 `evidence_ladder` 和下一步动作，不返回 key/base 明文或完整模型回复；证据阶梯将配置、Base 预检、请求预演、自检、公开样例准入和候选启用拆开，preflight/请求预演 不等于真实模型调用；请求预演包来自 `/api/智能服务/request-preview`，只接收 `api_key_present` 布尔值，展示 endpoint path、请求字段、样例绑定、图片附加计划和隐私边界，且不发送 智能服务 请求、不写审计或状态；文本自检只发安全短提示词；视觉自检会把一张公开样例图片附加到多模态请求，但不发送参考标注、不更新准入状态；样例准入不向 智能服务 泄露参考标注，返回后再做公开标注粗粒度对齐；准入收据证明 `model_admission` 审计和平台状态摘要；未满足真实 智能服务 调用、公开标注对齐、安全阈值或目标为 mock 时，后端返回 400，前端不提供 fallback 成功 | 联调状态检查、Base 预检和请求预演不等于真实模型调用；未做批量临床评测和统计置信区间 |
+| 科普卡片 | 卡片模板、后端公开样例图像池、动画卡片、本机图片预览、报告修改训练来源提示、草稿生成收据、医生审核闸门、审核后开放打印/分享 | `card_template_knowledge.json` + `/api/knowledge/real-samples` 公开样例配图 + 医师输入摘要、报告 judge 建议改写或医生修改稿摘要 + `audit_logs.json` | 暂不调用 智能服务 | `patient_card` 生成收据只证明草稿生成和审计写入，不代表医生审核通过；公开样例图只作医生审核前卡片配图，不代表自动诊断；从报告训练带入的摘要通过前端路由状态传递，不写入 URL；本机上传图只保留当前浏览器预览，不写入后端卡片记录；后续可接报告中心已审核结论一键带入 |
 | Skills | 受控技能列表、运行样例选择、运行摘要、医生复核状态、`skill_run_receipt`、输入来源、执行来源、下一步工作区跳转；完整 JSON 折叠展示 | `skills.json` + 题库/报告/卡片/安全服务 + `audit_logs.json` | 取决于具体 skill 调用的服务；运行收据记录的是后端 skill 编排和审计留痕，不代表临床结论 | 前端 fallback 只显示本地预览且不伪造审计 ID；后续可加启停配置持久化和权限角色 |
-| Memory | 提交题目、考试 Session、报告 judge、Agent 追问后更新训练记录、能力分、弱项标签 | `learner_profile.json` | 不调用 Provider | 考试 Session 只写整场摘要，不重复增加单题题量；模型准入写入平台状态，但不写入医师能力画像 |
-| Audit | 审计驾驶舱展示事件总量、高风险、医生复核、最近写入、分类筛选和完整日志表；挑战基准写入独立 `challenge_benchmark` 事件 | `audit_logs.json` | 不调用 Provider | 不记录 key 或原始敏感输入；后续可区分 demo smoke 与正式演示日志 |
-| 交付证据 | `/delivery` 和 `scripts/export_delivery_report.py` 读取同一个只读 `/api/platform/delivery-report`，展示医师对象、工作流 proof、知识库来源链、审计分布、Provider 边界、验证命令和完整性状态 | `readiness` 运行态、`learner_profile.json`, `audit_logs.json`, `real_sample_knowledge.json`, `report_knowledge_base.json`, `card_template_knowledge.json` | 交付报告本身不触发 Provider 请求；Provider 状态拆成 `configured`、`self_test_verified`、`admission_provider_called` 和 `real_inference_verified`，配置齐全不等于真实推理已验证 | `report_integrity` 证明只读和不返回 key/base；UI smoke 必须看到 backend 来源、clean 完整性和 Provider 证据 data attrs；后续可把状态文件 hash 证明进一步下沉到接口 |
+| Memory | 提交题目、考试 Session、报告 judge、带教追问后更新训练记录、能力分、弱项标签 | `learner_profile.json` | 不调用 智能服务 | 考试 Session 只写整场摘要，不重复增加单题题量；模型准入写入平台状态，但不写入医师能力画像 |
+| Audit | 审计驾驶舱展示事件总量、高风险、医生复核、最近写入、分类筛选和完整日志表；挑战基准写入独立 `challenge_benchmark` 事件 | `audit_logs.json` | 不调用 智能服务 | 不记录 key 或原始敏感输入；后续可区分 demo smoke 与正式演示日志 |
+| 交付证据 | `/delivery` 和 `scripts/export_delivery_report.py` 读取同一个只读 `/api/platform/delivery-report`，展示医师对象、工作流 proof、知识库来源链、审计分布、智能服务 边界、验证命令和完整性状态 | `readiness` 运行态、`learner_profile.json`, `audit_logs.json`, `real_sample_knowledge.json`, `report_knowledge_base.json`, `card_template_knowledge.json` | 交付报告本身不触发 智能服务 请求；智能服务 状态拆成 `configured`、`self_test_verified`、`admission_智能服务_called` 和 `real_inference_verified`，配置齐全不等于真实推理已验证 | `report_integrity` 证明只读和不返回 key/base；UI smoke 必须看到 backend 来源、clean 完整性和 智能服务 证据 data attrs；后续可把状态文件 hash 证明进一步下沉到接口 |
 
 ## 密钥和图片安全
 
-- 真实 key 只能放本地 `.env`，或模型准入/报告中心页面的一次性临时输入；只有临时 base 或 key 存在时，模型名才作为本次请求覆盖项，key/base 不写入状态文件。Provider 联调状态检查只返回配置布尔值、证据阶梯和审计摘要，不泄露 key/base 明文。模型准入页和报告中心均复用 Base URL 预检；预检不需要 key、不发送模型请求、不写审计，未通过时前端不会继续发起真实 Provider 调用。若可信 HTTPS Provider 网关域名有意解析到私有/保留地址，只能通过后端 `.env` 的 `LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST` 精确 hostname 白名单放行；预检只返回 `private_host_allowlist_configured` / `private_host_allowlist_used` 布尔证据，不返回 host 明文。该白名单只接受 hostname，不接受 IP literal，不能由前端请求修改，也不放行 metadata/link-local/loopback DNS、非本机 `http`、URL 凭据或非法端口。模型准入页的请求预演只发送 `api_key_present` 布尔值给后端，不传真实 key；它用于展示 dry-run 请求计划，必须保持 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`。Provider 文本/视觉自检只写 `provider_self_test` 摘要审计并返回 `self_test_receipt`，不写 `model_admission_state.json`。视觉自检返回 `image_attached` 只代表后端已附加公开图片到请求，不代表模型完成诊断。样例级准入返回 `admission_receipt`，但仍只保存准入摘要，不保存完整模型回复。
+- 真实 key 只能放本地 `.env`，或模型准入/报告中心页面的一次性临时输入；只有临时 base 或 key 存在时，模型名才作为本次请求覆盖项，key/base 不写入状态文件。智能服务 联调状态检查只返回配置布尔值、证据阶梯和审计摘要，不泄露 key/base 明文。模型准入页和报告中心均复用 Base URL 预检；预检不需要 key、不发送模型请求、不写审计，未通过时前端不会继续发起真实 智能服务 调用。若可信 HTTPS 智能服务 网关域名有意解析到私有/保留地址，只能通过后端 `.env` 的 `LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST` 精确 hostname 白名单放行；预检只返回 `private_host_allowlist_configured` / `private_host_allowlist_used` 布尔证据，不返回 host 明文。该白名单只接受 hostname，不接受 IP literal，不能由前端请求修改，也不放行 metadata/link-local/loopback DNS、非本机 `http`、URL 凭据或非法端口。模型准入页的请求预演只发送 `api_key_present` 布尔值给后端，不传真实 key；它用于展示 请求预演 请求计划，必须保持 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`。智能服务 文本/视觉自检只写 `智能服务_self_test` 摘要审计并返回 `self_test_receipt`，不写 `model_admission_state.json`。视觉自检返回 `image_attached` 只代表后端已附加公开图片到请求，不代表模型完成诊断。样例级准入返回 `admission_receipt`，但仍只保存准入摘要，不保存完整模型回复。
 - `.env` 和 `backend/runtime/` 均不提交 git。
-- Provider 图片输入只允许：
+- 智能服务 图片输入只允许：
   - `/assets/real_samples/...`
   - `backend/runtime/uploads/...`
 - 上传图片只用于教学演示和医生审核前辅助，不应包含真实患者身份信息。
@@ -39,6 +45,7 @@
 
 ## 答辩时建议说法
 
-本平台不是把所有能力伪装成“已完成临床级 AI”。v2.0 的核心进步是：每个输出都能说明它来自真实 Provider、后端规则，还是 fallback；训练中心提交前不泄露参考答案，挑战模式提交前锁住证据页和挑战基准，医师提交后才调用 `/tutor/challenge-benchmark`，该基准只写审计不重复回灌画像；报告中心能追踪医生输入、公开样例来源台账、模板知识库、Provider 观察、Provider 评阅和评分后的推荐专项训练；模型页先提供不改准入状态的文本/视觉自检，视觉自检只证明图片可进入 Provider 请求，再用公开样例做准入 evidence，但完整临床评测流水线仍按需求暂缓。
+本平台不是把所有能力伪装成“已完成临床级 AI”。v2.0 的核心进步是：每个输出都能说明它来自真实 智能服务、后端规则，还是 fallback；训练中心提交前不泄露参考答案，挑战模式提交前锁住证据页和挑战基准，医师提交后才调用 `/tutor/challenge-benchmark`，该基准只写审计不重复回灌画像；报告中心能追踪医生输入、公开样例来源台账、模板知识库、智能服务 观察、智能服务 评阅和评分后的推荐专项训练；模型页先提供不改准入状态的文本/视觉自检，视觉自检只证明图片可进入 智能服务 请求，再用公开样例做准入 evidence，但完整临床评测流水线仍按需求暂缓。
 
-报告修改训练到科普卡片的入口只把 AI judge 建议改写或医生修改稿摘要作为“患者沟通卡片草稿输入”，不会自动生成已审核患者材料。科普卡片生成后会显示 `source_trace`、模板知识库和 `patient_card` 审计收据，但打印/分享不是自由按钮：草稿生成后默认 `share_status=locked_pending_review`，医生完成审核清单后调用 `/patient-card/{card_id}/approve` 审核同一张草稿，后端返回 `reviewed_ready_to_share` 才会解锁，同时写入 `patient_card_approve` 审计事件。
+报告修改训练到科普卡片的入口只把 报告质量复核 建议改写或医生修改稿摘要作为“患者沟通卡片草稿输入”，不会自动生成已审核患者材料。科普卡片生成后会显示 `source_trace`、模板知识库和 `patient_card` 审计收据，但打印/分享不是自由按钮：草稿生成后默认 `share_status=locked_pending_review`，医生完成审核清单后调用 `/patient-card/{card_id}/approve` 审核同一张草稿，后端返回 `reviewed_ready_to_share` 才会开放，同时写入 `patient_card_approve` 审计事件。
+

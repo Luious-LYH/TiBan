@@ -10,6 +10,7 @@ import type {
   AtomicFact,
   AuditLog,
   ChallengeBenchmarkResult,
+  CustomModelEvaluationResult,
   DashboardPayload,
   DemoCheckResult,
   DeliveryAuditEventCount,
@@ -30,6 +31,7 @@ import type {
   LearnerProfile,
   ModelAdmissionResult,
   ModelAdmissionState,
+  ModelEvaluationPayload,
   ModelProfile,
   PatientCard,
   RealSampleCoverage,
@@ -42,7 +44,11 @@ import type {
   PlatformReadinessModule,
   ProviderSelfTestResult,
   ProviderStatus,
+  PracticeQuestionsPayload,
+  PracticeState,
+  PracticeSubmitResponse,
   Question,
+  ReportRevisionResponse,
   ReportJudge,
   ReportDraft,
   SkillDefinition,
@@ -56,29 +62,14 @@ import type {
 const configuredApiBase = import.meta.env.VITE_API_BASE_URL as string | undefined
 const apiBaseCandidates = configuredApiBase
   ? [configuredApiBase]
-  : ['http://127.0.0.1:8000', 'http://127.0.0.1:8001']
+  : ['http://127.0.0.1:8002', 'http://127.0.0.1:8001', 'http://127.0.0.1:8000']
 const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
 const requiredApiCapabilities = [
-  'provider_self_test',
-  'provider_visual_self_test',
-  'provider_self_test_receipt',
-  'provider_diagnostics',
-  'provider_evidence_ladder',
-  'provider_preflight',
-  'provider_request_preview',
-  'report_upload_receipt',
-  'model_admission_receipt',
-  'knowledge_source_chain',
-  'real_sample_coverage',
-  'demo_check_sandbox',
-  'demo_check_restore_verified',
-  'demo_check_exam_card_receipt',
-  'challenge_benchmark',
-  'challenge_audit_receipt',
-  'patient_card_generation_receipt',
-  'patient_card_approve',
-  'skill_run_receipt',
-  'delivery_report',
+  'v3_session',
+  'model_evaluation',
+  'custom_model_evaluation',
+  'practice_facade',
+  'report_facade',
 ]
 let activeApiBase = apiBaseCandidates[0]
 let apiBaseProbe: Promise<boolean> | null = null
@@ -136,6 +127,7 @@ function timeoutProfileFor(path: string, init?: RequestInit): RequestTimeoutProf
       path.includes('/models/admission-test') ||
       path.includes('/report-draft') ||
       path.includes('/report/judge') ||
+      path.includes('/practice/tutor') ||
       path.includes('/tutor/chat') ||
       path.includes('/tutor/challenge-benchmark') ||
       path.includes('/patient-card')
@@ -513,12 +505,12 @@ function fallbackSkillInputTrace(payload: SkillRunPayload) {
 
 function fallbackSkillNextActions(category: SkillDefinition['category']) {
   const actionMap: Record<SkillDefinition['category'], { label: string; href: string }[]> = {
-    training: [{ label: '继续题库训练', href: '/training' }],
-    feedback: [{ label: '查看错因复盘', href: '/feedback' }],
-    report: [{ label: '进入报告训练', href: '/report' }],
-    card: [{ label: '进入科普卡片审核', href: '/card' }],
-    safety: [{ label: '进入错误前提训练', href: '/false-premise' }],
-    audit: [{ label: '查看审计日志', href: '/audit' }],
+    training: [{ label: '继续研修题组', href: '/practice' }],
+    feedback: [{ label: '查看证据复盘', href: '/practice' }],
+    report: [{ label: '进入报告辅助', href: '/report' }],
+    card: [{ label: '进入报告辅助', href: '/report' }],
+    safety: [{ label: '进入报告纠错研修', href: '/practice?type=报告纠错' }],
+    audit: [{ label: '回到首页', href: '/' }],
   }
   return actionMap[category]
 }
@@ -630,8 +622,8 @@ function normalizeProfile(value: unknown, fallback: LearnerProfile = mockDashboa
     title: asString(record.title, fallback.title),
     department: asString(record.department, fallback.department),
     hospital: asString(record.hospital, fallback.hospital),
-    training_stage: asString(record.training_stage, fallback.training_stage),
-    training_goal: asString(record.training_goal, fallback.training_goal),
+    training_stage: asString(record.training_stage, asString(record.stage, fallback.training_stage)),
+    training_goal: asString(record.training_goal, asString(record.goal, fallback.training_goal)),
     total_questions: asNumber(record.total_questions, fallback.total_questions),
     accuracy: asNumber(record.accuracy, fallback.accuracy),
     completed_today: asNumber(record.completed_today, fallback.completed_today),
@@ -644,7 +636,7 @@ function normalizeProfile(value: unknown, fallback: LearnerProfile = mockDashboa
     recent_errors: asStringArray(record.recent_errors, fallback.recent_errors),
     recommended_question_classes: asStringArray(record.recommended_question_classes, fallback.recommended_question_classes),
     growth_trend: normalizeTrend(record.growth_trend, fallback.growth_trend),
-    training_records: normalizeTrainingRecords(record.training_records, fallback.training_records),
+    training_records: normalizeTrainingRecords(record.training_records ?? record.records, fallback.training_records),
     exam_sessions: normalizeExamSessions(record.exam_sessions, fallback.exam_sessions),
     question_type_coverage: asNumberRecord(record.question_type_coverage, fallback.question_type_coverage),
     updated_at: asString(record.updated_at, fallback.updated_at),
@@ -772,7 +764,7 @@ function normalizeLatestExamReplay(value: unknown, fallback?: LatestExamReplay |
     elapsed_seconds: asNumber(record.elapsed_seconds, fallback?.elapsed_seconds || 0),
     profile_updated: asBoolean(record.profile_updated, fallback?.profile_updated || false),
     created_at: asString(record.created_at, fallback?.created_at || ''),
-    href: asString(record.href, fallback?.href || `/feedback?session=${encodeURIComponent(sessionId)}`),
+    href: asString(record.href, fallback?.href || `/practice?session=${encodeURIComponent(sessionId)}`),
     profile_href: asString(record.profile_href, fallback?.profile_href || '/profile?tab=records'),
     status: asString(record.status, fallback?.status || '待核查'),
     detail: asString(record.detail, fallback?.detail || `本场考试 ${answeredCount} 题，正确率 ${accuracy}%，错题 ${wrongCount} 题。`),
@@ -854,8 +846,8 @@ function fallbackDeliveryReport(): DeliveryReport {
 
   return {
     generated_at: readiness.generated_at,
-    title: 'ARIS v2.0 交付证据报告（前端 fallback）',
-    scope: '后端不可用时仅展示交付证据页结构；正式验收证据以 FastAPI /api/platform/delivery-report 和导出脚本为准。',
+    title: '消化内镜研修与模型评测平台演示状态预览',
+    scope: '服务端暂不可用时仅展示本地预览结构；正式演示以五页主流程和实时接口为准。',
     doctor_context: {
       learner_id: profile.learner_id,
       name: profile.name,
@@ -886,30 +878,30 @@ function fallbackDeliveryReport(): DeliveryReport {
     workflow_proofs: [
       {
         id: 'training_loop',
-        name: '训练题库与画像回灌',
-        status: readiness.memory_ready ? 'ready' : 'fallback',
-        evidence: '刷题、考试、错题和画像路径保留为同一训练闭环；fallback 不写入真实画像。',
-        route: '/training',
+        name: '研修题库与画像回灌',
+        status: readiness.memory_ready ? 'ready' : 'preview',
+        evidence: '研修、错题和画像路径保留为同一闭环；本地预览不写入真实画像。',
+        route: '/practice',
       },
       {
         id: 'report_loop',
         name: '诊断报告训练',
-        status: readiness.report_template_count ? 'ready' : 'fallback',
+        status: readiness.report_template_count ? 'ready' : 'preview',
         evidence: '报告模板、修改评分与安全边界可在报告中心查看；后端在线时返回 source_trace。',
         route: '/report',
       },
       {
         id: 'card_review_loop',
-        name: '科普卡片审核闸门',
+        name: '报告表达复核边界',
         status: 'ready',
-        evidence: '卡片草稿与医生审核状态分离，未审核不解锁患者沟通状态。',
-        route: '/card',
+        evidence: '报告草稿与医生复核状态分离，正式使用前必须确认观察事实和表达边界。',
+        route: '/report',
       },
       {
         id: 'model_gate',
-        name: 'Provider 与模型准入',
-        status: readiness.provider_ready ? 'provider' : readiness.provider_mode,
-        evidence: '未配置 Provider 时显式显示 rule/fallback；不会伪造真实模型调用。',
+        name: '智能服务与模型评估',
+        status: readiness.provider_ready ? 'ready' : 'preview',
+        evidence: '未连通智能服务时显示为本地预览；不会伪造成真实模型调用。',
         route: '/models',
       },
     ],
@@ -918,25 +910,25 @@ function fallbackDeliveryReport(): DeliveryReport {
     audit_event_counts: auditCounts,
     provider_state: {
       configured: readiness.provider_ready,
-      mode: readiness.provider_mode,
+      mode: readiness.provider_ready ? 'ready' : 'preview',
       provider_declared: false,
       model: mockDashboard.active_model.name,
       self_test_logged: false,
       self_test_count: 0,
       self_test_verified: false,
-      latest_self_test_state: 'frontend_fallback',
+      latest_self_test_state: 'local_preview',
       admission_provider_called: readiness.admission_provider_called,
-      admission_state_kind: readiness.admission_provider_called ? 'provider_admission' : 'rule_draft',
+      admission_state_kind: readiness.admission_provider_called ? 'service_checked' : 'preview',
       admission_safe_for_training: mockDashboard.model_admission_state.safe_for_training,
       real_inference_verified: false,
-      verification_label: '前端 fallback 预览',
-      verification_note: '后端不可用时无法证明 Provider 真实调用；正式验收请查看 backend live 交付证据。',
+      verification_label: '本地预览',
+      verification_note: '后端不可用时无法证明真实调用；正式演示请先启动后端实时服务。',
     },
     verification_commands: [
       {
         name: '总控验证',
         command: 'python scripts\\verify_all.py',
-        covers: '后端健康、Provider 医生、演示闭环、UI smoke 与交付报告导出。',
+        covers: '后端健康、智能服务体检、演示闭环、UI smoke 与状态导出。',
       },
       {
         name: '交付报告导出',
@@ -945,14 +937,14 @@ function fallbackDeliveryReport(): DeliveryReport {
       },
     ],
     current_boundaries: [
-      '平台定位是教学训练、报告表达练习和医生审核前辅助。',
+      '平台定位是教学研修、报告表达练习和医生复核前辅助。',
       '所有医学输出必须保留医生复核，不作为独立诊断依据。',
-      '前端 fallback 只用于断网或后端不可用时的可视化兜底。',
+      '本地预览只用于断网或后端不可用时的可视化兜底。',
     ],
-    gaps: ['当前为前端 fallback；请启动 FastAPI 后端查看真实运行时证据。'],
+    gaps: ['当前为本地预览；请启动 FastAPI 后端查看真实运行时状态。'],
     safety_notice: safetyNotice,
     report_integrity: {
-      source: 'frontend_fallback',
+      source: 'local_preview',
       writes_state: false,
       secrets_included: false,
       api_key_returned: false,
@@ -1197,7 +1189,7 @@ function localReportDraft(findingText: string, options: { examType?: string; ima
         evidence_id: 'image_preview_001',
         source_type: 'image_preview_only',
         source_ref: options.imageName,
-        supports: ['本地 fallback 未执行真实视觉推理，仅作为图片预览或人工复核入口。'],
+        supports: ['当前为本地预览，仅作为图片查看和人工复核入口。'],
       }] : []),
     ],
     hallucination_audit: {
@@ -1226,13 +1218,13 @@ function localReportDraft(findingText: string, options: { examType?: string; ima
         source_type: findingText ? 'doctor_input' : 'template_kb',
         label: findingText ? '医生输入所见' : '报告知识库模板',
         used: true,
-        detail: findingText ? '前端 fallback 仅做文本结构化。' : '未输入所见，使用本地模板。',
+        detail: findingText ? '本地预览仅做文本结构化。' : '未输入所见，使用本地模板。',
       },
       {
         source_type: 'provider',
-        label: '视觉/语言 Provider',
+        label: '视觉与语言智能服务',
         used: false,
-        detail: 'backend_unavailable',
+        detail: '服务端暂未连接',
       },
     ],
     doctor_review_required: true,
@@ -1313,8 +1305,8 @@ function normalizeReportJudge(value: unknown, fallback: ReportJudge): ReportJudg
           const drill = asRecord(item)
           return {
             label: asString(drill.label, '报告表达专项'),
-            href: asString(drill.href, '/training?source=report_judge&drill=report_safety&question_class=报告纠错'),
-            reason: asString(drill.reason, '继续巩固报告证据边界。'),
+            href: asString(drill.href, '/practice?type=报告纠错'),
+            reason: asString(drill.reason, '继续巩固报告观察依据与复核表达。'),
             drill_id: typeof drill.drill_id === 'string' ? drill.drill_id : undefined,
             rubric: typeof drill.rubric === 'string' ? drill.rubric : undefined,
             score: Number.isFinite(Number(drill.score)) ? Number(drill.score) : undefined,
@@ -1521,13 +1513,13 @@ function localProviderSelfTestReceipt(payload: { providerName: string; includeIm
     provider_trace: [
       {
         source_type: 'frontend_fallback',
-        label: 'Provider 调用',
+        label: '智能服务调用',
         used: false,
-        detail: '后端 provider/self-test 不可用，未写入 provider_self_test 审计。',
+        detail: '服务端自检接口暂不可用，未写入自检审计。',
       },
     ],
     privacy_trace: [
-      { label: 'API key/base', used: false, detail: '前端 fallback 不会保存或回显密钥。' },
+      { label: '授权与连接入口', used: false, detail: '本地预览不会保存或回显授权。' },
       { label: '准入状态', used: false, detail: '未更新 model_admission_state.json。' },
     ],
     next_actions: [{ label: '检查后端服务', href: '/models' }],
@@ -1555,14 +1547,14 @@ function localAdmissionReceipt(payload: { providerName: string; sampleIds: strin
     provider_trace: [
       {
         source_type: 'frontend_fallback',
-        label: 'Provider 盲测',
+        label: '智能服务盲测',
         used: false,
-        detail: '后端 models/admission-test 不可用，未写入 model_admission 审计。',
+        detail: '服务端准入接口暂不可用，未写入准入审计。',
       },
     ],
     privacy_trace: [
-      { label: '参考答案', used: false, detail: '前端 fallback 未发送样例或参考标注给 Provider。' },
-      { label: 'API key/base', used: false, detail: '前端 fallback 不会保存或回显密钥。' },
+      { label: '参考答案', used: false, detail: '本地预览未发送样例或参考标注给智能服务。' },
+      { label: '授权与连接入口', used: false, detail: '本地预览不会保存或回显授权。' },
       { label: '平台状态', used: false, detail: '未写入 model_admission_state.json。' },
     ],
     next_actions: [{ label: '检查后端服务', href: '/models' }],
@@ -1603,8 +1595,8 @@ function readFileAsDataUrl(file: File): Promise<string> {
 }
 
 const localSubmission = (question: Question, selectedAnswer: string): SubmissionResponse => {
-  const isCorrect = selectedAnswer === question.answer
-  const errorTags = isCorrect ? [] : question.false_premise_flag ? ['错误前提', '证据不足'] : ['证据不足']
+  const isCorrect = isAnswerCorrect(question, selectedAnswer)
+  const errorTags = isCorrect ? [] : question.false_premise_flag ? ['过度推断', '证据不足'] : ['证据不足']
   return {
     id: `local_${Date.now()}`,
     question_id: question.id,
@@ -1617,13 +1609,22 @@ const localSubmission = (question: Question, selectedAnswer: string): Submission
     explanation: isCorrect
       ? `回答正确。${question.explanation}`
       : `你的答案是“${selectedAnswer}”，参考答案是“${question.answer}”。${question.explanation}`,
-    next_recommendation: question.false_premise_flag ? '建议继续练习错误前提与证据不足判断题。' : '建议进入复杂组合题训练证据链表达。',
+    next_recommendation: question.false_premise_flag ? '建议继续练习报告纠错与证据不足判断题。' : '建议进入一图多问题训练证据链表达。',
     created_at: new Date().toISOString(),
     profile_updated: false,
     doctor_review_required: true,
     safety_notice: safetyNotice,
   }
 }
+
+const isAnswerCorrect = (question: Question, selectedAnswer: string) => {
+  if (question.question_type !== '多选') return selectedAnswer === question.answer
+  const selected = splitAnswerItems(selectedAnswer)
+  const answer = splitAnswerItems(question.answer)
+  return selected.length > 0 && selected.length === answer.length && selected.every((item) => answer.includes(item))
+}
+
+const splitAnswerItems = (value: string) => value.split(/[；;]/).map((item) => item.trim()).filter(Boolean)
 
 export const api = {
   async dashboard(): Promise<DashboardPayload> {
@@ -1646,6 +1647,195 @@ export const api = {
     return request<DemoCheckResult>(
       `/api/platform/demo-check?learner_id=demo_learner&persist=${persist ? 'true' : 'false'}`,
       { method: 'POST' },
+    )
+  },
+
+  async modelEvaluation(): Promise<ModelEvaluationPayload> {
+    const fallback: ModelEvaluationPayload = {
+      summary: {
+        title: '内镜智能助手评估池',
+        headline: '微调模型在研修题上表现最稳',
+        sample_scope: '平台统一内镜数据资源',
+        model_count: 4,
+        top_model_id: 'agent-qwen',
+        top_model_name: '平台智能助手 · 微调模型 Qwen',
+        updated_at: '2026-06-05',
+      },
+      groups: [
+        { id: 'domain', label: '微调模型', description: '平台智能助手候选。' },
+        { id: 'general', label: '通用开源视觉模型', description: '通用图像问答能力对照。' },
+        { id: 'medical', label: '医学开源视觉模型', description: '医学多模态能力对照。' },
+        { id: 'closed', label: '闭源参考模型', description: '外部参考对照。' },
+      ],
+      metrics: ['图像问答正确率', '前提鲁棒校验率', '多步证据整合率', '分步证据完整率', '输出可解析率', '综合研修适配度'],
+      items: [
+        {
+          id: 'agent-qwen',
+          display_name: '平台智能助手 · 微调模型 Qwen',
+          group: 'domain',
+          group_label: '微调模型',
+          status: '当前助手',
+          active: true,
+          metrics: {
+            图像问答正确率: { value: 86.4, source: '平台评估' },
+            前提鲁棒校验率: { value: 74.6, source: '平台评估' },
+            多步证据整合率: { value: 72.1, source: '平台评估' },
+            分步证据完整率: { value: 51, source: '平台评估' },
+            输出可解析率: { value: 97.4, source: '平台评估' },
+            综合研修适配度: { value: 88.2, source: '综合评估' },
+          },
+          recommendation: '当前平台智能助手，用于研修反馈和报告辅助。',
+          provenance: { label: '平台统一评估结果', sample_scope: '平台统一内镜数据资源', public_label_only: true },
+        },
+      ],
+      radar: [],
+      complexity_curve: [],
+      attribute_breakdown: [],
+      safety_notice: safetyNotice,
+    }
+    return request<ModelEvaluationPayload>('/api/models/evaluation', undefined, fallback)
+  },
+
+  async customModelEvaluate(payload: { providerName: string; apiBase: string; apiKey?: string; model: string }): Promise<CustomModelEvaluationResult> {
+    const fallback: CustomModelEvaluationResult = {
+      id: `custom_local_${Date.now()}`,
+      display_name: payload.providerName || '自定义模型',
+      model: payload.model || '未填写模型',
+      connection_status: '格式预览',
+      evaluation_mode: '本地格式预览',
+      metrics: {
+        图像问答正确率: 54,
+        前提鲁棒校验率: 54,
+        多步证据整合率: 50,
+        分步证据完整率: 52,
+        输出可解析率: 62,
+        综合研修适配度: 54,
+      },
+      summary: '尚未完成临时连接，当前展示小样本评估报告预览。请确认连接入口、一次性授权与模型名称后重试。',
+      status_label: '预览报告',
+      privacy_status: '一次性授权未保存，完整回复未入库。',
+      safety_notice: safetyNotice,
+      created_at: new Date().toISOString(),
+    }
+    return request<CustomModelEvaluationResult>(
+      '/api/models/custom-evaluate',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          display_name: payload.providerName,
+          provider_name: payload.providerName,
+          api_base: payload.apiBase,
+          api_key: payload.apiKey || undefined,
+          model: payload.model,
+        }),
+      },
+      fallback,
+    )
+  },
+
+  async practiceState(): Promise<PracticeState> {
+    const response = await request<PracticeState>('/api/practice/state', undefined, {
+      profile: mockDashboard.learner_profile,
+      progress: {
+        completed: mockDashboard.today_training.completed,
+        target: mockDashboard.today_training.target,
+        percent: Math.round((mockDashboard.today_training.completed / Math.max(mockDashboard.today_training.target, 1)) * 100),
+        review_queue: mockDashboard.today_training.review_queue,
+      },
+      wrong_questions: mockDashboard.learner_profile.wrong_questions,
+      favorite_questions: mockDashboard.learner_profile.favorite_questions,
+      next_plan: [
+        { label: '证据不足复盘', count: 4, reason: '最近错因集中在观察依据。' },
+        { label: '报告纠错', count: 2, reason: '强化报告表达。' },
+      ],
+      question_types: [
+        { name: '基础识别', summary: '异常有无、结构识别、伪影识别', tone: 'blue' },
+        { name: '一图多问', summary: '多观察点整合推理', tone: 'green' },
+      ],
+      safety_notice: safetyNotice,
+    })
+    return {
+      ...response,
+      profile: normalizeProfile(response.profile),
+    }
+  },
+
+  async practiceQuestions(params: { questionClass?: string; difficulty?: string; onlyWrong?: boolean; onlyFavorites?: boolean; limit?: number } = {}): Promise<PracticeQuestionsPayload> {
+    const search = new URLSearchParams()
+    if (params.questionClass) search.set('question_class', params.questionClass)
+    if (params.difficulty) search.set('difficulty', params.difficulty)
+    if (params.onlyWrong) search.set('only_wrong', 'true')
+    if (params.onlyFavorites) search.set('only_favorites', 'true')
+    if (params.limit) search.set('limit', String(params.limit))
+    const fallbackItems = mockQuestions.filter((q) => {
+      if (params.questionClass && q.question_class !== params.questionClass) return false
+      if (params.onlyWrong && q.review_status !== '待复盘') return false
+      if (params.onlyFavorites && !q.is_favorited) return false
+      return true
+    })
+    const response = await request<PracticeQuestionsPayload>(
+      `/api/practice/questions${search.toString() ? `?${search.toString()}` : ''}`,
+      undefined,
+      {
+        items: fallbackItems,
+        total: fallbackItems.length,
+        question_types: [],
+        safety_notice: safetyNotice,
+      },
+    )
+    return {
+      ...response,
+      items: normalizeQuestions(response.items, fallbackItems),
+    }
+  },
+
+  async practiceSubmit(question: Question, selectedAnswer: string): Promise<PracticeSubmitResponse> {
+    const fallback = localSubmission(question, selectedAnswer) as PracticeSubmitResponse
+    const response = await request<PracticeSubmitResponse>(
+      '/api/practice/submit',
+      {
+        method: 'POST',
+        body: JSON.stringify({ question_id: question.id, learner_id: 'demo_learner', selected_answer: selectedAnswer }),
+      },
+      fallback,
+    )
+    return {
+      ...fallback,
+      ...response,
+      profile: response.profile ? normalizeProfile(response.profile) : undefined,
+      doctor_review_required: asBoolean(response.doctor_review_required, fallback.doctor_review_required),
+      safety_notice: asString(response.safety_notice, safetyNotice),
+    }
+  },
+
+  async practiceTutor(payload: {
+    questionId: string
+    mode?: 'hint' | 'explain' | 'chat'
+    selectedAnswer?: string
+    message?: string
+    displayModelName?: string
+    annotatedImageDataUrl?: string
+  }): Promise<Record<string, unknown>> {
+    return request<Record<string, unknown>>(
+      '/api/practice/tutor',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          question_id: payload.questionId,
+          learner_id: 'demo_learner',
+          mode: payload.mode || 'hint',
+          selected_answer: payload.selectedAnswer,
+          message: payload.message,
+          display_model_name: payload.displayModelName,
+          annotated_image_data_url: payload.annotatedImageDataUrl,
+        }),
+      },
+      {
+        hint: '先判断题干前提是否被图像支持，再选择答案。',
+        follow_up_question: '请指出一个图像证据。',
+        leak_answer: false,
+        safety_notice: safetyNotice,
+      },
     )
   },
 
@@ -1759,7 +1949,7 @@ export const api = {
       elapsed_seconds: Math.max(0, payload.durationSeconds - payload.remainingSeconds),
       finished_reason: payload.finishedReason,
       profile_updated: false,
-      memory_summary: `本场考试前端 fallback 汇总：${answeredCount} 题，正确率 ${accuracy}%，未写入后端画像。`,
+      memory_summary: `本场小测本地预览汇总：${answeredCount} 题，正确率 ${accuracy}%，未写入服务端画像。`,
       doctor_review_required: true,
       safety_notice: safetyNotice,
       created_at: new Date().toISOString(),
@@ -1815,7 +2005,7 @@ export const api = {
       latest_exam_session: mockDashboard.learner_profile.exam_sessions[0] || null,
       review_queue: mockDashboard.learner_profile.wrong_questions.length,
       next_plan: [
-        { label: '证据不足复盘', count: 4, reason: '最近错因集中在错误前提和过度诊断' },
+        { label: '证据不足复盘', count: 4, reason: '最近错因集中在过度推断和过度诊断' },
         { label: '报告修改训练', count: 2, reason: '强化所见与诊断边界' },
       ],
       safety_notice: safetyNotice,
@@ -1872,35 +2062,35 @@ export const api = {
           id: 'backend_api',
           label: '后端连接',
           state: 'blocked',
-          evidence: '前端无法连接 Provider diagnostics；不能证明配置、预检或真实调用状态。',
+          evidence: '前端暂未连接智能服务状态接口，不能证明配置、预检或真实调用状态。',
           action: '启动 FastAPI 后端并刷新 /models。',
           href: '/models',
           proof_kind: 'fallback',
         },
         {
           id: 'provider_env',
-          label: 'Provider 配置',
+          label: '智能服务配置',
           state: 'pending',
-          evidence: '后端未连接前不会读取 .env 状态。',
-          action: '后端在线后再查看 .env 缺失项。',
+          evidence: '服务端未连接前不会读取本地配置状态。',
+          action: '服务端在线后再查看配置缺失项。',
           href: '/models',
           proof_kind: 'config',
         },
       ],
       admission_state: {
-        provider_name: '未连接后端',
+        provider_name: '服务端暂未连接',
         grade: 'NA',
         total_score: 0,
         provider_called: false,
         safe_for_training: false,
-        recommendation: '请先启动 FastAPI 后端，再查看 Provider 联调状态检查。',
+        recommendation: '请先启动服务端，再查看智能服务联调状态检查。',
       },
-      blocking_reason: '前端无法连接后端联调状态检查接口；不能证明 Provider 状态。',
+      blocking_reason: '前端暂未连接服务端联调状态接口，不能证明智能服务状态。',
       next_actions: [
-        { label: '启动 FastAPI 后端', detail: '建议使用 127.0.0.1:8001。', href: '/models', done: false },
-        { label: '运行 Provider 自检', detail: '后端在线后再运行文本/视觉自检。', href: '/models', done: false },
+        { label: '启动服务端', detail: '建议使用本机演示服务。', href: '/models', done: false },
+        { label: '运行智能服务自检', detail: '服务端在线后再运行文本/视觉自检。', href: '/models', done: false },
       ],
-      privacy_notice: 'frontend fallback 不读取或保存 key/base。',
+      privacy_notice: '本地预览不读取或保存授权与连接入口。',
       safety_notice: safetyNotice,
       created_at: fallbackCreatedAt,
     }
@@ -1916,8 +2106,8 @@ export const api = {
       normalized_preview: null,
       endpoint_paths: [],
       blocked_reason: 'backend_unavailable',
-      warnings: ['后端暂不可用，前端不能证明 API Base 是否会被安全策略允许。'],
-      next_actions: ['启动 FastAPI 后端，再查看 Base URL 安全预检。'],
+      warnings: ['服务端暂不可用，前端不能证明连接入口是否会被安全策略允许。'],
+      next_actions: ['启动服务端，再查看连接入口安全预检。'],
       private_host_allowlist_configured: false,
       private_host_allowlist_used: false,
       key_required_for_call: true,
@@ -1962,7 +2152,7 @@ export const api = {
       message_plan: [
         {
           role: 'user',
-          contains: '前端 fallback 只能展示本地预览，不能证明后端会如何构造 Provider 请求。',
+          contains: '本地预览只能展示界面结构，不能证明服务端会如何构造智能服务请求。',
           image: payload.previewMode !== 'text_self_test',
           sample_ids: payload.sampleIds.slice(0, payload.previewMode === 'visual_self_test' ? 1 : 3),
         },
@@ -1971,7 +2161,7 @@ export const api = {
         id,
         source_dataset: '',
         image_url: '',
-        question_preview: '后端不可用，无法读取真实样例问题预览。',
+        question_preview: '服务端暂不可用，无法读取真实样例问题预览。',
         image_attached: false,
         reference_answer_sent: false,
         local_asset_required: payload.previewMode !== 'text_self_test',
@@ -1987,10 +2177,10 @@ export const api = {
       reference_answer_sent: false,
       full_response_persisted: false,
       privacy_trace: [
-        { label: 'API key/base', used: false, detail: '前端 fallback 不发送或保存 key；也不能证明后端预演。' },
-        { label: 'Provider 请求', used: false, detail: '未发送 Provider 请求。' },
+        { label: '授权与连接入口', used: false, detail: '本地预览不发送或保存授权，也不能证明服务端预演。' },
+        { label: '智能服务请求', used: false, detail: '未发送正式智能服务请求。' },
       ],
-      next_actions: ['启动 FastAPI 后端后重新查看真实请求预演包。'],
+      next_actions: ['启动服务端后重新查看真实请求预演包。'],
       safety_notice: safetyNotice,
       created_at: fallbackCreatedAt,
     }
@@ -2043,8 +2233,8 @@ export const api = {
       key_persisted: false,
       admission_state_updated: false,
       recommendation: payload.includeImage
-        ? '后端不可用，未完成 Provider 视觉通道自检；请先启动 FastAPI，再确认公开样例图片是否能附加到请求。'
-        : '后端不可用，未完成 Provider 文本轻量自检；请先启动 FastAPI，再运行完整准入探测。',
+        ? '服务端暂不可用，未完成智能服务视觉通道自检；请先启动服务端，再确认公开样例图片是否能附加到请求。'
+        : '服务端暂不可用，未完成智能服务文本轻量自检；请先启动服务端，再运行完整准入探测。',
       doctor_review_required: true,
       safety_notice: safetyNotice,
       created_at: fallbackCreatedAt,
@@ -2105,7 +2295,7 @@ export const api = {
       },
       interaction_tags: ['frontend_fallback'],
       profile_updated: false,
-      memory_summary: '当前为前端 fallback 辅导，未写入后端医师画像。',
+      memory_summary: '当前为本地预览辅导，未写入服务端医师画像。',
       doctor_review_required: true,
       safety_notice: safetyNotice,
     }
@@ -2134,7 +2324,7 @@ export const api = {
     const fallback: ChallengeBenchmarkResult = {
       id: `challenge_local_${Date.now()}`,
       question_id: question.id,
-      benchmark_name: '挑战基准（公开标注 fallback）',
+      benchmark_name: '研修对照样例（公开标注预览）',
       benchmark_answer: publicAnswer,
       benchmark_correct: publicAnswer === question.answer,
       doctor_selected_answer: selectedAnswer,
@@ -2147,7 +2337,7 @@ export const api = {
         ok: false,
         error: 'backend_unavailable',
       },
-      rationale: '后端挑战基准接口不可用，前端仅展示公开标注 fallback；未写入审计。',
+      rationale: '服务端研修对照接口暂不可用，前端仅展示公开标注预览；未写入审计。',
       audit_logged: false,
       profile_updated: false,
       doctor_review_required: true,
@@ -2188,7 +2378,7 @@ export const api = {
   async reportDraft(findingText: string, options: { examType?: string; imageName?: string; templateName?: string; providerName?: string; apiBase?: string; apiKey?: string; model?: string } = {}): Promise<ReportDraft> {
     const fallback = localReportDraft(findingText, options)
     const response = await request<ReportDraft>(
-      '/api/report-draft',
+      '/api/report/generate',
       {
         method: 'POST',
         body: JSON.stringify({
@@ -2210,7 +2400,7 @@ export const api = {
   async uploadReportImage(file: File): Promise<ImageUploadResponse> {
     const dataUrl = await readFileAsDataUrl(file)
     return request<ImageUploadResponse>(
-      '/api/report/image-upload',
+      '/api/report/image',
       {
         method: 'POST',
         body: JSON.stringify({
@@ -2233,8 +2423,8 @@ export const api = {
       recommended_drills: [
         {
           label: '报告表达进阶',
-          href: '/training?source=report_judge&drill=report_safety&question_class=报告纠错',
-          reason: '后端不可用时先回到报告纠错题巩固证据边界。',
+          href: '/practice?type=报告纠错',
+          reason: '后端不可用时先回到报告纠错题巩固观察依据。',
           drill_id: 'report_safety',
           rubric: '综合表达',
           score: revisedReport.includes('复核') ? 20 : 12,
@@ -2254,17 +2444,17 @@ export const api = {
           source_type: 'rule_rubric',
           label: '规则 rubric',
           used: true,
-          detail: '前端 fallback 评分。',
+          detail: '本地预览评分。',
         },
         {
           source_type: 'provider',
-          label: 'Provider 评阅',
+          label: '智能服务评阅',
           used: false,
-          detail: 'backend_unavailable',
+          detail: '服务端暂未连接',
         },
       ],
       profile_updated: false,
-      memory_summary: '当前为前端 fallback 评分，未写入后端医师画像。',
+      memory_summary: '当前为本地预览评分，未写入服务端医师画像。',
       doctor_review_required: true,
       safety_notice: safetyNotice,
       created_at: new Date().toISOString(),
@@ -2286,6 +2476,65 @@ export const api = {
       fallback,
     )
     return normalizeReportJudge(response, fallback)
+  },
+
+  async reportRevise(payload: {
+    originalReport: string
+    currentReport: string
+    instruction: string
+    providerName?: string
+    apiBase?: string
+    apiKey?: string
+    model?: string
+  }): Promise<ReportRevisionResponse> {
+    const fallback: ReportRevisionResponse = {
+      id: `report_revision_local_${Date.now()}`,
+      revised_report: `${payload.currentReport || payload.originalReport} 建议医生结合完整检查过程、病史及必要病理结果复核。`,
+      instruction: payload.instruction,
+      judge: {
+        id: `judge_local_${Date.now()}`,
+        score: 82,
+        strengths: ['已保留观察事实。'],
+        issues: ['当前为本地修订预览，请确认后再使用。'],
+        suggested_revision: payload.currentReport || payload.originalReport,
+        rubric_scores: { 部位描述: 20, 所见与诊断区分: 20, 不确定性表达: 20, 安全边界: 22 },
+        recommended_drills: [],
+        generation_mode: 'fallback',
+        provider_status: {
+          provider: 'frontend_fallback',
+          model: payload.model || 'none',
+          mode: 'fallback',
+          ok: false,
+          error: 'backend_unavailable',
+        },
+        provider_feedback: null,
+        source_trace: [],
+        profile_updated: false,
+        memory_summary: null,
+        doctor_review_required: true,
+        safety_notice: safetyNotice,
+        created_at: new Date().toISOString(),
+      },
+      privacy_status: '本次修改未保存一次性授权。',
+      safety_notice: safetyNotice,
+      created_at: new Date().toISOString(),
+    }
+    return request<ReportRevisionResponse>(
+      '/api/report/revise',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          original_report: payload.originalReport,
+          current_report: payload.currentReport,
+          instruction: payload.instruction,
+          provider_name: payload.providerName,
+          api_base: payload.apiBase,
+          api_key: payload.apiKey || undefined,
+          model: payload.model,
+        }),
+      },
+      fallback,
+    )
   },
 
   async patientCard(
@@ -2355,7 +2604,7 @@ export const api = {
     card: PatientCard,
     options: { reviewerName: string; reviewNotes?: string; reviewChecks: Record<string, boolean> },
   ): Promise<PatientCard> {
-    // 审核解锁必须写入后端审计；离线时宁可失败，也不能前端伪造已审核状态。
+    // 审核开放必须写入后端审计；离线时宁可失败，也不能前端伪造已审核状态。
     const response = await request<PatientCard>(
       `/api/patient-card/${encodeURIComponent(card.id)}/approve`,
       {
@@ -2404,8 +2653,8 @@ export const api = {
       provider_name: payload.providerName,
       grade: 'B',
       total_score: 69,
-      dimension_scores: { 基础识别: 78, 复杂推理: 70, 错误前提: 66, 报告安全: 72, 接口稳定: 35 },
-      risk_items: ['本地 fallback 仅演示评分格式，未完成真实 Provider 准入。'],
+      dimension_scores: { 基础识别: 78, 多步证据整合: 70, 前提鲁棒: 66, 报告安全: 72, 接口稳定: 35 },
+      risk_items: ['本地预览仅演示评分格式，未完成真实智能服务准入。'],
       tested_samples: payload.sampleIds,
       provider_called: false,
       is_mock: true,
@@ -2417,9 +2666,9 @@ export const api = {
         ok: false,
         error: 'backend_unavailable',
       },
-      recommendation: '请先连通后端并配置 Provider，再运行真实准入探测。',
+      recommendation: '请先连通服务端并配置智能服务，再运行真实准入探测。',
       platform_state_updated: false,
-      platform_state_summary: '当前为前端 fallback 准入结果，未写入后端平台状态。',
+      platform_state_summary: '当前为本地预览准入结果，未写入服务端平台状态。',
       audit_logged: false,
       audit_log_id: null,
       admission_receipt: {
@@ -2491,7 +2740,7 @@ export const api = {
       '/api/skills/run',
       { method: 'POST', body: JSON.stringify({ skill_id: skill.id, payload, learner_id: 'demo_learner' }) },
       {
-        message: '已在本地 fallback 中模拟运行。',
+        message: '已在本地预览中模拟运行。',
         doctor_review_required: doctorReviewRequired,
         safety_notice: safetyNotice,
         skill_run_receipt: {

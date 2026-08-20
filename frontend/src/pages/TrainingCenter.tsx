@@ -1,1059 +1,1040 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { ActivitySquare, AlertTriangle, ArrowLeft, ArrowRight, Bookmark, Bot, CheckCircle2, ClipboardList, Clock, DatabaseZap, Eye, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Target, Trophy, UserRound } from 'lucide-react'
-import { Card, EmptyState, SectionTitle, Tag } from '../components/Primitives'
-import { api } from '../lib/api'
-import { mockDashboard, mockQuestions, safetyNotice } from '../lib/mock'
-import type { AuditLog, ChallengeBenchmarkResult, ExamSessionAttempt, LearnerProfile, ProviderStatus, Question, SubmissionResponse } from '../lib/types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import {
+  ArrowRight,
+  BookOpenCheck,
+  Bot,
+  CheckCircle2,
+  Clock3,
+  GraduationCap,
+  Layers3,
+  LoaderCircle,
+  MessageCircle,
+  PenLine,
+  Save,
+  Send,
+  Shuffle,
+  Sparkles,
+  Star,
+  Target,
+  Trash2,
+} from 'lucide-react'
+import { Card, SafetyNotice, SectionTitle, Tag } from '../components/Primitives'
+import { v3Api, v3DemoQuestion, v3SafetyNotice } from '../lib/v3Api'
+import type { PracticeState, PracticeSubmitResponse, Question, QuestionType } from '../lib/types'
 
+type StudyMode = 'practice' | 'memory' | 'exam'
+type SubPage = 'daily' | 'wrong' | 'favorites'
+type QuestionTypeFilter = '全部题型' | QuestionType
 type ChatMessage = {
+  id: string
   role: 'agent' | 'doctor'
   text: string
-  mode?: string
+  meta?: string
 }
 
-type TutorTab = 'agent' | 'evidence' | 'compare'
-type ImageLoadState = 'idle' | 'loading' | 'loaded' | 'error'
-type ImageLoadRecord = {
-  src: string
-  status: ImageLoadState
+const defaultTypes = ['基础识别', '部位定位', '病变属性', '一图多问', '报告纠错']
+const trainingTaxonomy = new Set(defaultTypes)
+const questionTypeOptions: QuestionTypeFilter[] = ['全部题型', '单选', '多选', '判断', '问答评分', '报告修改']
+const localFavoriteStorageKey = 'aris:practice:favorites:v1'
+const modelAssignmentStorageKey = 'aris:model-task-assignment:v1'
+const dailyPlanStorageKey = 'aris:practice:daily-target:v1'
+const defaultDailyTarget = 50
+const extractableDatasetTotal = 308894
+
+type ModelTaskAssignments = {
+  trainingTutorModelId?: string
+  reportGenerationModelId?: string
+  updatedAt?: string
 }
 
-type ChallengeStats = {
-  rounds: number
-  doctor: number
-  benchmark: number
-  ties: number
+const fallbackModelNames: Record<string, string> = {
+  'agent-qwen': '平台智能助手 · 微调模型 Qwen',
+  'agent-medgemma': '微调模型 MedGemma',
+  'claude-opus': 'Claude Code opus 4.7',
+  gpt55: 'GPT-5.5',
+  'qwen3-8b': 'Qwen3-VL-8B',
 }
 
-type ExamAttempt = {
-  questionId: string
-  title: string
-  selected: string
-  correctAnswer: string
-  isCorrect: boolean
-  score: number
-  errorTags: string[]
-}
+const studyModes: { id: StudyMode; label: string; detail: string }[] = [
+  { id: 'practice', label: '刷题模式', detail: '作答后看复盘，右侧可随时梳理观察思路。' },
+  { id: 'memory', label: '背题模式', detail: '直接看知识点和参考答案，用于快速巩固。' },
+  { id: 'exam', label: '考试模式', detail: '保持独立作答，只保留计时和提交。' },
+]
+const subPages: { id: SubPage; label: string; detail: string }[] = [
+  { id: 'daily', label: '今日题组', detail: '平台推荐的混合题型。' },
+  { id: 'wrong', label: '错题复盘', detail: '优先拉取待复盘题。' },
+  { id: 'favorites', label: '收藏背题', detail: '快速回看收藏题。' },
+]
 
-type Filters = {
-  bodyPart: string
-  task: string
-  difficulty: string
-  questionType: string
-  sourceDataset: string
-}
-
-type DrillMeta = {
-  title: string
-  goal: string
-  focus: string
-  targetClass: Question['question_class']
-}
-
-const emptyFilters: Filters = {
-  bodyPart: '',
-  task: '',
-  difficulty: '',
-  questionType: '',
-  sourceDataset: '',
-}
-
-const EXAM_DURATION_SECONDS = 12 * 60
-const emptyChallengeStats: ChallengeStats = { rounds: 0, doctor: 0, benchmark: 0, ties: 0 }
-const createExamSessionId = () => `exam_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
-const publicDatasets = new Set(['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'])
-const validQuestionClasses = new Set<Question['question_class']>(['基础识别', '部位定位', '病变属性', '复杂组合', '错误前提', '报告纠错', '一图多问'])
-const reportJudgeDrills: Record<string, DrillMeta> = {
-  location_scope: {
-    title: '部位与范围定位专项',
-    goal: '把报告中的部位、范围和数量表达重新落到可观察证据上。',
-    focus: '先描述可见结构，再说明无法覆盖的范围。',
-    targetClass: '病变属性',
-  },
-  report_safety: {
-    title: '报告安全专项',
-    goal: '练习把观察性所见和诊断性结论拆开，减少越界表达。',
-    focus: '用“所见提示/需结合/待复核”替代直接确诊。',
-    targetClass: '报告纠错',
-  },
-  evidence_boundary: {
-    title: '证据不足识别专项',
-    goal: '训练在证据不足时主动写出缺失上下文和复核要求。',
-    focus: '先识别题干前提是否成立，再决定能否回答。',
-    targetClass: '错误前提',
-  },
-  false_premise: {
-    title: '错误前提挑战',
-    goal: '识别“确诊、必须、立即”等高风险前提，并练习降级表达。',
-    focus: '遇到题干越界时，先拒绝过度推断，再给出可复核事实。',
-    targetClass: '错误前提',
-  },
-}
-
-export function TrainingCenter({ onSubmission }: { onSubmission: (submission: SubmissionResponse, question: Question) => void }) {
-  const [searchParams] = useSearchParams()
-  const [questions, setQuestions] = useState<Question[]>(mockQuestions)
-  const [filters, setFilters] = useState<Filters>(emptyFilters)
-  const [index, setIndex] = useState(0)
-  const [selected, setSelected] = useState('')
-  const [submission, setSubmission] = useState<SubmissionResponse | null>(null)
-  const [hint, setHint] = useState('练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。')
-  const [loading, setLoading] = useState(false)
+export function TrainingCenter() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [state, setState] = useState<PracticeState | null>(null)
+  const [questions, setQuestions] = useState<Question[]>([v3DemoQuestion])
+  const [selectedType, setSelectedType] = useState(searchParams.get('type') || '全部')
+  const [selectedQuestionType, setSelectedQuestionType] = useState<QuestionTypeFilter>((searchParams.get('question_type') as QuestionTypeFilter) || '全部题型')
+  const [studyMode, setStudyMode] = useState<StudyMode>((searchParams.get('mode') as StudyMode) || 'practice')
+  const [subPage, setSubPage] = useState<SubPage>((searchParams.get('view') as SubPage) || 'daily')
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [questionTotal, setQuestionTotal] = useState(1)
+  const [questionTypeCounts, setQuestionTypeCounts] = useState<Record<string, number>>({})
+  const [poolReceipt, setPoolReceipt] = useState<{ total: number; poolTotal: number; seed?: number | null }>({ total: 1, poolTotal: 1, seed: null })
+  const [shuffleSeed, setShuffleSeed] = useState(() => Date.now())
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(() => readFavoriteIds())
+  const [modelAssignments, setModelAssignments] = useState<ModelTaskAssignments>(() => readModelAssignments())
+  const [dailyTarget, setDailyTarget] = useState(() => readDailyTarget())
+  const [selectedAnswers, setSelectedAnswers] = useState<string[]>([])
+  const [freeAnswer, setFreeAnswer] = useState('')
+  const [submission, setSubmission] = useState<PracticeSubmitResponse | null>(null)
+  const [savingCard, setSavingCard] = useState(false)
   const [chatInput, setChatInput] = useState('')
-  const [tutorTab, setTutorTab] = useState<TutorTab>('agent')
-  const [agentMode, setAgentMode] = useState('rule')
-  const [examSeconds, setExamSeconds] = useState(EXAM_DURATION_SECONDS)
-  const [examAttempts, setExamAttempts] = useState<ExamAttempt[]>([])
-  const [examFinished, setExamFinished] = useState(false)
-  const [examSessionId, setExamSessionId] = useState(createExamSessionId)
-  const [examSyncing, setExamSyncing] = useState(false)
-  const [examSessionSaved, setExamSessionSaved] = useState(false)
-  const [memorySync, setMemorySync] = useState('Agent 辅导会记录训练标签和模式，不保存自由追问原文。')
-  const [challengeStats, setChallengeStats] = useState<ChallengeStats>(emptyChallengeStats)
-  const [challengeBenchmark, setChallengeBenchmark] = useState<ChallengeBenchmarkResult | null>(null)
-  const [challengeBenchmarkLoading, setChallengeBenchmarkLoading] = useState(false)
-  const [lastChallengeAudit, setLastChallengeAudit] = useState<AuditLog | null>(null)
-  const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null)
-  const [learnerProfile, setLearnerProfile] = useState<LearnerProfile>(mockDashboard.learner_profile)
-  const [imageLoadRecord, setImageLoadRecord] = useState<ImageLoadRecord>({ src: '', status: 'idle' })
-  const [chat, setChat] = useState<ChatMessage[]>([
-    buildInitialAgentMessage(mockQuestions[0]),
+  const [agentBusy, setAgentBusy] = useState(false)
+  const [annotationEnabled, setAnnotationEnabled] = useState(false)
+  const [hasAnnotation, setHasAnnotation] = useState(false)
+  const [examStartedAt] = useState(() => Date.now())
+  const [now, setNow] = useState(() => Date.now())
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 'welcome',
+      role: 'agent',
+      text: '我在旁边陪你梳理这道题。可以先说你看到的部位、形态或拿不准的选项，我们一起把依据理顺。',
+      meta: '当前题上下文',
+    },
   ])
-
-  const mode = searchParams.get('mode') === 'exam' ? 'exam' : 'practice'
-  const view = searchParams.get('view') || ''
-  const source = searchParams.get('source') || ''
-  const drill = searchParams.get('drill') || ''
-  const requestedQuestionClassRaw = searchParams.get('question_class') || ''
-  const requestedQuestionClass = toQuestionClass(requestedQuestionClassRaw)
-  const questionClassWasInvalid = Boolean(requestedQuestionClassRaw && !requestedQuestionClass)
-  const isChallenge = view === 'challenge'
-  const isReportJudgeDrill = source === 'report_judge'
-  const drillMeta = isReportJudgeDrill
-    ? reportJudgeDrills[drill] || {
-        title: '报告评分专项训练',
-        goal: '根据报告 judge 的薄弱项回到题库完成针对性训练。',
-        focus: '提交答案后查看证据、错因和 Agent 复盘建议。',
-        targetClass: requestedQuestionClass || '报告纠错',
-      }
-    : null
-  const effectiveQuestionClass = requestedQuestionClass || drillMeta?.targetClass || ''
-  const questionClassFallbackNotice = questionClassWasInvalid
-    ? `URL 题类“${requestedQuestionClassRaw}”不在题库枚举内，已回退到${effectiveQuestionClass || '综合训练'}。`
-    : ''
-  const baseMemorySync = isChallenge
-    ? '比拼模式只记录正式提交结果；后端挑战基准提交后才调用，只写审计。'
-    : isReportJudgeDrill ? '报告 judge 推荐专项只筛选训练题，不重复写入报告评分记录；提交题目后才回灌医师画像。' : 'Agent 辅导会记录训练标签和模式，不保存自由追问原文。'
-  const baseHint = mode === 'exam'
-    ? '考试模式已隐藏提示，结束后统一复盘。'
-    : isChallenge ? '比拼模式已隐藏提示。请先独立作答，提交后再同步后端挑战基准。' : isReportJudgeDrill ? `报告评分专项：${drillMeta?.focus || '先独立作答，再复盘证据边界。'}` : '练习模式下，右侧 Agent 会先追问依据，不直接泄露答案。'
-
-  const refreshLearnerProfile = async () => {
-    try {
-      setLearnerProfile(await api.learnerProfile())
-    } catch {
-      setLearnerProfile(mockDashboard.learner_profile)
-    }
-  }
+  const feedbackRef = useRef<HTMLElement | null>(null)
+  const chatLogRef = useRef<HTMLDivElement | null>(null)
+  const annotationCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const annotationImageRef = useRef<HTMLImageElement | null>(null)
+  const isAnnotatingRef = useRef(false)
+  const question = questions[activeIndex] || questions[0]
 
   useEffect(() => {
-    api.providerStatus().then(setProviderStatus).catch(() => undefined)
+    v3Api.practiceState().then(setState).catch(() => setState(null))
   }, [])
 
   useEffect(() => {
-    api.learnerProfile().then(setLearnerProfile).catch(() => setLearnerProfile(mockDashboard.learner_profile))
+    const syncAssignments = () => setModelAssignments(readModelAssignments())
+    window.addEventListener('storage', syncAssignments)
+    return () => window.removeEventListener('storage', syncAssignments)
   }, [])
 
   useEffect(() => {
-    if (!isChallenge) return
-    api.challengeAuditReceipt()
-      .then(setLastChallengeAudit)
-      .catch(() => setLastChallengeAudit(null))
-  }, [isChallenge])
-
-  useEffect(() => {
-    api.qbank({
-      onlyWrong: view === 'wrong',
-      onlyFavorites: view === 'favorite',
-      publicOnly: source === 'public' || view === 'challenge',
-      questionClass: effectiveQuestionClass,
-      mode,
-    }).then((items) => {
-      setQuestions(items)
-      setIndex(0)
-      setSelected('')
-      setSubmission(null)
-      setTutorTab('agent')
-      setExamSeconds(EXAM_DURATION_SECONDS)
-      setExamAttempts([])
-      setExamFinished(false)
-      setExamSessionId(createExamSessionId())
-      setExamSessionSaved(false)
-      setExamSyncing(false)
-      setMemorySync(baseMemorySync)
-      setHint(baseHint)
-      setChatInput('')
-      setChat([buildInitialAgentMessage(items[0] || mockQuestions[0])])
-      setChallengeStats(emptyChallengeStats)
-      setChallengeBenchmark(null)
-      setChallengeBenchmarkLoading(false)
-    }).catch(() => setQuestions(mockQuestions))
-  }, [baseHint, baseMemorySync, effectiveQuestionClass, mode, source, view])
-
-  const filterOptions = useMemo(() => {
-    const values = (key: keyof Question) => Array.from(new Set(questions.map((q) => String(q[key] || '')).filter(Boolean)))
-    return {
-      bodyPart: values('body_part'),
-      task: values('task'),
-      difficulty: values('difficulty'),
-      questionType: values('question_type'),
-      sourceDataset: values('source_dataset'),
-    }
-  }, [questions])
-
-  const filteredQuestions = useMemo(() => {
-    return questions.filter((question) => {
-      if (filters.bodyPart && question.body_part !== filters.bodyPart) return false
-      if (filters.task && question.task !== filters.task) return false
-      if (filters.difficulty && question.difficulty !== filters.difficulty) return false
-      if (filters.questionType && question.question_type !== filters.questionType) return false
-      if (filters.sourceDataset && question.source_dataset !== filters.sourceDataset) return false
-      if (source === 'public' && !['Kvasir-VQA-x1', 'Kvasir-VQA', 'EndoBench'].includes(question.source_dataset)) return false
-      return true
+    if (!state?.favorite_questions?.length) return
+    const incomingFavorites = state.favorite_questions.map((item) => String(item)).filter(Boolean)
+    setFavoriteIds((current) => {
+      const merged = [...new Set([...current, ...incomingFavorites])]
+      return sameStringArray(current, merged) ? current : writeFavoriteIds(merged)
     })
-  }, [filters, questions, source])
-
-  const publicQuestionCount = useMemo(() => questions.filter((item) => publicDatasets.has(item.source_dataset)).length, [questions])
-  const filteredPublicCount = useMemo(() => filteredQuestions.filter((item) => publicDatasets.has(item.source_dataset)).length, [filteredQuestions])
-  const sourceDatasetCount = useMemo(() => new Set(questions.map((item) => item.source_dataset).filter(Boolean)).size, [questions])
-  const publicQuickQuestions = useMemo(() => filteredQuestions.filter((item) => publicDatasets.has(item.source_dataset)).slice(0, 4), [filteredQuestions])
-  const teachingQuestionCount = Math.max(questions.length - publicQuestionCount, 0)
-  const publicCoverage = questions.length ? Math.round((publicQuestionCount / questions.length) * 100) : 0
-  const question = filteredQuestions[index % Math.max(filteredQuestions.length, 1)] || mockQuestions[0]
-  const evidence = useMemo(() => question.atomic_trace.map((fact) => fact.evidence).join(' / '), [question])
-  const aiAnswer = question.ai_benchmark_answer || question.answer
-  const aiCorrect = aiAnswer === question.answer
-  const providerConfigured = Boolean(providerStatus?.configured || providerStatus?.ok)
-  const currentChallengeBenchmark = challengeBenchmark?.question_id === question.id ? challengeBenchmark : null
-  const benchmarkAnswer = currentChallengeBenchmark?.benchmark_answer || aiAnswer
-  const benchmarkCorrect = currentChallengeBenchmark?.benchmark_correct ?? aiCorrect
-  const benchmarkLabel = currentChallengeBenchmark
-    ? `${currentChallengeBenchmark.benchmark_name}（${currentChallengeBenchmark.generation_mode}${currentChallengeBenchmark.api_source === 'fallback' ? ' · frontend fallback' : ''}）`
-    : providerConfigured ? '提交后调用 Provider 挑战基准；失败时回退公开标注' : '后端挑战基准 fallback（未配置独立 Provider）'
-  const examAnsweredCount = examAttempts.length
-  const examCorrectCount = examAttempts.filter((attempt) => attempt.isCorrect).length
-  const examWrongAttempts = examAttempts.filter((attempt) => !attempt.isCorrect)
-  const examAverageScore = examAnsweredCount ? Math.round(examAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / examAnsweredCount) : 0
-  const examAccuracy = examAnsweredCount ? Math.round((examCorrectCount / examAnsweredCount) * 100) : 0
-  const examCompletedByCount = mode === 'exam' && filteredQuestions.length > 0 && examAnsweredCount >= filteredQuestions.length
-  const examClosed = mode === 'exam' && (examFinished || examSeconds <= 0 || examCompletedByCount)
-  const currentQuestionAnswered = mode === 'exam' && examAttempts.some((attempt) => attempt.questionId === question.id)
-  const canRevealBenchmark = Boolean(submission)
-  const reviewUnlocked = Boolean(submission)
-  const evidenceLocked = !reviewUnlocked
-  const examExpired = mode === 'exam' && examSeconds <= 0
-  const formattedExamTime = `${String(Math.floor(examSeconds / 60)).padStart(2, '0')}:${String(examSeconds % 60).padStart(2, '0')}`
-  const challengeDelta = canRevealBenchmark
-    ? challengeBenchmarkLoading ? '正在同步后端挑战基准，本轮比分稍后更新。' : challengeMessage(Boolean(submission?.is_correct), benchmarkCorrect, selected === benchmarkAnswer)
-    : '提交答案后解锁医生作答与挑战基准对照'
-  const challengeLeader = challengeStats.doctor === challengeStats.benchmark
-    ? '暂时平手'
-    : challengeStats.doctor > challengeStats.benchmark ? '医生领先' : '挑战基准领先'
-  const isPublicSample = publicDatasets.has(question.source_dataset)
-  const canUseTutorChat = mode !== 'exam' && (!isChallenge || Boolean(submission))
-  const imageSourceLabel = isPublicSample ? '真实公开样例' : '平台教学样例'
-  const activeImageUrl = question.image_url || '/assets/synthetic-endoscopy-training.svg'
-  const imageLoadState: ImageLoadState = imageLoadRecord.src === activeImageUrl ? imageLoadRecord.status : 'loading'
-  const currentImageRef = question.image_url ? question.image_url.replace('/assets/real_samples/', 'real_samples/') : 'synthetic-endoscopy-training.svg'
-  const imageLoadLabel = imageLoadState === 'loaded'
-    ? isPublicSample ? '真实图片已加载' : '教学图已加载'
-    : imageLoadState === 'error' ? '图片加载失败' : '图片加载中'
-  const currentSourceAssurance = isPublicSample
-    ? '图像、题干、公开标注来自本地真实公开样例知识库；中文解释由平台按训练目标改写。'
-    : '平台教学题用于补足训练类型，不声明为真实公开图片。'
-  const tutorAvailability = mode === 'exam' && !submission
-    ? '考试纪律'
-    : mode === 'exam' ? '考后证据复盘' : isChallenge && !submission ? '独立作答锁定' : submission ? '复盘追问' : '证据式辅导'
-  const tutorWriteback = mode === 'exam'
-    ? examSessionSaved ? '已同步画像' : '交卷后同步'
-    : submission ? '提交已回灌' : '追问仅记标签'
-  const quickAgentPrompts = submission
-    ? ['用一句话总结错因', '给我下一题复盘策略', '帮我改写成报告表达']
-    : ['按部位-形态-边界追问我', '这题最容易越界的判断是什么？', '给我一个不泄题提示']
-  const visibleChat = chat.slice(1)
-  const learnerProgress = Math.min(100, Math.round((learnerProfile.completed_today / Math.max(learnerProfile.daily_target, 1)) * 100))
-  const learnerWeaknessTags = learnerProfile.weakness_tags.slice(0, 3)
-  const learnerRecommendedClasses = learnerProfile.recommended_question_classes.slice(0, 3)
-  const learnerLatestExam = learnerProfile.exam_sessions[0] || null
-  const missionModeLabel = mode === 'exam'
-    ? '考试 Session'
-    : isChallenge ? '医生 vs AI 比拼'
-      : isReportJudgeDrill ? '报告评分专项'
-        : view === 'wrong' ? '错题复盘'
-          : view === 'favorite' ? '收藏题训练'
-            : source === 'public' ? '公开样例训练'
-              : '日常证据式刷题'
-  const missionFocus = isReportJudgeDrill
-    ? drillMeta?.focus || '按报告 judge 推荐薄弱项筛题。'
-    : isChallenge ? '先独立作答，提交后再解锁挑战基准和审计收据。'
-      : mode === 'exam' ? '整场交卷后写入考试摘要、错题队列和画像记录。'
-        : learnerWeaknessTags.length ? `优先修复：${learnerWeaknessTags.join('、')}。` : '保持公开样例、报告表达和证据边界训练节奏。'
-  const missionWriteback = mode === 'exam'
-    ? examSessionSaved ? '考试摘要已写入画像' : '交卷后写入画像'
-    : isChallenge ? submission ? (submission.profile_updated ? '答题已写入；基准只写审计' : '前端预览；基准未写画像') : '提交写画像；基准只写审计'
-      : submission ? (submission.profile_updated ? '本题提交已回灌画像' : '前端预览未写入画像') : '提交/追问后形成 Memory 记录'
-  const missionNextHref = learnerProfile.wrong_questions.length
-    ? '/training?view=wrong'
-    : learnerRecommendedClasses[0] ? `/training?question_class=${encodeURIComponent(learnerRecommendedClasses[0])}` : '/training?source=public'
-  const missionUpdatedAt = formatAuditTime(learnerProfile.updated_at)
-
-  const updateFilter = (key: keyof Filters, value: string) => {
-    setFilters((current) => ({ ...current, [key]: value }))
-    resetQuestionState()
-  }
-
-  const resetQuestionState = () => {
-    setIndex(0)
-    setSelected('')
-    setSubmission(null)
-    setTutorTab('agent')
-    setAgentMode('rule')
-    setExamSeconds(EXAM_DURATION_SECONDS)
-    setExamAttempts([])
-    setExamFinished(false)
-    setExamSessionId(createExamSessionId())
-    setExamSessionSaved(false)
-    setExamSyncing(false)
-    setMemorySync(baseMemorySync)
-    setHint(baseHint)
-    setChatInput('')
-    setChat([buildInitialAgentMessage(filteredQuestions[0] || question)])
-    setChallengeStats(emptyChallengeStats)
-    setChallengeBenchmark(null)
-    setChallengeBenchmarkLoading(false)
-  }
+  }, [state?.favorite_questions])
 
   useEffect(() => {
-    if (mode !== 'exam' || examClosed) return undefined
-    const timer = window.setInterval(() => {
-      setExamSeconds((seconds) => Math.max(0, seconds - 1))
-    }, 1000)
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
-  }, [examClosed, mode])
+  }, [])
+
+  useEffect(() => {
+    const params = {
+      ...(selectedType === '全部' ? {} : { questionClass: selectedType }),
+      ...(selectedQuestionType === '全部题型' ? {} : { questionType: selectedQuestionType }),
+      ...(subPage === 'wrong' ? { onlyWrong: true } : {}),
+      limit: subPage === 'favorites' ? 60 : studyMode === 'exam' ? 12 : 30,
+      shuffleSeed,
+    }
+    v3Api.practiceQuestions(params)
+      .then((result) => {
+        setQuestionTotal(result.total || result.items.length)
+        setQuestionTypeCounts(result.available_type_counts || countQuestionTypes(result.items))
+        setPoolReceipt({
+          total: result.total || result.items.length,
+          poolTotal: result.pool_total || result.total || result.items.length,
+          seed: result.pool_seed ?? shuffleSeed,
+        })
+        const pool = shuffleSeed && !result.pool_seed ? shuffleQuestions(result.items, shuffleSeed) : result.items
+        const filtered = filterQuestionsBySubPage(pool, subPage, favoriteIds)
+        const nextQuestions = subPage === 'favorites'
+          ? filtered
+          : filtered.length
+            ? filtered
+            : result.items.length
+              ? result.items
+              : [v3DemoQuestion]
+        setQuestions(nextQuestions)
+        setActiveIndex(0)
+        resetAnswerState()
+      })
+      .catch(() => setQuestions([v3DemoQuestion]))
+  }, [selectedType, selectedQuestionType, studyMode, subPage, shuffleSeed, favoriteIds])
+
+  useEffect(() => {
+    resetAnswerState()
+    setMessages([
+      {
+        id: `context_${question?.id || 'none'}`,
+        role: 'agent',
+        text: studyMode === 'exam'
+          ? '考试模式已启用，先独立完成本题；提交后再做复盘。'
+          : `已切换到“${question?.title || '当前题'}”。先说出你看到的部位、形态和数量，再决定选项。`,
+        meta: studyMode === 'exam' ? '独立作答中' : '题目已就绪',
+      },
+    ])
+  }, [activeIndex, question?.id, question?.title, studyMode])
+
+  useEffect(() => {
+    chatLogRef.current?.scrollTo({ top: chatLogRef.current.scrollHeight, behavior: 'smooth' })
+  }, [messages, agentBusy])
+
+  useEffect(() => {
+    if (!question?.image_url) return
+    const canvas = annotationCanvasRef.current
+    const host = canvas?.parentElement
+    if (!host) return
+    syncAnnotationCanvas()
+    const onResize = () => syncAnnotationCanvas()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null
+    observer?.observe(host)
+    window.addEventListener('resize', onResize)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', onResize)
+    }
+  }, [question?.image_url])
+
+  const taxonomy = state?.question_types?.length
+    ? state.question_types.map((item) => item.name).filter((name) => trainingTaxonomy.has(name))
+    : defaultTypes
+  const progress = state?.progress
+  const progressCompleted = progress?.completed ?? state?.profile.completed_today ?? 0
+  const effectiveDailyTarget = Math.max(defaultDailyTarget, dailyTarget || progress?.target || state?.profile.daily_target || defaultDailyTarget)
+  const effectiveProgressPercent = Math.min(100, Math.round((progressCompleted / effectiveDailyTarget) * 100))
+  const answerValue = getAnswerValue(question, selectedAnswers, freeAnswer)
+  const canSubmit = Boolean(question && answerValue.trim() && !submission)
+  const isSubmittedOrMemory = Boolean(submission) || studyMode === 'memory'
+  const examElapsed = Math.floor((now - examStartedAt) / 1000)
+  const trainingModelId = modelAssignments.trainingTutorModelId
+  const trainingModelLabel = trainingModelId ? fallbackModelNames[trainingModelId] || trainingModelId : '平台推荐默认模型'
+
+  const typeCoverage = useMemo(() => {
+    const counts = Object.keys(questionTypeCounts).length ? questionTypeCounts : countQuestionTypes(questions)
+    return questionTypeOptions
+      .filter((item) => item !== '全部题型')
+      .map((type) => [type, counts[type] || 0] as [string, number])
+  }, [questionTypeCounts, questions])
+
+  const isFavorite = Boolean(question && (favoriteIds.includes(question.id) || question.is_favorited))
+
+  const updateRouteState = (next: { type?: string; questionType?: QuestionTypeFilter; mode?: StudyMode; view?: SubPage }) => {
+    const type = next.type ?? selectedType
+    const questionType = next.questionType ?? selectedQuestionType
+    const mode = next.mode ?? studyMode
+    const view = next.view ?? subPage
+    const params: Record<string, string> = {}
+    if (type !== '全部') params.type = type
+    if (questionType !== '全部题型') params.question_type = questionType
+    if (mode !== 'practice') params.mode = mode
+    if (view !== 'daily') params.view = view
+    setSearchParams(params)
+  }
+
+  const updateDailyTarget = (value: number) => {
+    const next = Math.max(defaultDailyTarget, Math.min(300, Math.round(value || defaultDailyTarget)))
+    setDailyTarget(next)
+    writeDailyTarget(next)
+    window.dispatchEvent(new Event('daily-plan-change'))
+  }
+
+  function resetAnswerState() {
+    setSelectedAnswers([])
+    setFreeAnswer('')
+    setSubmission(null)
+    setChatInput('')
+    clearAnnotation(true)
+  }
+
+  function clearAnnotation(disableTool = false) {
+    const canvas = annotationCanvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (canvas && ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
+    isAnnotatingRef.current = false
+    setHasAnnotation(false)
+    if (disableTool) {
+      setAnnotationEnabled(false)
+    }
+  }
+
+  function syncAnnotationCanvas() {
+    const canvas = annotationCanvasRef.current
+    const host = canvas?.parentElement
+    const image = annotationImageRef.current
+    if (!canvas || !host || !image) return
+    const width = image.clientWidth || host.clientWidth
+    const height = image.clientHeight || host.clientHeight
+    if (!width || !height) return
+    const ratio = window.devicePixelRatio || 1
+    const nextWidth = Math.max(1, Math.round(width * ratio))
+    const nextHeight = Math.max(1, Math.round(height * ratio))
+    if (canvas.width === nextWidth && canvas.height === nextHeight) return
+    const snapshot = document.createElement('canvas')
+    snapshot.width = Math.max(1, canvas.width)
+    snapshot.height = Math.max(1, canvas.height)
+    snapshot.getContext('2d')?.drawImage(canvas, 0, 0)
+    canvas.width = nextWidth
+    canvas.height = nextHeight
+    canvas.getContext('2d')?.drawImage(snapshot, 0, 0, nextWidth, nextHeight)
+  }
+
+  function getAnnotationPoint(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = annotationCanvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    const x = ((event.clientX - rect.left) / rect.width) * canvas.width
+    const y = ((event.clientY - rect.top) / rect.height) * canvas.height
+    return { x, y }
+  }
+
+  function paintAnnotationDot(point: { x: number; y: number }, startPath = false) {
+    const canvas = annotationCanvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+    const widthScale = Math.max(canvas.width, canvas.height) / 450
+    ctx.strokeStyle = '#ef4444'
+    ctx.fillStyle = '#ef4444'
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = Math.max(4, 6 * widthScale)
+    if (startPath) {
+      ctx.beginPath()
+      ctx.arc(point.x, point.y, Math.max(3, 4.5 * widthScale), 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.moveTo(point.x, point.y)
+      return
+    }
+    ctx.lineTo(point.x, point.y)
+    ctx.stroke()
+  }
+
+  function startAnnotation(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!annotationEnabled || !question?.image_url) return
+    event.preventDefault()
+    syncAnnotationCanvas()
+    const point = getAnnotationPoint(event)
+    if (!point) return
+    const canvas = annotationCanvasRef.current
+    if (!canvas) return
+    isAnnotatingRef.current = true
+    canvas.setPointerCapture?.(event.pointerId)
+    paintAnnotationDot(point, true)
+    setHasAnnotation(true)
+  }
+
+  function moveAnnotation(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!annotationEnabled || !isAnnotatingRef.current) return
+    const point = getAnnotationPoint(event)
+    if (!point) return
+    paintAnnotationDot(point, false)
+    setHasAnnotation(true)
+  }
+
+  function stopAnnotation(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!annotationEnabled) return
+    const canvas = annotationCanvasRef.current
+    if (canvas) {
+      try {
+        canvas.releasePointerCapture(event.pointerId)
+      } catch {
+        // ignore
+      }
+    }
+    isAnnotatingRef.current = false
+  }
+
+  function exportAnnotatedImageDataUrl() {
+    const image = annotationImageRef.current
+    const canvas = annotationCanvasRef.current
+    if (!image || !canvas || !hasAnnotation || !question?.image_url) return undefined
+    if (!image.complete || !image.naturalWidth || !image.naturalHeight) return undefined
+    try {
+      const output = document.createElement('canvas')
+      output.width = canvas.width || image.naturalWidth
+      output.height = canvas.height || image.naturalHeight
+      const ctx = output.getContext('2d')
+      if (!ctx) return undefined
+      drawImageCover(ctx, image, output.width, output.height)
+      ctx.drawImage(canvas, 0, 0, output.width, output.height)
+      return output.toDataURL('image/jpeg', 0.92)
+    } catch {
+      return undefined
+    }
+  }
+
+  function drawImageCover(ctx: CanvasRenderingContext2D, image: HTMLImageElement, width: number, height: number) {
+    const imageRatio = image.naturalWidth / image.naturalHeight
+    const outputRatio = width / height
+    let sx = 0
+    let sy = 0
+    let sw = image.naturalWidth
+    let sh = image.naturalHeight
+    if (imageRatio > outputRatio) {
+      sw = image.naturalHeight * outputRatio
+      sx = (image.naturalWidth - sw) / 2
+    } else if (imageRatio < outputRatio) {
+      sh = image.naturalWidth / outputRatio
+      sy = (image.naturalHeight - sh) / 2
+    }
+    ctx.drawImage(image, sx, sy, sw, sh, 0, 0, width, height)
+  }
+
+  const nextQuestion = () => {
+    setActiveIndex((index) => (index + 1) % Math.max(questions.length, 1))
+  }
+
+  const randomQuestion = () => {
+    if (questions.length <= 1) return
+    setActiveIndex((index) => {
+      const next = Math.floor(Math.random() * questions.length)
+      return next === index ? (next + 1) % questions.length : next
+    })
+  }
+
+  const chooseSingle = (option: string) => {
+    if (submission || studyMode === 'memory') return
+    setSelectedAnswers([option])
+  }
+
+  const toggleMulti = (option: string) => {
+    if (submission || studyMode === 'memory') return
+    setSelectedAnswers((answers) => (
+      answers.includes(option) ? answers.filter((item) => item !== option) : [...answers, option]
+    ))
+  }
 
   const submit = async () => {
-    if (!selected || examClosed || currentQuestionAnswered || submission) return
-    setLoading(true)
-    const selectedAnswer = selected
-    try {
-      const result = await api.submit(question, selectedAnswer)
-      setSubmission(result)
-      if (mode === 'exam') {
-        const attempt: ExamAttempt = {
-          questionId: question.id,
-          title: question.title,
-          selected,
-          correctAnswer: question.answer,
-          isCorrect: result.is_correct,
-          score: result.score,
-          errorTags: result.error_tags,
-        }
-        setExamAttempts((current) => current.some((item) => item.questionId === question.id) ? current : [...current, attempt])
-        if (examAttempts.length + 1 >= filteredQuestions.length) setExamFinished(true)
-      }
-      onSubmission(result, question)
-      setChat((items) => [
-        ...items,
-        { role: 'doctor', text: `我选择：${selectedAnswer}` },
-        { role: 'agent', text: `${result.is_correct ? '回答正确。' : '这题需要复盘。'}${result.explanation} 下一步：${result.next_recommendation}`, mode: 'rule' },
-      ])
-      if (result.profile_updated) void refreshLearnerProfile()
-      setTutorTab('compare')
-      if (isChallenge) {
-        syncChallengeBenchmark(question, selectedAnswer, result)
-      }
-    } finally {
-      setLoading(false)
-    }
+    if (!question || !canSubmit) return
+    const result = await v3Api.practiceSubmit(question, answerValue)
+    setSubmission(result)
+    v3Api.practiceState().then(setState).catch(() => undefined)
+    window.setTimeout(() => feedbackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
   }
 
-  const syncChallengeBenchmark = async (activeQuestion: Question, selectedAnswer: string, result: SubmissionResponse) => {
-    setChallengeBenchmark(null)
-    setChallengeBenchmarkLoading(true)
-    setMemorySync('挑战基准正在同步：提交结果已写入画像，基准对照只写审计，不重复回灌医师画像。')
-    try {
-      const benchmark = await api.challengeBenchmark(activeQuestion, selectedAnswer)
-      setChallengeBenchmark(benchmark)
-      setChallengeStats((current) => ({
-        rounds: current.rounds + 1,
-        doctor: current.doctor + (result.is_correct ? 1 : 0),
-        benchmark: current.benchmark + (benchmark.benchmark_correct ? 1 : 0),
-        ties: current.ties + (result.is_correct === benchmark.benchmark_correct ? 1 : 0),
-      }))
-      setMemorySync(`${benchmark.benchmark_name}已返回：${benchmark.generation_mode}；审计${benchmark.audit_logged ? '已写入' : '未写入'}，画像${benchmark.profile_updated ? '已更新' : '未重复更新'}。`)
-      if (benchmark.audit_logged) {
-        setLastChallengeAudit({
-          id: benchmark.id,
-          event_type: 'challenge_benchmark',
-          user_id: 'demo_learner',
-          entity_id: activeQuestion.id,
-          summary: `挑战基准完成：${benchmark.benchmark_name} · ${benchmark.generation_mode}；不重复回灌医师画像。`,
-          risk_level: 'medium',
-          doctor_review_required: true,
-          created_at: benchmark.created_at,
-        })
-      }
-    } finally {
-      setChallengeBenchmarkLoading(false)
-    }
-  }
-
-  const askHint = async () => {
-    if (mode === 'exam' || isChallenge) return
-    setLoading(true)
-    try {
-      const result = await api.hint(question)
-      const sourceNotice = result.api_source === 'fallback' ? '（当前为本地 fallback 提示）' : ''
-      const text = `${result.hint} ${result.follow_up_question}${sourceNotice}`
-      setHint(text)
-      setChat((items) => [...items, { role: 'agent', text, mode: result.api_source === 'fallback' ? 'fallback' : 'rule' }])
-      setAgentMode(result.api_source === 'fallback' ? 'fallback' : 'rule')
-      setTutorTab('agent')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const askAgent = async () => {
-    await sendAgentMessage(chatInput.trim())
-  }
-
-  const sendAgentMessage = async (message: string) => {
-    if (!message || loading || !canUseTutorChat) return
+  const sendAgentMessage = async (text = chatInput) => {
+    const message = text.trim()
+    if (!question || !message || agentBusy || studyMode === 'exam') return
     setChatInput('')
-    setChat((items) => [...items, { role: 'doctor', text: message }])
+    setAgentBusy(true)
+    const annotatedImageDataUrl = exportAnnotatedImageDataUrl()
+    const doctorMessage: ChatMessage = { id: `doctor_${Date.now()}`, role: 'doctor', text: message }
+    setMessages((items) => [...items, { ...doctorMessage, meta: annotatedImageDataUrl ? '带图中圈画' : undefined }])
     try {
-      const result = await api.chat(question, message)
-      setAgentMode(result.generation_mode || 'rule')
-      setChat((items) => [...items, { role: 'agent', text: result.reply, mode: result.generation_mode }])
-      setMemorySync(result.memory_summary || (result.profile_updated ? '已写入医师画像。' : '当前未写入后端医师画像。'))
-      if (result.profile_updated) void refreshLearnerProfile()
-    } catch {
-      setAgentMode('fallback')
-      setChat((items) => [...items, { role: 'agent', text: '当前辅导接口暂不可用，请先按证据链完成本题，稍后再追问 Agent。', mode: 'fallback' }])
-      setMemorySync('当前辅导接口不可用，未写入后端医师画像。')
-    }
-  }
-
-  const toggleFavorite = async () => {
-    const nextValue = !question.is_favorited
-    try {
-      const updatedProfile = await api.favorite(question.id, nextValue)
-      setLearnerProfile(updatedProfile)
-      setQuestions((items) => items.map((item) => item.id === question.id ? { ...item, is_favorited: nextValue, review_status: nextValue ? '收藏中' : item.review_status } : item))
-    } catch {
-      setHint('收藏接口暂不可用，本次状态未写入后端。')
-    }
-  }
-
-  const restartExam = () => {
-    setExamAttempts([])
-    setExamFinished(false)
-    setExamSessionId(createExamSessionId())
-    setExamSessionSaved(false)
-    setExamSyncing(false)
-    setExamSeconds(EXAM_DURATION_SECONDS)
-    setIndex(0)
-    setSelected('')
-    setSubmission(null)
-    setTutorTab('agent')
-    setAgentMode('rule')
-    setHint('考试模式已重新开始。请独立完成本场训练，交卷后统一复盘。')
-    setMemorySync('考试 session 已重置，本场记录将从下一次提交开始累计。')
-    setChatInput('')
-    setChat([buildInitialAgentMessage(filteredQuestions[0] || question)])
-  }
-
-  const finishExam = async () => {
-    if (!examAttempts.length || examSyncing || examSessionSaved) return
-    setExamFinished(true)
-    setSelected('')
-    setSubmission(null)
-    setTutorTab('agent')
-    setExamSyncing(true)
-    setHint('本场考试正在交卷，并同步 Session 汇总到医师画像。')
-    setChatInput('')
-    setChat([buildInitialAgentMessage(question)])
-    const finishedReason = examSeconds <= 0 ? 'time_expired' : examAttempts.length >= filteredQuestions.length ? 'completed_all' : 'manual_submit'
-    const attempts: ExamSessionAttempt[] = examAttempts.map((attempt) => ({
-      question_id: attempt.questionId,
-      title: attempt.title,
-      selected_answer: attempt.selected,
-      correct_answer: attempt.correctAnswer,
-      is_correct: attempt.isCorrect,
-      score: attempt.score,
-      error_tags: attempt.errorTags,
-    }))
-    try {
-      const result = await api.examSession({
-        sessionId: examSessionId,
-        attempts,
-        durationSeconds: EXAM_DURATION_SECONDS,
-        remainingSeconds: examSeconds,
-        finishedReason,
+      const result = await v3Api.practiceTutor({
+        questionId: question.id,
+        mode: 'chat',
+        selectedAnswer: answerValue || undefined,
+        message,
+        displayModelName: trainingModelLabel,
+        annotatedImageDataUrl,
       })
-      setExamSessionSaved(Boolean(result.profile_updated))
-      setHint(result.profile_updated ? '本场考试已交卷并写入画像。请从战报进入错因复盘，或重开本场继续训练。' : '本场考试已交卷，但后端未写入画像；请确认后端在线后可再次同步。')
-      setMemorySync(result.memory_summary)
-      if (result.profile_updated) void refreshLearnerProfile()
-    } catch {
-      setExamSessionSaved(false)
-      setHint('本场考试已交卷，但 Session 汇总同步失败；请稍后重试。')
-      setMemorySync('考试 Session 汇总未写入后端画像。')
+      const reply = String(result.reply || result.explanation || result.hint || '我会围绕当前题继续追问观察依据。')
+      const providerOk = Boolean((result.provider_status as { ok?: boolean } | undefined)?.ok)
+      setMessages((items) => [
+        ...items,
+        {
+          id: `agent_${Date.now()}`,
+          role: 'agent',
+          text: reply,
+          meta: providerOk
+            ? `${trainingModelLabel} · 实时辅导${annotatedImageDataUrl ? ' · 已看圈画' : ''}`
+            : `${trainingModelLabel} · 研修辅导`,
+        },
+      ])
     } finally {
-      setExamSyncing(false)
+      setAgentBusy(false)
     }
   }
 
-  const next = () => {
-    const nextIndex = nextQuestionIndex(index, filteredQuestions, examAttempts, mode === 'exam')
-    setIndex(nextIndex)
-    const nextQuestion = filteredQuestions[nextIndex] || question
-    setSelected('')
-    setSubmission(null)
-    setTutorTab('agent')
-    setAgentMode('rule')
-    setMemorySync(baseMemorySync)
-    setHint(baseHint)
-    setChatInput('')
-    setChat([buildInitialAgentMessage(nextQuestion)])
-    setChallengeBenchmark(null)
-    setChallengeBenchmarkLoading(false)
+  const saveMemoryCard = () => {
+    if (!question) return
+    setSavingCard(true)
+    const payload = {
+      title: question.title,
+      point: memoryPoint(question),
+      answer: question.answer,
+      saved_at: new Date().toISOString(),
+    }
+    window.localStorage.setItem(`endo_memory_${question.id}`, JSON.stringify(payload))
+    window.setTimeout(() => setSavingCard(false), 650)
   }
 
-  const jumpToQuestion = (questionId: string) => {
-    const nextIndex = filteredQuestions.findIndex((item) => item.id === questionId)
-    if (nextIndex < 0) return
-    const nextQuestion = filteredQuestions[nextIndex] || question
-    setIndex(nextIndex)
-    setSelected('')
-    setSubmission(null)
-    setTutorTab('agent')
-    setAgentMode('rule')
-    setMemorySync(baseMemorySync)
-    setHint(baseHint)
-    setChatInput('')
-    setChat([buildInitialAgentMessage(nextQuestion)])
-    setChallengeBenchmark(null)
-    setChallengeBenchmarkLoading(false)
+  const toggleFavorite = () => {
+    if (!question) return
+    const nextFavorite = !isFavorite
+    setFavoriteIds((current) => {
+      const next = nextFavorite
+        ? [...new Set([...current, question.id])]
+        : current.filter((item) => item !== question.id)
+      return writeFavoriteIds(next)
+    })
+    setQuestions((items) => items.map((item) => item.id === question.id ? { ...item, is_favorited: nextFavorite } : item))
+    v3Api.favoriteQuestion(question.id, nextFavorite).catch(() => undefined)
   }
+
+  const scoreTone = submission?.is_correct ? 'green' : submission ? 'amber' : 'blue'
 
   return (
-    <div className="page-stack">
-      <Card className="qbank-toolbar">
-        <div>
-          <span className="eyebrow">Endoscopy Qbank</span>
-          <h2>{mode === 'exam' ? '考试模式' : view === 'wrong' ? '错题本复盘' : view === 'favorite' ? '收藏题训练' : view === 'challenge' ? '医生 vs 挑战基准' : isReportJudgeDrill ? '报告评分专项训练' : '题库刷题中心'}</h2>
-          <p>{isChallenge ? '当前使用真实公开样例进行回合制比拼：医师先独立作答，提交后才调用后端挑战基准并解锁证据讨论；若 Provider 未打通，系统会明确回退公开标注 fallback。' : isReportJudgeDrill ? '当前从报告修改训练进入：题库已按 judge 推荐薄弱项筛选，提交题目后才写入医师画像与审计。' : source === 'public' ? '当前优先加载本地真实公开图文样本：Kvasir-VQA-x1、Kvasir-VQA 与 EndoBench。' : '借鉴 Study/Exam Mode、Tutor Mode、错题复盘和性能分析的训练闭环，默认优先展示真实公开图文样本。'}</p>
-        </div>
-        <div className="mode-switch">
-          <Tag tone={mode === 'exam' || isChallenge || isReportJudgeDrill ? 'amber' : 'green'}>{mode === 'exam' ? '计时考试' : isChallenge ? '比拼模式' : isReportJudgeDrill ? '报告专项' : '练习辅导'}</Tag>
-          <Tag tone="blue">{filteredQuestions.length} 题</Tag>
-        </div>
-      </Card>
-
-      <Card
-        className="training-mission-card"
+    <div className="page-stack v3-page">
+      <section
+        className="v3-page-hero practice-hero"
         data-training-mission="true"
-        data-learner-id={learnerProfile.learner_id}
-        data-training-mode={missionModeLabel}
+        data-learner-id={state?.profile?.learner_id || 'demo_learner'}
+        data-training-mode={studyMode}
       >
-        <div className="mission-doctor">
-          <div className="mission-avatar"><UserRound size={24} /></div>
-          <div>
-            <span className="eyebrow">Current physician mission</span>
-            <h3>{learnerProfile.name} · {missionModeLabel}</h3>
-            <p>{learnerProfile.title} · {learnerProfile.department} · {learnerProfile.training_stage}</p>
-          </div>
+        <div>
+          <Tag tone="blue">带教式研修</Tag>
+          <h2>医生研修工作台</h2>
+          <p>刷题、背题、考试三种模式覆盖单选、多选、判断和问答。非考试模式下，可随时围绕当前真实内镜图片梳理观察顺序和证据边界。</p>
         </div>
-        <div className="mission-progress-panel">
-          <div className="mission-progress-head">
-            <span>今日训练</span>
-            <strong>{learnerProfile.completed_today}/{learnerProfile.daily_target}</strong>
-          </div>
-          <div className="mission-progress-track" aria-label={`今日训练完成 ${learnerProgress}%`}>
-            <span style={{ width: `${learnerProgress}%` }} />
-          </div>
-          <em>{missionFocus}</em>
+        <div className="v3-hero-score compact">
+          <span>{studyMode === 'exam' ? '考试计时' : '今日刷题计划'}</span>
+          <strong>{studyMode === 'exam' ? formatTime(examElapsed) : `${progressCompleted}/${effectiveDailyTarget}`}</strong>
+          <div className="v3-mini-progress"><i style={{ width: `${studyMode === 'exam' ? 0 : effectiveProgressPercent}%` }} /></div>
+          <small>{progress?.review_queue ?? 0} 题待复盘 · 可提取数据资源 {extractableDatasetTotal.toLocaleString('zh-CN')} · 本组 {questions.length} 题</small>
         </div>
-        <div className="mission-proof-grid">
-          <div>
-            <span>画像写入</span>
-            <strong>{missionWriteback}</strong>
-            <small>Memory updated {missionUpdatedAt}</small>
-          </div>
-          <div>
-            <span>薄弱标签</span>
-            <strong>{learnerWeaknessTags.join(' / ') || '暂无薄弱标签'}</strong>
-            <small>{learnerRecommendedClasses.join(' / ') || '继续公开样例训练'}</small>
-          </div>
-          <div>
-            <span>最近考试</span>
-            <strong>{learnerLatestExam ? `${learnerLatestExam.accuracy}% · ${learnerLatestExam.wrong_questions.length}错题` : '等待考试 Session'}</strong>
-            <small>{learnerLatestExam?.session_id || '交卷后生成 session 复盘入口'}</small>
-          </div>
-        </div>
-        <div className="mission-actions">
-          <Link className="button secondary" to="/profile?tab=records">
-            <ActivitySquare size={16} /> 画像记录
-          </Link>
-          <Link className="button primary" to={missionNextHref}>
-            <ArrowRight size={16} /> 下一组训练
-          </Link>
-        </div>
-      </Card>
+      </section>
 
-      {isReportJudgeDrill && drillMeta ? (
-        <Card className="report-drill-landing">
-          <div>
-            <span className="eyebrow">Report judge drill</span>
-            <h3>{drillMeta.title}</h3>
-            <p>{drillMeta.goal}</p>
-          </div>
-          <div className="report-drill-landing-grid">
-            <div><span>来源</span><strong>报告修改训练</strong></div>
-            <div><span>题类</span><strong>{effectiveQuestionClass || '综合训练'}</strong></div>
-            <div><span>本轮目标</span><strong>{drillMeta.focus}</strong></div>
-          </div>
-          {questionClassFallbackNotice ? (
-            <div className="report-drill-warning">
-              <AlertTriangle size={15} />
-              <span>{questionClassFallbackNotice}</span>
-            </div>
-          ) : null}
-          <Link className="button secondary" to="/report?tab=judge">
-            <ArrowLeft size={16} /> 返回报告评分
-          </Link>
-        </Card>
-      ) : null}
-
-      {isChallenge ? (
-        <Card className="challenge-scoreboard">
-          <div className="challenge-score-main">
-            <Trophy size={24} />
-            <div>
-              <span className="eyebrow">Doctor vs Benchmark</span>
-              <h3>{challengeLeader}</h3>
-              <p>正式提交会写入医师训练记录；挑战基准提交后才调用，只写审计，不重复写医师画像。</p>
-            </div>
-          </div>
-          <div className="challenge-score-grid">
-            <div><span>回合</span><strong>{challengeStats.rounds}</strong></div>
-            <div><span>林医师</span><strong>{challengeStats.doctor}</strong></div>
-            <div><span>挑战基准</span><strong>{challengeStats.benchmark}</strong></div>
-            <div><span>同判</span><strong>{challengeStats.ties}</strong></div>
-          </div>
-          <div className={`challenge-audit-receipt ${lastChallengeAudit ? 'synced' : 'pending'}`}>
-            <ActivitySquare size={18} />
-            <div>
-              <strong>{lastChallengeAudit ? '最近挑战基准审计已连接' : '等待挑战基准审计'}</strong>
-              <span>
-                {lastChallengeAudit
-                  ? `${formatAuditTime(lastChallengeAudit.created_at)} · ${lastChallengeAudit.entity_id || '样例'} · ${lastChallengeAudit.summary}`
-                  : '提交一轮后会写入 challenge_benchmark 审计；该审计不重复更新医师画像。'}
-              </span>
-            </div>
-          </div>
-        </Card>
-      ) : null}
-
-      {mode === 'exam' ? (
-        <Card className={`exam-session-board ${examClosed ? 'closed' : ''}`}>
-          <div className="exam-session-main">
-            <GraduationCap size={24} />
-            <div>
-              <span className="eyebrow">Exam session</span>
-              <h3>{examClosed ? '本场考试进入复盘' : '本场考试进行中'}</h3>
-              <p>全局 12 分钟倒计时持续运行；提交后可查看本题解析，但不会重置计时。交卷后从错题进入复盘闭环。</p>
-            </div>
-          </div>
-          <div className="exam-session-grid">
-            <div><span>剩余时间</span><strong className={examExpired ? 'timer-expired' : ''}>{formattedExamTime}</strong></div>
-            <div><span>已答题</span><strong>{examAnsweredCount}/{filteredQuestions.length}</strong></div>
-            <div><span>正确率</span><strong>{examAccuracy}%</strong></div>
-            <div><span>平均分</span><strong>{examAverageScore}</strong></div>
-          </div>
-          <div className="exam-session-actions">
-            <button className="button secondary" type="button" onClick={finishExam} disabled={examAnsweredCount === 0 || examSyncing || examSessionSaved}>
-              <ClipboardList size={16} /> {examSyncing ? '同步中' : examSessionSaved ? '已同步画像' : examClosed ? '同步本场复盘' : '交卷复盘'}
-            </button>
-            <button className="button secondary" type="button" onClick={restartExam}>
-              <RotateCcw size={16} /> 重开本场
-            </button>
-            {examWrongAttempts.length ? (
-              <Link className="button primary" to={`/feedback?session=${encodeURIComponent(examSessionId)}`}>
-                <Target size={16} /> 进入错因复盘
-              </Link>
-            ) : null}
-          </div>
-          {examWrongAttempts.length ? (
-            <div className="exam-wrong-strip">
-              {examWrongAttempts.slice(-3).map((attempt) => (
-                <span key={attempt.questionId}>{attempt.title} · 选 {attempt.selected} / 答 {attempt.correctAnswer}</span>
+      <div className="practice-command-layout">
+        <Card className="practice-left-rail">
+          <SectionTitle eyebrow="研修子页面" title="模式与题组" />
+          <label className="practice-select-label">
+            <span>子页面</span>
+            <select
+              value={subPage}
+              onChange={(event) => {
+                const value = event.target.value as SubPage
+                setSubPage(value)
+                updateRouteState({ view: value })
+              }}
+            >
+              {subPages.map((item) => (
+                <option key={item.id} value={item.id}>{item.label}</option>
               ))}
-            </div>
-          ) : (
-            <div className="exam-wrong-strip clean"><span>当前未产生错题；继续完成本场后查看完整表现。</span></div>
-          )}
-        </Card>
-      ) : null}
-
-      <Card className="filter-panel">
-        <FilterSelect label="部位" value={filters.bodyPart} options={filterOptions.bodyPart} onChange={(value) => updateFilter('bodyPart', value)} />
-        <FilterSelect label="任务" value={filters.task} options={filterOptions.task} onChange={(value) => updateFilter('task', value)} />
-        <FilterSelect label="难度" value={filters.difficulty} options={filterOptions.difficulty} onChange={(value) => updateFilter('difficulty', value)} />
-        <FilterSelect label="题型" value={filters.questionType} options={filterOptions.questionType} onChange={(value) => updateFilter('questionType', value)} />
-        <FilterSelect label="来源" value={filters.sourceDataset} options={filterOptions.sourceDataset} onChange={(value) => updateFilter('sourceDataset', value)} />
-        <button className="button secondary" type="button" onClick={() => { setFilters(emptyFilters); resetQuestionState() }}>
-          <RotateCcw size={16} /> 清空筛选
-        </button>
-      </Card>
-
-      <Card className={`qbank-source-ledger ${isPublicSample ? 'verified' : 'teaching'}`}>
-        <div className="qbank-ledger-main">
-          <DatabaseZap size={22} />
-          <div>
-            <span className="eyebrow">Source ledger</span>
-            <h3>题库来源总账</h3>
-            <p>{currentSourceAssurance} 当前筛选命中 {filteredPublicCount} 条公开样例，可一键切到纯公开样例训练。</p>
-          </div>
-        </div>
-        <div className="qbank-ledger-metrics">
-          <div>
-            <span>真实公开样例</span>
-            <strong>{publicQuestionCount}</strong>
-            <em>{publicCoverage}% of qbank</em>
-          </div>
-          <div>
-            <span>平台教学题</span>
-            <strong>{teachingQuestionCount}</strong>
-            <em>明确标注边界</em>
-          </div>
-          <div>
-            <span>来源数据集</span>
-            <strong>{sourceDatasetCount}</strong>
-            <em>{question.source_dataset}</em>
-          </div>
-        </div>
-        <div className="qbank-ledger-actions">
-          <Link className="button primary" to="/training?source=public">
-            <Eye size={16} /> 只看真实公开样例
-          </Link>
-          {source === 'public' ? (
-            <Link className="button secondary" to="/training">
-              <ClipboardList size={16} /> 回到综合训练
-            </Link>
-          ) : (
-            <Link className="button secondary" to="/report">
-              <ClipboardList size={16} /> 报告中心取样
-            </Link>
-          )}
-        </div>
-        {mode !== 'exam' && !isChallenge && publicQuickQuestions.length ? (
-          <div className="public-sample-jump-row" aria-label="公开样例快捷切换">
-            {publicQuickQuestions.map((sample) => (
-              <button className={sample.id === question.id ? 'active' : ''} key={sample.id} type="button" onClick={() => jumpToQuestion(sample.id)}>
-                <span>{sample.source_dataset}</span>
-                <strong>{sample.body_part}</strong>
-                <em>{sample.question_type}</em>
+            </select>
+            <small>{subPages.find((item) => item.id === subPage)?.detail}</small>
+          </label>
+          <div className="practice-mode-list">
+            {studyModes.map((mode) => (
+              <button
+                key={mode.id}
+                className={studyMode === mode.id ? 'active' : ''}
+                onClick={() => {
+                  setStudyMode(mode.id)
+                  updateRouteState({ mode: mode.id })
+                  setShuffleSeed(Date.now())
+                }}
+              >
+                {mode.id === 'practice' ? <BookOpenCheck size={17} /> : mode.id === 'memory' ? <GraduationCap size={17} /> : <Clock3 size={17} />}
+                <span>{mode.label}</span>
+                <small>{mode.detail}</small>
               </button>
             ))}
           </div>
-        ) : null}
-      </Card>
-
-      {filteredQuestions.length === 0 ? (
-        <EmptyState>当前筛选没有题目。可以清空筛选，或切换到公开样例知识库。</EmptyState>
-      ) : (
-        <div className="training-grid qbank-grid">
-          <Card className="image-panel">
-            <SectionTitle eyebrow="Case image" title="内镜图像与病例摘要" />
-            <div className={`image-frame ${isPublicSample ? 'real-sample' : 'synthetic-sample'} image-${imageLoadState}`}>
-              <img
-                className="endo-image"
-                src={activeImageUrl}
-                alt={isPublicSample ? `${question.source_dataset} 公开内镜训练样例` : '平台教学内镜图像'}
-                data-real-sample-image={isPublicSample ? 'true' : 'false'}
-                data-real-sample-role="primary"
-                data-image-status={imageLoadState}
-                data-source-dataset={question.source_dataset}
-                onLoad={() => setImageLoadRecord({ src: activeImageUrl, status: 'loaded' })}
-                onError={() => setImageLoadRecord({ src: activeImageUrl, status: 'error' })}
+          <div className="practice-type-summary">
+            <strong>今日计划</strong>
+            <label className="daily-target-control">
+              <span>刷题目标</span>
+              <input
+                type="number"
+                min={defaultDailyTarget}
+                max={300}
+                step={5}
+                value={effectiveDailyTarget}
+                onChange={(event) => updateDailyTarget(Number(event.target.value))}
               />
-              <div className={`image-source-ribbon ${isPublicSample ? 'real' : 'synthetic'}`}>
-                <DatabaseZap size={14} />
-                <span>{imageSourceLabel}</span>
-              </div>
-              <div className={`image-load-badge ${imageLoadState}`}>
-                {imageLoadState === 'loaded' ? <CheckCircle2 size={14} /> : imageLoadState === 'error' ? <AlertTriangle size={14} /> : <ActivitySquare size={14} />}
-                <span>{imageLoadLabel}</span>
-              </div>
-              {imageLoadState === 'error' ? (
-                <div className="image-load-fallback" role="alert">
-                  <AlertTriangle size={22} />
-                  <strong>无法读取本地样例图</strong>
-                  <span>{activeImageUrl}</span>
-                </div>
-              ) : null}
-            </div>
-            <p className="muted">{question.image_placeholder}</p>
-            <div className="case-integrity-strip">
-              <div><span>来源</span><strong>{question.source_dataset}</strong></div>
-              <div><span>题型</span><strong>{question.question_type}</strong></div>
-              <div><span>复核</span><strong>{question.doctor_review_required ? '医生审核' : '教学练习'}</strong></div>
-            </div>
-            <div className="case-box">{question.case_summary}</div>
-            <div className="tag-row">
-              <Tag tone="blue">{question.body_part}</Tag>
-              <Tag tone="green">{question.difficulty}</Tag>
-              <Tag tone="amber">{question.question_type}</Tag>
-              <Tag tone="neutral">{question.source_dataset}</Tag>
-              {question.false_premise_flag ? <Tag tone="red">错误前提</Tag> : null}
-            </div>
-            <div className="source-note">{question.citation_note}</div>
-            <div className={`current-source-ledger ${isPublicSample ? 'verified' : 'teaching'}`}>
-              <div className="current-source-head">
-                <DatabaseZap size={17} />
-                <div>
-                  <span>{isPublicSample ? '当前真实样例链路' : '当前教学样例边界'}</span>
-                  <strong>{isPublicSample ? '图像-题干-标注已对齐' : '教学构造，不作为真实公开图声明'}</strong>
-                </div>
-              </div>
-              <div className="current-source-grid">
-                <div><span>样例ID</span><strong>{question.id}</strong></div>
-                <div><span>图像引用</span><strong>{currentImageRef}</strong></div>
-                <div><span>题干/标注</span><strong>{isPublicSample ? '公开VQA标注' : '平台教学规则'}</strong></div>
-                <div><span>中文解释</span><strong>平台训练改写</strong></div>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="question-panel">
-            <SectionTitle
-              eyebrow={question.task}
-              title={question.title}
-              action={
-                <button className={`icon-button ${question.is_favorited ? 'selected-icon' : ''}`} type="button" onClick={toggleFavorite} title="收藏题目">
-                  <Bookmark size={17} />
+            </label>
+            <small>默认不少于 {defaultDailyTarget} 题，可按研修强度调整。</small>
+          </div>
+          <div className="practice-question-type-grid" aria-label="题型切换">
+            {questionTypeOptions.map((item) => {
+              const count = item === '全部题型'
+                ? Object.values(questionTypeCounts).reduce((sum, value) => sum + value, 0) || questionTotal
+                : questionTypeCounts[item] || 0
+              return (
+                <button
+                  key={item}
+                  type="button"
+                  className={selectedQuestionType === item ? 'active' : ''}
+                  onClick={() => {
+                    setSelectedQuestionType(item)
+                    updateRouteState({ questionType: item })
+                    setShuffleSeed(Date.now())
+                  }}
+                >
+                  <span>{item}</span>
+                  <b>{count}</b>
                 </button>
-              }
-            />
-            <div className="question-meta">
-              <span>{index + 1}/{filteredQuestions.length}</span>
-              <Tag tone={question.review_status === '待复盘' ? 'amber' : question.review_status === '收藏中' ? 'blue' : 'neutral'}>{question.review_status}</Tag>
-              {mode === 'exam' ? <span className={examExpired ? 'timer-expired' : ''}><Clock size={15} /> {formattedExamTime}</span> : null}
-              {mode === 'exam' && currentQuestionAnswered ? <Tag tone="green">已作答</Tag> : null}
+              )
+            })}
+          </div>
+          <label className="practice-select-label">
+            <span>题型</span>
+            <select
+              value={selectedQuestionType}
+              onChange={(event) => {
+                const value = event.target.value as QuestionTypeFilter
+                setSelectedQuestionType(value)
+                updateRouteState({ questionType: value })
+                setShuffleSeed(Date.now())
+              }}
+            >
+            {questionTypeOptions.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+            <small>切换后会重新拉取对应题型题组。</small>
+          </label>
+          <div className="practice-type-summary">
+            <strong>题型覆盖</strong>
+            {typeCoverage.map(([type, count]) => (
+              <span key={type}>{type}<b>{count}</b></span>
+            ))}
+          </div>
+        </Card>
+
+        <main className="practice-main-column">
+          <Card className="practice-task-bar">
+            <div>
+              <span>专项维度</span>
+              <strong>{selectedType === '全部' ? '综合题组' : selectedType} · {selectedQuestionType}</strong>
             </div>
-            <p className="question-text">{question.question}</p>
-            <div className="option-list">
-              {question.options.map((option) => (
-                <button key={option} className={`option-button ${selected === option ? 'selected' : ''}`} type="button" onClick={() => setSelected(option)} disabled={examClosed || currentQuestionAnswered || Boolean(submission)}>
-                  <span>{option}</span>
-                  {selected === option ? <CheckCircle2 size={18} /> : null}
+            <div className="v3-chip-row">
+              <button className={selectedType === '全部' ? 'active' : ''} onClick={() => { setSelectedType('全部'); updateRouteState({ type: '全部' }); setShuffleSeed(Date.now()) }}>全部</button>
+              {taxonomy.map((type) => (
+                <button key={type} className={selectedType === type ? 'active' : ''} onClick={() => { setSelectedType(type); updateRouteState({ type }); setShuffleSeed(Date.now()) }}>
+                  {type}
                 </button>
               ))}
             </div>
-            <div className="toolbar">
-              <button className="button secondary" type="button" onClick={askHint} disabled={loading || mode === 'exam' || isChallenge}>
-                <Lightbulb size={17} /> 提示一下
+            <div className="practice-pool-receipt">
+              <span>随机题组</span>
+              <b>{poolReceipt.poolTotal || questionTotal} 题池</b>
+              <small>{selectedQuestionType} · 可从 {extractableDatasetTotal.toLocaleString('zh-CN')} 条资源扩展</small>
+            </div>
+            <div className="practice-question-tools">
+              <button type="button" onClick={() => setShuffleSeed(Date.now())}>
+                <Shuffle size={15} /> 刷新题组
               </button>
-              <button className="button primary" type="button" onClick={submit} disabled={!selected || loading || examClosed || currentQuestionAnswered || Boolean(submission)}>
-                <Send size={17} /> {isChallenge ? '锁定本轮' : '提交答案'}
-              </button>
-              <button className="icon-button" type="button" onClick={next} title="下一题" disabled={(mode === 'exam' && examClosed) || challengeBenchmarkLoading}>
-                <RotateCcw size={17} />
+              <button type="button" onClick={randomQuestion} disabled={questions.length <= 1}>
+                <Shuffle size={15} /> 随机一题
               </button>
             </div>
-            {submission ? (
-              <div className={`result-box ${submission.is_correct ? 'correct' : 'wrong'}`}>
-                <strong>{submission.is_correct ? '回答正确' : '需要复盘'}</strong>
-                <span>得分 {submission.score} · {submission.error_tags.join('、') || '无错因'}</span>
-                <p>{submission.explanation}</p>
-              </div>
-            ) : null}
           </Card>
 
-          <Card className="tutor-panel">
-            <SectionTitle
-              eyebrow="Tutor agent"
-              title={mode === 'exam' ? '考后复盘面板' : '边刷边问 Agent'}
-              action={<Tag tone={agentMode === 'provider' ? 'green' : agentMode === 'fallback' ? 'amber' : 'blue'}>{agentMode}</Tag>}
-            />
-            <div className="tutor-command-strip">
-              <div><span>当前开放</span><strong>{tutorAvailability}</strong></div>
-              <div><span>范围</span><strong>{isPublicSample ? '公开样例' : '教学题'}</strong></div>
-              <div><span>画像</span><strong>{tutorWriteback}</strong></div>
-            </div>
-            <div className="tutor-case-chip">
-              <div>
-                <span>当前题上下文</span>
-                <strong>{question.id}</strong>
-              </div>
-              <em>{question.body_part} · {question.task} · {question.source_dataset}</em>
-            </div>
-            {reviewUnlocked ? (
-              <div className="tutor-tabs">
-                <button className={tutorTab === 'agent' ? 'active' : ''} type="button" onClick={() => setTutorTab('agent')}>辅导</button>
-                <button className={tutorTab === 'evidence' ? 'active' : ''} type="button" onClick={() => setTutorTab('evidence')} disabled={evidenceLocked}>证据</button>
-                <button className={tutorTab === 'compare' ? 'active' : ''} type="button" onClick={() => setTutorTab('compare')}>对照</button>
-              </div>
-            ) : (
-              <div className="tutor-review-lock">
-                <strong>{isChallenge ? '比拼进行中' : mode === 'exam' ? '考试进行中' : '专注作答中'}</strong>
-                <span>{isChallenge || mode === 'exam' ? '提交前隐藏提示、证据和挑战基准。' : '提交前只开放非泄题辅导；证据与对照将在提交后展开。'}</span>
-              </div>
-            )}
-            {mode === 'exam' && !submission ? (
-              <div className="exam-lock">
-                <GraduationCap size={20} />
-                <p>{examClosed ? '本场考试已结束。请查看考试战报，并进入错因复盘或重开本场。' : `考试进行中，剩余 ${formattedExamTime}，提示和自由追问已隐藏。`}</p>
-              </div>
-            ) : isChallenge && !submission ? (
-              <div className="challenge-box">
-                <div>
-                  <Trophy size={17} />
-                  <strong>独立作答锁定</strong>
-                </div>
-                <p>本轮提交前不开放 Agent 追问、证据页或挑战基准；提交后自动进入对照复盘并同步后端基准。</p>
-                <span>{benchmarkLabel}。</span>
-              </div>
-            ) : tutorTab === 'agent' ? (
-              <>
-                <div className="chat-bubble agent">
-                  <Bot size={18} />
-                  <p>{hint}</p>
-                </div>
-                {canUseTutorChat ? (
-                  <div className="agent-quick-prompts">
-                    {quickAgentPrompts.map((prompt) => (
-                      <button key={prompt} type="button" onClick={() => sendAgentMessage(prompt)} disabled={loading}>
-                        {prompt}
+          {question ? (
+            <div className="practice-workbench">
+              <Card className="practice-image-panel">
+                <div className="practice-image">
+                  {question.image_url ? (
+                    <>
+                      <img
+                        ref={annotationImageRef}
+                        src={question.image_url}
+                        alt={question.title}
+                        data-real-sample-image="true"
+                        data-real-sample-role="primary"
+                        onLoad={() => {
+                          syncAnnotationCanvas()
+                        }}
+                      />
+                      <canvas
+                        ref={annotationCanvasRef}
+                        className={`practice-annotation-canvas ${annotationEnabled ? 'enabled' : ''}`}
+                        aria-hidden="true"
+                        onPointerDown={startAnnotation}
+                        onPointerMove={moveAnnotation}
+                        onPointerUp={stopAnnotation}
+                        onPointerLeave={stopAnnotation}
+                        onPointerCancel={stopAnnotation}
+                      />
+                    </>
+                  ) : (
+                    <div className="practice-image-placeholder">{question.image_placeholder}</div>
+                  )}
+                  {question.image_url ? (
+                    <div className="practice-annotation-tools">
+                      <button
+                        type="button"
+                        className={annotationEnabled ? 'active' : ''}
+                        onClick={() => setAnnotationEnabled((value) => !value)}
+                        aria-pressed={annotationEnabled}
+                        aria-label={annotationEnabled ? '结束圈画图像' : '开始圈画图像'}
+                        title="圈画图像重点"
+                      >
+                        <PenLine size={15} /> {annotationEnabled ? '圈画中' : '圈画'}
                       </button>
-                    ))}
+                      <button type="button" onClick={() => clearAnnotation()} disabled={!hasAnnotation} aria-label="清除圈画">
+                        <Trash2 size={15} /> 清除
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="practice-image-meta">
+                  <Tag tone="blue">{question.question_class}</Tag>
+                  <Tag tone="green">{question.question_type}</Tag>
+                  <Tag tone={question.difficulty === '挑战' ? 'amber' : 'blue'}>{question.difficulty}</Tag>
+                  <span>{question.body_part} · {question.source_dataset}</span>
+                  {hasAnnotation ? <span className="practice-annotation-hint">提问时会带上圈画重点</span> : null}
+                </div>
+              </Card>
+
+              <Card className="practice-question-panel">
+                <SectionTitle
+                  eyebrow={`第 ${activeIndex + 1}/${questions.length} 题`}
+                  title={question.title}
+                  action={
+                    <div className="practice-question-head-actions">
+                      <button
+                        type="button"
+                        className={`practice-favorite-toggle ${isFavorite ? 'active' : ''}`}
+                        aria-pressed={isFavorite}
+                        onClick={toggleFavorite}
+                      >
+                        <Star size={16} /> {isFavorite ? '已收藏' : '收藏'}
+                      </button>
+                      <Tag tone={scoreTone}>{submission ? `${submission.score} 分` : studyMode === 'memory' ? '背题' : '待作答'}</Tag>
+                    </div>
+                  }
+                />
+                <p className="practice-case">{question.case_summary}</p>
+                <h3>{question.question}</h3>
+                <AnswerControl
+                  question={question}
+                  selectedAnswers={selectedAnswers}
+                  freeAnswer={freeAnswer}
+                  locked={Boolean(submission) || studyMode === 'memory'}
+                  showAnswer={isSubmittedOrMemory}
+                  onSingle={chooseSingle}
+                  onMulti={toggleMulti}
+                  onFreeAnswer={setFreeAnswer}
+                />
+                {submission ? (
+                  <SubmissionFeedbackPanel question={question} submission={submission} />
+                ) : studyMode === 'memory' ? null : (
+                  <div className="practice-feedback-lock">
+                    <CheckCircle2 size={16} />
+                    <span>先按自己的判断作答；提交后会看到对错、参考答案、错因标签和观察依据。</span>
                   </div>
-                ) : null}
-                {visibleChat.length ? (
-                  <div className={`chat-thread ${submission ? 'expanded' : ''}`}>
-                    {visibleChat.map((message, itemIndex) => (
-                      <div className={`chat-line ${message.role}`} key={`${message.role}_${itemIndex}`}>
-                        <span>{message.role === 'agent' ? `Agent${message.mode ? ` · ${message.mode}` : ''}` : '林医师'}</span>
-                        <p>{message.text}</p>
+                )}
+                <div className="practice-actions">
+                  <button className="button primary" onClick={submit} disabled={!canSubmit || studyMode === 'memory'}>
+                    提交评分 <ArrowRight size={16} />
+                  </button>
+                  <button className="button secondary" onClick={saveMemoryCard} disabled={!question}>
+                    <Save size={16} /> {savingCard ? '已保存' : '记忆卡'}
+                  </button>
+                  <button className="button secondary" onClick={nextQuestion}>
+                    下一题
+                  </button>
+                </div>
+              </Card>
+            </div>
+          ) : (
+            <Card className="practice-empty-state">
+              <Star size={30} />
+              <h3>{subPage === 'favorites' ? '暂无收藏题' : '当前筛选暂无题目'}</h3>
+              <p>{subPage === 'favorites' ? '在今日题组中点击题头星标后，这里会只显示你收藏的题。' : '换一个专项维度或刷新题组即可继续研修。'}</p>
+              <button className="button secondary" onClick={() => { setSubPage('daily'); updateRouteState({ view: 'daily' }); setShuffleSeed(Date.now()) }}>
+                返回今日题组
+              </button>
+            </Card>
+          )}
+
+          {question ? <div className="practice-feedback-grid">
+            <Card className="practice-feedback-card" ref={feedbackRef}>
+              <SectionTitle eyebrow="观察依据复盘" title={submission ? '证据点与下一步' : studyMode === 'memory' ? '背题要点' : '先作答再复盘'} />
+              {submission || studyMode === 'memory' ? (
+                <>
+                  <p>{submission?.explanation || question.explanation}</p>
+                  <div className="fact-list">
+                    {(submission?.fact_feedback || question.atomic_trace).map((fact) => (
+                      <div key={fact.id}>
+                        <Layers3 size={16} />
+                        <div>
+                          <strong>{fact.fact}</strong>
+                          <span>{fact.evidence}</span>
+                        </div>
+                        <Tag tone={fact.supported ? 'green' : 'amber'}>{fact.skill_dimension}</Tag>
                       </div>
                     ))}
                   </div>
-                ) : null}
-                <div className="chat-input-row">
-                  <input value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder={!canUseTutorChat ? '当前模式锁定自由追问...' : '追问当前病例、证据或报告表达...'} disabled={!canUseTutorChat} />
-                  <button className="icon-button" type="button" onClick={askAgent} title="发送追问" disabled={!canUseTutorChat || loading}>
-                    <MessageSquare size={17} />
-                  </button>
-                </div>
-                <div className={`agent-memory-sync ${memorySync.includes('未写入') || memorySync.includes('不可用') ? 'pending' : 'synced'}`}>
-                  <ActivitySquare size={17} />
-                  <span>{memorySync}</span>
-                </div>
-              </>
-            ) : tutorTab === 'evidence' ? (
-              <div className="evidence-box">
-                <div>
-                  <Eye size={17} />
-                  <strong>可审计依据</strong>
-                </div>
-                <p>{evidence}</p>
-                <div className="mini-fact-list">
-                  {question.atomic_trace.map((fact) => (
-                    <span key={fact.id}>{fact.skill_dimension} · {fact.supported ? '支持' : '证据不足'} · {fact.evidence}</span>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="challenge-box">
-                <div>
-                  <Trophy size={17} />
-                  <strong>医生 vs 挑战基准</strong>
-                </div>
-                <p>{challengeDelta}</p>
-                {canRevealBenchmark ? (
-                  <div className="challenge-round-grid">
-                    <span>林医师：{submission?.is_correct ? '本轮正确' : '本轮失分'} · {selected}</span>
-                    <span>{benchmarkLabel}：{challengeBenchmarkLoading ? '同步中' : benchmarkCorrect ? '基准正确' : '基准待复核'} · {challengeBenchmarkLoading ? '等待后端返回' : benchmarkAnswer}</span>
-                    {currentChallengeBenchmark ? <span>理由：{currentChallengeBenchmark.rationale}</span> : null}
-                    {currentChallengeBenchmark ? <span>审计：{currentChallengeBenchmark.audit_logged ? '已记录 challenge_benchmark' : '未写入审计'} · 画像：{currentChallengeBenchmark.profile_updated ? '已更新' : '未重复更新'}</span> : null}
+                  <div className="v3-next-callout">
+                    <Target size={18} />
+                    <span>{submission?.next_recommendation || memoryPoint(question)}</span>
                   </div>
-                ) : <span>未提交前隐藏挑战基准，避免破坏练习闭环。</span>}
+                </>
+              ) : (
+                <p>先按自己的判断完成本题；提交后，这里会整理证据点、参考答案和下一题建议。</p>
+              )}
+            </Card>
+
+            <Card className="practice-side-card">
+              <SectionTitle eyebrow="轻量记忆卡" title="一句话知识点" />
+              <div className="memory-card-preview">
+                <Sparkles size={22} />
+                <strong>{question ? memoryPoint(question) : '先选择一道研修题'}</strong>
+                <span>{question?.question_class || '研修'}</span>
               </div>
-            )}
-            <div className="safety-mini">{safetyNotice}</div>
-          </Card>
-        </div>
-      )}
+            </Card>
+          </div> : null}
+        </main>
+
+        <aside className={`practice-agent-panel ${studyMode === 'exam' ? 'locked' : ''}`}>
+          <div className="agent-chat-head">
+            <div>
+              <Tag tone={studyMode === 'exam' ? 'amber' : 'green'}>{studyMode === 'exam' ? '独立作答' : '实时辅导'}</Tag>
+              <h3><Bot size={19} /> 研修辅导</h3>
+            </div>
+            <span>{question?.question_type || '题目'} · {trainingModelLabel}</span>
+          </div>
+          <div className="agent-chat-purpose">
+            <MessageCircle size={15} />
+            <span>把拿不准的观察点写在这里即可；先独立判断，再一起把图像依据和表达边界理顺。</span>
+          </div>
+          <div className="agent-chat-log" ref={chatLogRef}>
+            {messages.map((message) => (
+              <div key={message.id} className={`agent-chat-message ${message.role}`}>
+                <p>{message.text}</p>
+                {message.meta ? <span>{message.meta}</span> : null}
+              </div>
+            ))}
+            {agentBusy ? (
+              <div className="agent-chat-message agent">
+                <p><LoaderCircle size={15} className="spin" /> 正在回复...</p>
+              </div>
+            ) : null}
+          </div>
+          <div className="agent-quick-prompts compact">
+            {['提示我先看哪里', '梳理观察步骤', '给我一个追问', '总结成记忆卡'].map((prompt) => (
+              <button key={prompt} onClick={() => sendAgentMessage(prompt)} disabled={!question || studyMode === 'exam' || agentBusy}>
+                {prompt}
+              </button>
+            ))}
+          </div>
+          <form
+            className="agent-chat-input"
+            onSubmit={(event) => {
+              event.preventDefault()
+              sendAgentMessage()
+            }}
+          >
+            <input
+              value={studyMode === 'exam' ? '考试模式先独立作答' : chatInput}
+              onChange={(event) => setChatInput(event.target.value)}
+              disabled={!question || studyMode === 'exam' || agentBusy}
+              placeholder="写下你的观察疑问，或说说你卡在哪一步。"
+            />
+            <button className="button primary" disabled={!question || studyMode === 'exam' || agentBusy || !chatInput.trim()} aria-label="发送研修提问">
+              <Send size={16} />
+            </button>
+          </form>
+          <div className="agent-chat-boundary">
+            <MessageCircle size={15} />
+            <span>这里聊研修思路和图像依据；临床结论仍需医生复核。</span>
+          </div>
+        </aside>
+      </div>
+
+      <SafetyNotice text={state?.safety_notice || v3SafetyNotice} />
     </div>
   )
 }
 
-function toQuestionClass(value: string): Question['question_class'] | '' {
-  return validQuestionClasses.has(value as Question['question_class'])
-    ? value as Question['question_class']
-    : ''
-}
-
-function FilterSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+function SubmissionFeedbackPanel({ question, submission }: { question: Question; submission: PracticeSubmitResponse }) {
+  const resultLabel = submission.is_correct ? '回答正确' : '需要复盘'
+  const userAnswer = submission.selected_answer || '未记录'
   return (
-    <label className="filter-field">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">全部</option>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
-      </select>
-    </label>
+    <section className={`practice-inline-feedback ${submission.is_correct ? 'correct' : 'review'}`} aria-label="提交后作答反馈">
+      <div className="practice-inline-feedback-head">
+        <div>
+          <span>作答反馈已生成</span>
+          <strong>{resultLabel} · {submission.score} 分</strong>
+        </div>
+        <Tag tone={submission.is_correct ? 'green' : 'amber'}>{submission.practice_summary?.result || resultLabel}</Tag>
+      </div>
+      <div className="practice-answer-compare">
+        <div>
+          <span>你的答案</span>
+          <b>{userAnswer}</b>
+        </div>
+        <div>
+          <span>参考答案</span>
+          <b>{question.answer}</b>
+        </div>
+      </div>
+      <p>{submission.explanation || question.explanation}</p>
+      <div className="practice-feedback-tags">
+        {(submission.error_tags.length ? submission.error_tags : ['无明显错因']).map((tag) => (
+          <span key={tag}>{tag}</span>
+        ))}
+      </div>
+      <div className="practice-feedback-next">
+        <Target size={16} />
+        <span>{submission.next_recommendation || submission.practice_summary?.next_step || '继续完成下一题研修。'}</span>
+      </div>
+    </section>
   )
 }
 
-function buildInitialAgentMessage(question: Question): ChatMessage {
-  return {
-    role: 'agent',
-    text: `林知远医师，本题聚焦 ${question.body_part} · ${question.task}。先看图像证据：部位、形态、颜色、边界，再判断题干是否越界。`,
-    mode: 'rule',
+function AnswerControl({
+  question,
+  selectedAnswers,
+  freeAnswer,
+  locked,
+  showAnswer,
+  onSingle,
+  onMulti,
+  onFreeAnswer,
+}: {
+  question: Question
+  selectedAnswers: string[]
+  freeAnswer: string
+  locked: boolean
+  showAnswer: boolean
+  onSingle: (option: string) => void
+  onMulti: (option: string) => void
+  onFreeAnswer: (value: string) => void
+}) {
+  if (question.question_type === '问答评分' || question.question_type === '报告修改') {
+    return (
+      <div className="practice-free-answer">
+        <label>
+          <span>{question.question_type === '报告修改' ? '修改后的报告表达' : '你的回答'}</span>
+          <textarea
+            rows={7}
+            value={locked && !freeAnswer ? question.answer : freeAnswer}
+            onChange={(event) => onFreeAnswer(event.target.value)}
+            disabled={locked}
+            placeholder="请输入观察依据、判断和复核边界。"
+          />
+        </label>
+        {showAnswer ? <div className="practice-reference-answer"><strong>参考答案</strong><p>{question.answer}</p></div> : null}
+      </div>
+    )
+  }
+
+  const multi = question.question_type === '多选'
+  return (
+    <div className={`practice-options ${multi ? 'multi' : ''}`}>
+      {question.options.map((option) => {
+        const selected = selectedAnswers.includes(option)
+        const correct = showAnswer && isCorrectOption(question, option)
+        return (
+          <button
+            key={option}
+            className={`${selected ? 'selected' : ''} ${correct ? 'correct' : ''}`}
+            onClick={() => (multi ? onMulti(option) : onSingle(option))}
+            disabled={locked}
+            type="button"
+          >
+            {correct ? <CheckCircle2 size={16} /> : <span />}
+            {option}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function getAnswerValue(question: Question | undefined, selectedAnswers: string[], freeAnswer: string) {
+  if (!question) return ''
+  if (question.question_type === '问答评分' || question.question_type === '报告修改') return freeAnswer
+  if (question.question_type === '多选') return selectedAnswers.join('；')
+  return selectedAnswers[0] || ''
+}
+
+function isCorrectOption(question: Question, option: string) {
+  if (question.question_type === '多选') {
+    return question.answer.split(/[；;]/).map((item) => item.trim()).filter(Boolean).includes(option)
+  }
+  return option === question.answer
+}
+
+function filterQuestionsBySubPage(items: Question[], subPage: SubPage, favoriteIds: string[]) {
+  if (subPage === 'wrong') {
+    const wrong = items.filter((item) => item.review_status === '待复盘')
+    return wrong.length ? wrong : items.slice(0, 12)
+  }
+  if (subPage === 'favorites') {
+    const favorites = items.filter((item) => favoriteIds.includes(item.id) || item.is_favorited || item.review_status === '收藏中')
+    return favorites
+  }
+  return items
+}
+
+function countQuestionTypes(items: Question[]) {
+  return items.reduce<Record<string, number>>((counts, item) => {
+    counts[item.question_type] = (counts[item.question_type] || 0) + 1
+    return counts
+  }, {})
+}
+
+function shuffleQuestions(items: Question[], seed: number) {
+  const shuffled = [...items]
+  let cursor = seed || 1
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    cursor = (cursor * 9301 + 49297) % 233280
+    const swapIndex = Math.floor((cursor / 233280) * (index + 1))
+    ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
+  }
+  return shuffled
+}
+
+function readFavoriteIds() {
+  if (typeof window === 'undefined') return []
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(localFavoriteStorageKey) || '[]')
+    return Array.isArray(parsed) ? parsed.map((item) => String(item)).filter(Boolean) : []
+  } catch {
+    return []
   }
 }
 
-function challengeMessage(doctorCorrect: boolean, benchmarkCorrect: boolean, sameAnswer: boolean): string {
-  if (doctorCorrect && benchmarkCorrect && sameAnswer) return '本轮同判正确：医师答案与挑战基准一致。'
-  if (doctorCorrect && benchmarkCorrect) return '本轮都命中参考结论，但表达不同，适合复盘证据措辞。'
-  if (doctorCorrect && !benchmarkCorrect) return '本轮医师领先：挑战基准需要复核或不适合作为最终判断。'
-  if (!doctorCorrect && benchmarkCorrect) return '本轮挑战基准领先：建议复盘可观察证据和题干边界。'
-  return '本轮双方都需复核：请回到证据标签逐条检查。'
+function writeFavoriteIds(ids: string[]) {
+  const next = [...new Set(ids)]
+  window.localStorage.setItem(localFavoriteStorageKey, JSON.stringify(next))
+  return next
 }
 
-function formatAuditTime(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+function sameStringArray(left: string[], right: string[]) {
+  return left.length === right.length && left.every((item, index) => item === right[index])
 }
 
-function nextQuestionIndex(currentIndex: number, questions: Question[], attempts: ExamAttempt[], examMode: boolean): number {
-  if (!questions.length) return 0
-  if (!examMode) return (currentIndex + 1) % questions.length
-  const answered = new Set(attempts.map((attempt) => attempt.questionId))
-  for (let offset = 1; offset <= questions.length; offset += 1) {
-    const candidate = (currentIndex + offset) % questions.length
-    if (!answered.has(questions[candidate].id)) return candidate
+function readModelAssignments(): ModelTaskAssignments {
+  if (typeof window === 'undefined') return {}
+  try {
+    return JSON.parse(window.localStorage.getItem(modelAssignmentStorageKey) || '{}') as ModelTaskAssignments
+  } catch {
+    return {}
   }
-  return currentIndex
+}
+
+function readDailyTarget() {
+  if (typeof window === 'undefined') return defaultDailyTarget
+  const stored = Number(window.localStorage.getItem(dailyPlanStorageKey) || defaultDailyTarget)
+  return Number.isFinite(stored) ? Math.max(defaultDailyTarget, stored) : defaultDailyTarget
+}
+
+function writeDailyTarget(value: number) {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(dailyPlanStorageKey, String(value))
+}
+
+function formatTime(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0')
+  const seconds = (totalSeconds % 60).toString().padStart(2, '0')
+  return `${minutes}:${seconds}`
+}
+
+function memoryPoint(question: Question) {
+  if (question.question_class === '报告纠错') return '报告表达要区分观察事实、倾向判断和医生复核前边界。'
+  if (question.question_class === '一图多问') return '同一图片先拆部位、形态、数量和可见器械，再归纳答案。'
+  if (question.question_type === '多选') return '多选题先逐项排除没有图像依据的选项，再提交。'
+  return '内镜研修优先描述可观察事实，再说明判断依据和限制。'
 }

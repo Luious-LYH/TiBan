@@ -19,21 +19,21 @@ const fallbackCardImages: CardImageOption[] = [
     id: 'fallback_kvasir_01',
     imageUrl: '/assets/real_samples/kv_cla820gl0s3nv071u4fgd7xgq.jpg',
     label: '本地公开样例',
-    dataset: 'fallback asset',
+    dataset: '本地公开样例',
     source: 'fallback',
   },
   {
     id: 'fallback_x1_01',
     imageUrl: '/assets/real_samples/x1_clb0kvxvm90y4074yf50vf5nq.jpg',
     label: '本地公开样例',
-    dataset: 'fallback asset',
+    dataset: '本地公开样例',
     source: 'fallback',
   },
   {
     id: 'fallback_demo_01',
     imageUrl: '/assets/real_samples/endo_image_0.jpg',
     label: '本地公开样例',
-    dataset: 'fallback asset',
+    dataset: '本地公开样例',
     source: 'fallback',
   },
 ]
@@ -46,7 +46,7 @@ function realSamplesToCardImages(samples: Question[]): CardImageOption[] {
       id: sample.id,
       imageUrl: sample.image_url || '',
       label: sample.title || sample.id,
-      dataset: sample.source_dataset || 'public sample',
+      dataset: sample.source_dataset || '公开教学样例',
       source: 'backend' as const,
     }))
     .filter((sample) => {
@@ -116,13 +116,13 @@ export function PatientCard() {
           setImageSourceStatus(`已从 real_sample_knowledge.json 读取 ${options.length} 张公开教学样例；仅作医生审核前卡片配图，不代表自动诊断。`)
         } else {
           setImageOptions(fallbackCardImages)
-          setImageSourceStatus('后端公开样例暂无可用图片，当前使用本地 fallback 公开样例资产。')
+          setImageSourceStatus('服务端公开样例暂无可用图片，当前使用本地公开样例资产。')
         }
       })
       .catch(() => {
         if (cancelled) return
         setImageOptions(fallbackCardImages)
-        setImageSourceStatus('后端公开样例接口暂不可用，当前使用本地 fallback 公开样例资产。')
+        setImageSourceStatus('服务端公开样例接口暂不可用，当前使用本地公开样例资产。')
       })
     return () => {
       cancelled = true
@@ -170,7 +170,7 @@ export function PatientCard() {
         reviewChecks,
       })
       setCard(reviewed)
-      setCardStatus(`已由 ${reviewed.reviewer_name || reviewerName} 审核通过草稿 ${reviewed.id}；分享和打印已解锁，并写入审计日志。`)
+      setCardStatus(`已由 ${reviewed.reviewer_name || reviewerName} 审核通过草稿 ${reviewed.id}；分享和打印已开放，并写入审计日志。`)
     } catch {
       setCardStatus('审核确认提交失败，请确认后端在线后重试。')
     } finally {
@@ -221,7 +221,7 @@ export function PatientCard() {
   const displayedCardImageUrl = card?.image_url || imageUrl
   const displayedImageOption = imageOptions.find((item) => item.imageUrl === displayedCardImageUrl)
   const displayedImageDataset = displayedImageOption?.dataset
-    || (displayedCardImageUrl.startsWith('blob:') ? 'local_upload' : displayedCardImageUrl.startsWith('/assets/real_samples/') ? 'public_sample_unknown' : selectedImageOption?.dataset || 'public_sample')
+    || (displayedCardImageUrl.startsWith('blob:') ? '本地上传' : displayedCardImageUrl.startsWith('/assets/real_samples/') ? '公开教学样例' : selectedImageOption?.dataset || '公开教学样例')
   const reviewSteps = isReviewed && card?.review_steps?.length
     ? card.review_steps
     : [
@@ -235,7 +235,7 @@ export function PatientCard() {
     <div className="page-stack card-studio">
       <Card className="focus-band card-focus">
         <div>
-          <span className="eyebrow">Patient education studio</span>
+          <span className="eyebrow">患者沟通卡片</span>
           <h2>科普卡片工作室</h2>
           <p>把医生审核前报告摘要转成图文并茂的患者沟通卡片。卡片支持模板风格、浮动预览、打印/分享视觉状态，但仍必须医生审核。</p>
         </div>
@@ -250,7 +250,7 @@ export function PatientCard() {
               <CheckCircle2 size={18} />
               <div>
                 <strong>来源：报告修改训练</strong>
-                <span>已带入{isJudgeSuggestion ? ' AI judge 建议改写摘要' : '医生修改稿摘要'}；分享/打印仍需医生完成审核清单。</span>
+                <span>已带入{isJudgeSuggestion ? '报告复核建议摘要' : '医生修改稿摘要'}；分享/打印仍需医生完成审核清单。</span>
               </div>
             </div>
           ) : null}
@@ -289,7 +289,7 @@ export function PatientCard() {
                   setImageUrl(item.imageUrl)
                   setSelectedImageId(item.id)
                   setUploadedImageName('')
-                  markDraftDirty(`${item.source === 'backend' ? '已切换为后端公开样例' : '已切换为本地 fallback 样例'}：${item.label}。请重新生成草稿并完成医生审核。`)
+                  markDraftDirty(`${item.source === 'backend' ? '已切换为服务端公开样例' : '已切换为本地公开样例'}：${item.label}。请重新生成草稿并完成医生审核。`)
                 }}
                 title={`${item.label} · ${item.dataset}`}
               >
@@ -308,7 +308,7 @@ export function PatientCard() {
             </label>
           </div>
           <div className="card-image-source">
-            <Tag tone={selectedImageOption?.source === 'backend' ? 'green' : 'amber'}>{selectedImageOption?.source === 'backend' ? 'backend sample' : uploadedImageName ? 'local preview' : 'fallback asset'}</Tag>
+            <Tag tone={selectedImageOption?.source === 'backend' ? 'green' : 'amber'}>{selectedImageOption?.source === 'backend' ? '服务端公开样例' : uploadedImageName ? '本地预览' : '本地公开样例'}</Tag>
             <span>{uploadedImageName ? `本地上传：${uploadedImageName}` : selectedImageOption ? `${selectedImageOption.id} · ${selectedImageOption.dataset}` : '等待选择图像'}</span>
           </div>
           <div className="source-note">{imageSourceStatus}</div>
@@ -327,7 +327,7 @@ export function PatientCard() {
                 </div>
               </div>
               <div className="receipt-metrics">
-                <div><span>生成模式</span><strong>{card.generation_mode || card.api_source || 'rule'}</strong></div>
+                <div><span>生成模式</span><strong>{generationLabel(card.generation_mode || card.api_source)}</strong></div>
                 <div><span>模板知识库</span><strong>{card.knowledge_base_id || '未连接'}</strong></div>
                 <div><span>审计 ID</span><strong>{card.audit_log_id || '未写入'}</strong></div>
               </div>
@@ -346,13 +346,13 @@ export function PatientCard() {
 
         <Card>
           <SectionTitle
-            eyebrow="Review gate"
+            eyebrow="医生审核"
             title="医生审核闸门"
-            action={<Tag tone={isReviewed ? 'green' : 'red'}>{isReviewed ? '已解锁分享' : '分享锁定'}</Tag>}
+            action={<Tag tone={isReviewed ? 'green' : 'red'}>{isReviewed ? '可分享' : '分享锁定'}</Tag>}
           />
           <div className={`notice-card review-gate-panel ${isReviewed ? 'reviewed' : ''}`}>
             {isReviewed ? <CheckCircle2 size={20} /> : <LockKeyhole size={20} />}
-            <p>{isReviewed ? '医生已经确认摘要、边界和免责声明；当前卡片可用于患者沟通前说明。' : '科普卡片可先生成待审草稿；只有医生确认输入和边界后，才会解锁打印和分享。'}</p>
+            <p>{isReviewed ? '医生已经确认摘要、边界和免责声明；当前卡片可用于患者沟通前说明。' : '科普卡片可先生成待审草稿；医生确认输入和边界后，才开放打印和分享。'}</p>
           </div>
           <div className="review-checklist">
             <label>
@@ -418,7 +418,7 @@ export function PatientCard() {
           <div className="card-copy">
             <div className="card-header">
               <div>
-                <span>Endo Patient Card</span>
+                <span>内镜科普卡片</span>
                 <h3>{card?.card_title || '内镜检查结果说明卡'}</h3>
               </div>
               <Tag tone={isReviewed ? 'green' : 'red'}>{isReviewed ? '医生已审核' : '需医生审核'}</Tag>
@@ -476,4 +476,14 @@ function InfoBlock({ title, items }: { title: string; items: string[] }) {
       </ul>
     </div>
   )
+}
+
+function generationLabel(value: string | undefined) {
+  const labels: Record<string, string> = {
+    provider: '智能辅助',
+    rule: '规则草稿',
+    fallback: '本地预览',
+    backend: '服务端生成',
+  }
+  return labels[String(value || '').toLowerCase()] || '结构化草稿'
 }

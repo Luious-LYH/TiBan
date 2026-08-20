@@ -11,7 +11,7 @@ def now_iso() -> str:
 
 class AuditService:
     def list_logs(self) -> list[AuditLog]:
-        return [AuditLog(**item) for item in read_json("audit_logs.json")]
+        return [AuditLog(**item) for item in self._read_log_payload()]
 
     def log(
         self,
@@ -34,10 +34,17 @@ class AuditService:
             metadata=metadata or {},
             created_at=now_iso(),
         )
-        logs = read_json("audit_logs.json")
+        logs = self._read_log_payload()
         logs.insert(0, log.model_dump())
         write_json("audit_logs.json", logs[:200])
         return log
+
+    def _read_log_payload(self) -> list[dict[str, object]]:
+        try:
+            payload = read_json("audit_logs.json")
+        except Exception:
+            return []
+        return payload if isinstance(payload, list) else []
 
 
 audit_service = AuditService()
