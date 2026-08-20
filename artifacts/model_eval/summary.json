@@ -1,0 +1,26 @@
+{
+  "status": "completed",
+  "inference": {
+    "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+    "cases": 7,
+    "micro_fact_accuracy": 0.2,
+    "case_exact_rate": 0.0,
+    "latency_p50_s": 0.8707485795021057,
+    "latency_p95_s": 1.645606691204011,
+    "generation_tokens_per_s": 19.814436216688453,
+    "peak_gpu_memory_gib": 10.197868347167969
+  },
+  "qlora_train_sanity": {
+    "claim_boundary": "train-set overfit sanity only; no held-out or generalization claim",
+    "examples": 7,
+    "steps": 10,
+    "quantization": "NF4 4-bit with double quantization",
+    "lora_rank": 8,
+    "trainable_parameters": 1843200,
+    "trainable_ratio": 0.0004906739242792,
+    "fixed_probe_loss_before": 1.907088279724121,
+    "fixed_probe_loss_after": 1.7229844331741333,
+    "peak_gpu_memory_gib": 17.978474617004395,
+    "adapter_size_bytes": 7397552
+  }
+}

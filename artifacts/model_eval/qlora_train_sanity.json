@@ -1,0 +1,39 @@
+{
+  "status": "completed",
+  "created_at": "2026-08-20T06:02:34.530910+00:00",
+  "claim_boundary": "7-example train-set, 10-step overfit sanity only; not held-out evaluation and no generalization claim",
+  "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "quantization": "NF4 4-bit with double quantization",
+  "lora": {
+    "rank": 8,
+    "alpha": 16,
+    "targets": [
+      "q_proj",
+      "v_proj"
+    ]
+  },
+  "steps": 10,
+  "examples": 7,
+  "learning_rate": 0.0002,
+  "loss_history": [
+    1.907088279724121,
+    1.1109857559204102,
+    0.4278269410133362,
+    1.143900752067566,
+    0.8842241168022156,
+    0.8968181610107422,
+    0.6370053291320801,
+    1.7771042585372925,
+    1.0330568552017212,
+    0.30665913224220276
+  ],
+  "fixed_probe_loss_before": 1.907088279724121,
+  "fixed_probe_loss_after": 1.7229844331741333,
+  "elapsed_s": 93.86393752135336,
+  "peak_gpu_memory_gib": 17.978474617004395,
+  "trainable_parameters": 1843200,
+  "total_parameters": 3756466176,
+  "trainable_ratio": 0.0004906739242792,
+  "adapter_dir": "/home/lyh/aris_portfolio_runs/20260820/results/adapter_sanity",
+  "adapter_size_bytes": 7397552
+}

@@ -1,0 +1,32 @@
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.00s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:04<00:00,  2.21s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:04<00:00,  2.18s/it]
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.48, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+/home/lyh/aris_portfolio_runs/20260820/.venv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py:600: UserWarning: torch.utils.checkpoint: the use_reentrant parameter should be passed explicitly. In version 2.4 we will raise an exception if use_reentrant is not passed. use_reentrant=False is recommended, but if you need to preserve the current default behavior, you can pass use_reentrant=True. Refer to docs for more details on the differences between the two variants.
+  return fn(*args, **kwargs)
+/home/lyh/aris_portfolio_runs/20260820/.venv/lib/python3.10/site-packages/torch/utils/checkpoint.py:92: UserWarning: None of the inputs have requires_grad=True. Gradients will be None
+  warnings.warn(
+`use_cache=True` is incompatible with gradient checkpointing. Setting `use_cache=False`...
+/home/lyh/aris_portfolio_runs/20260820/.venv/lib/python3.10/site-packages/torch/utils/checkpoint.py:295: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.
+  with torch.enable_grad(), device_autocast_ctx, torch.cpu.amp.autocast(**ctx.cpu_autocast_kwargs):  # type: ignore[attr-defined]
+{
+  "status": "completed",
+  "created_at": "2026-08-20T05:58:08.165972+00:00",
+  "claim_boundary": "one-example, one-step QLoRA plumbing validation only; no quality-improvement claim",
+  "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "quantization": "NF4 4-bit with double quantization",
+  "lora": {
+    "rank": 8,
+    "alpha": 16,
+    "targets": [
+      "q_proj",
+      "v_proj"
+    ]
+  },
+  "steps": 1,
+  "examples": 1,
+  "loss": 18.232585906982422,
+  "elapsed_s": 3.254074309952557,
+  "peak_gpu_memory_gib": 8.900498867034912,
+  "trainable_parameters": 1843200,
+  "total_parameters": 3756466176,
+  "trainable_ratio": 0.0004906739242792
+}

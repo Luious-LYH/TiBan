@@ -1,0 +1,74 @@
+[
+  {
+    "id": "kvasir_x1_esophagus",
+    "image": "images/x1_clb0kvxvm90y4074yf50vf5nq.jpg",
+    "question": "What abnormality and anatomical landmark are visible? Are polyps present? Answer briefly from visible evidence only.",
+    "gold_answer": "Oesophagitis is visible, the z-line is present, and no polyps are identified.",
+    "expected_facts": [
+      ["oesophagitis", "esophagitis"],
+      ["z-line", "z line"],
+      ["no polyp", "no polyps", "without polyp", "no evidence of polyp", "absence of polyp"]
+    ],
+    "source": "Kvasir-VQA-x1 public teaching sample"
+  },
+  {
+    "id": "kvasir_x1_polyp",
+    "image": "images/x1_cl8k2u1qa1ekz08324rek2qcv.jpg",
+    "question": "Do polyps remain, is text visible, and where is the abnormality? Answer briefly from visible evidence only.",
+    "gold_answer": "Polyps remain, text is visible, and the abnormality is in the central and upper-center regions.",
+    "expected_facts": [
+      ["polyps remain", "polyp remains", "polyp present", "polyps present"],
+      ["text visible", "text is visible", "text present"],
+      ["central", "center"]
+    ],
+    "source": "Kvasir-VQA-x1 public teaching sample"
+  },
+  {
+    "id": "kvasir_x1_count",
+    "image": "images/x1_cla820gmss67b071u3h7o5k3t.jpg",
+    "question": "Count visible instruments, polyps, and abnormal findings. Return the three counts in that order.",
+    "gold_answer": "There are 0 instruments, 0 polyps, and 1 abnormal finding.",
+    "expected_facts": [
+      ["0 instrument", "no instrument", "zero instrument"],
+      ["0 polyp", "no polyp", "zero polyp"],
+      ["1 abnormal", "one abnormal", "1 finding", "one finding"]
+    ],
+    "source": "Kvasir-VQA-x1 public teaching sample"
+  },
+  {
+    "id": "kvasir_x1_instrument",
+    "image": "images/x1_clb0lbwzpdpgo086ucmqx7nyu.jpg",
+    "question": "How many instruments are visible, is text visible, and where are abnormalities distributed? Answer briefly.",
+    "gold_answer": "One instrument is visible, no text is visible, and abnormalities are in the central and upper regions.",
+    "expected_facts": [
+      ["1 instrument", "one instrument"],
+      ["no text", "text is not visible", "without text"],
+      ["central", "center"]
+    ],
+    "source": "Kvasir-VQA-x1 public teaching sample"
+  },
+  {
+    "id": "endobench_small_intestine_0",
+    "image": "images/endo_image_0.jpg",
+    "question": "Which digestive organ is depicted: esophagus, small intestine, large intestine, or stomach? Return one option.",
+    "gold_answer": "small intestine",
+    "expected_facts": [["small intestine"]],
+    "source": "EndoBench public teaching sample"
+  },
+  {
+    "id": "endobench_small_intestine_1",
+    "image": "images/endo_image_1.jpg",
+    "question": "Which digestive organ is depicted: esophagus, small intestine, large intestine, or stomach? Return one option.",
+    "gold_answer": "small intestine",
+    "expected_facts": [["small intestine"]],
+    "source": "EndoBench public teaching sample"
+  },
+  {
+    "id": "endobench_small_intestine_2",
+    "image": "images/endo_image_2.jpg",
+    "question": "Which digestive organ is depicted: esophagus, small intestine, large intestine, or stomach? Return one option.",
+    "gold_answer": "small intestine",
+    "expected_facts": [["small intestine"]],
+    "source": "EndoBench public teaching sample"
+  }
+]

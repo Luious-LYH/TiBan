@@ -1,0 +1,23 @@
+{
+  "status": "completed",
+  "created_at": "2026-08-20T05:58:08.165972+00:00",
+  "claim_boundary": "one-example, one-step QLoRA plumbing validation only; no quality-improvement claim",
+  "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "quantization": "NF4 4-bit with double quantization",
+  "lora": {
+    "rank": 8,
+    "alpha": 16,
+    "targets": [
+      "q_proj",
+      "v_proj"
+    ]
+  },
+  "steps": 1,
+  "examples": 1,
+  "loss": 18.232585906982422,
+  "elapsed_s": 3.254074309952557,
+  "peak_gpu_memory_gib": 8.900498867034912,
+  "trainable_parameters": 1843200,
+  "total_parameters": 3756466176,
+  "trainable_ratio": 0.0004906739242792
+}

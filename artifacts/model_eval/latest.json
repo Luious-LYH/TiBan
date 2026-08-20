@@ -1,0 +1,116 @@
+{
+  "status": "completed",
+  "created_at": "2026-08-20T05:57:25.128195+00:00",
+  "scope": "7 public teaching images; single deterministic pass; not a clinical validation",
+  "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "precision": "bfloat16",
+  "device": "NVIDIA GeForce RTX 4090",
+  "software": {
+    "python": "3.10.12",
+    "torch": "2.4.1+cu121"
+  },
+  "config": {
+    "max_new_tokens": 96,
+    "warmup_runs": 1,
+    "do_sample": false,
+    "batch_size": 1
+  },
+  "metrics": {
+    "cases": 7,
+    "case_exact_rate": 0.0,
+    "micro_fact_accuracy": 0.2,
+    "latency_p50_s": 0.8707485795021057,
+    "latency_p95_s": 1.645606691204011,
+    "throughput_cases_per_min": 73.92747527604566,
+    "generation_tokens_per_s": 19.814436216688453,
+    "peak_gpu_memory_gib": 10.197868347167969,
+    "wall_time_s": 5.681243657134473
+  },
+  "cases": [
+    {
+      "id": "kvasir_x1_esophagus",
+      "answer": "Polyps are present.",
+      "latency_s": 0.9453,
+      "generated_tokens": 6,
+      "fact_hits": [
+        false,
+        false,
+        false
+      ],
+      "fact_score": 0.0,
+      "source": "Kvasir-VQA-x1 public teaching sample"
+    },
+    {
+      "id": "kvasir_x1_polyp",
+      "answer": "Polyps remain, text is not visible, and the abnormality is in the upper part of the image.",
+      "latency_s": 0.8707,
+      "generated_tokens": 23,
+      "fact_hits": [
+        true,
+        false,
+        false
+      ],
+      "fact_score": 0.3333333333333333,
+      "source": "Kvasir-VQA-x1 public teaching sample"
+    },
+    {
+      "id": "kvasir_x1_count",
+      "answer": "The image shows the following:\n\n1. **Instruments**: 0\n2. **Polyps**: 0\n3. **Abnormal Findings**: 0\n\nThere are no visible instruments, polyps, or any other abnormalities in the image.",
+      "latency_s": 1.8494,
+      "generated_tokens": 53,
+      "fact_hits": [
+        false,
+        false,
+        false
+      ],
+      "fact_score": 0.0,
+      "source": "Kvasir-VQA-x1 public teaching sample"
+    },
+    {
+      "id": "kvasir_x1_instrument",
+      "answer": "1 instrument, no text, distributed in the oral cavity.",
+      "latency_s": 1.1701,
+      "generated_tokens": 13,
+      "fact_hits": [
+        true,
+        true,
+        false
+      ],
+      "fact_score": 0.6666666666666666,
+      "source": "Kvasir-VQA-x1 public teaching sample"
+    },
+    {
+      "id": "endobench_small_intestine_0",
+      "answer": "Stomach",
+      "latency_s": 0.1916,
+      "generated_tokens": 4,
+      "fact_hits": [
+        false
+      ],
+      "fact_score": 0.0,
+      "source": "EndoBench public teaching sample"
+    },
+    {
+      "id": "endobench_small_intestine_1",
+      "answer": "Stomach",
+      "latency_s": 0.1877,
+      "generated_tokens": 4,
+      "fact_hits": [
+        false
+      ],
+      "fact_score": 0.0,
+      "source": "EndoBench public teaching sample"
+    },
+    {
+      "id": "endobench_small_intestine_2",
+      "answer": "Stomach",
+      "latency_s": 0.1853,
+      "generated_tokens": 4,
+      "fact_hits": [
+        false
+      ],
+      "fact_score": 0.0,
+      "source": "EndoBench public teaching sample"
+    }
+  ]
+}

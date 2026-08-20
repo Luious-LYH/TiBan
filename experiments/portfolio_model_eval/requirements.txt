@@ -1,0 +1,8 @@
+torch==2.4.1
+torchvision==0.19.1
+transformers==4.49.0
+accelerate==1.2.1
+qwen-vl-utils==0.0.10
+pillow>=10.4.0
+peft==0.14.0
+bitsandbytes==0.45.2

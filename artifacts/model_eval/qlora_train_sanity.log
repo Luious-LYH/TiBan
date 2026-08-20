@@ -1,0 +1,66 @@
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.98s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:04<00:00,  2.08s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:04<00:00,  2.06s/it]
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.48, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+{"step": 1, "case": "kvasir_x1_esophagus", "loss": 1.907088279724121}
+{"step": 2, "case": "kvasir_x1_polyp", "loss": 1.1109857559204102}
+{"step": 3, "case": "kvasir_x1_count", "loss": 0.4278269410133362}
+{"step": 4, "case": "kvasir_x1_instrument", "loss": 1.143900752067566}
+{"step": 5, "case": "endobench_small_intestine_0", "loss": 0.8842241168022156}
+{"step": 6, "case": "endobench_small_intestine_1", "loss": 0.8968181610107422}
+{"step": 7, "case": "endobench_small_intestine_2", "loss": 0.6370053291320801}
+{"step": 8, "case": "kvasir_x1_esophagus", "loss": 1.7771042585372925}
+{"step": 9, "case": "kvasir_x1_polyp", "loss": 1.0330568552017212}
+{"step": 10, "case": "kvasir_x1_count", "loss": 0.30665913224220276}
+'(MaxRetryError('HTTPSConnectionPool(host=\'huggingface.co\', port=443): Max retries exceeded with url: /Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json (Caused by NewConnectionError("HTTPSConnection(host=\'huggingface.co\', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable"))'), '(Request ID: c870081d-8f2a-49e7-a093-0e3110523d70)')' thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json
+Retrying in 1s [Retry 1/5].
+'(MaxRetryError('HTTPSConnectionPool(host=\'huggingface.co\', port=443): Max retries exceeded with url: /Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json (Caused by NewConnectionError("HTTPSConnection(host=\'huggingface.co\', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable"))'), '(Request ID: 5803e3ae-c7d6-44b2-9472-ad01d7771216)')' thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json
+Retrying in 2s [Retry 2/5].
+'(MaxRetryError('HTTPSConnectionPool(host=\'huggingface.co\', port=443): Max retries exceeded with url: /Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json (Caused by NewConnectionError("HTTPSConnection(host=\'huggingface.co\', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable"))'), '(Request ID: 08d1c76b-388b-4ec4-b9b3-551e89d697cd)')' thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json
+Retrying in 4s [Retry 3/5].
+'(MaxRetryError('HTTPSConnectionPool(host=\'huggingface.co\', port=443): Max retries exceeded with url: /Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json (Caused by NewConnectionError("HTTPSConnection(host=\'huggingface.co\', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable"))'), '(Request ID: 04679a5b-e08e-4d17-a16c-f46d1d47922a)')' thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json
+Retrying in 8s [Retry 4/5].
+'(MaxRetryError('HTTPSConnectionPool(host=\'huggingface.co\', port=443): Max retries exceeded with url: /Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json (Caused by NewConnectionError("HTTPSConnection(host=\'huggingface.co\', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable"))'), '(Request ID: 9a3ced5a-cdbe-47ad-8115-46a95acf14b9)')' thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json
+Retrying in 8s [Retry 5/5].
+'(MaxRetryError('HTTPSConnectionPool(host=\'huggingface.co\', port=443): Max retries exceeded with url: /Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json (Caused by NewConnectionError("HTTPSConnection(host=\'huggingface.co\', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable"))'), '(Request ID: 34b3494b-91f8-4b51-899a-0fc57c6384c0)')' thrown while requesting HEAD https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json
+/home/lyh/aris_portfolio_runs/20260820/.venv/lib/python3.10/site-packages/peft/utils/other.py:716: UserWarning: Unable to fetch remote file due to the following error (MaxRetryError('HTTPSConnectionPool(host=\'huggingface.co\', port=443): Max retries exceeded with url: /Qwen/Qwen2.5-VL-3B-Instruct/resolve/main/config.json (Caused by NewConnectionError("HTTPSConnection(host=\'huggingface.co\', port=443): Failed to establish a new connection: [Errno 101] Network is unreachable"))'), '(Request ID: 34b3494b-91f8-4b51-899a-0fc57c6384c0)') - silently ignoring the lookup for the file config.json in Qwen/Qwen2.5-VL-3B-Instruct.
+  warnings.warn(
+/home/lyh/aris_portfolio_runs/20260820/.venv/lib/python3.10/site-packages/peft/utils/save_and_load.py:246: UserWarning: Could not find a config file in Qwen/Qwen2.5-VL-3B-Instruct - will assume that the vocabulary was not modified.
+  warnings.warn(
+{
+  "status": "completed",
+  "created_at": "2026-08-20T06:02:34.530910+00:00",
+  "claim_boundary": "7-example train-set, 10-step overfit sanity only; not held-out evaluation and no generalization claim",
+  "model": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "quantization": "NF4 4-bit with double quantization",
+  "lora": {
+    "rank": 8,
+    "alpha": 16,
+    "targets": [
+      "q_proj",
+      "v_proj"
+    ]
+  },
+  "steps": 10,
+  "examples": 7,
+  "learning_rate": 0.0002,
+  "loss_history": [
+    1.907088279724121,
+    1.1109857559204102,
+    0.4278269410133362,
+    1.143900752067566,
+    0.8842241168022156,
+    0.8968181610107422,
+    0.6370053291320801,
+    1.7771042585372925,
+    1.0330568552017212,
+    0.30665913224220276
+  ],
+  "fixed_probe_loss_before": 1.907088279724121,
+  "fixed_probe_loss_after": 1.7229844331741333,
+  "elapsed_s": 93.86393752135336,
+  "peak_gpu_memory_gib": 17.978474617004395,
+  "trainable_parameters": 1843200,
+  "total_parameters": 3756466176,
+  "trainable_ratio": 0.0004906739242792,
+  "adapter_dir": "/home/lyh/aris_portfolio_runs/20260820/results/adapter_sanity",
+  "adapter_size_bytes": 7397552
+}
