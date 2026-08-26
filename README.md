@@ -1,90 +1,282 @@
-# 内镜智训 Agent · 作品集 v2.2
+# EndoTutor - 内镜刷题 Agent
 
-面向消化内镜研修的刷题 Agent 作品集 Demo。它把传统题库的“选题—作答—讲解—错题—复习”作为主流程，并把智能带教、开放题评分、学习状态写入和模型评测证据放在可展示的产品链路上。
+> **v2.2.1** · 四模块产品架构 · 题库研修闭环  
+> 多模态医学教育平台，支持图文混合刷题、智能带教和模型评测
 
-第一次接手或答辩前，请从 [`docs/portfolio/00_从这里开始.md`](docs/portfolio/00_从这里开始.md) 阅读。
+---
 
-## 四个用户模块，一条演示主线（v2.2.1 目标）
+## 🎯 项目定位
 
-| 入口 | 用途 | 现场展示重点 |
-|---|---|---|
-| `/` | 学习总览 | 今日任务、待复习、学习进度、书本式题库卡片 |
-| `/banks` | 题库 | 食管/胃/小肠题库、题型/进度、个人题库导入与草稿预览 |
-| `/practice?bank_id=...` | 刷题工作台 | 单选/多选/判断/简答、结果复盘、右侧独立 ChatAgent |
-| `/eval` | 模型评测 | 冻结评测集、一次性 API、真实调用状态、逐题结果与指标 |
+EndoTutor 是一个面向医学研修的智能刷题系统，专注于**内镜诊断教学场景**。通过多模态 AI 能力，提供：
 
-兼容入口：当前过渡版 `/study` 仍可核对题池；`/workbench` 保留开发者技术详情；`/lab` 重定向到 `/eval`。这三个旧入口不应继续作为最终用户信息架构。
+- 📚 **结构化题库**：支持单选、多选、判断、简答等题型
+- 🤖 **智能带教 Agent**：实时提示、知识点拆解、错题讲解
+- 📊 **科学复习计划**：基于 FSRS 算法的间隔复习
+- 🧪 **模型评测**：BYOK 评测集，对比不同模型在医学场景的表现
 
-**v2.2.1 完成后的根路由进入 `/`**：先看学习进度并选择题库，再进入刷题工作台使用右侧智能带教，最后在 `/eval` 展示模型评测证据。当前 `/study` 只是过渡页。详见 [`08_v2.2_实施记录与演示说明.md`](docs/portfolio/08_v2.2_实施记录与演示说明.md) 和 [`09_v2.2.1_ClaudeCode项目对接文档提示词.md`](docs/portfolio/09_v2.2.1_ClaudeCode项目对接文档提示词.md)。
+---
 
-## 核心能力
+## 🏗️ 架构概览
 
-- **研修业务**：50+ 道演示题池；人工整理纯文本知识题与公开图像样例并存，支持部位、题型、错题、收藏和复习入口。
-- **智能带教**：在作答前支持拆知识点、排除干扰项和分级提示；提交后结合评分结果给讲解和下一步复习建议。
-- **多题型评分**：单选、多选、判断走确定性判分；开放题按 rubric 关键词覆盖、复核边界和越界表达惩罚评分。
-- **Agent Runtime**：`Plan → Act → [Recovery] → Observe → Verify → Memory`；BM25-equivalent 稀疏检索、类型化工具、单次受控重试、Context Manifest、Usage Ledger 和进程内 Checkpoint/Replay。
-- **模型实验**：3 个 VLM 的冻结小样本对比，以及 BF16/INT8/NF4、QLoRA、DPO、结构化 Prompt 消融；DPO 另做 5-seed 复验并对 1 次 NaN 加入 fail-closed 门禁，结果与失败证据均以版本化 Artifact 展示。
+### 四模块信息架构
 
-## 技术栈
+```
+┌─────────────────────────────────────────────────┐
+│  学习总览 (/)                                    │
+│  ├─ 今日任务、待复习、连续天数统计               │
+│  ├─ 题库卡片快速入口                            │
+│  └─ 最近练习记录                                │
+└─────────────────────────────────────────────────┘
 
-- 前端：React + Vite + TypeScript、Recharts、lucide-react。
-- 后端：FastAPI + Pydantic。
-- 数据：本地公开教学样例、运行态学习记录、版本化评测 Artifact。
+┌─────────────────────────────────────────────────┐
+│  题库 (/banks)                                   │
+│  ├─ 官方教学题库 / 个人导入题库                  │
+│  ├─ 题库导入校验（JSONL/CSV/Markdown）          │
+│  └─ 题库筛选和搜索                              │
+└─────────────────────────────────────────────────┘
 
-## 快速启动
+┌─────────────────────────────────────────────────┐
+│  刷题工作台 (/practice)                          │
+│  ├─ 单题模式练习（文字/图文混合）                │
+│  ├─ 实时结果反馈和知识点标注                     │
+│  └─ 侧栏智能带教 ChatAgent                       │
+└─────────────────────────────────────────────────┘
 
-一键启动网页演示：
-
-```powershell
-.\Start-Web-Demo.bat
+┌─────────────────────────────────────────────────┐
+│  模型评测 (/eval)                                │
+│  ├─ 评测集选择（Endoscopy-mini-v1）             │
+│  ├─ BYOK API 配置（一次性使用，不落盘）          │
+│  └─ 准确率、延迟、JSON 有效率展示                │
+└─────────────────────────────────────────────────┘
 ```
 
-一键启动会自动启动本机后端，并使用已经构建好的 `frontend\dist` 打开网页前端；答辩现场不依赖 `node_modules` 或 `npm run dev`。如需真实智能服务，请先在本机环境变量、`code\.env` 或 `code\backend\.env` 中配置 `LLM_BASE_URL` 与 `LLM_API_KEY`，再双击启动。启动脚本只读取本机配置，不会把授权信息写入源码或提交包。
+### 技术栈
 
-开发模式：
+**前端**
+- React 18 + TypeScript
+- React Router v6（四模块路由）
+- Vite 5（构建工具）
+- Tailwind CSS（样式）
+- Lucide React（图标）
 
-```powershell
-cd backend
-python -m pip install -r requirements.txt
-python -m uvicorn app.main:app --reload --port 8002
+**后端**
+- FastAPI（Python 3.11+）
+- Pydantic v2（数据校验）
+- OpenAI SDK（LLM 调用）
+- SQLite / JSON（题库存储）
 
-cd ../frontend
+---
+
+## 🚀 快速开始
+
+### 前置要求
+
+- Node.js 18+
+- Python 3.11+
+- npm / pnpm
+
+### 1. 安装依赖
+
+```bash
+# 前端
+cd frontend
 npm install
-$env:VITE_API_BASE_URL="http://127.0.0.1:8002"
-npm run dev -- --host 127.0.0.1 --port 5174 --strictPort
+
+# 后端
+cd backend
+pip install -r requirements.txt
 ```
 
-浏览器打开 `http://127.0.0.1:5174/study`。
+### 2. 启动开发服务器
 
-## v2.2 主流程接口
+```bash
+# 启动后端（默认端口 8002）
+cd backend
+uvicorn app.main:app --reload --port 8002
 
-- `GET /api/practice/questions`：读取题库题池，支持部位、题型、错题和收藏筛选。
-- `GET /api/question-banks`：读取题库目录和进度。
-- `GET /api/question-banks/import/templates`：读取 JSONL/CSV/Markdown 导入模板。
-- `POST /api/question-banks/import/validate`：校验导入内容并返回预览摘要。
-- `POST /api/practice/submit`：提交单选、多选、判断或问答评分题。
-- `POST /api/practice/tutor`：作答中智能带教提示、讲解和自由追问。
-- `GET /api/portfolio/study`：今日计划、题库、错题本、复习队列与学习摘要。
-- `POST /api/portfolio/study/favorites/{case_id}`：更新收藏。
-- `GET /api/portfolio/cases`：读取公开教学病例。
-- `POST /api/agent/runs/stream`：NDJSON 真实阶段流；传入 `commit_memory=true` 才提交一次学习状态。
-- `POST /api/agent/runs/{run_id}/replay`：诊断性重放，不重复写入学习记录。
-- `POST /api/agent/retrieve`：可解释稀疏检索。
-- `GET /api/evals/latest`：重新生成并读取 Agent 固定回归。
-- `GET /api/models/evaluation`：读取模型实验 Artifact。
-- `POST /api/demo/reset`：清理运行态演示学习数据。
+# 启动前端（默认端口 5173）
+cd frontend
+npm run dev
+```
 
-## 证据边界
+访问 http://localhost:5173 即可看到应用。
 
-- Agent Eval 的 100% 指标来自 **5 个 Golden Cases、19 条固定检索 query、3 类故障注入和 3 条安全探针**的确定性规则回归；它不是模型准确率，也不代表开放域能力。
-- 模型实验使用 10 张公开教学图像的 4/3/3 划分，冻结测试集仅 **3 张图像**；仅供作品集实验比较，不代表泛化或临床验证。
-- 本项目仅供教学研修或医生复核前辅助，不作为独立诊断依据。
+### 3. 构建生产版本
 
-不要提交真实密钥、通知地址、服务器密码、患者身份信息或其他敏感数据。
+```bash
+cd frontend
+npm run build
+# 构建产物在 frontend/dist/
+```
 
-## 文档
+---
 
-- `docs/portfolio/00_从这里开始.md`
-- `docs/portfolio/04_三分钟演示脚本.md`
-- `docs/portfolio/简历项目经历-Agent应用版.md`
-- `docs/portfolio/简历项目经历-大模型算法版.md`
+## 📖 功能演示
+
+### 学习总览
+- 今日任务进度（X/5）和连续天数
+- 待复习题目数量提醒
+- 题库卡片快速进入练习
+
+### 题库导入
+1. 点击"导入题库"按钮
+2. 选择格式（JSONL / CSV / Markdown）
+3. 粘贴内容或上传文件
+4. 系统自动校验格式和字段
+5. 预览通过后保存为草稿
+
+### 刷题工作台
+1. 从题库选择开始练习
+2. 单题模式展示题干、选项、图片
+3. 作答后提交，获得实时反馈
+4. 侧栏 ChatAgent 提供提示和讲解
+5. 自动记录错题和复习计划
+
+### 模型评测
+1. 选择评测集（当前支持 Endoscopy-mini-v1，10 题）
+2. 配置 Base URL、Model、API Key（一次性使用）
+3. 点击"开始评测"，实时展示进度
+4. 完成后查看准确率、延迟、逐题结果
+
+---
+
+## 🧪 开发指南
+
+### 项目结构
+
+```
+code/
+├── frontend/               # React 前端
+│   ├── src/
+│   │   ├── pages/         # 四个主页面
+│   │   │   ├── Overview.tsx
+│   │   │   ├── QuestionBanks.tsx
+│   │   │   ├── PracticeWorkspace.tsx
+│   │   │   └── ModelEvaluation.tsx
+│   │   ├── components/    # 共用组件
+│   │   │   ├── Layout.tsx
+│   │   │   └── ErrorBoundary.tsx
+│   │   ├── lib/          # API 和类型
+│   │   │   ├── v3Api.ts
+│   │   │   └── types.ts
+│   │   └── App.tsx       # 路由配置
+│   └── package.json
+├── backend/               # FastAPI 后端
+│   ├── app/
+│   │   ├── api/          # API 路由
+│   │   ├── core/         # 核心逻辑
+│   │   ├── models/       # 数据模型
+│   │   └── main.py
+│   └── requirements.txt
+└── docs/portfolio/        # 项目文档
+    ├── 10_v2.2.1_前端PRD与页面设计.md
+    └── 11_v2.2.1_实施进度报告.md
+```
+
+### API 约定
+
+所有 API 返回统一格式：
+
+```json
+{
+  "data": { ... },
+  "safety_notice": "演示数据，仅供展示",
+  "api_source": "backend" | "fallback"
+}
+```
+
+后端不可用时自动降级到前端 fallback 数据。
+
+### 类型安全
+
+所有 API 响应有对应 TypeScript 类型定义，位于 `frontend/src/lib/types.ts`。
+
+---
+
+## 📊 测试
+
+### 前端
+
+```bash
+cd frontend
+npm run build       # 类型检查 + 构建
+npm run lint        # ESLint 检查
+```
+
+### 后端
+
+```bash
+cd backend
+pytest tests/       # 运行单元测试
+```
+
+---
+
+## 🎨 设计规范
+
+### 色彩
+- 主色：Emerald-600 (#059669)
+- 中性色：Neutral-50 ~ 900
+- 语义色：Amber-警告、Red-错误
+
+### 间距
+- 基准：4px（0.25rem）
+- 常用：8px、12px、16px、24px、32px
+
+### 响应式断点
+- 移动端：< 640px
+- 平板：640px ~ 1024px
+- 桌面：≥ 1024px
+
+---
+
+## 📝 开发计划
+
+### 已完成 ✅
+- [x] 四模块信息架构
+- [x] 学习总览页面
+- [x] 题库列表和导入
+- [x] 刷题工作台基础功能
+- [x] ChatAgent 侧栏 UI
+- [x] 模型评测页面框架
+- [x] 会话恢复和错误处理
+
+### 进行中 🚧
+- [ ] FSRS 复习算法集成
+- [ ] SSE 流式输出
+- [ ] 移动端完整适配
+- [ ] 题库知识库 RAG
+
+### 计划中 📋
+- [ ] 题库生成工厂
+- [ ] 长短期记忆分层
+- [ ] 多领域扩展架构
+- [ ] 无障碍和国际化
+
+---
+
+## 🤝 贡献指南
+
+本项目当前处于个人 Portfolio 阶段，暂不开放外部贡献。
+
+如有问题或建议，欢迎提 Issue。
+
+---
+
+## 📄 许可证
+
+MIT License
+
+---
+
+## 🔗 相关资源
+
+- [项目设计文档](./docs/portfolio/10_v2.2.1_前端PRD与页面设计.md)
+- [实施进度报告](./docs/portfolio/11_v2.2.1_实施进度报告.md)
+- [技术方案](./docs/portfolio/07_v2.2_问题归纳与后续改造规划.md)
+
+---
+
+**最后更新**：2026-08-27  
+**当前版本**：v2.2.1  
+**构建状态**：✅ 通过

@@ -9,6 +9,7 @@ import {
   Send,
   Sparkles,
   X,
+  AlertCircle,
 } from 'lucide-react'
 import { v3Api } from '../lib/v3Api'
 import type { PracticeQuestionsPayload, PracticeSubmitResponse } from '../lib/types'
@@ -22,7 +23,7 @@ export function PracticeWorkspace() {
   const sessionIdFromUrl = searchParams.get('session_id')
   const mode = searchParams.get('mode') // 'review' 等
 
-  const [sessionId, setSessionId] = useState<string | null>(sessionIdFromUrl)
+  const [, setSessionId] = useState<string | null>(sessionIdFromUrl)
   const [payload, setPayload] = useState<PracticeQuestionsPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeIndex, setActiveIndex] = useState(0)
