@@ -16,11 +16,13 @@ import type { PracticeQuestionsPayload, PracticeSubmitResponse } from '../lib/ty
 type TutorMessage = { role: 'assistant' | 'user'; text: string }
 
 export function PracticeWorkspace() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const bankId = searchParams.get('bank_id')
+  const sessionIdFromUrl = searchParams.get('session_id')
   const mode = searchParams.get('mode') // 'review' 等
 
+  const [sessionId, setSessionId] = useState<string | null>(sessionIdFromUrl)
   const [payload, setPayload] = useState<PracticeQuestionsPayload | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeIndex, setActiveIndex] = useState(0)
@@ -35,10 +37,21 @@ export function PracticeWorkspace() {
   ])
   const [tutorInput, setTutorInput] = useState('')
   const [tutorBusy, setTutorBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // 生成或复用 session_id
+  useEffect(() => {
+    if (!sessionIdFromUrl) {
+      const newSessionId = `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+      setSessionId(newSessionId)
+      setSearchParams({ ...Object.fromEntries(searchParams.entries()), session_id: newSessionId })
+    }
+  }, [sessionIdFromUrl, searchParams, setSearchParams])
 
   useEffect(() => {
     let mounted = true
     setLoading(true)
+    setError(null)
     const fetchParams: any = { limit: 60, shuffleSeed: 22 }
     if (bankId) fetchParams.bankId = bankId
     if (mode === 'review') fetchParams.onlyWrong = true
@@ -47,13 +60,20 @@ export function PracticeWorkspace() {
       .practiceQuestions(fetchParams)
       .then((nextPayload) => {
         if (!mounted) return
-        setPayload(nextPayload)
-        setActiveIndex(0)
-        resetAnswer()
+        if (!nextPayload || !nextPayload.items || nextPayload.items.length === 0) {
+          setError('未找到题目，请返回题库重新选择')
+          setPayload(null)
+        } else {
+          setPayload(nextPayload)
+          setActiveIndex(0)
+          resetAnswer()
+        }
       })
-      .catch(() => {
+      .catch((err) => {
         if (!mounted) return
+        setError('加载题目失败，请检查网络连接')
         setPayload(null)
+        console.error('practiceQuestions error:', err)
       })
       .finally(() => {
         if (mounted) setLoading(false)
@@ -89,6 +109,7 @@ export function PracticeWorkspace() {
   const handleSubmit = async () => {
     if (!question) return
     setSubmitting(true)
+    setError(null)
     try {
       let answer = ''
       const q = question as any
@@ -102,10 +123,16 @@ export function PracticeWorkspace() {
         answer = freeText
       }
 
+      if (!answer.trim()) {
+        alert('请选择或输入答案')
+        return
+      }
+
       const res = await v3Api.practiceSubmit(q.question_id || '', answer)
       setResult(res)
-    } catch {
-      alert('提交失败，请重试')
+    } catch (err) {
+      console.error('practiceSubmit error:', err)
+      setError('提交失败，请稍后重试')
     } finally {
       setSubmitting(false)
     }
@@ -147,7 +174,35 @@ export function PracticeWorkspace() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-neutral-500">加载题目中...</div>
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full mx-auto mb-3"></div>
+          <div className="text-neutral-500">加载题目中...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-12 text-center">
+        <div className="mb-4 text-amber-600">
+          <AlertCircle className="w-12 h-12 mx-auto mb-2" />
+        </div>
+        <p className="text-neutral-600 mb-4">{error}</p>
+        <div className="flex gap-3 justify-center">
+          <button
+            onClick={() => navigate('/banks')}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
+            返回题库
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50"
+          >
+            重新加载
+          </button>
+        </div>
       </div>
     )
   }
@@ -373,28 +428,36 @@ export function PracticeWorkspace() {
 
             {/* 操作按钮 */}
             {!result && (
-              <div className="flex gap-3">
-                <button
-                  onClick={handlePrevious}
-                  disabled={activeIndex === 0}
-                  className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 disabled:opacity-50"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleNext}
-                  disabled={activeIndex >= payload.items.length - 1}
-                  className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 disabled:opacity-50"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting || (!choice && !freeText && multiChoice.size === 0)}
-                  className="flex-1 px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {submitting ? '提交中...' : '提交答案'}
-                </button>
+              <div className="space-y-3">
+                {error && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-amber-800">{error}</span>
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handlePrevious}
+                    disabled={activeIndex === 0}
+                    className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 disabled:opacity-50"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleNext}
+                    disabled={activeIndex >= payload.items.length - 1}
+                    className="px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg hover:bg-neutral-50 disabled:opacity-50"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitting || (!choice && !freeText && multiChoice.size === 0)}
+                    className="flex-1 px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? '提交中...' : '提交答案'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -404,7 +467,7 @@ export function PracticeWorkspace() {
       {/* ChatAgent 侧栏 */}
       <div
         className={`w-80 border-l border-neutral-200 bg-white flex flex-col transition-all ${
-          showTutor ? '' : 'hidden lg:flex'
+          showTutor ? 'fixed lg:relative inset-0 z-50 lg:z-auto' : 'hidden lg:flex'
         }`}
       >
         <div className="border-b border-neutral-200 px-4 py-3 flex items-center justify-between">
