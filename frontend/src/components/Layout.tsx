@@ -23,7 +23,7 @@ export function Layout({ children }: { children: ReactNode }) {
             return <Link key={path} to={path} className={active ? 'is-active' : ''}><Icon size={16} />{label}</Link>
           })}
         </nav>
-        <span className="v21-header-proof">Portfolio v2.1 · 可追溯 Agent Run</span>
+        <span className="v21-header-proof">Portfolio v2.2 · 题库研修闭环</span>
       </header>
       <main className="v21-app-main">{children}</main>
     </div>

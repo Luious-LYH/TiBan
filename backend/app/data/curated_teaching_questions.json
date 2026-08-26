@@ -1,0 +1,304 @@
+[
+  {
+    "id": "endo_text_esophagus_reflux_single",
+    "title": "食管反流性炎症基础判断",
+    "body_part": "食管",
+    "question_class": "基础识别",
+    "question_type": "单选",
+    "difficulty": "入门",
+    "task": "知识点单选",
+    "question": "反流性食管炎研修中，最适合作为内镜观察记录的表述是？",
+    "options": [
+      "齿状线附近黏膜可见充血、糜烂样改变，需结合完整检查复核",
+      "单凭内镜图片即可确诊所有胸痛病因",
+      "只要有烧心症状就可不做内镜观察",
+      "没有病理结果时不能记录任何内镜所见"
+    ],
+    "answer": "齿状线附近黏膜可见充血、糜烂样改变，需结合完整检查复核",
+    "explanation": "内镜研修题重点训练观察性表达：描述部位、黏膜表现和复核边界，不把单一画面写成最终临床结论。",
+    "case_summary": "纯文本知识题，训练食管炎观察记录的表达边界。",
+    "image_placeholder": "本题为纯文本知识题，无需图像。",
+    "complexity": 1,
+    "source_type": "教学样例",
+    "source_dataset": "内镜研修人工整理题库",
+    "citation_note": "根据消化内镜研修常见教学目标整理的演示题。",
+    "false_premise_flag": false,
+    "teaching_tags": ["食管", "反流性食管炎", "观察记录"],
+    "expected_keywords": ["食管", "黏膜", "充血", "糜烂", "复核"],
+    "atomic_trace": [
+      {
+        "id": "endo_text_esophagus_reflux_single_f1",
+        "fact": "观察性表达",
+        "expected": "先描述黏膜表现，再保留复核边界",
+        "supported": true,
+        "evidence": "题目要求选择适合作为观察记录的表述。",
+        "skill_dimension": "证据不足识别"
+      }
+    ]
+  },
+  {
+    "id": "endo_text_esophagus_barrett_multi",
+    "title": "Barrett 食管记录要点",
+    "body_part": "食管",
+    "question_class": "一图多问",
+    "question_type": "多选",
+    "difficulty": "进阶",
+    "task": "知识点多选",
+    "question": "怀疑 Barrett 食管时，研修记录通常需要关注哪些要点？",
+    "options": [
+      "鳞柱交界位置及是否上移",
+      "可疑柱状上皮范围和舌状延伸",
+      "是否需要结合活检或病理复核",
+      "直接给出治疗方案并省略内镜所见"
+    ],
+    "answer": "鳞柱交界位置及是否上移；可疑柱状上皮范围和舌状延伸；是否需要结合活检或病理复核",
+    "explanation": "Barrett 食管相关研修应记录解剖标志、范围描述和复核路径，不能用题目替代正式诊疗决策。",
+    "case_summary": "纯文本知识题，训练 Barrett 食管观察要点拆解。",
+    "image_placeholder": "本题为纯文本知识题，无需图像。",
+    "complexity": 2,
+    "source_type": "教学样例",
+    "source_dataset": "内镜研修人工整理题库",
+    "citation_note": "根据消化内镜研修常见教学目标整理的演示题。",
+    "false_premise_flag": false,
+    "teaching_tags": ["食管", "Barrett", "多选"],
+    "expected_keywords": ["鳞柱交界", "范围", "活检", "病理", "复核"],
+    "atomic_trace": [
+      {
+        "id": "endo_text_esophagus_barrett_multi_f1",
+        "fact": "解剖标志",
+        "expected": "记录鳞柱交界位置",
+        "supported": true,
+        "evidence": "题目考察 Barrett 食管的记录要点。",
+        "skill_dimension": "部位定位"
+      },
+      {
+        "id": "endo_text_esophagus_barrett_multi_f2",
+        "fact": "复核路径",
+        "expected": "结合活检或病理复核",
+        "supported": true,
+        "evidence": "题目考察可疑病变的研修记录边界。",
+        "skill_dimension": "证据不足识别"
+      }
+    ]
+  },
+  {
+    "id": "endo_text_stomach_h_pylori_judge",
+    "title": "胃炎与幽门螺杆菌判断边界",
+    "body_part": "胃",
+    "question_class": "报告纠错",
+    "question_type": "判断",
+    "difficulty": "入门",
+    "task": "知识点判断",
+    "question": "判断题：内镜下看见胃窦充血糜烂，就可以直接判断幽门螺杆菌感染阳性。",
+    "options": ["正确", "错误"],
+    "answer": "错误",
+    "explanation": "内镜所见可提示炎症相关改变，但幽门螺杆菌感染需要结合相应检测结果，研修记录中应避免越界判断。",
+    "case_summary": "纯文本知识题，训练胃炎相关判断边界。",
+    "image_placeholder": "本题为纯文本知识题，无需图像。",
+    "complexity": 1,
+    "source_type": "教学样例",
+    "source_dataset": "内镜研修人工整理题库",
+    "citation_note": "根据消化内镜研修常见教学目标整理的演示题。",
+    "false_premise_flag": true,
+    "teaching_tags": ["胃", "幽门螺杆菌", "判断边界"],
+    "expected_keywords": ["错误", "检测", "复核", "越界"],
+    "atomic_trace": [
+      {
+        "id": "endo_text_stomach_h_pylori_judge_f1",
+        "fact": "检查边界",
+        "expected": "感染状态不能仅由内镜表现直接推出",
+        "supported": false,
+        "evidence": "题干把内镜所见直接等同于感染阳性。",
+        "skill_dimension": "证据不足识别"
+      }
+    ]
+  },
+  {
+    "id": "endo_text_stomach_ulcer_qa",
+    "title": "胃溃疡记录开放题",
+    "body_part": "胃",
+    "question_class": "病变属性",
+    "question_type": "问答评分",
+    "difficulty": "进阶",
+    "task": "开放描述评分",
+    "question": "请用一句话写出胃溃疡样病变研修记录中应包含的核心观察要素。",
+    "options": [
+      "部位、大小或范围、形态、底部/边缘表现、是否出血，并说明需结合活检或完整检查复核",
+      "直接写成恶性肿瘤并给出治疗",
+      "只写患者症状，不写内镜所见",
+      "仅写正常，无需描述可疑改变"
+    ],
+    "answer": "部位、大小或范围、形态、底部/边缘表现、是否出血，并说明需结合活检或完整检查复核",
+    "explanation": "开放题按 rubric 给分：是否覆盖部位、范围、形态、活动性表现和复核路径。",
+    "case_summary": "纯文本开放题，训练胃溃疡样病变的结构化观察。",
+    "image_placeholder": "本题为纯文本知识题，无需图像。",
+    "complexity": 2,
+    "source_type": "教学样例",
+    "source_dataset": "内镜研修人工整理题库",
+    "citation_note": "根据消化内镜研修常见教学目标整理的演示题。",
+    "false_premise_flag": false,
+    "teaching_tags": ["胃", "溃疡", "开放题"],
+    "expected_keywords": ["部位", "大小", "形态", "边缘", "出血", "复核"],
+    "atomic_trace": [
+      {
+        "id": "endo_text_stomach_ulcer_qa_f1",
+        "fact": "结构化观察",
+        "expected": "覆盖部位、范围、形态、出血和复核路径",
+        "supported": true,
+        "evidence": "题目要求写出核心观察要素。",
+        "skill_dimension": "事实组合"
+      }
+    ]
+  },
+  {
+    "id": "endo_text_stomach_polyp_single",
+    "title": "胃息肉记录基础题",
+    "body_part": "胃",
+    "question_class": "病变属性",
+    "question_type": "单选",
+    "difficulty": "入门",
+    "task": "知识点单选",
+    "question": "记录胃息肉样隆起时，最不应该遗漏的是哪一项？",
+    "options": [
+      "部位、数量、大小、形态及表面表现",
+      "患者家庭住址",
+      "直接承诺无需随访",
+      "只记录模型猜测"
+    ],
+    "answer": "部位、数量、大小、形态及表面表现",
+    "explanation": "息肉样隆起的研修记录应强调可观察的结构化信息。",
+    "case_summary": "纯文本知识题，训练胃息肉样改变记录要点。",
+    "image_placeholder": "本题为纯文本知识题，无需图像。",
+    "complexity": 1,
+    "source_type": "教学样例",
+    "source_dataset": "内镜研修人工整理题库",
+    "citation_note": "根据消化内镜研修常见教学目标整理的演示题。",
+    "false_premise_flag": false,
+    "teaching_tags": ["胃", "息肉", "结构化记录"],
+    "expected_keywords": ["部位", "数量", "大小", "形态", "表面"],
+    "atomic_trace": [
+      {
+        "id": "endo_text_stomach_polyp_single_f1",
+        "fact": "息肉记录要素",
+        "expected": "记录部位、数量、大小、形态及表面表现",
+        "supported": true,
+        "evidence": "题目考察息肉样改变的记录要点。",
+        "skill_dimension": "事实组合"
+      }
+    ]
+  },
+  {
+    "id": "endo_text_small_bowel_capsule_multi",
+    "title": "胶囊内镜小肠观察要点",
+    "body_part": "小肠",
+    "question_class": "一图多问",
+    "question_type": "多选",
+    "difficulty": "进阶",
+    "task": "知识点多选",
+    "question": "胶囊内镜小肠研修中，发现可疑出血线索时应记录哪些信息？",
+    "options": [
+      "大致位置或通过时间",
+      "出血或血迹的形态和范围",
+      "图像清晰度、残渣或气泡影响",
+      "直接给出手术方案"
+    ],
+    "answer": "大致位置或通过时间；出血或血迹的形态和范围；图像清晰度、残渣或气泡影响",
+    "explanation": "胶囊内镜研修要兼顾病灶线索和图像质量，不能把单张截图当成最终诊疗方案。",
+    "case_summary": "纯文本知识题，训练胶囊内镜观察记录。",
+    "image_placeholder": "本题为纯文本知识题，无需图像。",
+    "complexity": 2,
+    "source_type": "教学样例",
+    "source_dataset": "内镜研修人工整理题库",
+    "citation_note": "根据消化内镜研修常见教学目标整理的演示题。",
+    "false_premise_flag": false,
+    "teaching_tags": ["小肠", "胶囊内镜", "出血线索"],
+    "expected_keywords": ["位置", "通过时间", "形态", "范围", "清晰度"],
+    "atomic_trace": [
+      {
+        "id": "endo_text_small_bowel_capsule_multi_f1",
+        "fact": "小肠定位",
+        "expected": "记录大致位置或通过时间",
+        "supported": true,
+        "evidence": "题目考察胶囊内镜定位记录。",
+        "skill_dimension": "部位定位"
+      },
+      {
+        "id": "endo_text_small_bowel_capsule_multi_f2",
+        "fact": "图像质量",
+        "expected": "记录残渣、气泡或清晰度影响",
+        "supported": true,
+        "evidence": "题目考察胶囊内镜可解释记录。",
+        "skill_dimension": "属性判断"
+      }
+    ]
+  },
+  {
+    "id": "endo_text_small_bowel_normal_judge",
+    "title": "小肠阴性结果表达判断",
+    "body_part": "小肠",
+    "question_class": "报告纠错",
+    "question_type": "判断",
+    "difficulty": "入门",
+    "task": "知识点判断",
+    "question": "判断题：胶囊内镜一段视野未见明显异常，可以写成全小肠完全正常且无需结合完整录像。",
+    "options": ["正确", "错误"],
+    "answer": "错误",
+    "explanation": "局部或片段视野的阴性观察不能替代完整检查复核，研修表达要说明观察范围和限制。",
+    "case_summary": "纯文本知识题，训练阴性结果表达边界。",
+    "image_placeholder": "本题为纯文本知识题，无需图像。",
+    "complexity": 1,
+    "source_type": "教学样例",
+    "source_dataset": "内镜研修人工整理题库",
+    "citation_note": "根据消化内镜研修常见教学目标整理的演示题。",
+    "false_premise_flag": true,
+    "teaching_tags": ["小肠", "阴性观察", "判断边界"],
+    "expected_keywords": ["错误", "局部", "完整检查", "复核"],
+    "atomic_trace": [
+      {
+        "id": "endo_text_small_bowel_normal_judge_f1",
+        "fact": "观察范围限制",
+        "expected": "局部视野不能推出全小肠完全正常",
+        "supported": false,
+        "evidence": "题干把片段观察扩大为完整结论。",
+        "skill_dimension": "证据不足识别"
+      }
+    ]
+  },
+  {
+    "id": "endo_text_import_template_single",
+    "title": "个人题库导入字段识别",
+    "body_part": "通用",
+    "question_class": "基础识别",
+    "question_type": "单选",
+    "difficulty": "入门",
+    "task": "题库导入规范",
+    "question": "用户补充个人题库时，最小可用题目通常应包含哪组字段？",
+    "options": [
+      "题干、题型、选项或作答要求、参考答案、解析、标签",
+      "只有一张图片",
+      "只有模型输出",
+      "只有题目编号"
+    ],
+    "answer": "题干、题型、选项或作答要求、参考答案、解析、标签",
+    "explanation": "题库导入应先保证可刷、可判分、可复习；图片、来源和证据片段可以作为增强字段。",
+    "case_summary": "纯文本产品功能题，展示题库导入规范。",
+    "image_placeholder": "本题为纯文本知识题，无需图像。",
+    "complexity": 1,
+    "source_type": "教学样例",
+    "source_dataset": "题库导入演示样例",
+    "citation_note": "平台题库导入规范演示题。",
+    "false_premise_flag": false,
+    "teaching_tags": ["题库导入", "制卡", "个人题库"],
+    "expected_keywords": ["题干", "题型", "答案", "解析", "标签"],
+    "atomic_trace": [
+      {
+        "id": "endo_text_import_template_single_f1",
+        "fact": "题库最小字段",
+        "expected": "题干、题型、答案、解析和标签",
+        "supported": true,
+        "evidence": "题目考察个人题库导入的最小可用结构。",
+        "skill_dimension": "事实组合"
+      }
+    ]
+  }
+]

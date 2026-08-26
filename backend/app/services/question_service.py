@@ -64,14 +64,31 @@ class QuestionService:
         return question
 
     def _real_sample_questions(self, profile) -> list[Question]:
+        curated = self._curated_teaching_questions(profile)
         try:
             samples = read_json("real_sample_knowledge.json")
         except FileNotFoundError:
-            return []
+            samples = []
         questions: list[Question] = []
         for item in samples:
             questions.extend(self._sample_to_questions(item))
-        return [self._with_training_state(question, profile) for question in questions]
+        visual_questions = [self._with_training_state(question, profile) for question in questions]
+        return [*curated, *visual_questions]
+
+    def _curated_teaching_questions(self, profile) -> list[Question]:
+        try:
+            raw_items = read_json("curated_teaching_questions.json")
+        except FileNotFoundError:
+            return []
+        questions: list[Question] = []
+        for item in raw_items:
+            try:
+                clean = dict(item)
+                clean.setdefault("safety_notice", SAFETY_NOTICE)
+                questions.append(self._with_training_state(Question(**clean), profile))
+            except Exception:
+                continue
+        return questions
 
     def _legacy_real_questions(self, profile) -> list[Question]:
         try:
@@ -86,7 +103,16 @@ class QuestionService:
 
     def _public_first(self, items: list[Question]) -> list[Question]:
         public_datasets = {"Kvasir-VQA-x1", "Kvasir-VQA", "EndoBench"}
-        return sorted(items, key=lambda question: 0 if question.source_dataset in public_datasets else 1)
+        curated_datasets = {"内镜研修人工整理题库", "题库导入演示样例"}
+        return sorted(
+            items,
+            key=lambda question: (
+                0 if question.source_dataset in curated_datasets else 1 if question.source_dataset in public_datasets else 2,
+                question.body_part,
+                question.question_type,
+                question.id,
+            ),
+        )
 
     def _sample_to_questions(self, item: dict) -> list[Question]:
         image_url = self._real_image_url(item)

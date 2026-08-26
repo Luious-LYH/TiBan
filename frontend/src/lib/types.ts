@@ -1097,6 +1097,58 @@ export type PracticeSubmitResponse = SubmissionResponse & {
   }
 }
 
+export type QuestionBankImportIssue = {
+  row: number
+  code: string
+  message: string
+}
+
+export type QuestionBankImportPreview = {
+  id: string
+  title: string
+  question: string
+  question_type: QuestionType
+  options: string[]
+  answer: string
+  explanation: string
+  body_part: string
+  difficulty: string
+  question_class: string
+  task: string
+  teaching_tags: string[]
+  image_url?: string | null
+  source_dataset: string
+  expected_keywords: string[]
+}
+
+export type QuestionBankImportValidation = {
+  schema_version: string
+  format: 'jsonl' | 'csv' | 'markdown' | string
+  accepted_count: number
+  rejected_count: number
+  ready_to_publish: boolean
+  items: QuestionBankImportPreview[]
+  issues: QuestionBankImportIssue[]
+  summary: {
+    content_hash: string
+    question_type_counts: Record<string, number>
+    text_question_count: number
+    visual_question_count: number
+  }
+  source_registry_required: string[]
+  safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
+export type QuestionBankImportTemplates = {
+  schema_version: string
+  formats: string[]
+  required_fields: string[]
+  examples: Record<string, string>
+  safety_notice: string
+  api_source?: 'backend' | 'fallback'
+}
+
 export type PortfolioCaseFact = {
   id: string
   label: string

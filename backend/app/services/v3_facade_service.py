@@ -171,6 +171,7 @@ class V3FacadeService:
         *,
         question_class: str | None = None,
         difficulty: str | None = None,
+        body_part: str | None = None,
         question_type: str | None = None,
         only_wrong: bool = False,
         only_favorites: bool = False,
@@ -180,6 +181,7 @@ class V3FacadeService:
         type_pool = question_service.list_questions(
             question_class=question_class,
             difficulty=difficulty,
+            body_part=body_part,
             question_type=None,
             only_wrong=only_wrong,
             only_favorites=only_favorites,

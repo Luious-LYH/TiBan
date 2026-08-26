@@ -12,6 +12,8 @@ import type {
   PracticeQuestionsPayload,
   PracticeState,
   PracticeSubmitResponse,
+  QuestionBankImportTemplates,
+  QuestionBankImportValidation,
   Question,
   ReportDraft,
   ReportRevisionResponse,
@@ -20,7 +22,7 @@ import type {
 export const v3SafetyNotice = '仅供教学研修或医生复核前辅助，不作为独立诊断依据。'
 
 const configuredBase = import.meta.env.VITE_API_BASE_URL as string | undefined
-const baseCandidates = configuredBase ? [configuredBase] : ['http://127.0.0.1:8002', 'http://127.0.0.1:8001', 'http://127.0.0.1:8000']
+const baseCandidates = configuredBase ? [configuredBase] : ['http://127.0.0.1:8003', 'http://127.0.0.1:8002', 'http://127.0.0.1:8001', 'http://127.0.0.1:8000']
 let activeBase = baseCandidates[0]
 
 async function request<T>(path: string, init?: RequestInit, localData?: T): Promise<T> {
@@ -281,10 +283,11 @@ export const v3Api = {
     return request<PracticeState>('/api/practice/state', undefined, v3DemoState)
   },
 
-  practiceQuestions(options: { questionClass?: string; questionType?: string; onlyWrong?: boolean; onlyFavorites?: boolean; limit?: number; shuffleSeed?: number } = {}) {
+  practiceQuestions(options: { questionClass?: string; questionType?: string; bodyPart?: string; onlyWrong?: boolean; onlyFavorites?: boolean; limit?: number; shuffleSeed?: number } = {}) {
     const params = new URLSearchParams()
     if (options.questionClass) params.set('question_class', options.questionClass)
     if (options.questionType) params.set('question_type', options.questionType)
+    if (options.bodyPart) params.set('body_part', options.bodyPart)
     if (options.onlyWrong) params.set('only_wrong', 'true')
     if (options.onlyFavorites) params.set('only_favorites', 'true')
     if (options.limit) params.set('limit', String(options.limit))
@@ -359,6 +362,61 @@ export const v3Api = {
         }),
       },
       { hint: '先观察图像中的部位、形态和观察依据，再判断题干结论是否被画面支持。', reply: localReply, safety_notice: v3SafetyNotice },
+    )
+  },
+
+  questionBankImportTemplates() {
+    return request<QuestionBankImportTemplates>(
+      '/api/question-banks/import/templates',
+      undefined,
+      {
+        schema_version: 'qbank-import-template-v2.2',
+        formats: ['jsonl', 'csv', 'markdown'],
+        required_fields: ['question', 'question_type', 'answer', 'explanation'],
+        examples: {
+          jsonl: '{"question":"胃息肉样隆起记录最小要素是什么？","question_type":"单选","options":["部位、数量、大小、形态","直接写治疗方案"],"answer":"部位、数量、大小、形态","explanation":"记录可观察结构化信息。","body_part":"胃","tags":["胃","息肉"]}',
+          csv: 'question,question_type,options,answer,explanation,body_part,tags\n胃息肉样隆起记录最小要素是什么？,单选,"部位、数量、大小、形态|直接写治疗方案",部位、数量、大小、形态,记录可观察结构化信息。,胃,"胃|息肉"',
+          markdown: '## 胃息肉样隆起记录最小要素是什么？\n题型: 单选\n部位: 胃\n标签: 胃, 息肉\n- [x] 部位、数量、大小、形态\n- [ ] 直接写治疗方案\n解析: 记录可观察结构化信息。',
+        },
+        safety_notice: v3SafetyNotice,
+      },
+    )
+  },
+
+  validateQuestionBankImport(payload: {
+    format: 'jsonl' | 'csv' | 'markdown'
+    content: string
+    sourceName?: string
+    defaultBodyPart?: string
+  }) {
+    return request<QuestionBankImportValidation>(
+      '/api/question-banks/import/validate',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          format: payload.format,
+          content: payload.content,
+          source_name: payload.sourceName || '个人导入题库',
+          default_body_part: payload.defaultBodyPart || '通用',
+        }),
+      },
+      {
+        schema_version: 'qbank-import-v2.2',
+        format: payload.format,
+        accepted_count: 0,
+        rejected_count: 1,
+        ready_to_publish: false,
+        items: [],
+        issues: [{ row: 0, code: 'backend_unavailable', message: '后端暂未连接，无法完成题库校验。' }],
+        summary: {
+          content_hash: '',
+          question_type_counts: {},
+          text_question_count: 0,
+          visual_question_count: 0,
+        },
+        source_registry_required: ['source_id', 'source_name', 'license', 'allowed_usage', 'content_hash'],
+        safety_notice: v3SafetyNotice,
+      },
     )
   },
 

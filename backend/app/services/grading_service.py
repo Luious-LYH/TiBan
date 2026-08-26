@@ -13,7 +13,8 @@ class GradingService:
         question = question_service.get_question(request.question_id, request.learner_id)
         selected = request.selected_answer.strip()
         is_correct = self._is_correct_answer(question, selected)
-        score = 100 if is_correct else 35 if self._is_safety_aware_wrong(selected) else 0
+        score = self._score_answer(question, selected, is_correct)
+        is_correct = is_correct or (question.question_type == "问答评分" and score >= 80)
         error_tags = self._error_tags(question, selected, is_correct)
         feedback = self._fact_feedback(question, is_correct)
         response = SubmissionResponse(
@@ -62,7 +63,30 @@ class GradingService:
             selected_items = self._split_answer_items(selected)
             answer_items = self._split_answer_items(question.answer)
             return bool(selected_items) and selected_items == answer_items
+        if question.question_type == "问答评分":
+            return self._open_answer_score(question, selected) >= 80
         return selected == question.answer
+
+    def _score_answer(self, question: Question, selected: str, is_correct: bool) -> int:
+        if question.question_type == "问答评分":
+            return self._open_answer_score(question, selected)
+        return 100 if is_correct else 35 if self._is_safety_aware_wrong(selected) else 0
+
+    def _open_answer_score(self, question: Question, selected: str) -> int:
+        text = selected.strip()
+        if not text:
+            return 0
+        required = [keyword for keyword in question.expected_keywords if keyword]
+        if not required:
+            required = [fact.fact for fact in question.atomic_trace]
+        matched = [keyword for keyword in required if keyword and keyword in text]
+        coverage = len(matched) / max(len(required), 1)
+        score = round(coverage * 88)
+        if any(token in text for token in ["复核", "结合", "完整检查", "病理"]):
+            score += 12
+        if any(token in text for token in ["确诊", "治疗方案", "必须手术", "开药"]):
+            score -= 35
+        return max(0, min(100, score))
 
     def _split_answer_items(self, value: str) -> set[str]:
         return {

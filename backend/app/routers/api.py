@@ -42,6 +42,7 @@ from app.services.model_service import model_service
 from app.services.portfolio_agent_runtime import portfolio_agent_runtime
 from app.services.portfolio_eval_service import portfolio_eval_service
 from app.services.portfolio_study_service import portfolio_study_service
+from app.services.question_bank_import_service import question_bank_import_service
 from app.services.question_service import question_service
 from app.services.report_service import report_service
 from app.services.skill_registry import skill_registry
@@ -56,7 +57,7 @@ def health() -> dict[str, object]:
     return {
         "status": "ok",
         "service": APP_NAME,
-        "version": "portfolio-v2.1",
+        "version": "portfolio-v2.2",
         "capabilities": [
             "v3_session",
             "model_evaluation",
@@ -75,6 +76,11 @@ def health() -> dict[str, object]:
             "ndjson_agent_event_stream",
             "adaptive_study_state",
             "wrong_case_and_spaced_review",
+            "qbank_first_study_workspace",
+            "curated_text_question_bank",
+            "multiform_practice_grading",
+            "pre_submit_tutor_sidecar",
+            "qbank_import_validation",
         ],
     }
 
@@ -154,6 +160,21 @@ def portfolio_study(learner_id: str = "demo_learner") -> dict[str, object]:
         return portfolio_study_service.snapshot(portfolio_agent_runtime.list_cases(), learner_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/question-banks")
+def question_banks() -> dict[str, object]:
+    return v3_facade_service.public_json_payload(question_bank_import_service.banks())
+
+
+@router.get("/question-banks/import/templates")
+def question_bank_import_templates() -> dict[str, object]:
+    return v3_facade_service.public_json_payload(question_bank_import_service.templates())
+
+
+@router.post("/question-banks/import/validate")
+def question_bank_import_validate(payload: dict[str, object]) -> dict[str, object]:
+    return v3_facade_service.public_json_payload(question_bank_import_service.validate(payload))
 
 
 @router.post("/portfolio/study/favorites/{case_id}")
@@ -301,6 +322,7 @@ def practice_state() -> dict[str, object]:
 def practice_questions(
     question_class: str | None = None,
     difficulty: str | None = None,
+    body_part: str | None = None,
     question_type: str | None = None,
     only_wrong: bool = False,
     only_favorites: bool = False,
@@ -310,6 +332,7 @@ def practice_questions(
     return v3_facade_service.practice_questions(
         question_class=question_class,
         difficulty=difficulty,
+        body_part=body_part,
         question_type=question_type,
         only_wrong=only_wrong,
         only_favorites=only_favorites,
