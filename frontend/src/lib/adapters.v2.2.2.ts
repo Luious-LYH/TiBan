@@ -70,7 +70,7 @@ export function adaptQuestionBankFromBackend(raw: any): V222.QuestionBank {
     name: raw.name || '',
     description: raw.description || '',
     body_parts: raw.body_parts || [raw.bodyPart] || [],
-    modality_counts: raw.modality_counts || ,
+    modality_counts: raw.modality_counts || {},
     question_type_counts: raw.question_type_counts || {},
     total: raw.total || raw.totalQuestions || 0,
     completed: raw.completed || raw.completedQuestions || 0,
