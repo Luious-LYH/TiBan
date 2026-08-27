@@ -1,0 +1,12 @@
+import { BarChart3, ExternalLink, FileCheck2 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { getLatestEvaluation } from '../../api/client'
+import { ErrorState, LoadingState } from '../../components/shared/AsyncState'
+
+export function EvaluationPage() {
+  const evaluation = useQuery({ queryKey: ['evaluation-latest'], queryFn: getLatestEvaluation })
+  if (evaluation.isPending) return <LoadingState label="正在读取评测 artifact…" />
+  if (evaluation.isError) return <ErrorState message={evaluation.error.message} onRetry={() => void evaluation.refetch()} />
+  const data = evaluation.data
+  return <div className="s1-page" data-testid="evaluation-page"><section className="s1-page-intro"><div><span className="s1-kicker">EVALUATION ARTIFACT</span><h1>评测证据，先看边界再看数字。</h1><p>这里只展示项目已有 artifact 的原始摘要，不生成 leaderboard、模拟进度或假分数。</p></div><span className="s1-source-pill"><BarChart3 size={14} /> {data.mode}</span></section><section className="s1-card s1-eval-card"><div className="s1-eval-status"><span className={data.artifact_available ? 's1-status-dot is-ready' : 's1-status-dot'} /><div><strong>{data.artifact_available ? '已找到离线 artifact' : '尚未运行'}</strong><small>{data.artifact_available ? `${data.sample_count} 个样例 · ${data.metric_version ?? '未标记版本'}` : '当前没有可展示的评测结果。'}</small></div>{data.artifact_path && <span className="s1-artifact-path"><FileCheck2 size={15} />{data.artifact_path}</span>}</div>{data.artifact_available ? <div className="s1-eval-body"><div className="s1-metric-grid s1-eval-metrics">{Object.entries(data.metrics).slice(0, 8).map(([key, value]) => <div className="s1-metric" key={key}><span className="s1-metric-label">{key}</span><strong>{String(value)}</strong><small>artifact 原始字段</small></div>)}</div>{data.cases.length > 0 && <div className="s1-cases"><h2>案例摘要</h2>{data.cases.slice(0, 5).map((item, index) => <div className="s1-case-row" key={`${index}-${String(item.id ?? 'case')}`}><span>Case {index + 1}</span><code>{JSON.stringify(item)}</code></div>)}</div>}</div> : <div className="s1-eval-empty"><BarChart3 size={32} /><strong>尚未运行</strong><span>完成候选模型评测后，artifact 会在这里显示。</span></div>}<div className="s1-notice"><strong>证据声明</strong><p>{data.notice}</p>{data.artifact_path && <a href={data.artifact_path} target="_blank" rel="noreferrer">打开 artifact <ExternalLink size={14} /></a>}</div></section><p className="s1-safety">{data.safety_notice}</p></div>
+}
