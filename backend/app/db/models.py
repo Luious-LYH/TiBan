@@ -116,3 +116,72 @@ class SourceDocumentModel(Base):
     content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="seed")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class DocumentVersionModel(Base):
+    __tablename__ = "document_versions"
+
+    version_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("source_documents.document_id"), nullable=False, index=True)
+    version_label: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_path: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    parser: Mapped[str] = mapped_column(String(80), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="indexed")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class KnowledgeChunkModel(Base):
+    __tablename__ = "knowledge_chunks"
+
+    chunk_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("source_documents.document_id"), nullable=False, index=True)
+    version_id: Mapped[str] = mapped_column(ForeignKey("document_versions.version_id"), nullable=False, index=True)
+    parent_section: Mapped[str] = mapped_column(String(300), nullable=False)
+    page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    token_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class LearnerMasteryModel(Base):
+    __tablename__ = "learner_mastery"
+    __table_args__ = (UniqueConstraint("learner_id", "knowledge_point", name="uq_mastery_learner_point"),)
+
+    mastery_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    knowledge_point: Mapped[str] = mapped_column(String(160), nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    accuracy: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    recent_accuracy: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    common_errors: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    mastery_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class FactoryJobModel(Base):
+    __tablename__ = "factory_jobs"
+
+    job_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("source_documents.document_id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    detail: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class QuestionRevisionModel(Base):
+    __tablename__ = "question_revisions"
+
+    revision_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    parent_revision_id: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("factory_jobs.job_id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
+    draft_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    judge_decision: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    rewrite_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
+    prompt_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)

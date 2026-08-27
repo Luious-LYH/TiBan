@@ -1,0 +1,29 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    profiles: ["stage2-rag"]
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - stage2_qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    profiles: ["stage2-factory"]
+    ports:
+      - "127.0.0.1:56379:6379"
+    volumes:
+      - stage2_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  stage2_qdrant_data:
+  stage2_redis_data:
