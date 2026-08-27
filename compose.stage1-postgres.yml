@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["stage1-postgres"]
+    environment:
+      POSTGRES_DB: endotutor_stage1
+      POSTGRES_USER: endotutor_dev
+      # Local development credential only. Do not reuse outside this compose profile.
+      POSTGRES_PASSWORD: endotutor_dev_only
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - stage1_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U endotutor_dev -d endotutor_stage1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+volumes:
+  stage1_postgres_data:

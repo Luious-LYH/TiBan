@@ -23,7 +23,7 @@ flowchart LR
     Service -->|rule hint only| API
 ```
 
-The intended production storage is PostgreSQL through SQLAlchemy 2 and Alembic. This checkout uses SQLite for local execution because no PostgreSQL server/container is available in the current environment. The database URL is selected by `ENDO_DATABASE_URL` or `DATABASE_URL`.
+The intended production storage is PostgreSQL through SQLAlchemy 2 and Alembic. Stage 1 runtime acceptance was verified against local Docker PostgreSQL 16; SQLite remains the no-Docker development fallback. The database URL is selected by `ENDO_DATABASE_URL` or `DATABASE_URL`.
 
 ## Contract boundary
 
@@ -99,7 +99,7 @@ The primary UI uses CSS variables/design tokens, Lucide, TanStack Query, and a s
 
 ## Deferred by design
 
-- PostgreSQL runtime verification requires a reachable PostgreSQL service.
+- PostgreSQL runtime acceptance is complete with a local Docker PostgreSQL 16 profile; managed-production deployment topology remains out of scope for Stage 1.
 - AgentRunner/ToolRegistry/ModelGateway and Langfuse integration remain Stage 2/observability work.
 - Qdrant retrieval and sparse/dense/hybrid benchmark artifacts remain Phase 5 work.
 - AI Question Factory and authoring flows are not part of the Stage 1 learning path.

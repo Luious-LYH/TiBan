@@ -13,7 +13,7 @@ The Stage 1 core platform was reconstructed across the approved three internal w
 2. Persistence: SQLAlchemy 2 + Alembic schema, idempotent real-catalog seed, attempts and review cards.
 3. Frontend Product Rebuild: a four-page React 19/Vite product flow using one canonical `/api/v3` client.
 
-All executable checks available in the current machine passed. The only unverified final Gate is PostgreSQL runtime persistence: this machine has no PostgreSQL service/container or usable WSL distribution. Stage 1 therefore stops here and does not enter Stage 2. SQLite migration/seed/persistence results are reported as SQLite results, not as PostgreSQL evidence.
+All Stage 1 Gates passed, including a clean PostgreSQL 16 runtime verification in Docker Desktop. The runtime proof covers Alembic migration, idempotent seed, typed submit, deterministic review-card scheduling, service restart, and direct relational verification. Stage 1 stops here and does not enter Stage 2.
 
 ## Commit list
 
@@ -24,6 +24,7 @@ All executable checks available in the current machine passed. The only unverifi
 | `1976d58` | React four-page rebuild, canonical typed API, responsive UI, Vitest/RTL and Playwright tests |
 | `88ae46a` | Stage 1 report, architecture/evaluation docs, screenshots and visual-review evidence |
 | `2c3ff29` | final report formatting cleanup |
+| `b9fd6a2` | complete Stage 1 commit history in the report |
 
 Existing user-owned changes in `artifacts/eval/latest.json`, `artifacts/eval/latest.md`, and portfolio audit files were not staged or modified by the Stage 1 commits.
 
@@ -94,7 +95,7 @@ initialize_database()                         58 records seeded
 tables                                        6 domain tables + alembic_version
 ```
 
-PostgreSQL runtime verification: NOT VERIFIED. The machine has no `postgres`, `pg_ctl`, `psql`, Docker, Podman, or usable WSL distribution. `psycopg` is installed and the application remains configurable with `ENDO_DATABASE_URL`.
+PostgreSQL runtime verification: PASS. Docker Desktop ran `postgres:16-alpine` locally through [`compose.stage1-postgres.yml`](../../compose.stage1-postgres.yml), bound only to `127.0.0.1:55432`. Starting from its new named volume, Alembic created the schema, the first seed created 58 questions, and a repeat seed created 0. A real `/api/v3/practice/submit` request then created one immutable `Attempt` and one `ReviewCard`; both rows remained after the FastAPI service was restarted. See [PostgreSQL persistence evidence](../evals/stage-1-postgres-persistence.md).
 
 ## Frontend component tree
 
@@ -140,7 +141,7 @@ Implemented product behavior:
 | Playwright core flow | PASS — 1 core test | `frontend/e2e/core-flow.spec.ts` |
 | Responsive screenshot flow | PASS — 16 page captures + mobile Tutor capture | `frontend/e2e/capture-stage1.spec.ts` |
 | No production mock in main flow | PASS | canonical client uses real fetch; mocks exist only in unit tests |
-| PostgreSQL persistence | NOT VERIFIED | hard environment limitation documented above |
+| PostgreSQL persistence | PASS — Docker PostgreSQL 16 migration, seed, idempotency, submit/review card and restart persistence | [runtime evidence](../evals/stage-1-postgres-persistence.md) |
 
 Commands used:
 
@@ -157,13 +158,13 @@ frontend: npm run test:e2e                          2 passed
 - [Stage 1 system architecture](../architecture/stage-1-system-architecture.md)
 - [Stage 1 contract tests](../evals/stage-1-contract-tests.md)
 - [Stage 1 E2E results](../evals/stage-1-e2e-results.md)
+- [Stage 1 PostgreSQL persistence](../evals/stage-1-postgres-persistence.md)
 - [Screenshot/evidence index](../portfolio/evidence/stage-1/README.md)
 - [Visual review loop](../portfolio/evidence/stage-1/visual-review.md)
 
 ## Known limitations and unfinished capability
 
-- PostgreSQL service-level migration/seed/restart persistence remains to be run in an environment with PostgreSQL. This is the only final Stage 1 Gate not verified.
-- The local fallback remains SQLite; it is useful for deterministic development and tests but is not a substitute for the approved PostgreSQL runtime acceptance.
+- The local fallback remains SQLite for no-Docker development; PostgreSQL 16 Docker runtime acceptance is now complete.
 - Tutor is a rule-hint boundary only. AgentRunner, ToolRegistry, ModelGateway, AgentContext, AgentEvent, AgentResult, retry/timeout/cancel/permissions/trace, and Langfuse evaluation visualization remain Stage 2 work.
 - Qdrant retrieval and sparse/dense/hybrid/hybrid+rerank Recall@K/MRR/nDCG artifacts remain Phase 5 work.
 - Mastery is currently represented by deterministic attempt/review projections; no broad learner model or adaptive agent loop was introduced.
