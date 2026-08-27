@@ -208,6 +208,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/tutor/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tutor Stream */
+        post: operations["tutor_stream_api_v3_tutor_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/evaluation/latest": {
         parameters: {
             query?: never;
@@ -2157,6 +2174,20 @@ export interface components {
              */
             safety_notice: string;
         };
+        /** TutorStreamRequest */
+        TutorStreamRequest: {
+            /** Question Id */
+            question_id: string;
+            /**
+             * Learner Id
+             * @default demo_learner
+             */
+            learner_id: string;
+            /** Message */
+            message: string;
+            /** Attempt Id */
+            attempt_id?: string | null;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -2572,6 +2603,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TutorHintResponseV3"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tutor_stream_api_v3_tutor_stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TutorStreamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

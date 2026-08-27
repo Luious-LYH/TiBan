@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getLatestEvaluation, getOverview, getQuestionBanks, getQuestions, getTutorHint, submitPracticeAnswer } from '../api/client'
+import { getLatestEvaluation, getOverview, getQuestionBanks, getQuestions, streamTutor, submitPracticeAnswer } from '../api/client'
 import type { Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -15,7 +15,7 @@ vi.mock('../api/client', () => ({
   getOverview: vi.fn(),
   getQuestionBanks: vi.fn(),
   getQuestions: vi.fn(),
-  getTutorHint: vi.fn(),
+  streamTutor: vi.fn(),
   submitPracticeAnswer: vi.fn(),
 }))
 
@@ -23,7 +23,7 @@ const mockedGetOverview = vi.mocked(getOverview)
 const mockedGetQuestionBanks = vi.mocked(getQuestionBanks)
 const mockedGetQuestions = vi.mocked(getQuestions)
 const mockedSubmit = vi.mocked(submitPracticeAnswer)
-const mockedHint = vi.mocked(getTutorHint)
+const mockedStreamTutor = vi.mocked(streamTutor)
 const mockedEvaluation = vi.mocked(getLatestEvaluation)
 
 const safety = '仅供教学研修或医生复核前辅助，不作为独立诊断依据。'
@@ -59,7 +59,14 @@ beforeEach(() => {
   mockedGetQuestionBanks.mockResolvedValue(banks)
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
   mockedSubmit.mockResolvedValue(submitResult('single'))
-  mockedHint.mockResolvedValue({ message: '先观察可支持事实。', mode: 'rule', sources: ['test'], event: 'rule_hint', doctor_review_required: true, safety_notice: safety })
+  mockedStreamTutor.mockImplementation(async (_request, onEvent) => {
+    onEvent({ event: 'message_start', data: { run_id: 'run-test' } })
+    onEvent({ event: 'tool_start', data: { tool_name: 'get_question_context' } })
+    onEvent({ event: 'tool_end', data: { tool_name: 'get_question_context' } })
+    onEvent({ event: 'source', data: { document_name: 'test source', page: '1', section: '观察要点' } })
+    onEvent({ event: 'token', data: { text: '先观察可支持事实。' } })
+    onEvent({ event: 'message_end', data: { run_id: 'run-test' } })
+  })
   mockedEvaluation.mockResolvedValue({ artifact_available: false, artifact_path: null, mode: 'not_run', sample_count: 0, metrics: {}, cases: [], notice: '尚未运行', safety_notice: safety })
 })
 
@@ -131,12 +138,13 @@ describe('Stage 1 page contracts', () => {
     expect(screen.queryByText('100')).not.toBeInTheDocument()
   })
 
-  it('keeps tutor in rule mode and visible through an explicit action', async () => {
+  it('renders real Tutor stream tool and source parts through an explicit action', async () => {
     const user = userEvent.setup()
     renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
     await screen.findByTestId('practice-page')
     await user.click(screen.getByTestId('tutor-hint'))
     expect(await screen.findByText('先观察可支持事实。')).toBeInTheDocument()
-    expect(screen.getAllByText(/Stage 2 Agent 未启用/).length).toBeGreaterThan(0)
+    expect(screen.getByTestId('tutor-tool-status')).toHaveTextContent('get_question_context')
+    expect(screen.getByTestId('tutor-sources')).toHaveTextContent('test source')
   })
 })

@@ -1,0 +1,116 @@
+{
+  "trace_version": "tutor-v1",
+  "user_intent": "请给我一个不透露答案的观察提示。",
+  "provider": "local-policy-adapter/external-provider-pending",
+  "events": [
+    {
+      "event": "message_start",
+      "data": {
+        "run_id": "run_eeda8a7076f2",
+        "provider": "local-policy-adapter/external-provider-pending",
+        "phase": "pre_submit"
+      }
+    },
+    {
+      "event": "tool_start",
+      "data": {
+        "tool_name": "get_question_context"
+      }
+    },
+    {
+      "event": "tool_end",
+      "data": {
+        "tool_name": "get_question_context",
+        "elapsed_ms": 12,
+        "status": "ok",
+        "summary": "已取得允许的观察数据。"
+      }
+    },
+    {
+      "event": "tool_start",
+      "data": {
+        "tool_name": "retrieve_knowledge"
+      }
+    },
+    {
+      "event": "tool_end",
+      "data": {
+        "tool_name": "retrieve_knowledge",
+        "elapsed_ms": 1,
+        "status": "ok",
+        "summary": "已取得允许的观察数据。"
+      }
+    },
+    {
+      "event": "source",
+      "data": {
+        "document_name": "内镜研修人工整理题库",
+        "page": "教学样例",
+        "section": "食管",
+        "snippet": "根据消化内镜研修常见教学目标整理的演示题。"
+      }
+    },
+    {
+      "event": "tool_start",
+      "data": {
+        "tool_name": "get_learning_profile"
+      }
+    },
+    {
+      "event": "tool_end",
+      "data": {
+        "tool_name": "get_learning_profile",
+        "elapsed_ms": 10,
+        "status": "ok",
+        "summary": "已取得允许的观察数据。"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "先围绕「食管反流性炎症基础判断」梳理"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "可见证据：建议先区分部位、形态和不能"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "由单帧推出的结论。根据消化内镜研修常"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "见教学目标整理的演示题。 当前已记录"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "练习 0 次。仅供教学研修或医生复核"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "前辅助，不作为独立诊断依据。"
+      }
+    },
+    {
+      "event": "message_end",
+      "data": {
+        "run_id": "run_eeda8a7076f2",
+        "receipt_count": 3,
+        "provider": "local-policy-adapter/external-provider-pending",
+        "retry_count": 0
+      }
+    }
+  ],
+  "contains_raw_chain_of_thought": false,
+  "answer_access": "pre-submit public context only"
+}

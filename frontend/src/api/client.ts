@@ -28,6 +28,11 @@ export type EvaluationArtifact = components['schemas']['EvaluationArtifactRespon
   metrics: Record<string, unknown>
   cases: Array<Record<string, unknown>>
 }
+export type TutorStreamRequest = components['schemas']['TutorStreamRequest']
+export type TutorStreamEvent = {
+  event: 'message_start' | 'token' | 'tool_start' | 'tool_end' | 'source' | 'message_end' | 'error'
+  data: Record<string, unknown>
+}
 
 export class ApiError extends Error {
   readonly status: number
@@ -80,6 +85,28 @@ export function submitPracticeAnswer(payload: SubmitPayload): Promise<SubmitResu
 
 export function getTutorHint(questionId: string, learnerId = 'demo_learner'): Promise<TutorHint> {
   return unwrap(api.POST('/api/v3/tutor/hint', { body: { question_id: questionId, learner_id: learnerId } }))
+}
+
+export async function streamTutor(request: TutorStreamRequest, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/v3/tutor/stream`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request), signal,
+  })
+  if (!response.ok || !response.body) throw new ApiError(`Tutor 请求失败（${response.status}）`, response.status)
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done })
+    const frames = buffer.split('\n\n')
+    buffer = frames.pop() ?? ''
+    for (const frame of frames) {
+      const event = frame.match(/^event: (.+)$/m)?.[1] as TutorStreamEvent['event'] | undefined
+      const encoded = frame.match(/^data: (.+)$/m)?.[1]
+      if (event && encoded) onEvent({ event, data: JSON.parse(encoded) as Record<string, unknown> })
+    }
+    if (done) break
+  }
 }
 
 export async function getLatestEvaluation(): Promise<EvaluationArtifact> {
