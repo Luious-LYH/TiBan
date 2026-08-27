@@ -27,6 +27,13 @@ def _env_first(*names: str, default: str = "") -> str:
     return default
 
 
+DATABASE_URL = _env_first(
+    "ENDO_DATABASE_URL",
+    "DATABASE_URL",
+    default=f"sqlite:///{(RUNTIME_DATA_DIR / 'stage1.sqlite3').as_posix()}",
+)
+
+
 LLM_PROVIDER = _env_first("LLM_PROVIDER", "OPENAI_PROVIDER", default="openai_compatible")
 LLM_BASE_URL = _env_first("LLM_BASE_URL", "OPENAI_BASE_URL").rstrip("/")
 LLM_API_KEY = _env_first("LLM_API_KEY", "OPENAI_API_KEY")
