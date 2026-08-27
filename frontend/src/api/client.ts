@@ -1,18 +1,36 @@
-import type {
-  EvaluationArtifact,
-  Overview,
-  QuestionBank,
-  QuestionsResponse,
-  SessionResponse,
-  SubmitPayload,
-  SubmitResult,
-  TutorHint,
-} from './generated'
+import createClient from 'openapi-fetch'
+
+import type { components, paths } from './generated'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+const api = createClient<paths>({ baseUrl: API_BASE })
+
+export type Question =
+  | components['schemas']['SingleChoiceQuestionPublic']
+  | components['schemas']['MultipleChoiceQuestionPublic']
+  | components['schemas']['TrueFalseQuestionPublic']
+  | components['schemas']['ShortAnswerQuestionPublic']
+export type MultipleChoiceQuestion = components['schemas']['MultipleChoiceQuestionPublic']
+export type AnswerValue = components['schemas']['PracticeSubmitRequest']['selected_answer']
+export type SubmitPayload = Omit<components['schemas']['PracticeSubmitRequest'], 'learner_id' | 'hint_count'> & Partial<Pick<components['schemas']['PracticeSubmitRequest'], 'learner_id' | 'hint_count'>>
+export type SubmitResult = components['schemas']['PracticeSubmitResponse']
+// These are presentation view models; their fields are projected from the
+// generated API components, not hand-maintained response contracts.
+export type QuestionBank = Required<components['schemas']['QuestionBankPublic']>
+export type QuestionsResponse = components['schemas']['PracticeQuestionListResponse']
+export type SessionResponse = components['schemas']['PracticeSessionPublic']
+export type TutorHint = components['schemas']['TutorHintResponseV3']
+export type Overview = Omit<Required<components['schemas']['OverviewResponse']>, 'banks' | 'recent_sessions'> & {
+  banks: QuestionBank[]
+  recent_sessions: Array<Required<components['schemas']['RecentSessionPublic']>>
+}
+export type EvaluationArtifact = components['schemas']['EvaluationArtifactResponse'] & {
+  metrics: Record<string, unknown>
+  cases: Array<Record<string, unknown>>
+}
 
 export class ApiError extends Error {
-  status: number
+  readonly status: number
 
   constructor(message: string, status: number) {
     super(message)
@@ -21,33 +39,21 @@ export class ApiError extends Error {
   }
 }
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-  })
-  if (!response.ok) {
-    let message = `请求失败（${response.status}）`
-    try {
-      const detail = (await response.json()) as { detail?: string }
-      message = detail.detail ?? message
-    } catch {
-      // Keep the stable status message when the server response is not JSON.
-    }
-    throw new ApiError(message, response.status)
-  }
-  return response.json() as Promise<T>
+async function unwrap<T>(request: Promise<{ data?: T; error?: unknown; response: Response }>): Promise<T> {
+  const { data, error, response } = await request
+  if (data !== undefined) return data
+  const detail = typeof error === 'object' && error && 'detail' in error ? (error as { detail?: string }).detail : undefined
+  throw new ApiError(detail ?? `请求失败（${response.status}）`, response.status)
 }
 
 export async function getOverview(learnerId = 'demo_learner'): Promise<Overview> {
-  return requestJson<Overview>(`/api/v3/overview?learner_id=${encodeURIComponent(learnerId)}`)
+  const response = await unwrap(api.GET('/api/v3/overview', { params: { query: { learner_id: learnerId } } }))
+  return { ...response, banks: (response.banks ?? []) as QuestionBank[], recent_sessions: (response.recent_sessions ?? []) as Overview['recent_sessions'] } as Overview
 }
 
 export async function getQuestionBanks(learnerId = 'demo_learner'): Promise<QuestionBank[]> {
-  const response = await requestJson<{ items: QuestionBank[] }>(
-    `/api/v3/question-banks?learner_id=${encodeURIComponent(learnerId)}`,
-  )
-  return response.items
+  const response = await unwrap(api.GET('/api/v3/question-banks', { params: { query: { learner_id: learnerId } } }))
+  return response.items.map((item) => item as QuestionBank)
 }
 
 export interface QuestionQuery {
@@ -56,35 +62,27 @@ export interface QuestionQuery {
   search?: string
 }
 
-export async function getQuestions(query: QuestionQuery = {}): Promise<QuestionsResponse> {
-  const params = new URLSearchParams({ limit: '100' })
-  if (query.bankId) params.set('bank_id', query.bankId)
-  if (query.questionType) params.set('question_type', query.questionType)
-  if (query.search) params.set('search', query.search)
-  return requestJson<QuestionsResponse>(`/api/v3/practice/questions?${params.toString()}`)
+export function getQuestions(query: QuestionQuery = {}): Promise<QuestionsResponse> {
+  return unwrap(api.GET('/api/v3/practice/questions', {
+    params: { query: { bank_id: query.bankId, question_type: query.questionType, search: query.search, limit: 100 } },
+  }))
 }
 
-export async function createPracticeSession(bankId: string, learnerId = 'demo_learner'): Promise<SessionResponse> {
-  return requestJson<SessionResponse>('/api/v3/practice/sessions', {
-    method: 'POST',
-    body: JSON.stringify({ bank_id: bankId, learner_id: learnerId, mode: 'practice' }),
-  })
+export function createPracticeSession(bankId: string, learnerId = 'demo_learner'): Promise<SessionResponse> {
+  return unwrap(api.POST('/api/v3/practice/sessions', {
+    body: { bank_id: bankId, learner_id: learnerId, mode: 'practice' },
+  }))
 }
 
-export async function submitPracticeAnswer(payload: SubmitPayload): Promise<SubmitResult> {
-  return requestJson<SubmitResult>('/api/v3/practice/submit', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  })
+export function submitPracticeAnswer(payload: SubmitPayload): Promise<SubmitResult> {
+  return unwrap(api.POST('/api/v3/practice/submit', { body: { ...payload, learner_id: payload.learner_id ?? 'demo_learner', hint_count: payload.hint_count ?? 0 } }))
 }
 
-export async function getTutorHint(questionId: string, learnerId = 'demo_learner'): Promise<TutorHint> {
-  return requestJson<TutorHint>('/api/v3/tutor/hint', {
-    method: 'POST',
-    body: JSON.stringify({ question_id: questionId, learner_id: learnerId }),
-  })
+export function getTutorHint(questionId: string, learnerId = 'demo_learner'): Promise<TutorHint> {
+  return unwrap(api.POST('/api/v3/tutor/hint', { body: { question_id: questionId, learner_id: learnerId } }))
 }
 
 export async function getLatestEvaluation(): Promise<EvaluationArtifact> {
-  return requestJson<EvaluationArtifact>('/api/v3/evaluation/latest')
+  const response = await unwrap(api.GET('/api/v3/evaluation/latest'))
+  return { ...response, metrics: response.metrics ?? {}, cases: response.cases ?? [] }
 }

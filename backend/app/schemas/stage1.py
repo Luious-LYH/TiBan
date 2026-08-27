@@ -212,13 +212,21 @@ class PracticeSubmitResponse(Stage1Model):
     created_at: datetime
 
 
+class RecentSessionPublic(Stage1Model):
+    attempt_id: str
+    question_id: str
+    score: int
+    correct: bool
+    created_at: datetime
+
+
 class OverviewResponse(Stage1Model):
     learner_id: str
     completed_today: int = Field(ge=0)
     daily_target: int = Field(ge=0)
     due_review_count: int = Field(ge=0)
     recent_accuracy: float = Field(ge=0, le=1)
-    recent_sessions: list[dict[str, Any]] = Field(default_factory=list)
+    recent_sessions: list[RecentSessionPublic] = Field(default_factory=list)
     banks: list[QuestionBankPublic] = Field(default_factory=list)
     weak_areas: list[str] = Field(default_factory=list)
     safety_notice: str = SAFETY_NOTICE
