@@ -22,6 +22,8 @@ All executable checks available in the current machine passed. The only unverifi
 | `9befbe1` | approved Phase 0 baseline HEAD / Stage 1 start |
 | `7026df5` | Stage 1 Pydantic contracts, FastAPI routes, SQLAlchemy models/repository, Alembic, seed and backend contract tests |
 | `1976d58` | React four-page rebuild, canonical typed API, responsive UI, Vitest/RTL and Playwright tests |
+| `88ae46a` | Stage 1 report, architecture/evaluation docs, screenshots and visual-review evidence |
+| `2c3ff29` | final report formatting cleanup |
 
 Existing user-owned changes in `artifacts/eval/latest.json`, `artifacts/eval/latest.md`, and portfolio audit files were not staged or modified by the Stage 1 commits.
 
