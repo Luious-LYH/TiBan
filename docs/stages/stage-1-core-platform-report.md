@@ -1,8 +1,8 @@
 # EndoTutor Stage 1 — Core Platform Reconstruction Report
 
-Date: 2026-08-28  
-Branch: `refactor/v3-agent-learning-platform`  
-Stage 1 starting point: `9befbe104d2ed165c535e9069b01037ac4a94de6`  
+Date: 2026-08-28
+Branch: `refactor/v3-agent-learning-platform`
+Stage 1 starting point: `9befbe104d2ed165c535e9069b01037ac4a94de6`
 Rollback point: `1976d58` (last implementation commit; `7026df5` is the backend-only rollback point)
 
 ## Executive result
