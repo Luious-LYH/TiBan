@@ -9,7 +9,6 @@ import {
   TrendingUp,
   ArrowRight,
 } from 'lucide-react'
-import { v3Api } from '../lib/v3Api'
 import type { QuestionBank } from '../lib/types.v2.2.2'
 import { adaptQuestionBankFromBackend } from '../lib/adapters.v2.2.2'
 

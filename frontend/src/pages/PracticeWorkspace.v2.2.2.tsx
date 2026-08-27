@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Send, MessageSquare, Lightbulb, BookOpen, ChevronDown, ChevronUp } from 'lucide-react'
-import type { Question, SubmitResponse, TutorResponse, TutorMode } from '../lib/types.v2.2.2'
+import { Send, MessageSquare, Lightbulb, ChevronDown, ChevronUp } from 'lucide-react'
+import type { Question, SubmitResponse, TutorMode } from '../lib/types.v2.2.2'
 import { adaptQuestionFromBackend, adaptSubmitResponseFromBackend, adaptTutorResponseFromBackend, buildSubmitRequest, buildTutorRequest } from '../lib/adapters.v2.2.2'
 import { getUserLabel } from '../lib/types.v2.2.2'
 

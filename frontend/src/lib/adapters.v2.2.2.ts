@@ -1,6 +1,5 @@
 // v2.2.2 API 适配器 - 统一前后端类型
 import type * as V222 from './types.v2.2.2'
-import type * as Legacy from './types'
 
 /* ==================== 后端 → 前端适配 ==================== */
 

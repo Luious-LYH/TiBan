@@ -3,11 +3,11 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
 
-// v2.2.1 新四模块页面
-const Overview = lazy(() => import('./pages/Overview').then((module) => ({ default: module.Overview })))
-const QuestionBanks = lazy(() => import('./pages/QuestionBanks').then((module) => ({ default: module.QuestionBanks })))
-const PracticeWorkspace = lazy(() => import('./pages/PracticeWorkspace').then((module) => ({ default: module.PracticeWorkspace })))
-const ModelEvaluation = lazy(() => import('./pages/ModelEvaluation').then((module) => ({ default: module.ModelEvaluation })))
+// v2.2.2 四模块页面（重写版）
+const Overview = lazy(() => import('./pages/Overview.v2.2.2').then((module) => ({ default: module.Overview })))
+const QuestionBanks = lazy(() => import('./pages/QuestionBanks.v2.2.2').then((module) => ({ default: module.QuestionBanks })))
+const PracticeWorkspace = lazy(() => import('./pages/PracticeWorkspace.v2.2.2').then((module) => ({ default: module.PracticeWorkspace })))
+const ModelEvaluation = lazy(() => import('./pages/ModelEvaluation.v2.2.2').then((module) => ({ default: module.ModelEvaluation })))
 
 // 旧页面保留兼容
 const AgentWorkbench = lazy(() => import('./pages/AgentWorkbench').then((module) => ({ default: module.AgentWorkbench })))

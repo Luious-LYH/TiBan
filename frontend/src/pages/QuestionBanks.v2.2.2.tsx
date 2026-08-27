@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Filter, Download, Upload, Search } from 'lucide-react'
-import type { QuestionBank, ImportValidateResponse, ImportTemplate } from '../lib/types.v2.2.2'
+import { BookOpen, Filter, Download, Upload } from 'lucide-react'
+import type { QuestionBank, ImportValidateResponse } from '../lib/types.v2.2.2'
 import { adaptQuestionBankFromBackend, adaptImportValidationFromBackend } from '../lib/adapters.v2.2.2'
 
 export function QuestionBanks() {

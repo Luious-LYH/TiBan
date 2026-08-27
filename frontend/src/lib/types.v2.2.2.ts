@@ -62,6 +62,7 @@ export type SubmitResponse = {
   explanation: string
   fact_feedback?: FactFeedback[]
   error_tags?: string[]
+  knowledge_points?: string[]
   next_recommendation?: string
   profile_updated: boolean
   doctor_review_required: boolean
