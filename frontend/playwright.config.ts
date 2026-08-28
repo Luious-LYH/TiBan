@@ -3,6 +3,10 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e',
   timeout: 90_000,
+  // Cold PostgreSQL/QBank bootstrap can take longer than the default 5s
+  // assertion window; keep the browser gate deterministic without hiding
+  // real workflow failures.
+  expect: { timeout: 15_000 },
   fullyParallel: false,
   workers: 1,
   reporter: [['list'], ['html', { open: 'never' }]],
