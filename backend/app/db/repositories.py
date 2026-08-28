@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from collections import Counter
+import random
 from typing import Any
 from uuid import uuid4
 
@@ -10,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import SAFETY_NOTICE
 
-from .models import AttemptModel, PracticeSessionModel, QuestionBankModel, QuestionModel, ReviewCardModel
+from .models import AttemptModel, PracticeSessionItemModel, PracticeSessionModel, QuestionBankModel, QuestionModel, ReviewCardModel
 from .seed import TYPE_CODE, TYPE_LABEL, seed_database
 
 
@@ -70,6 +71,8 @@ class Stage1Repository:
         bank_id: str | None = None,
         question_type: str | None = None,
         body_part: str | None = None,
+        subject: str | None = None,
+        topic: str | None = None,
         search: str | None = None,
         limit: int = 18,
         offset: int = 0,
@@ -93,6 +96,10 @@ class Stage1Repository:
                 statement = statement.where(QuestionModel.question_type == code)
         if body_part:
             statement = statement.where(QuestionModel.body_part == body_part)
+        if subject:
+            statement = statement.where(QuestionModel.subject == subject)
+        if topic:
+            statement = statement.where(QuestionModel.topic == topic)
         if search:
             pattern = f"%{search.strip()}%"
             statement = statement.where(
@@ -107,8 +114,29 @@ class Stage1Repository:
             raise KeyError(f"Question not found: {question_id}")
         return question
 
-    def create_session(self, learner_id: str, bank_id: str, mode: str = "practice") -> PracticeSessionModel:
+    def create_session(
+        self,
+        learner_id: str,
+        bank_id: str,
+        mode: str = "practice",
+        question_count: int = 20,
+        shuffle_seed: int | None = None,
+    ) -> PracticeSessionModel:
         self.get_bank(bank_id)
+        question_ids = list(
+            self.session.scalars(
+                select(QuestionModel.question_id)
+                .where(QuestionModel.bank_id == bank_id, QuestionModel.business_usage == "user_ready")
+                .order_by(QuestionModel.question_id)
+            )
+        )
+        if not question_ids:
+            raise KeyError(f"No learner-ready questions in bank: {bank_id}")
+        selection_size = min(max(question_count, 1), len(question_ids))
+        # A supplied seed makes a scale run reproducible; ordinary learner
+        # sessions use a fresh RNG and never depend on client-only ordering.
+        rng = random.Random(shuffle_seed) if shuffle_seed is not None else random.SystemRandom()
+        selected_ids = rng.sample(question_ids, selection_size)
         session = PracticeSessionModel(
             session_id=f"session_{uuid4().hex[:12]}",
             learner_id=learner_id,
@@ -117,6 +145,18 @@ class Stage1Repository:
             status="active",
         )
         self.session.add(session)
+        self.session.flush()
+        self.session.add_all(
+            [
+                PracticeSessionItemModel(
+                    session_item_id=f"session_item_{uuid4().hex[:12]}",
+                    practice_session_id=session.session_id,
+                    question_id=question_id,
+                    ordinal=ordinal,
+                )
+                for ordinal, question_id in enumerate(selected_ids)
+            ]
+        )
         self.session.commit()
         self.session.refresh(session)
         return session
@@ -127,6 +167,36 @@ class Stage1Repository:
             if current and current.learner_id == learner_id and current.bank_id == bank_id:
                 return current
         return self.create_session(learner_id, bank_id, mode)
+
+    def session_items(self, session_id: str) -> list[dict[str, object]]:
+        session = self.session.get(PracticeSessionModel, session_id)
+        if session is None:
+            raise KeyError(f"Practice session not found: {session_id}")
+        items = list(
+            self.session.scalars(
+                select(PracticeSessionItemModel)
+                .where(PracticeSessionItemModel.practice_session_id == session_id)
+                .order_by(PracticeSessionItemModel.ordinal)
+            )
+        )
+        attempts = list(
+            self.session.scalars(
+                select(AttemptModel)
+                .where(AttemptModel.practice_session_id == session_id)
+                .order_by(AttemptModel.created_at.desc())
+            )
+        )
+        latest_by_question: dict[str, AttemptModel] = {}
+        for attempt in attempts:
+            latest_by_question.setdefault(attempt.question_id, attempt)
+        return [
+            {
+                "question_id": item.question_id,
+                "ordinal": item.ordinal,
+                "state": "unanswered" if item.question_id not in latest_by_question else ("correct" if latest_by_question[item.question_id].correct else "incorrect"),
+            }
+            for item in items
+        ]
 
     def record_attempt(
         self,

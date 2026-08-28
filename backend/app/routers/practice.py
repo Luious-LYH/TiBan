@@ -10,6 +10,7 @@ from app.schemas import (
     PracticeQuestionDetailResponse,
     PracticeQuestionListResponse,
     PracticeSessionCreateRequest,
+    PracticeSessionDetailPublic,
     PracticeSessionPublic,
     PracticeSubmitRequest,
     PracticeSubmitResponse,
@@ -32,6 +33,8 @@ def list_questions_v3(
     bank_id: str | None = Query(default=None),
     question_type: str | None = Query(default=None),
     body_part: str | None = Query(default=None),
+    subject: str | None = Query(default=None),
+    topic: str | None = Query(default=None),
     search: str | None = Query(default=None),
     limit: int = Query(default=18, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
@@ -40,6 +43,8 @@ def list_questions_v3(
         bank_id=bank_id,
         question_type=question_type,
         body_part=body_part,
+        subject=subject,
+        topic=topic,
         search=search,
         limit=limit,
         offset=offset,
@@ -64,9 +69,26 @@ def get_question_v3(question_id: str) -> dict[str, object]:
 @canonical_router.post("/practice/sessions", response_model=PracticeSessionPublic)
 def create_session_v3(request: PracticeSessionCreateRequest) -> dict[str, object]:
     try:
-        return stage1_service.create_session(request.learner_id, request.bank_id, request.mode)
+        return stage1_service.create_session(
+            request.learner_id,
+            request.bank_id,
+            request.mode,
+            request.question_count,
+            request.shuffle_seed,
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question bank not found.") from exc
+
+
+@canonical_router.get("/practice/sessions/{session_id}", response_model=PracticeSessionDetailPublic)
+def get_session_v3(
+    session_id: str,
+    state: str | None = Query(default=None, pattern="^(unanswered|correct|incorrect)$"),
+) -> dict[str, object]:
+    try:
+        return stage1_service.session_detail(session_id, state)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Practice session not found.") from exc
 
 
 @canonical_router.post("/practice/submit", response_model=PracticeSubmitResponse)
@@ -122,7 +144,13 @@ def get_question_compat(question_id: str) -> dict[str, object]:
 @legacy_router.post("/practice/sessions")
 def create_session_compat(request: PracticeSessionCreateRequest) -> dict[str, object]:
     try:
-        return stage1_service.create_session(request.learner_id, request.bank_id, request.mode)
+        return stage1_service.create_session(
+            request.learner_id,
+            request.bank_id,
+            request.mode,
+            request.question_count,
+            request.shuffle_seed,
+        )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question bank not found.") from exc
 

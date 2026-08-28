@@ -1,6 +1,19 @@
 version: stage2.5-knowledge-registry-v1
 license_gate_statuses: [allow, allow_noncommercial, metadata_only, do_not_ingest, needs_review]
 sources:
+  - source_id: niddk-public-health-corpus-v1
+    title: NIDDK public-health teaching corpus v1
+    publisher: National Institute of Diabetes and Digestive and Kidney Diseases
+    source_url: https://www.niddk.nih.gov/health-information/digestive-diseases
+    license: NIDDK copyright guidance permits reuse of most site information with attribution; project corpus contains only EndoTutor-authored Chinese summaries and excludes logos, images, and third-party-restricted content.
+    license_url: https://www.niddk.nih.gov/copyright
+    allowed_use: Tutor RAG and Question Factory evidence for non-commercial medical education; not direct diagnosis or treatment guidance.
+    ai_ingestion_allowed: true
+    language: zh-CN
+    domain: gastroenterology/endoscopy
+    authority_tier: tier-A-derived-summary
+    status: allow
+    attribution: 基于 NIDDK 公开健康教育资料的 EndoTutor 中文教学摘要；非官方翻译，使用前须由医生复核。
   - source_id: project-curated-gastro-v1
     title: 项目中文消化内镜教学笔记
     publisher: EndoTutor project

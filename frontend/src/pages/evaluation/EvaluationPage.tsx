@@ -1,12 +1,209 @@
-import { BarChart3, ExternalLink, FileCheck2 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import { getLatestEvaluation } from '../../api/client'
+import { AlertCircle, BarChart3, CheckCircle2, Eye, EyeOff, FlaskConical, KeyRound, LockKeyhole, Play, RefreshCw, Server, TimerReset } from 'lucide-react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import {
+  createEvaluationRun,
+  getEvaluationDatasets,
+  getEvaluationRun,
+  testEvaluationConnection,
+  type EvaluationConnection,
+  type EvaluationRun,
+} from '../../api/client'
 import { ErrorState, LoadingState } from '../../components/shared/AsyncState'
 
+type CaseFilter = 'all' | 'correct' | 'incorrect' | 'failed'
+
+type EvaluationCase = {
+  eval_case_id?: string
+  source_item_id?: string
+  question?: string
+  candidate_output?: string
+  parsed_answer?: string | null
+  gold_answer?: string | null
+  correct?: boolean | null
+  valid_parse?: boolean
+  latency_ms?: number | null
+  error_category?: string | null
+  task?: string
+  topic?: string | null
+  image_attached?: boolean
+}
+
+function asCase(item: Record<string, unknown>): EvaluationCase {
+  return item as EvaluationCase
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : '请求失败，请检查 provider 配置与服务状态。'
+}
+
+function formatMetric(value: unknown, suffix = ''): string {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'number') return `${value}${suffix}`
+  return String(value)
+}
+
+function ConnectionReceipt({ result }: { result: EvaluationConnection }) {
+  return (
+    <div className={`eval-connection-receipt ${result.ok ? 'is-ok' : 'is-error'}`} role="status">
+      {result.ok ? <CheckCircle2 size={17} /> : <AlertCircle size={17} />}
+      <div>
+        <strong>{result.ok ? 'Provider 连接成功' : 'Provider 连接失败'}</strong>
+        <span>{result.ok ? `${result.model} · ${result.latency_ms ?? '—'} ms · 未启用 fallback` : result.error ?? '未返回错误详情'}</span>
+      </div>
+      <small>key persisted: {result.key_persisted ? '是' : '否'}</small>
+    </div>
+  )
+}
+
+function RunHeader({ run, revealed, onReveal, revealing }: { run: EvaluationRun; revealed: boolean; onReveal: () => void; revealing: boolean }) {
+  const label = run.status === 'completed_with_failures' ? '完成，但包含失败样例' : '评测完成'
+  return (
+    <div className="eval-run-header">
+      <div className="eval-run-status">
+        <span className={`eval-status-mark ${run.status === 'completed' ? 'is-ok' : 'is-warning'}`}><CheckCircle2 size={17} /></span>
+        <div>
+          <strong>{label}</strong>
+          <span>{run.sample_count} cases · {run.dataset_version} · no fallback</span>
+        </div>
+      </div>
+      <button className="s1-button s1-button-secondary" type="button" onClick={onReveal} disabled={revealed || revealing}>
+        {revealed ? <EyeOff size={15} /> : <Eye size={15} />}
+        {revealed ? 'Gold 已展示' : revealing ? '正在读取 Gold…' : 'Reveal Gold / 对照答案'}
+      </button>
+    </div>
+  )
+}
+
 export function EvaluationPage() {
-  const evaluation = useQuery({ queryKey: ['evaluation-latest'], queryFn: getLatestEvaluation })
-  if (evaluation.isPending) return <LoadingState label="正在读取评测 artifact…" />
-  if (evaluation.isError) return <ErrorState message={evaluation.error.message} onRetry={() => void evaluation.refetch()} />
-  const data = evaluation.data
-  return <div className="s1-page" data-testid="evaluation-page"><section className="s1-page-intro"><div><span className="s1-kicker">EVALUATION ARTIFACT</span><h1>评测证据，先看边界再看数字。</h1><p>这里只展示项目已有 artifact 的原始摘要，不生成 leaderboard、模拟进度或假分数。</p></div><span className="s1-source-pill"><BarChart3 size={14} /> {data.mode}</span></section><section className="s1-card s1-eval-card"><div className="s1-eval-status"><span className={data.artifact_available ? 's1-status-dot is-ready' : 's1-status-dot'} /><div><strong>{data.artifact_available ? '已找到离线 artifact' : '尚未运行'}</strong><small>{data.artifact_available ? `${data.sample_count} 个样例 · ${data.metric_version ?? '未标记版本'}` : '当前没有可展示的评测结果。'}</small></div>{data.artifact_path && <span className="s1-artifact-path"><FileCheck2 size={15} />{data.artifact_path}</span>}</div>{data.artifact_available ? <div className="s1-eval-body"><div className="s1-metric-grid s1-eval-metrics">{Object.entries(data.metrics).slice(0, 8).map(([key, value]) => <div className="s1-metric" key={key}><span className="s1-metric-label">{key}</span><strong>{String(value)}</strong><small>artifact 原始字段</small></div>)}</div>{data.cases.length > 0 && <div className="s1-cases"><h2>案例摘要</h2>{data.cases.slice(0, 5).map((item, index) => <div className="s1-case-row" key={`${index}-${String(item.id ?? 'case')}`}><span>Case {index + 1}</span><code>{JSON.stringify(item)}</code></div>)}</div>}</div> : <div className="s1-eval-empty"><BarChart3 size={32} /><strong>尚未运行</strong><span>完成候选模型评测后，artifact 会在这里显示。</span></div>}<div className="s1-notice"><strong>证据声明</strong><p>{data.notice}</p>{data.artifact_path && <a href={data.artifact_path} target="_blank" rel="noreferrer">打开 artifact <ExternalLink size={14} /></a>}</div></section><p className="s1-safety">{data.safety_notice}</p></div>
+  const datasetsQuery = useQuery({ queryKey: ['evaluation-datasets'], queryFn: getEvaluationDatasets })
+  const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const [apiBase, setApiBase] = useState('')
+  const [model, setModel] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [sampleCount, setSampleCount] = useState('5')
+  const [filter, setFilter] = useState<CaseFilter>('all')
+  const [topicFilter, setTopicFilter] = useState('all')
+  const [run, setRun] = useState<EvaluationRun | null>(null)
+  const [connectionResult, setConnectionResult] = useState<EvaluationConnection | null>(null)
+  const [revealed, setRevealed] = useState(false)
+
+  const datasets = datasetsQuery.data ?? []
+  const effectiveDatasetId = selectedDatasetId || datasets[0]?.dataset_id || ''
+  const selectedDataset = datasets.find((item) => item.dataset_id === effectiveDatasetId) ?? datasets[0]
+
+  const connection = useMutation({
+    mutationFn: () => testEvaluationConnection({ base_url: apiBase.trim(), model: model.trim(), api_key: apiKey }),
+    onSuccess: setConnectionResult,
+  })
+  const evaluation = useMutation({
+    mutationFn: () => createEvaluationRun({
+      base_url: apiBase.trim(),
+      model: model.trim(),
+      api_key: apiKey,
+      dataset_id: selectedDataset?.dataset_id ?? '',
+      sample_count: Math.max(1, Math.min(300, Number(sampleCount) || 1)),
+    }),
+    onSuccess: (result) => {
+      setRun(result)
+      setRevealed(false)
+      setFilter('all')
+      setTopicFilter('all')
+    },
+  })
+  const reveal = useMutation({
+    mutationFn: () => getEvaluationRun(run?.eval_run_id ?? '', true),
+    onSuccess: (result) => {
+      setRun(result)
+      setRevealed(true)
+    },
+  })
+
+  const runCases = useMemo(() => (run?.cases ?? []).map(asCase), [run])
+  const topics = useMemo(() => Array.from(new Set(runCases.map((item) => item.topic).filter((topic): topic is string => Boolean(topic)))), [runCases])
+  const visibleCases = useMemo(() => runCases.filter((item) => {
+    const matchesTopic = topicFilter === 'all' || item.topic === topicFilter
+    const matchesFilter = filter === 'all'
+      || (filter === 'correct' && item.correct === true)
+      || (filter === 'incorrect' && item.correct === false)
+      || (filter === 'failed' && Boolean(item.error_category))
+    return matchesTopic && matchesFilter
+  }), [filter, runCases, topicFilter])
+
+  if (datasetsQuery.isPending) return <LoadingState label="正在读取冻结评测集…" />
+  if (datasetsQuery.isError) return <ErrorState message={errorMessage(datasetsQuery.error)} onRetry={() => void datasetsQuery.refetch()} />
+
+  return (
+    <div className="s1-page eval-workbench" data-testid="evaluation-page">
+      <section className="s1-page-intro">
+        <div>
+          <span className="s1-kicker">MODEL EVALUATION WORKBENCH</span>
+          <h1>把候选模型放进真实、可复现的评测回路。</h1>
+          <p>选择冻结评测集，临时连接 OpenAI-compatible provider，查看逐例结果与聚合指标。Evaluation 数据与 Tutor、Factory、learner QBank 隔离。</p>
+        </div>
+        <span className="s1-source-pill"><FlaskConical size={14} /> BYOK · fallback off</span>
+      </section>
+
+      <section className="eval-privacy-strip">
+        <LockKeyhole size={16} />
+        <div><strong>一次性授权边界</strong><span>API Key 仅用于本次请求，不持久化、不写日志、不进 trace 或 artifact；普通结果默认不展示 Gold。</span></div>
+      </section>
+
+      <div className="eval-config-grid">
+        <section className="s1-card eval-config-card">
+          <div className="s1-section-heading"><div><span className="s1-kicker">RUN CONFIGURATION</span><h2>连接候选模型</h2></div><Server size={18} color="var(--teal)" /></div>
+          <div className="eval-form-grid">
+            <label className="eval-field eval-field-wide"><span>API Base</span><input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="https://provider.example/v1" autoComplete="off" /></label>
+            <label className="eval-field"><span>Model</span><input value={model} onChange={(event) => setModel(event.target.value)} placeholder="candidate-model" autoComplete="off" /></label>
+            <label className="eval-field"><span>API Key <small>不会保存</small></span><div className="eval-secret-input"><KeyRound size={15} /><input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="••••••••" autoComplete="off" /></div></label>
+            <label className="eval-field"><span>Dataset</span><select value={effectiveDatasetId} onChange={(event) => setSelectedDatasetId(event.target.value)}>{datasets.map((dataset) => <option key={dataset.dataset_id} value={dataset.dataset_id}>{dataset.name}</option>)}</select></label>
+            <label className="eval-field"><span>Sample count <small>1–300</small></span><input type="number" min="1" max="300" value={sampleCount} onChange={(event) => setSampleCount(event.target.value)} /></label>
+          </div>
+          {selectedDataset && <div className="eval-dataset-receipt"><div><strong>{selectedDataset.sample_count} frozen cases</strong><span>{selectedDataset.version}</span></div><code>{selectedDataset.dataset_hash.slice(0, 16)}…</code><p>{selectedDataset.description}</p><small>tutor_indexed: {selectedDataset.tutor_indexed ? 'true' : 'false'} · modality: {selectedDataset.modality}{selectedDataset.supports_vision ? ' · vision required' : ''}</small></div>}
+          <div className="eval-action-row">
+            <button className="s1-button s1-button-light" type="button" onClick={() => connection.mutate()} disabled={connection.isPending || !apiBase.trim() || !model.trim() || !apiKey}><RefreshCw size={15} className={connection.isPending ? 's1-spin' : ''} />{connection.isPending ? '连接测试中…' : 'Test Connection'}</button>
+            <button className="s1-button s1-button-primary" type="button" onClick={() => evaluation.mutate()} disabled={evaluation.isPending || !selectedDataset || !apiBase.trim() || !model.trim() || !apiKey}><Play size={15} />{evaluation.isPending ? '模型推理进行中…' : 'Start Evaluation'}</button>
+          </div>
+          {connectionResult && <ConnectionReceipt result={connectionResult} />}
+          {connection.isError && <div className="eval-inline-error" role="alert"><AlertCircle size={15} />{errorMessage(connection.error)}</div>}
+          {evaluation.isError && <div className="eval-inline-error" role="alert"><AlertCircle size={15} />{errorMessage(evaluation.error)}<button type="button" onClick={() => evaluation.reset()}>清除</button></div>}
+          <p className="s1-safety">{selectedDataset?.source_dataset === 'EndoBench' ? 'EndoBench 仅用于 Evaluation，不进入 Tutor RAG、Question Factory 或 learner QBank。' : '评测结果用于工程与模型比较，不代表临床性能或独立诊断能力。'}</p>
+        </section>
+
+        <aside className="s1-card eval-boundary-card">
+          <div className="s1-section-heading"><div><span className="s1-kicker">DATA BOUNDARY</span><h2>数据域隔离</h2></div><BarChart3 size={18} color="var(--teal)" /></div>
+          <div className="eval-boundary-list">
+            <div><span className="eval-boundary-dot is-blue" /><div><strong>Text Medical Eval</strong><small>CMExam · text · hidden gold</small></div></div>
+            <div><span className="eval-boundary-dot is-amber" /><div><strong>Endoscopy VLM Eval</strong><small>EndoBench · image · Evaluation-only</small></div></div>
+            <div><span className="eval-boundary-dot is-teal" /><div><strong>Tutor / Factory</strong><small>不读取评测集与评测答案</small></div></div>
+          </div>
+          <div className="eval-boundary-note"><LockKeyhole size={14} /><span>视觉评测需要候选 provider 真正支持 image input；不支持时记录失败，不降级成 text-only。</span></div>
+        </aside>
+      </div>
+
+      {run && <section className="s1-card eval-result-card">
+        <RunHeader run={run} revealed={revealed} onReveal={() => reveal.mutate()} revealing={reveal.isPending} />
+        <div className="eval-run-meta"><span>run <code>{run.eval_run_id}</code></span><span>provider <code>{run.provider}</code></span><span>model <code>{run.model}</code></span><span>prompt <code>{run.prompt_version}</code></span></div>
+        <details className="eval-developer-detail"><summary>Developer Detail · evidence receipt</summary><div><span>dataset hash <code>{run.dataset_hash}</code></span><span>artifact <code>{run.artifact_path ?? '—'}</code></span><span>fallback <code>{run.fallback ? 'true' : 'false'}</code></span><span>gold projection <code>{revealed ? 'revealed by explicit action' : 'withheld'}</code></span></div></details>
+        <div className="s1-metric-grid eval-result-metrics">
+          <div className="s1-metric"><TimerReset className="eval-metric-icon" size={17} /><span className="s1-metric-label">Accuracy</span><strong>{revealed ? formatMetric(run.aggregate.accuracy) : '—'}</strong><small>{revealed ? 'gold 已对照' : 'Reveal Gold 后显示'}</small></div>
+          <div className="s1-metric"><CheckCircle2 className="eval-metric-icon" size={17} /><span className="s1-metric-label">Valid parse</span><strong>{formatMetric(typeof run.aggregate.valid_parse_rate === 'number' ? `${Math.round(run.aggregate.valid_parse_rate * 100)}%` : run.aggregate.valid_parse_rate)}</strong><small>structured answer rate</small></div>
+          <div className="s1-metric"><TimerReset className="eval-metric-icon" size={17} /><span className="s1-metric-label">Latency P50 / P95</span><strong>{formatMetric(run.aggregate.latency_p50_ms, ' ms')} / {formatMetric(run.aggregate.latency_p95_ms, ' ms')}</strong><small>provider round trip</small></div>
+          <div className="s1-metric"><BarChart3 className="eval-metric-icon" size={17} /><span className="s1-metric-label">Token usage</span><strong>{formatMetric(run.usage.total_tokens)}</strong><small>prompt + completion</small></div>
+        </div>
+        {!revealed && <div className="eval-reveal-note"><Eye size={15} /><span>逐例 correct 与 gold answer 已隐藏。点击右上角 Reveal Gold 后，才会开放对照视图。</span></div>}
+        {revealed && <div className="eval-filter-bar"><label>结果<select value={filter} onChange={(event) => setFilter(event.target.value as CaseFilter)}><option value="all">全部</option><option value="correct">正确</option><option value="incorrect">错误</option><option value="failed">失败 / 解析异常</option></select></label><label>Topic<select value={topicFilter} onChange={(event) => setTopicFilter(event.target.value)}><option value="all">全部 topic</option>{topics.map((topic) => <option key={topic} value={topic}>{topic}</option>)}</select></label><span>{visibleCases.length} / {runCases.length} cases</span></div>}
+        <div className="eval-case-list">
+          {visibleCases.length === 0 ? <div className="eval-empty-cases">当前筛选没有案例。</div> : visibleCases.map((item, index) => <article className="eval-case" key={item.eval_case_id ?? `${item.source_item_id}-${index}`}>
+            <div className="eval-case-top"><span>Case {index + 1}</span><small>{item.task ?? 'task'}{item.topic ? ` · ${item.topic}` : ''}</small><b className={item.error_category ? 'is-error' : item.correct === true ? 'is-correct' : item.correct === false ? 'is-error' : ''}>{item.error_category ?? (item.correct === true ? 'correct' : item.correct === false ? 'incorrect' : 'awaiting gold')}</b></div>
+            <h3>{item.question ?? '题目未提供'}</h3>
+            <div className="eval-case-answer"><span>Candidate</span><code>{item.candidate_output ?? '—'}</code><span>Parsed</span><code>{item.parsed_answer ?? '—'}</code>{revealed && <><span>Gold</span><code>{item.gold_answer ?? '—'}</code></>}</div>
+            <small className="eval-case-foot">{item.latency_ms ?? '—'} ms{item.image_attached ? ' · image attached' : ''}{item.error_category ? ` · ${item.error_category}` : ''}</small>
+          </article>)}
+        </div>
+      </section>}
+
+      <p className="s1-safety">仅供教学研修或医生复核前辅助，不作为独立诊断依据。</p>
+    </div>
+  )
 }

@@ -12,7 +12,19 @@ from fsrs import Card, Rating, Scheduler
 from app.db.database import SessionLocal
 from app.db.models import LearnerMasteryModel, ReviewCardModel
 from app.main import app
-from app.services.factory_service import GeneratedDraft, GeneratorInput, _deterministic_gate, _generator, _judge, import_allowed_document
+from app.services.factory_service import (
+    GeneratedDraft,
+    GeneratorInput,
+    ProviderFactoryError,
+    _deterministic_gate,
+    _generator,
+    _judge,
+    _provider_generator,
+    _provider_judge,
+    _normalize_provider_judge,
+    import_allowed_document,
+)
+from app.services.llm_provider import LLMResult
 from app.services.rag_service import Citation, _chunk_markdown
 
 
@@ -69,6 +81,62 @@ def test_factory_schemas_keep_generator_judge_and_revision_inputs_separate(tmp_p
     assert _deterministic_gate(draft, evidence)[0]
     decision = _judge(draft, evidence)
     assert not decision.passed and decision.rewrite_instruction
+
+
+def test_factory_provider_roles_are_schema_separated_and_never_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_chat(**kwargs: object) -> LLMResult:
+        calls.append(kwargs)
+        if "Generator" in str(kwargs["system_prompt"]):
+            return LLMResult(
+                True,
+                json.dumps({
+                    "title": "Provider draft", "stem": "哪项符合资料？",
+                    "options": [{"id": "a", "text": "可见事实"}, {"id": "b", "text": "独立诊断"}],
+                    "correct_option_id": "a", "explanation": "仅供教学训练或医生审核前辅助，不作为独立诊断依据。",
+                    "teaching_tags": ["证据"],
+                }),
+                "provider", "local", "test-model", latency_ms=12,
+            )
+        return LLMResult(
+            True,
+            json.dumps({
+                "passed": True, "groundedness": "pass", "answer_consistency": "pass",
+                "citation_validity": "pass", "distractor_quality": "pass", "teaching_value": "pass",
+                "rewrite_instruction": None,
+            }),
+            "provider", "local", "test-model", latency_ms=10,
+        )
+
+    monkeypatch.setattr("app.services.factory_service.llm_provider.chat", fake_chat)
+    payload = GeneratorInput(evidence="可见事实必须保留医生复核边界，不能独立诊断。", source_chunk_id="chunk-provider", source_document_id="doc-provider")
+    draft = _provider_generator(payload)
+    decision = _provider_judge(draft, payload.evidence)
+
+    assert draft.provider_mode == "provider" and draft.citation["chunk_id"] == "chunk-provider"
+    assert decision.judge_mode == "provider" and decision.passed
+    assert len(calls) == 2 and all(call["allow_fallback"] is False for call in calls)
+    assert "Generator" in str(calls[0]["system_prompt"])
+    assert "Judge" in str(calls[1]["system_prompt"])
+
+
+def test_factory_provider_failure_is_not_converted_to_adapter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app.services.factory_service.llm_provider.chat",
+        lambda **_: LLMResult(False, "", "provider", "local", "test", "http_502: gateway"),
+    )
+    with pytest.raises(ProviderFactoryError, match="generator_provider_failed"):
+        _provider_generator(GeneratorInput(evidence="可见事实必须保留医生复核边界，不能独立诊断。", source_chunk_id="chunk-provider", source_document_id="doc-provider"))
+
+
+def test_provider_judge_normalizes_explicit_chinese_wire_labels() -> None:
+    normalized = _normalize_provider_judge({
+        "overall": "通过", "groundedness": "通过", "answer_consistency": "通过",
+        "citation_validity": "通过", "distractor_quality": "通过", "teaching_value": "通过",
+    })
+    assert normalized["passed"] is True
+    assert all(normalized[key] == "pass" for key in ["groundedness", "answer_consistency", "citation_validity", "distractor_quality", "teaching_value"])
 
 
 def test_rag_heading_chunks_and_frozen_benchmark_are_traceable() -> None:

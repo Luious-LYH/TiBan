@@ -1,0 +1,264 @@
+{
+  "artifact_version": "factory-provider-acceptance-v1",
+  "generated_at": "2026-08-28T14:30:23.270058+00:00",
+  "provider_mode": "provider",
+  "fallback": false,
+  "safety": "No API key, raw chain-of-thought, local absolute path, raw image bytes or patient data is retained.",
+  "runs": [
+    {
+      "source_kind": "markdown",
+      "source_id": "project-curated-gastro-v1",
+      "source_uri": "https://www.niddk.nih.gov/health-information/diagnostic-tests/upper-gi-endoscopy",
+      "source_meta": {},
+      "document_id": "doc_e270b4db2727",
+      "job_id": "factory_bd5308510915",
+      "result": {
+        "job_id": "factory_bd5308510915",
+        "status": "ready_for_review",
+        "revision_id": "revision_51b2ad512ab7"
+      },
+      "status": "published",
+      "revision": {
+        "revision_id": "revision_51b2ad512ab7",
+        "parent_revision_id": null,
+        "status": "published",
+        "source_chunk_ids": [
+          "chunk-e270b4db2727-ed7a62d8-180-00-v2"
+        ],
+        "draft": {
+          "question_type": "single_choice",
+          "title": "教学图像观察记录的规范原则",
+          "stem": "根据所给教学证据，完成单次图像观察记录时，以下哪项做法最恰当？",
+          "options": [
+            {
+              "id": "A",
+              "text": "仅凭单次图像直接作出完整临床判断"
+            },
+            {
+              "id": "B",
+              "text": "区分可见部位、表面形态，以及仍需病理或完整病史确认的内容"
+            },
+            {
+              "id": "C",
+              "text": "将尚未确认的内容作为确定结论记录"
+            },
+            {
+              "id": "D",
+              "text": "省略图像中可见的部位和表面形态，只记录最终判断"
+            }
+          ],
+          "correct_option_id": "B",
+          "explanation": "教学记录应明确区分图像中可见的部位、表面形态与尚待确认的信息；需要病理或完整病史支持的内容不能仅凭单次图像确定。单次图像观察不能替代完整临床判断。仅供教学训练或医生审核前辅助，使用前应由医生审核，不作为独立诊断依据。",
+          "teaching_tags": [
+            "教学观察",
+            "规范记录",
+            "可见证据",
+            "病理确认",
+            "完整病史",
+            "单项选择题"
+          ],
+          "citation": {
+            "chunk_id": "chunk-e270b4db2727-ed7a62d8-180-00-v2",
+            "document_id": "doc_e270b4db2727"
+          },
+          "provider_mode": "provider",
+          "provider": "openai_compatible",
+          "model": "gpt-5.6-sol",
+          "latency_ms": 11975
+        },
+        "judge": {
+          "passed": true,
+          "groundedness": "pass",
+          "answer_consistency": "pass",
+          "citation_validity": "pass",
+          "distractor_quality": "pass",
+          "teaching_value": "pass",
+          "rewrite_instruction": "pass",
+          "judge_mode": "provider",
+          "prompt_version": "factory-judge-v1",
+          "provider": "openai_compatible",
+          "model": "gpt-5.6-sol",
+          "latency_ms": 7287
+        },
+        "rewrite_instruction": null
+      },
+      "published": {
+        "job_id": "factory_bd5308510915",
+        "revision_id": "revision_51b2ad512ab7",
+        "question_id": "factory_question_51b2ad512ab7",
+        "status": "published"
+      }
+    },
+    {
+      "source_kind": "pdf",
+      "source_id": "project-curated-gastro-v1",
+      "source_uri": "https://www.niddk.nih.gov/health-information/diagnostic-tests/upper-gi-endoscopy",
+      "source_meta": {},
+      "document_id": "doc_47d611644ca8",
+      "job_id": "factory_6ebe9392885c",
+      "result": {
+        "job_id": "factory_6ebe9392885c",
+        "status": "ready_for_review",
+        "revision_id": "revision_ceee6da081c7"
+      },
+      "status": "published",
+      "revision": {
+        "revision_id": "revision_ceee6da081c7",
+        "parent_revision_id": null,
+        "status": "published",
+        "source_chunk_ids": [
+          "chunk-47d611644ca8-5c995aab-180-00-v2"
+        ],
+        "draft": {
+          "question_type": "single_choice",
+          "title": "内镜教学阅读：可见证据的规范记录",
+          "stem": "在内镜教学观察中，现有材料仅提示应保留可见的部位与形态线索，且证据不完整。此时最恰当的处理原则是什么？",
+          "options": [
+            {
+              "id": "A",
+              "text": "依据有限线索直接确认病因和诊断"
+            },
+            {
+              "id": "B",
+              "text": "记录可见的部位与形态线索，并明确证据不足，不独立确认病因或诊断"
+            },
+            {
+              "id": "C",
+              "text": "忽略可见形态，仅根据主观印象作出结论"
+            },
+            {
+              "id": "D",
+              "text": "删除不完整证据，以避免记录不确定性"
+            }
+          ],
+          "correct_option_id": "B",
+          "explanation": "材料强调保留可见的部位和形态线索；当证据不完整时，不应据此独立确认病因或诊断。因此，规范做法是客观记录可见信息，同时明确证据的局限性。本题仅用于教学，或须经医师审核后使用，不作为独立诊断依据。",
+          "teaching_tags": [
+            "内镜教学",
+            "观察练习",
+            "部位描述",
+            "形态描述",
+            "证据局限性",
+            "诊断安全"
+          ],
+          "citation": {
+            "chunk_id": "chunk-47d611644ca8-5c995aab-180-00-v2",
+            "document_id": "doc_47d611644ca8"
+          },
+          "provider_mode": "provider",
+          "provider": "openai_compatible",
+          "model": "gpt-5.6-sol",
+          "latency_ms": 10363
+        },
+        "judge": {
+          "passed": true,
+          "groundedness": "pass",
+          "answer_consistency": "pass",
+          "citation_validity": "pass",
+          "distractor_quality": "pass",
+          "teaching_value": "pass",
+          "rewrite_instruction": "",
+          "judge_mode": "provider",
+          "prompt_version": "factory-judge-v1",
+          "provider": "openai_compatible",
+          "model": "gpt-5.6-sol",
+          "latency_ms": 8728
+        },
+        "rewrite_instruction": null
+      },
+      "published": {
+        "job_id": "factory_6ebe9392885c",
+        "revision_id": "revision_ceee6da081c7",
+        "question_id": "factory_question_ceee6da081c7",
+        "status": "published"
+      }
+    },
+    {
+      "source_kind": "kvasir_vqa_x1_generation_source",
+      "source_id": "kvasir-vqa-x1",
+      "source_uri": "https://github.com/ENDObenchmark/Kvasir-VQA-x1",
+      "source_meta": {
+        "source_item_id": "kvasir-x1-test-0",
+        "dataset": "Kvasir-VQA-x1"
+      },
+      "document_id": "doc_b69507ffb040",
+      "job_id": "factory_0121359e3785",
+      "result": {
+        "job_id": "factory_0121359e3785",
+        "status": "ready_for_review",
+        "revision_id": "revision_b03a3b7cf6b6"
+      },
+      "status": "published",
+      "revision": {
+        "revision_id": "revision_b03a3b7cf6b6",
+        "parent_revision_id": null,
+        "status": "published",
+        "source_chunk_ids": [
+          "chunk-b69507ffb040-0afa0566-180-00-v2"
+        ],
+        "draft": {
+          "question_type": "single_choice",
+          "title": "胃肠道息肉样病变观察练习",
+          "stem": "根据该资料记录中的原始标注，胃肠道内息肉样病变的观察结果是什么？",
+          "options": [
+            {
+              "id": "A",
+              "text": "识别到明确的息肉样病变"
+            },
+            {
+              "id": "B",
+              "text": "未识别到息肉样病变"
+            },
+            {
+              "id": "C",
+              "text": "原始标注明确指出了息肉的具体类型"
+            },
+            {
+              "id": "D",
+              "text": "原始标注无法判断是否存在息肉样病变"
+            }
+          ],
+          "correct_option_id": "B",
+          "explanation": "资料中的原始标注答案为“no polypoid lesions identified”，即未识别到息肉样病变。因此选择 B。该结论仅对应所提供记录中的标注，不应扩展为对其他图像或患者情况的判断。本题仅供教学使用，实际使用前应由医师审核，不可作为独立诊断依据。",
+          "teaching_tags": [
+            "消化内镜",
+            "息肉样病变",
+            "观察性描述",
+            "资料溯源",
+            "单项选择题"
+          ],
+          "citation": {
+            "chunk_id": "chunk-b69507ffb040-0afa0566-180-00-v2",
+            "document_id": "doc_b69507ffb040"
+          },
+          "provider_mode": "provider",
+          "provider": "openai_compatible",
+          "model": "gpt-5.6-sol",
+          "latency_ms": 10966
+        },
+        "judge": {
+          "passed": true,
+          "groundedness": "pass",
+          "answer_consistency": "pass",
+          "citation_validity": "pass",
+          "distractor_quality": "pass",
+          "teaching_value": "pass",
+          "rewrite_instruction": "无需改写。",
+          "judge_mode": "provider",
+          "prompt_version": "factory-judge-v1",
+          "provider": "openai_compatible",
+          "model": "gpt-5.6-sol",
+          "latency_ms": 7734
+        },
+        "rewrite_instruction": null
+      },
+      "published": {
+        "job_id": "factory_0121359e3785",
+        "revision_id": "revision_b03a3b7cf6b6",
+        "question_id": "factory_question_b03a3b7cf6b6",
+        "status": "published"
+      }
+    }
+  ],
+  "passed": true
+}

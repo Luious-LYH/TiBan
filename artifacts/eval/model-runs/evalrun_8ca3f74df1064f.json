@@ -1,0 +1,123 @@
+{
+  "artifact_version": "model-evaluation-run-v1",
+  "eval_run_id": "evalrun_8ca3f74df1064f",
+  "created_at": "2026-08-28T16:28:37.963292+00:00",
+  "completed_at": "2026-08-28T16:28:37.963292+00:00",
+  "provider": "byok_openai_compatible",
+  "model": "gpt-5.6-sol",
+  "dataset_id": "cmexam-text-eval-v1",
+  "dataset_version": "cmexam-text-eval-v1",
+  "dataset_hash": "7bf69855cf9b9f5a53dabeb538ee4655ee5ee3c50ff85ea247f739d533f77b4e",
+  "dataset": {
+    "dataset_id": "cmexam-text-eval-v1",
+    "version": "cmexam-text-eval-v1",
+    "dataset_hash": "7bf69855cf9b9f5a53dabeb538ee4655ee5ee3c50ff85ea247f739d533f77b4e",
+    "source_dataset": "CMExam",
+    "modality": "text",
+    "sample_count": 100
+  },
+  "prompt_version": "model-eval-answer-json-v1",
+  "status": "completed",
+  "sample_count": 5,
+  "fallback": false,
+  "aggregate": {
+    "sample_count": 5,
+    "accuracy": 1.0,
+    "valid_parse_rate": 1.0,
+    "failure_rate": 0.0,
+    "latency_p50_ms": 2917.0,
+    "latency_p95_ms": 3130.0,
+    "token_usage": {
+      "prompt_tokens": 2120,
+      "completion_tokens": 45,
+      "total_tokens": 2165
+    }
+  },
+  "usage": {
+    "prompt_tokens": 2120,
+    "completion_tokens": 45,
+    "total_tokens": 2165
+  },
+  "errors": [],
+  "cases": [
+    {
+      "case_id": "cmexam-eval-000000",
+      "source_item_id": "test_with_annotations.csv:0",
+      "question": "对医疗废物的收集，运转，贮存，处置中的疾病防治工作进行定期检测监督检査的部门是",
+      "candidate_output": "{\"answer\": \"C\"}",
+      "parsed_answer": "C",
+      "gold_answer": "C",
+      "correct": true,
+      "valid_parse": true,
+      "latency_ms": 3130,
+      "error_category": null,
+      "task": "text_single_choice",
+      "topic": "不符合",
+      "image_attached": false
+    },
+    {
+      "case_id": "cmexam-eval-000001",
+      "source_item_id": "test_with_annotations.csv:1",
+      "question": "既治湿热泻痢，又治感冒发热的药是",
+      "candidate_output": "{\"answer\": \"D\"}",
+      "parsed_answer": "D",
+      "gold_answer": "D",
+      "correct": true,
+      "valid_parse": true,
+      "latency_ms": 3018,
+      "error_category": null,
+      "task": "text_single_choice",
+      "topic": "补充章传统医学病证-模块1",
+      "image_attached": false
+    },
+    {
+      "case_id": "cmexam-eval-000002",
+      "source_item_id": "test_with_annotations.csv:2",
+      "question": "主要根据沸点高低分离物质的方法是",
+      "candidate_output": "{\"answer\": \"E\"}",
+      "parsed_answer": "E",
+      "gold_answer": "E",
+      "correct": true,
+      "valid_parse": true,
+      "latency_ms": 2917,
+      "error_category": null,
+      "task": "text_single_choice",
+      "topic": "不符合",
+      "image_attached": false
+    },
+    {
+      "case_id": "cmexam-eval-000003",
+      "source_item_id": "test_with_annotations.csv:3",
+      "question": "不属于眼球屈光装置的结构是",
+      "candidate_output": "{\"answer\": \"C\"}",
+      "parsed_answer": "C",
+      "gold_answer": "C",
+      "correct": true,
+      "valid_parse": true,
+      "latency_ms": 2665,
+      "error_category": null,
+      "task": "text_single_choice",
+      "topic": "不符合",
+      "image_attached": false
+    },
+    {
+      "case_id": "cmexam-eval-000004",
+      "source_item_id": "test_with_annotations.csv:4",
+      "question": "甘味的作用特点是",
+      "candidate_output": "{\"answer\": \"A\"}",
+      "parsed_answer": "A",
+      "gold_answer": "A",
+      "correct": true,
+      "valid_parse": true,
+      "latency_ms": 2706,
+      "error_category": null,
+      "task": "text_single_choice",
+      "topic": "不符合",
+      "image_attached": false
+    }
+  ],
+  "artifact_path": "artifacts/eval/model-runs/evalrun_8ca3f74df1064f.json",
+  "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。",
+  "secret_policy": "api_key request-scoped; not persisted, logged, traced or artifacted",
+  "artifact_hash": "acee71f8e3ebb035e318ac846e1ce267af618fbe08231654bc310cf5c5e2f062"
+}

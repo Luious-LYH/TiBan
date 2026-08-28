@@ -1,0 +1,332 @@
+{
+  "artifact_version": "knowledge-corpus-v1-index-v1",
+  "generated_at": "2026-08-28T14:03:00.709191+00:00",
+  "corpus_id": "knowledge-corpus-v1",
+  "manifest_document_count": 45,
+  "indexed_document_count": 45,
+  "persisted_document_count": 45,
+  "version_count": 45,
+  "chunk_count": 271,
+  "namespace": "endoscopy",
+  "source_id": "niddk-public-health-corpus-v1",
+  "license_gate_status": "allow",
+  "qdrant_collection": "endotutor_chunks_v1",
+  "dry_run": false,
+  "documents": [
+    {
+      "document_id": "knowledge-v1-digestive-tract-orientation",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases",
+      "content_hash": "7d14b2390ac3d451a7e2a364d114f09d8de4d8ec56bfb6657041ba439bc40204",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-upper-gi-endoscopy-overview",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/diagnostic-tests/upper-gi-endoscopy",
+      "content_hash": "a7687273f31c403e20b4c7e2f672dac17765b8ad28f0e0714dc395d151807e6a",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-endoscopy-observation-boundary",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases",
+      "content_hash": "3a80a6f136060425daa231fad5d53e7895eafaa487ec9ae4f0e6a81b3106416a",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-ger-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/acid-reflux-ger-gerd-adults/definition-facts",
+      "content_hash": "9c884371ad50076b56a16b0e617e51996e16fc9db911cad3fca29c96c5e91bd7",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-gerd-symptoms",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/acid-reflux-ger-gerd-adults/symptoms-causes",
+      "content_hash": "618a38cef54e82d567409bb2e4497e90e4c683cb87dccbdae04c2c8ab8c912da",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-gerd-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/acid-reflux-ger-gerd-adults/diagnosis",
+      "content_hash": "56bc54bd584128936f9766c26a6ea0f7dd199b356b36fe0f3c443904cc6c8855",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-esophagitis-concept",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/acid-reflux-ger-gerd-adults/definition-facts",
+      "content_hash": "95685ba7d90649bbea07a2ed62dd1234f05e0b0039afe9b2fb41f03023485bf6",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-barrett-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/barretts-esophagus/definition-facts",
+      "content_hash": "2c99496d71dc7fc41a939130cd186c2757ccd534ccd1dc548057882d6f1352c2",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-barrett-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/barretts-esophagus/diagnosis",
+      "content_hash": "f45aa78d897116be71988814f1d657b79bcce7d31cf0bdc7d882e888aa84491c",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-gi-bleeding-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/gastrointestinal-bleeding/definition-facts",
+      "content_hash": "5d60e048f1d071e50839c0576a19540fb52b41dd6d8194752d4b66dc5aaa50f1",
+      "chunk_count": 7
+    },
+    {
+      "document_id": "knowledge-v1-gi-bleeding-symptoms",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/gastrointestinal-bleeding/symptoms-causes",
+      "content_hash": "a8ab13b8d3fbf3914fc22846dd0b60b699d6d6b8d1e20cb73cbd7bb86ad8163c",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-gi-bleeding-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/gastrointestinal-bleeding/diagnosis",
+      "content_hash": "38df58f86e2e6090f2f5ed47ebaa8d969659d57d3070fc61c7fe916d7a13f570",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-gi-bleeding-endoscopy",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/gastrointestinal-bleeding/treatment",
+      "content_hash": "9877bea23be85d47c6b62f96aaf8c19009066b7eb30cdb679cb4a8390093d408",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-peptic-ulcer-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/peptic-ulcers-stomach-ulcers/definition-facts",
+      "content_hash": "fb7d32a8278986fcc9896183aec23032a368657c8cfe89208e7d92f60c4396c3",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-peptic-ulcer-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/peptic-ulcers-stomach-ulcers/diagnosis",
+      "content_hash": "0525e295512585de4c1d4127aba8123e0085712c5ec18aa033f2bc33d1601181",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-gastritis-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/gastritis-gastropathy/definition-facts",
+      "content_hash": "f4f98758b10bede4a1ade030f8c25d978b3f5d4fd4ccdf0ebacf1c7de9cbbdcb",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-gastritis-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/gastritis-gastropathy/diagnosis",
+      "content_hash": "b73dcdbf46f0db776386a411f2542f0e7256a3072ca0cc0866ba26ba40336145",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-crohn-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/crohns-disease/definition-facts",
+      "content_hash": "66bfc12e3bbdd0c3273977c368317c95145ea14a25cc0c1d98be1fda80586f5a",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-crohn-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/crohns-disease/diagnosis",
+      "content_hash": "ef427a2a7389506adfd3ffdb17f1834f8ee9c02c96c37b57e095e7995ff1ae15",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-ulcerative-colitis-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/ulcerative-colitis/definition-facts",
+      "content_hash": "38a2ceb1a92d229ee3133ea0f97f529069ea0c7a3eac9b9ce816043de1b447e7",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-ulcerative-colitis-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/ulcerative-colitis/diagnosis",
+      "content_hash": "81e2cab9ffb5192fd359cca9b38efd77d02c4f34e4bf7efc521313a2bce26445",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-colorectal-polyps-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/colon-polyps/definition-facts",
+      "content_hash": "ca40423e5104c8c82805fbb2ab47da4c1d04980dbec97dcac9128aef47ef25df",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-colorectal-polyps-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/colon-polyps/diagnosis",
+      "content_hash": "c44b7197796badcbf1f6914aa5b612aea41536cbb3e7833741af93a44b20202a",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-colonoscopy-overview",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/diagnostic-tests/colonoscopy",
+      "content_hash": "9d4c555566bc81d51d953c11164f200bdee32e1dca946668875767a6a96ffb1b",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-celiac-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/celiac-disease/definition-facts",
+      "content_hash": "617a2d48df8d6f8c9791cf1f031a257d62a92b5ed76696c077cbf2034b35b172",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-celiac-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/celiac-disease/diagnosis",
+      "content_hash": "fc9ecc3370b7470a0a985f679e2727123a6d3c94370f04c174e43bbbd91c629c",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-ibs-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/irritable-bowel-syndrome/definition-facts",
+      "content_hash": "251e79bb2fe7c6e2ba4e2a03854ffaf768e5a2e9e739c42c12bacf215d34e18a",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-ibs-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/irritable-bowel-syndrome/diagnosis",
+      "content_hash": "00b92f7acc82714838585568eadb63f8b69b290fcc2bf78fc3b5f83d1fc5e228",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-diverticular-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/diverticular-disease/definition-facts",
+      "content_hash": "5134934ec260256414d5b0904ecd5fee63eb31b38823ddcd654e9a939029dea3",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-diverticular-diagnosis",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/diverticular-disease/diagnosis",
+      "content_hash": "a05ba777a1dcc29505159aa40a0af55519d6679a9db39c5c7ecb55073f7006c5",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-dyspepsia-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/indigestion-dyspepsia/definition-facts",
+      "content_hash": "3a67c495d0955ddae625b4628f3ae39e7fc7f320abc4df40ad7607db6cadf04e",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-lactose-intolerance-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/lactose-intolerance/definition-facts",
+      "content_hash": "100746205ef021345f2e91a34204a328ec41c6cb3ecd4721bc01e5f8f7be943b",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-constipation-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/constipation/definition-facts",
+      "content_hash": "a375d2c93dfee98d6e687748c94e2f44826644a6352c39e204e2da3715538441",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-diarrhea-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/diarrhea/definition-facts",
+      "content_hash": "9ca123d6564767ac996f5744e49c6ac46ea49797d3139d8d1c02fb30992ad0c3",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-gallstones-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/gallstones/definition-facts",
+      "content_hash": "4e2b138c929c404076dfd5efad0d80eb6a4fcaf59a43b919c74cf55966d5e046",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-pancreatitis-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/pancreatitis/definition-facts",
+      "content_hash": "c6c8125022299e81922d58f434989bc33b1742214ed01ae4d494a4d5fd2f55ed",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-viral-hepatitis-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/liver-disease/viral-hepatitis",
+      "content_hash": "7e4837bd5e4ea2b1fab3dc0f272d377d0e32fdbb466a7acc9bfa29a55b91543b",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-cirrhosis-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/liver-disease/cirrhosis/definition-facts",
+      "content_hash": "9f101520a3432696341ca2f38769971e06d2f04f09d4f6fe02c1d787e4deea29",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-hemorrhoids-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/hemorrhoids/definition-facts",
+      "content_hash": "227e1789dec0a3d9b6285c05e21dc5531a981d247bb84fde2a9a6264f4c06e79",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-anal-fissure-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/anal-fissure/definition-facts",
+      "content_hash": "f5ece089da8a887f4818b4c346a28ddb3fa084c4b14cca7549aeb81f9a8d3ecc",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-microscopic-colitis-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/microscopic-colitis/definition-facts",
+      "content_hash": "9a436f0fad0a8076e06df8047109b2c3d82e06ecff068e0bd99a23f08c685c50",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-gastroparesis-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/gastroparesis/definition-facts",
+      "content_hash": "958b412fc6ca075f76693c6131335d80b077ee9e9bb830e10eb1f00aefe72abe",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-bowel-control-overview",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/bowel-control-problems",
+      "content_hash": "e2ccf4e8561ce2c59a5a7dedd3d80fe3141850bf812ef6b102118d623ba3a4dc",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-short-bowel-syndrome-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/short-bowel-syndrome",
+      "content_hash": "d9135b6b4610375edcba7f2fe87295ac672e9ce4b9a3a320efc5733f6c29bbf6",
+      "chunk_count": 6
+    },
+    {
+      "document_id": "knowledge-v1-intestinal-obstruction-definition",
+      "namespace": "endoscopy",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/intestinal-obstruction",
+      "content_hash": "a4a710c5a0e35c91626a53204609cdbae3d9df9204b537d16b825fd4f5c31a71",
+      "chunk_count": 6
+    }
+  ]
+}

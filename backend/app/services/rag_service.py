@@ -34,6 +34,7 @@ class Citation:
     section: str
     snippet: str
     score: float
+    document_id: str | None = None
     namespace: str = 'medical_general'
     source_uri: str | None = None
 
@@ -78,7 +79,20 @@ class RagService:
             self._reranker = CrossEncoder(RERANK_MODEL, cache_dir=str(MODEL_CACHE / 'cross-encoder'))
         return self._reranker
 
-    def index_markdown(self, path: Path, *, document_id: str = 'source-stage2-endoscopy-v1', child_size: int = 180, namespace: str = 'medical_general', source_id: str | None = None, source_uri: str | None = None, business_usage: str = 'knowledge_base', license_gate_status: str = 'allow_noncommercial', ai_ingestion_allowed: bool = True) -> list[str]:
+    def index_markdown(
+        self,
+        path: Path,
+        *,
+        document_id: str = 'source-stage2-endoscopy-v1',
+        child_size: int = 180,
+        namespace: str = 'medical_general',
+        source_id: str | None = None,
+        source_uri: str | None = None,
+        business_usage: str = 'knowledge_base',
+        license_gate_status: str = 'allow_noncommercial',
+        ai_ingestion_allowed: bool = True,
+        version_label: str | None = None,
+    ) -> list[str]:
         text = path.read_text(encoding='utf-8')
         document_name = path.name
         source_hash = _hash(text)
@@ -88,7 +102,7 @@ class RagService:
         # untouched for auditability; v2 is the only version eligible for new
         # benchmark/product retrieval and therefore can never mix both IDs.
         version_id = f'{document_id}-{source_hash[:12]}-{child_size}-v2'
-        version_label = (
+        resolved_version_label = version_label or (
             f'retrieval-eval-v1-child-{child_size}-identity-v2'
             if document_id == 'source-stage2-endoscopy-v1'
             else f'factory-index-v1-child-{child_size}-identity-v2'
@@ -106,7 +120,7 @@ class RagService:
                 document.license_gate_status = license_gate_status
                 document.ai_ingestion_allowed = ai_ingestion_allowed
             if not session.get(DocumentVersionModel, version_id):
-                session.add(DocumentVersionModel(version_id=version_id, document_id=document_id, version_label=version_label, source_path=str(path.resolve()), content_hash=source_hash, parser='heading-aware-markdown', status='indexed'))
+                session.add(DocumentVersionModel(version_id=version_id, document_id=document_id, version_label=resolved_version_label, source_path=str(path.resolve()), content_hash=source_hash, parser='heading-aware-markdown', status='indexed'))
             for ordinal, (section, content) in enumerate(chunks):
                 # The same allowed content may be uploaded more than once;
                 # include document identity so globally keyed chunks retain
@@ -136,10 +150,21 @@ class RagService:
             client = self.qdrant
             if not client.collection_exists(COLLECTION):
                 client.create_collection(COLLECTION, vectors_config=models.VectorParams(size=len(vectors[0]), distance=models.Distance.COSINE))
-            client.upsert(COLLECTION, points=[models.PointStruct(id=_point_id(row.chunk_id), vector=vector.tolist(), payload={'chunk_id': row.chunk_id, 'version_id': row.version_id, 'namespace': row.namespace, 'document_name': document.name, 'page': row.page, 'section': row.parent_section, 'source_uri': row.source_uri, 'content': row.content}) for row, vector in zip(rows, vectors)])
+            client.upsert(COLLECTION, points=[models.PointStruct(id=_point_id(row.chunk_id), vector=vector.tolist(), payload={'chunk_id': row.chunk_id, 'document_id': row.document_id, 'version_id': row.version_id, 'namespace': row.namespace, 'document_name': document.name, 'page': row.page, 'section': row.parent_section, 'source_uri': row.source_uri, 'content': row.content}) for row, vector in zip(rows, vectors)])
             return [row.chunk_id for row in rows]
 
-    def retrieve(self, query: str, mode: Literal['sparse', 'dense', 'hybrid', 'hybrid_rerank'] = 'hybrid', limit: int = 5, *, version_id: str | None = None, namespace: str | None = None, namespaces: list[str] | None = None) -> list[Citation]:
+    def retrieve(
+        self,
+        query: str,
+        mode: Literal['sparse', 'dense', 'hybrid', 'hybrid_rerank'] = 'hybrid',
+        limit: int = 5,
+        *,
+        version_id: str | None = None,
+        version_ids: list[str] | None = None,
+        document_ids: list[str] | None = None,
+        namespace: str | None = None,
+        namespaces: list[str] | None = None,
+    ) -> list[Citation]:
         started = perf_counter()
         with SessionLocal() as session:
             # Product retrieval intentionally uses one frozen, benchmarked
@@ -149,7 +174,7 @@ class RagService:
             # namespace-scoped product query intentionally searches all
             # approved documents in that namespace so newly curated KB notes
             # are visible to Tutor without changing the benchmark artifact.
-            if version_id is None and namespace is None and not namespaces:
+            if version_id is None and not version_ids and not document_ids and namespace is None and not namespaces:
                 active = session.scalar(
                     select(DocumentVersionModel.version_id)
                     .where(DocumentVersionModel.document_id == 'source-stage2-endoscopy-v1', DocumentVersionModel.version_label == 'retrieval-eval-v1-child-180-identity-v2')
@@ -159,6 +184,10 @@ class RagService:
             statement = select(KnowledgeChunkModel).order_by(KnowledgeChunkModel.ordinal)
             if version_id:
                 statement = statement.where(KnowledgeChunkModel.version_id == version_id)
+            elif version_ids:
+                statement = statement.where(KnowledgeChunkModel.version_id.in_(version_ids))
+            if document_ids:
+                statement = statement.where(KnowledgeChunkModel.document_id.in_(document_ids))
             if namespace:
                 statement = statement.where(KnowledgeChunkModel.namespace == namespace)
             elif namespaces:
@@ -183,6 +212,10 @@ class RagService:
             conditions = []
             if version_id:
                 conditions.append(models.FieldCondition(key='version_id', match=models.MatchValue(value=version_id)))
+            elif version_ids:
+                conditions.append(models.FieldCondition(key='version_id', match=models.MatchAny(any=version_ids)))
+            if document_ids:
+                conditions.append(models.FieldCondition(key='document_id', match=models.MatchAny(any=document_ids)))
             if namespace:
                 conditions.append(models.FieldCondition(key='namespace', match=models.MatchValue(value=namespace)))
             elif namespaces:
@@ -208,7 +241,7 @@ class RagService:
         else:
             selected = candidates[:limit]
         _ = perf_counter() - started
-        return [Citation(chunk_id=row.chunk_id, document_name=docs.get(row.document_id).name if row.document_id in docs else '教学资料', page=row.page, section=row.parent_section, snippet=row.content[:220], score=round(scores[row.chunk_id], 5), namespace=row.namespace, source_uri=docs.get(row.document_id).source_uri if row.document_id in docs else row.source_uri) for row in selected if scores[row.chunk_id] > 0]
+        return [Citation(chunk_id=row.chunk_id, document_name=docs.get(row.document_id).name if row.document_id in docs else '教学资料', page=row.page, section=row.parent_section, snippet=row.content[:220], score=round(scores[row.chunk_id], 5), document_id=row.document_id, namespace=row.namespace, source_uri=docs.get(row.document_id).source_uri if row.document_id in docs else row.source_uri) for row in selected if scores[row.chunk_id] > 0]
 
 
 def _point_id(value: str) -> int:

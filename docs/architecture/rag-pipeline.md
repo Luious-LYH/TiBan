@@ -11,7 +11,13 @@ PostgreSQL is the canonical relational source for hashes, parser/version lineage
 
 Sparse scoring uses Chinese character bigram overlap. Dense scoring uses the real `BAAI/bge-small-zh-v1.5` embedding model through FastEmbed. Hybrid applies RRF. The fourth benchmark chain uses the learned Apache-2.0 `cross-encoder/ms-marco-MiniLM-L6-v2`, not a lexical boost.
 
-The 50-query benchmark showed the English-trained cross-encoder is weaker and slower on this small Chinese teaching corpus, so the default Tutor route is **Hybrid**, while the reranker remains implemented and recorded as a failure/selection artifact. This is a measured trade-off, not a capability claim.
+The frozen `retrieval-eval-v2` benchmark contains 90 candidates (30
+development and 60 held-out test). On the held-out set, sparse reached
+Recall@5 0.7667, dense 0.8833, hybrid 0.7167 and hybrid+rerank 0.9000; the
+reranker P50 was 1062.82 ms. The English-trained cross-encoder is therefore
+retained as a measured comparison, while the default Tutor route stays
+**Hybrid** for its latency/quality trade-off. These are portfolio benchmark
+results, not clinical effectiveness claims.
 
 User-facing source cards expose only source name, page and section plus a short snippet. Internal vector IDs and scores do not appear in the UI. Generated questions reuse the same SourceDocument/KnowledgeChunk relation.
 

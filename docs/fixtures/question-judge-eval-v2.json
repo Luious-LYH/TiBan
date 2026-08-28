@@ -1,0 +1,823 @@
+{
+  "dataset_version": "question-judge-eval-v2-candidate-2026-08-28",
+  "dataset_hash": "3f321d6b4302c831de8c29212458b8b1c26bb71d02ce65b408b906a8cc791619",
+  "sample_count": 80,
+  "issue_distribution": {
+    "safe_pass": 16,
+    "answer_consistency": 9,
+    "citation_missing": 8,
+    "citation_mismatch": 8,
+    "unsupported_claim": 8,
+    "safety_boundary": 8,
+    "duplicate_distractor": 8,
+    "ambiguous_stem": 8,
+    "difficulty_mismatch": 7
+  },
+  "review_policy": {
+    "human_review_required_before_accuracy_claim": true,
+    "status": "pending",
+    "note": "Provider measurements are engineering evidence only until independently checked by a named clinical/educator reviewer."
+  },
+  "cases": [
+    {
+      "id": "judge-v2-001",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-002",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-003",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-004",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-005",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-006",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-007",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-008",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-009",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-010",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-011",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-012",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-013",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-014",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-015",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-016",
+      "expected_label": "pass",
+      "issue": "safe_pass",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-017",
+      "expected_label": "fail",
+      "issue": "answer_consistency",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-018",
+      "expected_label": "fail",
+      "issue": "answer_consistency",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-019",
+      "expected_label": "fail",
+      "issue": "answer_consistency",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-020",
+      "expected_label": "fail",
+      "issue": "answer_consistency",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-021",
+      "expected_label": "fail",
+      "issue": "answer_consistency",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-022",
+      "expected_label": "fail",
+      "issue": "answer_consistency",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-023",
+      "expected_label": "fail",
+      "issue": "answer_consistency",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-024",
+      "expected_label": "fail",
+      "issue": "answer_consistency",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-025",
+      "expected_label": "fail",
+      "issue": "answer_consistency",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-026",
+      "expected_label": "fail",
+      "issue": "citation_missing",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-027",
+      "expected_label": "fail",
+      "issue": "citation_missing",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-028",
+      "expected_label": "fail",
+      "issue": "citation_missing",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-029",
+      "expected_label": "fail",
+      "issue": "citation_missing",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-030",
+      "expected_label": "fail",
+      "issue": "citation_missing",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-031",
+      "expected_label": "fail",
+      "issue": "citation_missing",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-032",
+      "expected_label": "fail",
+      "issue": "citation_missing",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-033",
+      "expected_label": "fail",
+      "issue": "citation_missing",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-034",
+      "expected_label": "fail",
+      "issue": "citation_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-035",
+      "expected_label": "fail",
+      "issue": "citation_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-036",
+      "expected_label": "fail",
+      "issue": "citation_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-037",
+      "expected_label": "fail",
+      "issue": "citation_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-038",
+      "expected_label": "fail",
+      "issue": "citation_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-039",
+      "expected_label": "fail",
+      "issue": "citation_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-040",
+      "expected_label": "fail",
+      "issue": "citation_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-041",
+      "expected_label": "fail",
+      "issue": "citation_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-042",
+      "expected_label": "fail",
+      "issue": "unsupported_claim",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-043",
+      "expected_label": "fail",
+      "issue": "unsupported_claim",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-044",
+      "expected_label": "fail",
+      "issue": "unsupported_claim",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-045",
+      "expected_label": "fail",
+      "issue": "unsupported_claim",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-046",
+      "expected_label": "fail",
+      "issue": "unsupported_claim",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-047",
+      "expected_label": "fail",
+      "issue": "unsupported_claim",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-048",
+      "expected_label": "fail",
+      "issue": "unsupported_claim",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-049",
+      "expected_label": "fail",
+      "issue": "unsupported_claim",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-050",
+      "expected_label": "fail",
+      "issue": "safety_boundary",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-051",
+      "expected_label": "fail",
+      "issue": "safety_boundary",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-052",
+      "expected_label": "fail",
+      "issue": "safety_boundary",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-053",
+      "expected_label": "fail",
+      "issue": "safety_boundary",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-054",
+      "expected_label": "fail",
+      "issue": "safety_boundary",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-055",
+      "expected_label": "fail",
+      "issue": "safety_boundary",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-056",
+      "expected_label": "fail",
+      "issue": "safety_boundary",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-057",
+      "expected_label": "fail",
+      "issue": "safety_boundary",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-058",
+      "expected_label": "fail",
+      "issue": "duplicate_distractor",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-059",
+      "expected_label": "fail",
+      "issue": "duplicate_distractor",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-060",
+      "expected_label": "fail",
+      "issue": "duplicate_distractor",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-061",
+      "expected_label": "fail",
+      "issue": "duplicate_distractor",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-062",
+      "expected_label": "fail",
+      "issue": "duplicate_distractor",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-063",
+      "expected_label": "fail",
+      "issue": "duplicate_distractor",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-064",
+      "expected_label": "fail",
+      "issue": "duplicate_distractor",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-065",
+      "expected_label": "fail",
+      "issue": "duplicate_distractor",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-066",
+      "expected_label": "fail",
+      "issue": "ambiguous_stem",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-067",
+      "expected_label": "fail",
+      "issue": "ambiguous_stem",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-068",
+      "expected_label": "fail",
+      "issue": "ambiguous_stem",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-069",
+      "expected_label": "fail",
+      "issue": "ambiguous_stem",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-070",
+      "expected_label": "fail",
+      "issue": "ambiguous_stem",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-071",
+      "expected_label": "fail",
+      "issue": "ambiguous_stem",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-072",
+      "expected_label": "fail",
+      "issue": "ambiguous_stem",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-073",
+      "expected_label": "fail",
+      "issue": "ambiguous_stem",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-074",
+      "expected_label": "fail",
+      "issue": "difficulty_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-075",
+      "expected_label": "fail",
+      "issue": "difficulty_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-076",
+      "expected_label": "fail",
+      "issue": "difficulty_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-077",
+      "expected_label": "fail",
+      "issue": "difficulty_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-078",
+      "expected_label": "fail",
+      "issue": "difficulty_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-079",
+      "expected_label": "fail",
+      "issue": "difficulty_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "judge-v2-080",
+      "expected_label": "fail",
+      "issue": "difficulty_mismatch",
+      "adjudication": {
+        "source": "deterministic engineering candidate",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    }
+  ]
+}

@@ -13,6 +13,11 @@ from .models import (  # noqa: F401
     LearnerMasteryModel,
     FactoryJobModel,
     QuestionRevisionModel,
+    EvalDatasetModel,
+    EvalDatasetVersionModel,
+    EvalRunModel,
+    EvalCaseModel,
+    EvalArtifactModel,
 )
 from .seed import seed_database
 

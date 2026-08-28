@@ -11,3 +11,5 @@ sentence-transformers>=3.4,<4
 PyMuPDF>=1.25,<2
 dramatiq[redis]>=1.17,<2
 fsrs>=6,<7
+PyYAML>=6,<7
+pyarrow>=16,<20

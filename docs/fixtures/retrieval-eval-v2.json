@@ -1,0 +1,1366 @@
+{
+  "dataset_version": "retrieval-eval-v2-candidate-2026-08-28",
+  "dataset_hash": "1e9347ed3e5d80d571f43cf3f33d36bbed23e53d73a52f789b146e3a92796226",
+  "source_corpus": "knowledge-corpus-v1",
+  "split": {
+    "development": 30,
+    "test": 60
+  },
+  "review_policy": {
+    "human_review_required_before_external_effectiveness_claim": true,
+    "status": "pending",
+    "note": "This frozen candidate set supports engineering reproducibility only until a named clinical/educator reviewer checks queries, relevance and hard negatives."
+  },
+  "queries": [
+    {
+      "id": "rag-v2-001",
+      "split": "development",
+      "query_type": "terminology",
+      "query": "我在复习“消化道结构与内镜定位”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-digestive-tract-orientation"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-002",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“消化道结构与内镜定位”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-digestive-tract-orientation"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-003",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“上消化道内镜检查概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-upper-gi-endoscopy-overview"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-004",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“上消化道内镜检查概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-upper-gi-endoscopy-overview"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-005",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“内镜观察与诊断边界”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-endoscopy-observation-boundary"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-006",
+      "split": "development",
+      "query_type": "terminology",
+      "query": "一道关于“内镜观察与诊断边界”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-endoscopy-observation-boundary"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-007",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“胃食管反流的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-ger-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-008",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“胃食管反流的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-ger-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-009",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“GERD 的症状与学习表达”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gerd-symptoms"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-010",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“GERD 的症状与学习表达”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gerd-symptoms"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-011",
+      "split": "development",
+      "query_type": "terminology",
+      "query": "我在复习“GERD 评估的资料维度”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gerd-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-012",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“GERD 评估的资料维度”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gerd-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-013",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“食管炎的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-esophagitis-concept"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-014",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“食管炎的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-esophagitis-concept"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-015",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“Barrett 食管的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-barrett-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-016",
+      "split": "development",
+      "query_type": "terminology",
+      "query": "一道关于“Barrett 食管的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-barrett-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-017",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“Barrett 食管的检查证据”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-barrett-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-018",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“Barrett 食管的检查证据”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-barrett-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-019",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“消化道出血的部位分类”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gi-bleeding-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-020",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“消化道出血的部位分类”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gi-bleeding-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-021",
+      "split": "development",
+      "query_type": "terminology",
+      "query": "我在复习“消化道出血的症状线索”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gi-bleeding-symptoms"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-022",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“消化道出血的症状线索”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gi-bleeding-symptoms"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-023",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“消化道出血的检查路径”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gi-bleeding-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-024",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“消化道出血的检查路径”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gi-bleeding-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-025",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“消化道出血与内镜证据”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gi-bleeding-endoscopy"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-026",
+      "split": "development",
+      "query_type": "terminology",
+      "query": "一道关于“消化道出血与内镜证据”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gi-bleeding-endoscopy"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-027",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“消化性溃疡的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-peptic-ulcer-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-028",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“消化性溃疡的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-peptic-ulcer-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-029",
+      "split": "development",
+      "query_type": "natural_learner",
+      "query": "我在复习“消化性溃疡的证据层级”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-peptic-ulcer-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-030",
+      "split": "development",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“消化性溃疡的证据层级”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-peptic-ulcer-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-031",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "我在复习“胃炎的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gastritis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-032",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“胃炎的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gastritis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-033",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“胃黏膜异常的检查线索”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gastritis-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-034",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“胃黏膜异常的检查线索”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gastritis-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-035",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“Crohn 病的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-crohn-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-036",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "一道关于“Crohn 病的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-crohn-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-037",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“Crohn 病的评估维度”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-crohn-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-038",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“Crohn 病的评估维度”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-crohn-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-039",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“溃疡性结肠炎的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-ulcerative-colitis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-040",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“溃疡性结肠炎的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-ulcerative-colitis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-041",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "我在复习“溃疡性结肠炎的检查线索”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-ulcerative-colitis-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-042",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“溃疡性结肠炎的检查线索”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-ulcerative-colitis-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-043",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“结直肠息肉的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-colorectal-polyps-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-044",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“结直肠息肉的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-colorectal-polyps-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-045",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“结直肠息肉的检查证据”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-colorectal-polyps-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-046",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "一道关于“结直肠息肉的检查证据”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-colorectal-polyps-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-047",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“结肠镜检查概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-colonoscopy-overview"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-048",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“结肠镜检查概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-colonoscopy-overview"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-049",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“乳糜泻的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-celiac-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-050",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“乳糜泻的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-celiac-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-051",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "我在复习“乳糜泻的检查证据”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-celiac-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-052",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“乳糜泻的检查证据”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-celiac-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-053",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“肠易激综合征的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-ibs-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-054",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“肠易激综合征的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-ibs-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-055",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“肠易激综合征的评估思路”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-ibs-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-056",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "一道关于“肠易激综合征的评估思路”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-ibs-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-057",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“憩室病的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-diverticular-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-058",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“憩室病的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-diverticular-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-059",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“憩室病的检查线索”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-diverticular-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-060",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“憩室病的检查线索”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-diverticular-diagnosis"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-061",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "我在复习“消化不良的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-dyspepsia-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-062",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“消化不良的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-dyspepsia-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-063",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“乳糖不耐受的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-lactose-intolerance-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-064",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“乳糖不耐受的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-lactose-intolerance-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-065",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“便秘的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-constipation-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-066",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "一道关于“便秘的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-constipation-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-067",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“腹泻的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-diarrhea-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-068",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“腹泻的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-diarrhea-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-069",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“胆结石的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gallstones-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-070",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“胆结石的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gallstones-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-071",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "我在复习“胰腺炎的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-pancreatitis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-072",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“胰腺炎的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-pancreatitis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-073",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“病毒性肝炎的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-viral-hepatitis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-074",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“病毒性肝炎的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-viral-hepatitis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-075",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“肝硬化的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-cirrhosis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-076",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "一道关于“肝硬化的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-cirrhosis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-077",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“痔的基本概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-hemorrhoids-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-078",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“痔的基本概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-hemorrhoids-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-079",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“肛裂的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-anal-fissure-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-080",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“肛裂的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-anal-fissure-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-081",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "我在复习“显微镜性结肠炎的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-microscopic-colitis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-082",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“显微镜性结肠炎的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-microscopic-colitis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-083",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“胃轻瘫的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-gastroparesis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-084",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“胃轻瘫的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-gastroparesis-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-085",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“排便控制与肛直肠症状学习”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-bowel-control-overview"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-086",
+      "split": "test",
+      "query_type": "terminology",
+      "query": "一道关于“排便控制与肛直肠症状学习”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-bowel-control-overview"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-087",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“短肠综合征的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-short-bowel-syndrome-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-088",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“短肠综合征的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-short-bowel-syndrome-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-089",
+      "split": "test",
+      "query_type": "natural_learner",
+      "query": "我在复习“肠梗阻的学习概念”，应先把题干中的哪些资料当作证据，而不应自行补全？",
+      "relevant_document_ids": [
+        "knowledge-v1-intestinal-obstruction-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    },
+    {
+      "id": "rag-v2-090",
+      "split": "test",
+      "query_type": "current_question_explanation",
+      "query": "一道关于“肠梗阻的学习概念”的题目只给出局部线索时，怎样区分概念、检查证据和不能下结论的部分？",
+      "relevant_document_ids": [
+        "knowledge-v1-intestinal-obstruction-definition"
+      ],
+      "hard_negative_document_ids": [],
+      "adjudication": {
+        "source": "deterministic engineering candidate generated from corpus-v1",
+        "human_review_status": "pending",
+        "clinical_or_educator_reviewer": null
+      }
+    }
+  ]
+}

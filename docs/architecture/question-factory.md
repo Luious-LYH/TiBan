@@ -10,7 +10,14 @@ The upload boundary accepts only Markdown or PDF, validates filename extension, 
 
 The Generator receives evidence and emits `GeneratedDraft`. The Judge receives only draft, source evidence and rubric fields, emits `JudgeDecision`, and never sees generator reasoning. Deterministic gates enforce public option/answer and citation shape first. A failed Judge creates a new `QuestionRevision` with parent revision, rewrite instruction, prompt version, source chunk IDs and timestamp; it never overwrites the initial draft.
 
-The no-secret deterministic adapters prove local workflow and schemas. They are explicitly not evidence of external-provider generation. A real Redis + Dramatiq worker run is retained in the Stage 2 evidence; an operator can run a provider-backed adapter later without changing the workflow contract.
+Generator and Judge are separate provider calls with separate prompts and
+schemas; the Judge sees only the draft, evidence and rubric. The real local
+OpenAI-compatible acceptance covers Markdown, PDF and Kvasir-VQA-x1
+generation-source inputs and retains published output plus revision lineage in
+`artifacts/factory/factory-provider-acceptance-v1.json`. Provider failure is a
+failure state; it never becomes a deterministic success. Deterministic
+adapters remain available only as explicitly labelled no-secret development
+coverage.
 
 ## Stage 2.5 source policy
 

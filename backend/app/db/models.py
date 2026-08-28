@@ -84,6 +84,22 @@ class PracticeSessionModel(Base):
     last_active_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
+class PracticeSessionItemModel(Base):
+    """Stable, server-side membership for one bounded practice/exam session."""
+
+    __tablename__ = "practice_session_items"
+    __table_args__ = (
+        UniqueConstraint("practice_session_id", "ordinal", name="uq_practice_session_item_ordinal"),
+        UniqueConstraint("practice_session_id", "question_id", name="uq_practice_session_item_question"),
+    )
+
+    session_item_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    practice_session_id: Mapped[str] = mapped_column(ForeignKey("practice_sessions.session_id"), nullable=False, index=True)
+    question_id: Mapped[str] = mapped_column(ForeignKey("questions.question_id"), nullable=False, index=True)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
 class AttemptModel(Base):
     __tablename__ = "attempts"
 
@@ -213,4 +229,79 @@ class QuestionRevisionModel(Base):
     rewrite_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     prompt_version: Mapped[str] = mapped_column(String(80), nullable=False)
     source_chunk_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class EvalDatasetModel(Base):
+    __tablename__ = "eval_datasets"
+
+    dataset_id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    source_dataset: Mapped[str] = mapped_column(String(120), nullable=False)
+    modality: Mapped[str] = mapped_column(String(30), nullable=False)
+    version: Mapped[str] = mapped_column(String(120), nullable=False)
+    dataset_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    supports_vision: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    tutor_indexed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class EvalDatasetVersionModel(Base):
+    __tablename__ = "eval_dataset_versions"
+
+    dataset_version_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(ForeignKey("eval_datasets.dataset_id"), nullable=False, index=True)
+    version: Mapped[str] = mapped_column(String(120), nullable=False)
+    dataset_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    manifest: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class EvalRunModel(Base):
+    __tablename__ = "eval_runs"
+
+    eval_run_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    dataset_version: Mapped[str] = mapped_column(String(120), nullable=False)
+    dataset_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    provider: Mapped[str] = mapped_column(String(120), nullable=False)
+    model: Mapped[str] = mapped_column(String(180), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    aggregate: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    usage: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    errors: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class EvalCaseModel(Base):
+    __tablename__ = "eval_cases"
+
+    eval_case_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    eval_run_id: Mapped[str] = mapped_column(ForeignKey("eval_runs.eval_run_id"), nullable=False, index=True)
+    source_item_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    candidate_output: Mapped[str] = mapped_column(Text, nullable=False)
+    parsed_answer: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    gold_answer: Mapped[str] = mapped_column(String(100), nullable=False)
+    correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    valid_parse: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    task: Mapped[str] = mapped_column(String(120), nullable=False)
+    topic: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class EvalArtifactModel(Base):
+    __tablename__ = "eval_artifacts"
+
+    artifact_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    eval_run_id: Mapped[str] = mapped_column(ForeignKey("eval_runs.eval_run_id"), nullable=False, index=True)
+    artifact_path: Mapped[str] = mapped_column(Text, nullable=False)
+    artifact_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)

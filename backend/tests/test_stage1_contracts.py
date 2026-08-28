@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from pydantic import TypeAdapter, ValidationError
 
 from app.db.database import SessionLocal
+from app.db.bootstrap import initialize_database
 from app.db.models import AttemptModel, ReviewCardModel
 from app.main import app
 from app.schemas import QuestionPublic
@@ -143,3 +144,37 @@ def test_overview_banks_are_serializable_public_contract() -> None:
     assert payload["banks"]
     assert all("bank_id" in bank and "question_count" in bank for bank in payload["banks"])
     assert not (_walk_keys(payload) & SENSITIVE_KEYS)
+
+
+def test_server_session_persists_random_membership_and_navigator_state() -> None:
+    initialize_database()
+    learner_id = f"session-membership-{uuid4().hex[:8]}"
+    created = client.post("/api/v3/practice/sessions", json={
+        "learner_id": learner_id,
+        "bank_id": "bank-cmexam-real",
+        "mode": "study",
+        "question_count": 50,
+        "shuffle_seed": 20260828,
+    })
+    assert created.status_code == 200, created.text
+    payload = created.json()
+    assert payload["question_count"] == 50
+    assert len(payload["question_ids"]) == len(set(payload["question_ids"])) == 50
+
+    detail = client.get(f"/api/v3/practice/sessions/{payload['session_id']}")
+    assert detail.status_code == 200
+    assert [item["ordinal"] for item in detail.json()["items"]] == list(range(50))
+    assert {item["state"] for item in detail.json()["items"]} == {"unanswered"}
+
+    question = client.get(f"/api/v3/practice/questions/{payload['question_ids'][0]}").json()["item"]
+    selected = question["options"][0]["id"] if question["options"] else True
+    submitted = client.post("/api/v3/practice/submit", json={
+        "learner_id": learner_id,
+        "session_id": payload["session_id"],
+        "question_id": question["id"],
+        "selected_answer": selected,
+        "mode": "study",
+    })
+    assert submitted.status_code == 200, submitted.text
+    refreshed = client.get(f"/api/v3/practice/sessions/{payload['session_id']}").json()
+    assert refreshed["items"][0]["state"] in {"correct", "incorrect"}

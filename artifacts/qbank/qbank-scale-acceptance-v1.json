@@ -1,0 +1,102 @@
+{
+  "artifact_version": "qbank-scale-acceptance-v1",
+  "database": {
+    "kind": "isolated_postgresql",
+    "name": "endotutor_stage3_scale",
+    "size_bytes": 140141071
+  },
+  "dataset": {
+    "name": "CMExam",
+    "role": "scale acceptance only",
+    "demo_data_unchanged": true
+  },
+  "import": {
+    "bank_id": "bank-cmexam-scale-v1",
+    "imported": 68112,
+    "by_split": {
+      "train.csv": 54492,
+      "val.csv": 6810,
+      "test_with_annotations.csv": 6810
+    },
+    "batch_size": 1000,
+    "duration_ms": 20757.02
+  },
+  "api_latency": {
+    "pagination_page_1": {
+      "p50_ms": 199.9,
+      "p95_ms": 219.15
+    },
+    "pagination_page_2": {
+      "p50_ms": 207.4,
+      "p95_ms": 221.12
+    },
+    "subject_filter": {
+      "p50_ms": 83.25,
+      "p95_ms": 106.8
+    },
+    "create_50_question_session": {
+      "p50_ms": 364.1,
+      "p95_ms": 633.55
+    }
+  },
+  "functional_checks": {
+    "pagination_non_overlapping": true,
+    "subject_filter": "不符合",
+    "seeded_random_sampling_reproducible": true,
+    "session_question_count": 50,
+    "unused_count_after_one_attempt": 49,
+    "incorrect_count_after_one_invalid_attempt": 1,
+    "navigator_state": [
+      "incorrect",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered",
+      "unanswered"
+    ]
+  }
+}

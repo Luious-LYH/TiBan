@@ -1,13 +1,15 @@
 """Auditable Question Factory built on the canonical RAG document/chunk graph.
 
-The no-secret adapter is intentionally deterministic and labelled as such.  It
-exists to exercise parsing, gates, revision lineage and publishing locally; a
-provider-backed generator/judge can be added without changing the workflow.
+The deterministic adapter keeps CI and no-secret workflow tests reproducible.
+When explicitly enabled, the same workflow calls one configured provider for a
+Generator schema and a separate Judge schema.  Provider failures remain failed
+jobs: a deterministic answer is never substituted for provider acceptance.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from datetime import datetime
 from pathlib import Path
@@ -18,13 +20,14 @@ import fitz
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core.config import SAFETY_NOTICE, UPLOAD_DIR
+from app.core.config import FACTORY_PROVIDER_ENABLED, SAFETY_NOTICE, UPLOAD_DIR
 from app.db.database import SessionLocal
 from app.db.models import (
     DocumentVersionModel, FactoryJobModel, KnowledgeChunkModel, QuestionBankModel,
     QuestionModel, QuestionRevisionModel, SourceDocumentModel,
 )
 from app.services.rag_service import rag_service
+from app.services.llm_provider import llm_provider
 
 
 ALLOWED_SUFFIXES = {".md": "text/markdown", ".pdf": "application/pdf"}
@@ -49,7 +52,10 @@ class GeneratedDraft(BaseModel):
     explanation: str
     teaching_tags: list[str]
     citation: dict[str, Any]
-    provider_mode: Literal["local_deterministic_adapter"] = "local_deterministic_adapter"
+    provider_mode: Literal["local_deterministic_adapter", "provider"] = "local_deterministic_adapter"
+    provider: str | None = None
+    model: str | None = None
+    latency_ms: int | None = None
 
 
 class JudgeDecision(BaseModel):
@@ -60,8 +66,15 @@ class JudgeDecision(BaseModel):
     distractor_quality: Literal["pass", "fail"]
     teaching_value: Literal["pass", "fail"]
     rewrite_instruction: str | None = None
-    judge_mode: Literal["local_deterministic_adapter"] = "local_deterministic_adapter"
+    judge_mode: Literal["local_deterministic_adapter", "provider"] = "local_deterministic_adapter"
     prompt_version: str = JUDGE_PROMPT_VERSION
+    provider: str | None = None
+    model: str | None = None
+    latency_ms: int | None = None
+
+
+class ProviderFactoryError(RuntimeError):
+    """A configured provider did not produce a schema-valid Factory result."""
 
 
 def _sha(value: bytes | str) -> str:
@@ -76,7 +89,17 @@ def _record_event(job: FactoryJobModel, status: str, detail: str) -> None:
     job.detail = {**job.detail, "events": events}
 
 
-def import_allowed_document(filename: str, content: bytes, content_type: str | None = None) -> dict[str, str]:
+def import_allowed_document(
+    filename: str,
+    content: bytes,
+    content_type: str | None = None,
+    *,
+    source_id: str | None = None,
+    source_uri: str | None = None,
+    business_usage: str = "factory_source",
+    license_gate_status: str = "needs_review",
+    ai_ingestion_allowed: bool = False,
+) -> dict[str, str]:
     suffix = Path(filename).suffix.lower()
     if suffix not in ALLOWED_SUFFIXES:
         raise ValueError("only .md and .pdf teaching documents are allowed")
@@ -93,6 +116,9 @@ def import_allowed_document(filename: str, content: bytes, content_type: str | N
         session.add(SourceDocumentModel(
             document_id=document_id, domain_id="endoscopy", bank_id=None, name=Path(filename).name,
             media_type=ALLOWED_SUFFIXES[suffix], content_hash=_sha(content), status="uploaded",
+            source_id=source_id, business_usage=business_usage,
+            license_gate_status=license_gate_status, ai_ingestion_allowed=ai_ingestion_allowed,
+            source_uri=source_uri, namespace="factory_sources",
         ))
         # The models intentionally have no ORM relationship; flush establishes
         # the canonical source row before its version FK is inserted.
@@ -157,6 +183,61 @@ def _generator(payload: GeneratorInput, *, repaired: bool = False) -> GeneratedD
     )
 
 
+def _json_response(text: str, *, role: str) -> dict[str, Any]:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+    try:
+        value = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise ProviderFactoryError(f"{role}_invalid_json") from exc
+    if not isinstance(value, dict):
+        raise ProviderFactoryError(f"{role}_json_not_object")
+    return value
+
+
+def _provider_generator(
+    payload: GeneratorInput,
+    *,
+    repaired: bool = False,
+    rewrite_instruction: str | None = None,
+) -> GeneratedDraft:
+    """One real provider call for the Generator role; no fallback is allowed."""
+
+    system_prompt = """You are the EndoTutor Question Factory Generator. Create one Chinese medical-education single-choice learning draft from supplied evidence only. Do not diagnose, prescribe, or invent facts. Return JSON only with title, stem, options [{id,text}], correct_option_id, explanation, teaching_tags. The explanation must include the Chinese safety notice that it is for teaching or physician review before use and not an independent diagnostic basis."""
+    user_payload = {
+        "objective": payload.objective,
+        "evidence": payload.evidence,
+        "required_question_type": "single_choice",
+        "repair_request": rewrite_instruction if repaired else None,
+    }
+    result = llm_provider.chat(
+        system_prompt=system_prompt,
+        user_prompt=json.dumps(user_payload, ensure_ascii=False),
+        temperature=0.1,
+        max_tokens=1000,
+        allow_fallback=False,
+    )
+    if not result.ok or result.mode != "provider":
+        raise ProviderFactoryError(f"generator_provider_failed:{result.error or result.mode}")
+    candidate = _json_response(result.text, role="generator")
+    candidate.update(
+        {
+            "question_type": "single_choice",
+            "citation": {"chunk_id": payload.source_chunk_id, "document_id": payload.source_document_id},
+            "provider_mode": "provider",
+            "provider": result.provider,
+            "model": result.model,
+            "latency_ms": result.latency_ms,
+        }
+    )
+    try:
+        return GeneratedDraft.model_validate(candidate)
+    except Exception as exc:
+        raise ProviderFactoryError("generator_schema_invalid") from exc
+
+
 def _deterministic_gate(draft: GeneratedDraft, evidence: str) -> tuple[bool, str | None]:
     option_ids = {option["id"] for option in draft.options}
     if draft.correct_option_id not in option_ids:
@@ -181,8 +262,120 @@ def _judge(draft: GeneratedDraft, evidence: str) -> JudgeDecision:
     )
 
 
-def process_factory_job(job_id: str) -> dict[str, Any]:
+def _provider_judge(
+    draft: GeneratedDraft,
+    evidence: str,
+    *,
+    expected_citation: dict[str, str] | None = None,
+) -> JudgeDecision:
+    """One independently prompted Judge call that sees no Generator reasoning."""
+
+    system_prompt = """You are the EndoTutor Question Factory Judge. Judge only the provided draft, evidence and rubric. Do not access or infer hidden reasoning. Return JSON only with passed, groundedness, answer_consistency, citation_validity, distractor_quality, teaching_value, rewrite_instruction. Each criterion must be exactly pass or fail. Mark pass only if the evidence supports the correct option, the answer is internally consistent, the citation is present, distractors are distinct, and the teaching response preserves doctor-review/non-diagnosis boundaries."""
+    public_draft = {
+        "question_type": draft.question_type,
+        "title": draft.title,
+        "stem": draft.stem,
+        "options": draft.options,
+        "correct_option_id": draft.correct_option_id,
+        "explanation": draft.explanation,
+        "teaching_tags": draft.teaching_tags,
+        "citation": draft.citation,
+    }
+    result = llm_provider.chat(
+        system_prompt=system_prompt,
+        user_prompt=json.dumps({"draft": public_draft, "evidence": evidence, "expected_citation": expected_citation, "rubric": "groundedness, answer consistency, citation, distractors, teaching safety"}, ensure_ascii=False),
+        temperature=0,
+        max_tokens=650,
+        allow_fallback=False,
+    )
+    if not result.ok or result.mode != "provider":
+        raise ProviderFactoryError(f"judge_provider_failed:{result.error or result.mode}")
+    candidate = _normalize_provider_judge(_json_response(result.text, role="judge"))
+    candidate.update(
+        {
+            "judge_mode": "provider",
+            "prompt_version": JUDGE_PROMPT_VERSION,
+            "provider": result.provider,
+            "model": result.model,
+            "latency_ms": result.latency_ms,
+        }
+    )
+    try:
+        return JudgeDecision.model_validate(candidate)
+    except Exception as exc:
+        details = getattr(exc, "errors", lambda: [])()
+        fields = ",".join(".".join(str(part) for part in item.get("loc", [])) for item in details[:6])
+        raise ProviderFactoryError(f"judge_schema_invalid:{fields or type(exc).__name__}") from exc
+
+
+def _normalize_provider_judge(candidate: dict[str, Any]) -> dict[str, Any]:
+    """Accept concise Chinese/English judge labels without weakening the schema.
+
+    The provider still has to supply each rubric axis; this only translates
+    obvious wire-format synonyms such as ``通过`` into the typed contract.
+    """
+
+    passing = {"pass", "passed", "true", "yes", "通过", "合格"}
+    failing = {"fail", "failed", "false", "no", "不通过", "失败", "不合格"}
+
+    def criterion(value: object) -> str:
+        normalized = str(value).strip().lower()
+        if normalized in passing:
+            return "pass"
+        if normalized in failing:
+            return "fail"
+        return normalized
+
+    normalized = dict(candidate)
+    for field in ("groundedness", "answer_consistency", "citation_validity", "distractor_quality", "teaching_value"):
+        normalized[field] = criterion(candidate.get(field, ""))
+    passed_value = candidate.get("passed", candidate.get("pass", candidate.get("overall")))
+    if isinstance(passed_value, bool):
+        normalized["passed"] = passed_value
+    else:
+        passed_label = criterion(passed_value)
+        normalized["passed"] = passed_label == "pass" if passed_label in {"pass", "fail"} else all(
+            normalized[field] == "pass"
+            for field in ("groundedness", "answer_consistency", "citation_validity", "distractor_quality", "teaching_value")
+        )
+    if "rewrite_instruction" not in normalized:
+        normalized["rewrite_instruction"] = candidate.get("rewrite") or candidate.get("suggestion")
+    return normalized
+
+
+def _run_generator(
+    payload: GeneratorInput,
+    *,
+    mode: Literal["local_deterministic_adapter", "provider"],
+    repaired: bool = False,
+    rewrite_instruction: str | None = None,
+) -> GeneratedDraft:
+    if mode == "provider":
+        return _provider_generator(payload, repaired=repaired, rewrite_instruction=rewrite_instruction)
+    return _generator(payload, repaired=repaired)
+
+
+def _run_judge(
+    draft: GeneratedDraft,
+    evidence: str,
+    *,
+    mode: Literal["local_deterministic_adapter", "provider"],
+    expected_citation: dict[str, str] | None = None,
+) -> JudgeDecision:
+    if mode == "provider":
+        return _provider_judge(draft, evidence, expected_citation=expected_citation)
+    return _judge(draft, evidence)
+
+
+def process_factory_job(
+    job_id: str,
+    *,
+    provider_mode: Literal["local_deterministic_adapter", "provider"] | None = None,
+) -> dict[str, Any]:
     """Worker entry point. Every state change is persisted, never simulated by UI."""
+    resolved_mode: Literal["local_deterministic_adapter", "provider"] = (
+        provider_mode or ("provider" if FACTORY_PROVIDER_ENABLED else "local_deterministic_adapter")
+    )
     with SessionLocal() as session:
         job = session.get(FactoryJobModel, job_id)
         if job is None:
@@ -204,7 +397,17 @@ def process_factory_job(job_id: str) -> dict[str, Any]:
         job = session.get(FactoryJobModel, job_id); assert job is not None
         _record_event(job, "indexing", "正在写入 PostgreSQL source/chunk metadata 与 Qdrant index。")
         session.commit()
-    rag_service.index_markdown(markdown, document_id=document.document_id, child_size=180, namespace="factory_sources", business_usage="factory_source", license_gate_status="allow_noncommercial", ai_ingestion_allowed=True)
+    rag_service.index_markdown(
+        markdown,
+        document_id=document.document_id,
+        child_size=180,
+        namespace="factory_sources",
+        source_id=document.source_id,
+        source_uri=document.source_uri,
+        business_usage=document.business_usage,
+        license_gate_status=document.license_gate_status,
+        ai_ingestion_allowed=document.ai_ingestion_allowed,
+    )
 
     with SessionLocal() as session:
         job = session.get(FactoryJobModel, job_id); assert job is not None
@@ -212,8 +415,19 @@ def process_factory_job(job_id: str) -> dict[str, Any]:
         if chunk is None:
             _record_event(job, "failed", "文档没有可用知识块。")
             session.commit(); return {"job_id": job_id, "status": "failed"}
-        _record_event(job, "generating", "Generator 使用独立 schema 生成可追溯草稿。")
-        initial = _generator(GeneratorInput(evidence=chunk.content, source_chunk_id=chunk.chunk_id, source_document_id=chunk.document_id))
+        generation_detail = "Generator 使用独立 schema 生成可追溯草稿。"
+        if resolved_mode == "provider":
+            generation_detail = "Generator 正在调用已配置的真实 Provider；失败将保留为失败，不会改用本地 adapter。"
+        _record_event(job, "generating", generation_detail)
+        try:
+            initial = _run_generator(
+                GeneratorInput(evidence=chunk.content, source_chunk_id=chunk.chunk_id, source_document_id=chunk.document_id),
+                mode=resolved_mode,
+            )
+        except ProviderFactoryError as exc:
+            _record_event(job, "failed", f"Provider Generator 未生成可用 schema：{exc}。")
+            session.commit()
+            return {"job_id": job_id, "status": "failed", "error": str(exc)}
         valid, gate_error = _deterministic_gate(initial, chunk.content)
         initial_revision = QuestionRevisionModel(
             revision_id=f"revision_{uuid4().hex[:12]}", parent_revision_id=None, job_id=job_id,
@@ -222,16 +436,47 @@ def process_factory_job(job_id: str) -> dict[str, Any]:
             source_chunk_ids=[chunk.chunk_id],
         )
         session.add(initial_revision); session.flush()
-        _record_event(job, "judging", "Judge 使用独立 schema 只读取草稿、资料证据与 rubric。")
-        decision = _judge(initial, chunk.content) if valid else JudgeDecision(passed=False, groundedness="fail", answer_consistency="fail", citation_validity="fail", distractor_quality="fail", teaching_value="fail", rewrite_instruction=gate_error)
+        judging_detail = "Judge 使用独立 schema，只读取草稿、资料证据与 rubric。"
+        if resolved_mode == "provider":
+            judging_detail = "Judge 正在调用独立真实 Provider schema；失败不会由本地 adapter 伪装为通过。"
+        _record_event(job, "judging", judging_detail)
+        if valid:
+            try:
+                decision = _run_judge(
+                    initial,
+                    chunk.content,
+                    mode=resolved_mode,
+                    expected_citation={"chunk_id": chunk.chunk_id, "document_id": chunk.document_id},
+                )
+            except ProviderFactoryError as exc:
+                _record_event(job, "failed", f"Provider Judge 未生成可用 schema：{exc}。")
+                session.commit()
+                return {"job_id": job_id, "status": "failed", "error": str(exc)}
+        else:
+            decision = JudgeDecision(passed=False, groundedness="fail", answer_consistency="fail", citation_validity="fail", distractor_quality="fail", teaching_value="fail", rewrite_instruction=gate_error)
         initial_revision.judge_decision = decision.model_dump()
         if decision.passed:
             initial_revision.status = "ready_for_review"
             _record_event(job, "ready_for_review", "草稿通过 deterministic gate 与 Judge，等待人工发布。")
             session.commit(); return {"job_id": job_id, "status": job.status, "revision_id": initial_revision.revision_id}
         _record_event(job, "repairing", "保留初稿并创建新的 repair revision。")
-        repaired = _generator(GeneratorInput(evidence=chunk.content, source_chunk_id=chunk.chunk_id, source_document_id=chunk.document_id), repaired=True)
-        repaired_decision = _judge(repaired, chunk.content)
+        try:
+            repaired = _run_generator(
+                GeneratorInput(evidence=chunk.content, source_chunk_id=chunk.chunk_id, source_document_id=chunk.document_id),
+                mode=resolved_mode,
+                repaired=True,
+                rewrite_instruction=decision.rewrite_instruction,
+            )
+            repaired_decision = _run_judge(
+                repaired,
+                chunk.content,
+                mode=resolved_mode,
+                expected_citation={"chunk_id": chunk.chunk_id, "document_id": chunk.document_id},
+            )
+        except ProviderFactoryError as exc:
+            _record_event(job, "failed", f"Provider Repair 未生成可用 schema：{exc}。")
+            session.commit()
+            return {"job_id": job_id, "status": "failed", "error": str(exc)}
         repaired_revision = QuestionRevisionModel(
             revision_id=f"revision_{uuid4().hex[:12]}", parent_revision_id=initial_revision.revision_id, job_id=job_id,
             status="ready_for_review" if repaired_decision.passed else "rejected", draft_payload=repaired.model_dump(),

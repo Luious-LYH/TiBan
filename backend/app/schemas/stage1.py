@@ -175,6 +175,8 @@ class PracticeSessionCreateRequest(Stage1Model):
     learner_id: str = "demo_learner"
     bank_id: str
     mode: Literal["study", "exam", "review", "practice"] = "study"
+    question_count: int = Field(default=20, ge=1, le=100)
+    shuffle_seed: int | None = None
 
 
 class PracticeSessionPublic(Stage1Model):
@@ -184,6 +186,18 @@ class PracticeSessionPublic(Stage1Model):
     mode: Literal["study", "exam", "review", "practice"]
     status: Literal["active", "completed"]
     started_at: datetime
+    question_count: int = Field(ge=0)
+    question_ids: list[str] = Field(default_factory=list)
+
+
+class PracticeSessionQuestionStatePublic(Stage1Model):
+    question_id: str
+    ordinal: int = Field(ge=0)
+    state: Literal["unanswered", "correct", "incorrect"]
+
+
+class PracticeSessionDetailPublic(PracticeSessionPublic):
+    items: list[PracticeSessionQuestionStatePublic] = Field(default_factory=list)
 
 
 class PracticeSubmitRequest(Stage1Model):

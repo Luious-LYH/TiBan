@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/practice/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Session V3 */
+        get: operations["get_session_v3_api_v3_practice_sessions__session_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/practice/submit": {
         parameters: {
             query?: never;
@@ -353,6 +370,74 @@ export interface paths {
         };
         /** Latest Evaluation */
         get: operations["latest_evaluation_api_v3_evaluation_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/evaluation/datasets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Evaluation Datasets */
+        get: operations["evaluation_datasets_api_v3_evaluation_datasets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/evaluation/connection-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Evaluation Connection Test */
+        post: operations["evaluation_connection_test_api_v3_evaluation_connection_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/evaluation/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Evaluation Run */
+        post: operations["create_evaluation_run_api_v3_evaluation_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/evaluation/runs/{eval_run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Evaluation Run */
+        get: operations["read_evaluation_run_api_v3_evaluation_runs__eval_run_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1485,6 +1570,145 @@ export interface components {
              */
             safety_notice: string;
         };
+        /** EvaluationConnectionRequest */
+        EvaluationConnectionRequest: {
+            /** Base Url */
+            base_url: string;
+            /** Model */
+            model: string;
+            /** Api Key */
+            api_key: string;
+        };
+        /** EvaluationConnectionResponse */
+        EvaluationConnectionResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Error */
+            error?: string | null;
+            /**
+             * Fallback
+             * @default false
+             */
+            fallback: boolean;
+            /**
+             * Key Persisted
+             * @default false
+             */
+            key_persisted: boolean;
+        };
+        /** EvaluationDatasetListResponse */
+        EvaluationDatasetListResponse: {
+            /** Items */
+            items: components["schemas"]["EvaluationDatasetPublic"][];
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** EvaluationDatasetPublic */
+        EvaluationDatasetPublic: {
+            /** Dataset Id */
+            dataset_id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string;
+            /** Source Dataset */
+            source_dataset: string;
+            /** Modality */
+            modality: string;
+            /** Version */
+            version: string;
+            /** Dataset Hash */
+            dataset_hash: string;
+            /** Sample Count */
+            sample_count: number;
+            /** Supports Vision */
+            supports_vision: boolean;
+            /** Tutor Indexed */
+            tutor_indexed: boolean;
+        };
+        /** EvaluationRunRequest */
+        EvaluationRunRequest: {
+            /** Base Url */
+            base_url: string;
+            /** Model */
+            model: string;
+            /** Api Key */
+            api_key: string;
+            /** Dataset Id */
+            dataset_id: string;
+            /**
+             * Sample Count
+             * @default 10
+             */
+            sample_count: number;
+        };
+        /** EvaluationRunResponse */
+        EvaluationRunResponse: {
+            /** Eval Run Id */
+            eval_run_id: string;
+            /** Dataset Id */
+            dataset_id: string;
+            /** Dataset Version */
+            dataset_version: string;
+            /** Dataset Hash */
+            dataset_hash: string;
+            /** Provider */
+            provider: string;
+            /** Model */
+            model: string;
+            /** Prompt Version */
+            prompt_version: string;
+            /** Status */
+            status: string;
+            /** Sample Count */
+            sample_count: number;
+            /** Aggregate */
+            aggregate: {
+                [key: string]: unknown;
+            };
+            /** Usage */
+            usage: {
+                [key: string]: unknown;
+            };
+            /** Errors */
+            errors: {
+                [key: string]: unknown;
+            }[];
+            /** Created At */
+            created_at: string;
+            /** Completed At */
+            completed_at?: string | null;
+            /** Artifact Path */
+            artifact_path?: string | null;
+            /** Cases */
+            cases: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Gold Revealed
+             * @default false
+             */
+            gold_revealed: boolean;
+            /**
+             * Fallback
+             * @default false
+             */
+            fallback: boolean;
+            /**
+             * Safety Notice
+             * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
+             */
+            safety_notice: string;
+        };
         /** ExamSessionAttempt */
         ExamSessionAttempt: {
             /** Question Id */
@@ -1942,6 +2166,43 @@ export interface components {
              * @enum {string}
              */
             mode: "study" | "exam" | "review" | "practice";
+            /**
+             * Question Count
+             * @default 20
+             */
+            question_count: number;
+            /** Shuffle Seed */
+            shuffle_seed?: number | null;
+        };
+        /** PracticeSessionDetailPublic */
+        PracticeSessionDetailPublic: {
+            /** Session Id */
+            session_id: string;
+            /** Learner Id */
+            learner_id: string;
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "study" | "exam" | "review" | "practice";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "completed";
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Question Count */
+            question_count: number;
+            /** Question Ids */
+            question_ids?: string[];
+            /** Items */
+            items?: components["schemas"]["PracticeSessionQuestionStatePublic"][];
         };
         /** PracticeSessionPublic */
         PracticeSessionPublic: {
@@ -1966,6 +2227,22 @@ export interface components {
              * Format: date-time
              */
             started_at: string;
+            /** Question Count */
+            question_count: number;
+            /** Question Ids */
+            question_ids?: string[];
+        };
+        /** PracticeSessionQuestionStatePublic */
+        PracticeSessionQuestionStatePublic: {
+            /** Question Id */
+            question_id: string;
+            /** Ordinal */
+            ordinal: number;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "unanswered" | "correct" | "incorrect";
         };
         /** PracticeSubmitRequest */
         PracticeSubmitRequest: {
@@ -2752,6 +3029,8 @@ export interface operations {
                 bank_id?: string | null;
                 question_type?: string | null;
                 body_part?: string | null;
+                subject?: string | null;
+                topic?: string | null;
                 search?: string | null;
                 limit?: number;
                 offset?: number;
@@ -2833,6 +3112,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PracticeSessionPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_session_v3_api_v3_practice_sessions__session_id__get: {
+        parameters: {
+            query?: {
+                state?: string | null;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeSessionDetailPublic"];
                 };
             };
             /** @description Validation Error */
@@ -3335,6 +3647,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvaluationArtifactResponse"];
+                };
+            };
+        };
+    };
+    evaluation_datasets_api_v3_evaluation_datasets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationDatasetListResponse"];
+                };
+            };
+        };
+    };
+    evaluation_connection_test_api_v3_evaluation_connection_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluationConnectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationConnectionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_evaluation_run_api_v3_evaluation_runs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvaluationRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_evaluation_run_api_v3_evaluation_runs__eval_run_id__get: {
+        parameters: {
+            query?: {
+                reveal_gold?: boolean;
+            };
+            header?: never;
+            path: {
+                eval_run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -28,6 +28,9 @@ export type EvaluationArtifact = components['schemas']['EvaluationArtifactRespon
   metrics: Record<string, unknown>
   cases: Array<Record<string, unknown>>
 }
+export type EvaluationDataset = components['schemas']['EvaluationDatasetPublic']
+export type EvaluationConnection = components['schemas']['EvaluationConnectionResponse']
+export type EvaluationRun = components['schemas']['EvaluationRunResponse']
 export type TutorStreamRequest = components['schemas']['TutorStreamRequest']
 export type TutorStreamEvent = {
   event: 'message_start' | 'reasoning' | 'token' | 'tool_start' | 'tool_end' | 'source' | 'message_end' | 'error'
@@ -82,7 +85,7 @@ export function getQuestions(query: QuestionQuery = {}): Promise<QuestionsRespon
 
 export function createPracticeSession(bankId: string, learnerId = 'demo_learner', mode: 'study' | 'exam' | 'review' | 'practice' = 'study'): Promise<SessionResponse> {
   return unwrap(api.POST('/api/v3/practice/sessions', {
-    body: { bank_id: bankId, learner_id: learnerId, mode },
+    body: { bank_id: bankId, learner_id: learnerId, mode, question_count: 20 },
   }))
 }
 
@@ -119,6 +122,25 @@ export async function streamTutor(request: TutorStreamRequest, onEvent: (event: 
 export async function getLatestEvaluation(): Promise<EvaluationArtifact> {
   const response = await unwrap(api.GET('/api/v3/evaluation/latest'))
   return { ...response, metrics: response.metrics ?? {}, cases: response.cases ?? [] }
+}
+
+export async function getEvaluationDatasets(): Promise<EvaluationDataset[]> {
+  const response = await unwrap(api.GET('/api/v3/evaluation/datasets'))
+  return response.items
+}
+
+export function testEvaluationConnection(payload: components['schemas']['EvaluationConnectionRequest']): Promise<EvaluationConnection> {
+  return unwrap(api.POST('/api/v3/evaluation/connection-test', { body: payload }))
+}
+
+export function createEvaluationRun(payload: components['schemas']['EvaluationRunRequest']): Promise<EvaluationRun> {
+  return unwrap(api.POST('/api/v3/evaluation/runs', { body: payload }))
+}
+
+export function getEvaluationRun(evalRunId: string, revealGold = false): Promise<EvaluationRun> {
+  return unwrap(api.GET('/api/v3/evaluation/runs/{eval_run_id}', {
+    params: { path: { eval_run_id: evalRunId }, query: { reveal_gold: revealGold } },
+  }))
 }
 
 export async function uploadFactoryDocument(filename: string, contentBase64: string, contentType?: string): Promise<FactoryDocument> {

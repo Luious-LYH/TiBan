@@ -3,8 +3,8 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createPracticeSession, getLatestEvaluation, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer } from '../api/client'
-import type { Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
+import { createEvaluationRun, createPracticeSession, getEvaluationDatasets, getEvaluationRun, getLatestEvaluation, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection } from '../api/client'
+import type { EvaluationRun, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
 import { PracticePage } from '../pages/practice/PracticePage'
@@ -12,6 +12,9 @@ import { EvaluationPage } from '../pages/evaluation/EvaluationPage'
 
 vi.mock('../api/client', () => ({
   createPracticeSession: vi.fn(),
+  createEvaluationRun: vi.fn(),
+  getEvaluationDatasets: vi.fn(),
+  getEvaluationRun: vi.fn(),
   getLatestEvaluation: vi.fn(),
   getOverview: vi.fn(),
   getQuestionBanks: vi.fn(),
@@ -20,6 +23,7 @@ vi.mock('../api/client', () => ({
   streamTutor: vi.fn(),
   submitFsrsReview: vi.fn(),
   submitPracticeAnswer: vi.fn(),
+  testEvaluationConnection: vi.fn(),
 }))
 
 const mockedGetOverview = vi.mocked(getOverview)
@@ -31,6 +35,10 @@ const mockedStreamTutor = vi.mocked(streamTutor)
 const mockedMentor = vi.mocked(getMentorPlan)
 const mockedReview = vi.mocked(submitFsrsReview)
 const mockedEvaluation = vi.mocked(getLatestEvaluation)
+const mockedEvaluationDatasets = vi.mocked(getEvaluationDatasets)
+const mockedCreateEvaluationRun = vi.mocked(createEvaluationRun)
+const mockedGetEvaluationRun = vi.mocked(getEvaluationRun)
+const mockedTestEvaluationConnection = vi.mocked(testEvaluationConnection)
 
 const safety = '仅供教学研修或医生复核前辅助，不作为独立诊断依据。'
 const baseQuestion = { id: 'q-1', bank_id: 'bank-a', domain_id: 'endoscopy', title: '胃部观察练习', stem: '请根据当前证据选择答案。', case_summary: '稳定的测试病例摘要。', modality: 'image' as const, image_url: '/assets/real_samples/endo_image_0.jpg', image_alt: '测试内镜图像', difficulty: 'easy' as const, tags: ['胃'], body_part: '胃', source_dataset: 'test', citation_note: 'test seed', doctor_review_required: true, safety_notice: safety, business_usage: 'user_ready' as const, official_explanation_available: true }
@@ -65,7 +73,7 @@ beforeEach(() => {
   mockedGetOverview.mockResolvedValue(overview)
   mockedGetQuestionBanks.mockResolvedValue(banks)
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
-  mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z' })
+  mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [] })
   mockedSubmit.mockResolvedValue(submitResult('single'))
   mockedMentor.mockResolvedValue({ learner_id: 'demo_learner', study_goal: '复盘', due_review_count: 1, focus: '胃', weak_areas: ['胃'], recent_errors: [], steps: [{ kind: 'review', title: '完成复习', question_ids: [] }] })
   mockedReview.mockResolvedValue({ review_card_id: 'review-test', question_id: 'single', due_at: '2026-08-29T00:00:00Z', interval_days: 1, difficulty: 2, stability: 1, retrievability: .9, state: 'Learning', review_count: 1 })
@@ -79,6 +87,11 @@ beforeEach(() => {
     onEvent({ event: 'message_end', data: { run_id: 'run-test' } })
   })
   mockedEvaluation.mockResolvedValue({ artifact_available: false, artifact_path: null, mode: 'not_run', sample_count: 0, metrics: {}, cases: [], notice: '尚未运行', safety_notice: safety })
+  mockedEvaluationDatasets.mockResolvedValue([{ dataset_id: 'cmexam-text-eval-v1', name: 'CMExam 文本评测', description: '冻结评测集', source_dataset: 'CMExam', modality: 'text', version: 'cmexam-text-eval-v1', dataset_hash: 'hash', sample_count: 5, supports_vision: false, tutor_indexed: false }])
+  mockedTestEvaluationConnection.mockResolvedValue({ ok: true, provider: 'byok_openai_compatible', model: 'candidate-model', latency_ms: 12, error: null, fallback: false, key_persisted: false })
+  const evaluationRun: EvaluationRun = { eval_run_id: 'evalrun-test', dataset_id: 'cmexam-text-eval-v1', dataset_version: 'cmexam-text-eval-v1', dataset_hash: 'hash', provider: 'byok_openai_compatible', model: 'candidate-model', prompt_version: 'model-eval-answer-json-v1', status: 'completed', sample_count: 1, aggregate: { accuracy: 1, valid_parse_rate: 1, latency_p50_ms: 12, latency_p95_ms: 12 }, usage: { total_tokens: 12 }, errors: [], created_at: '2026-08-28T00:00:00Z', completed_at: '2026-08-28T00:00:12Z', artifact_path: 'artifacts/eval/model-runs/evalrun-test.json', cases: [{ eval_case_id: 'case-1', question: 'Which option is correct?', candidate_output: '{"answer":"B"}', parsed_answer: 'B', gold_answer: null, correct: null, valid_parse: true, latency_ms: 12, error_category: null, task: 'text_single_choice', topic: 'fixture' }], gold_revealed: false, fallback: false, safety_notice: safety }
+  mockedCreateEvaluationRun.mockResolvedValue(evaluationRun)
+  mockedGetEvaluationRun.mockResolvedValue({ ...evaluationRun, gold_revealed: true, cases: [{ ...evaluationRun.cases[0], gold_answer: 'B', correct: true }] })
 })
 
 describe('Stage 1 page contracts', () => {
@@ -145,8 +158,28 @@ describe('Stage 1 page contracts', () => {
   it('renders the evaluation not-run state without inventing metrics', async () => {
     renderPage(<EvaluationPage />, ['/eval'])
     expect(await screen.findByTestId('evaluation-page')).toBeInTheDocument()
-    expect(screen.getAllByText('尚未运行').length).toBeGreaterThan(0)
+    expect(screen.getByText('连接候选模型')).toBeInTheDocument()
     expect(screen.queryByText('100')).not.toBeInTheDocument()
+  })
+
+  it('runs a real-state BYOK evaluation and reveals gold only on explicit action', async () => {
+    const user = userEvent.setup()
+    renderPage(<EvaluationPage />, ['/eval'])
+    await screen.findByTestId('evaluation-page')
+    await user.type(screen.getByLabelText('API Base'), 'https://provider.example/v1')
+    await user.type(screen.getByLabelText('Model'), 'candidate-model')
+    await user.type(screen.getByLabelText(/API Key/), 'secret-not-persisted')
+    await user.click(screen.getByRole('button', { name: 'Test Connection' }))
+    expect(await screen.findByText('Provider 连接成功')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Start Evaluation' }))
+    expect(await screen.findByText('评测完成')).toBeInTheDocument()
+    expect(screen.getByText('Reveal Gold / 对照答案')).toBeInTheDocument()
+    expect(screen.queryByText('Gold', { exact: true })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Reveal Gold / 对照答案' }))
+    expect(await screen.findByText('Gold 已展示')).toBeInTheDocument()
+    expect(screen.getAllByText('B', { exact: true })).toHaveLength(2)
+    expect(mockedCreateEvaluationRun.mock.calls[0]?.[0].api_key).toBe('secret-not-persisted')
+    expect(mockedGetEvaluationRun).toHaveBeenCalledWith('evalrun-test', true)
   })
 
   it('renders a continuous Tutor chat with real tool and source parts', async () => {

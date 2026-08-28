@@ -52,6 +52,7 @@ LLM_FALLBACK_BASE_URL = _env_first("LLM_FALLBACK_BASE_URL").rstrip("/")
 LLM_FALLBACK_API_KEY = _env_first("LLM_FALLBACK_API_KEY")
 LLM_FALLBACK_MODEL = _env_first("LLM_FALLBACK_MODEL", default=LLM_MODEL)
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
+FACTORY_PROVIDER_ENABLED = _env_first("FACTORY_PROVIDER_ENABLED").lower() == "true"
 # Private-network Providers remain blocked by default.  A developer running a
 # deliberately local/LAN OpenAI-compatible gateway may opt in for the current
 # process; this flag is intentionally not enabled by any checked-in config.

@@ -6,6 +6,7 @@ from typing import Any
 
 from app.core.config import SAFETY_NOTICE
 from app.db.database import SessionLocal
+from app.db.models import PracticeSessionModel
 from app.db.repositories import Stage1Repository
 from app.db.serializers import grading_question_payload, public_bank_payload, public_question_payload
 from app.schemas import FactFeedbackPublic, PracticeSubmitRequest, PracticeSubmitResponse
@@ -34,6 +35,8 @@ class Stage1Service:
         bank_id: str | None = None,
         question_type: str | None = None,
         body_part: str | None = None,
+        subject: str | None = None,
+        topic: str | None = None,
         search: str | None = None,
         limit: int = 18,
         offset: int = 0,
@@ -45,6 +48,8 @@ class Stage1Service:
                 bank_id=bank_id,
                 question_type=question_type,
                 body_part=body_part,
+                subject=subject,
+                topic=topic,
                 search=search,
                 limit=limit,
                 offset=offset,
@@ -69,10 +74,18 @@ class Stage1Service:
         finally:
             session.close()
 
-    def create_session(self, learner_id: str, bank_id: str, mode: str = "practice") -> dict[str, Any]:
+    def create_session(
+        self,
+        learner_id: str,
+        bank_id: str,
+        mode: str = "practice",
+        question_count: int = 20,
+        shuffle_seed: int | None = None,
+    ) -> dict[str, Any]:
         session, repository = self._repository()
         try:
-            created = repository.create_session(learner_id, bank_id, mode)
+            created = repository.create_session(learner_id, bank_id, mode, question_count, shuffle_seed)
+            items = repository.session_items(created.session_id)
             return {
                 "session_id": created.session_id,
                 "learner_id": created.learner_id,
@@ -80,6 +93,31 @@ class Stage1Service:
                 "mode": created.mode,
                 "status": created.status,
                 "started_at": created.started_at,
+                "question_count": len(items),
+                "question_ids": [str(item["question_id"]) for item in items],
+            }
+        finally:
+            session.close()
+
+    def session_detail(self, session_id: str, state: str | None = None) -> dict[str, Any]:
+        session, repository = self._repository()
+        try:
+            created = session.get(PracticeSessionModel, session_id)
+            if created is None:
+                raise KeyError(session_id)
+            items = repository.session_items(session_id)
+            if state is not None:
+                items = [item for item in items if item["state"] == state]
+            return {
+                "session_id": created.session_id,
+                "learner_id": created.learner_id,
+                "bank_id": created.bank_id,
+                "mode": created.mode,
+                "status": created.status,
+                "started_at": created.started_at,
+                "question_count": len(items),
+                "question_ids": [str(item["question_id"]) for item in items],
+                "items": items,
             }
         finally:
             session.close()

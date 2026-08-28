@@ -136,6 +136,111 @@ def import_cmexam(limit: int = 1500, split: str = "test_with_annotations.csv") -
     return len(rows)
 
 
+def import_cmexam_scale(*, limit: int | None = None, batch_size: int = 1000) -> dict[str, Any]:
+    """Bulk-import the complete local CMExam corpus into an isolated scale DB.
+
+    It intentionally has a separate bank/document/question-id namespace from
+    the 1,500-question demo bank.  The function performs no deletion or
+    replacement and is therefore suitable for a one-way acceptance database.
+    """
+
+    if batch_size < 1:
+        raise ValueError("batch_size must be positive")
+    policy = dataset_policy("cmexam")
+    splits = ("train.csv", "val.csv", "test_with_annotations.csv")
+    bank_id = "bank-cmexam-scale-v1"
+    source_document_id = "source-qbank-cmexam-scale-v1"
+    inserted = 0
+    by_split: Counter[str] = Counter()
+    question_type_counts: Counter[str] = Counter()
+    batch: list[dict[str, Any]] = []
+
+    def flush(session: Any) -> None:
+        nonlocal inserted
+        if not batch:
+            return
+        session.bulk_insert_mappings(QuestionModel, list(batch))
+        for item in batch:
+            question_type_counts[str(item["question_type"])] += 1
+        inserted += len(batch)
+        batch.clear()
+
+    with SessionLocal() as session:
+        if session.get(QuestionBankModel, bank_id) is not None:
+            raise ValueError("scale bank already exists; use a fresh isolated acceptance database")
+        _source_document(
+            session,
+            document_id=source_document_id,
+            source_id="cmexam",
+            name="CMExam full scale acceptance corpus",
+            uri=policy.source_url,
+            usage="user_ready",
+            namespace="qbank_explanations",
+        )
+        bank = QuestionBankModel(
+            bank_id=bank_id,
+            domain_id="medical-education",
+            name="CMExam scale-acceptance corpus",
+            description="Isolated non-demo corpus used only for Stage 3 performance acceptance.",
+            version="stage3-scale-v1",
+            status="acceptance_only",
+            question_count=0,
+            question_type_counts={},
+            modality_counts={},
+            body_parts=["消化系统"],
+        )
+        session.add(bank)
+        session.flush()
+        for split in splits:
+            path = CMEXAM_ROOT / "data" / split
+            if not path.is_file():
+                raise FileNotFoundError(path)
+            with path.open(encoding="utf-8-sig", newline="") as handle:
+                for index, row in enumerate(csv.DictReader(handle)):
+                    if limit is not None and inserted + len(batch) >= limit:
+                        break
+                    options, answers = _option_map(row.get("Options", "")), _answer_letters(row.get("Answer", ""))
+                    if len(options) < 2 or not answers or not set(answers).issubset(options):
+                        continue
+                    question_type = "multiple_choice" if len(answers) > 1 else "single_choice"
+                    grading: dict[str, Any] = {"question_type": question_type}
+                    grading["correct_option_ids" if question_type == "multiple_choice" else "correct_option_id"] = (
+                        [f"opt_{item}" for item in answers]
+                        if question_type == "multiple_choice"
+                        else f"opt_{answers[0]}"
+                    )
+                    explanation = str(row.get("Explanation") or "").strip()
+                    item = _base(
+                        question_id=f"cmexam_scale_{split.removesuffix('.csv')}_{index:06d}",
+                        stem=str(row.get("Question") or ""),
+                        title=f"CMExam · {row.get('Clinical Department') or row.get('Medical Discipline') or '综合医学'}",
+                        source_dataset="CMExam",
+                        source_item_id=f"{split}:{index}",
+                        source_document_id=source_document_id,
+                        source_uri=policy.source_url,
+                        explanation=explanation,
+                        explanation_available=bool(explanation),
+                        options=[{"id": f"opt_{key}", "text": value} for key, value in options.items()],
+                        grading_payload=grading,
+                        difficulty=_difficulty(row.get("Difficulty level")),
+                        subject=str(row.get("Clinical Department") or "综合医学"),
+                        topic=str(row.get("Disease Group") or ""),
+                    )
+                    item["bank_id"] = bank_id
+                    batch.append(item)
+                    by_split[split] += 1
+                    if len(batch) >= batch_size:
+                        flush(session)
+            if limit is not None and inserted + len(batch) >= limit:
+                break
+        flush(session)
+        bank.question_count = inserted
+        bank.question_type_counts = dict(question_type_counts)
+        bank.modality_counts = {"text": inserted}
+        session.commit()
+    return {"bank_id": bank_id, "imported": inserted, "by_split": dict(by_split), "batch_size": batch_size}
+
+
 def _cmb_files() -> Iterable[tuple[str, Path]]:
     yield "val", CMB_ROOT / "CMB-val" / "CMB-val-merge.json"
     yield "train", CMB_ROOT / "CMB-train" / "CMB-train-merge.json"

@@ -25,6 +25,7 @@ class LLMResult:
     error: str | None = None
     latency_ms: int | None = None
     image_attached: bool = False
+    usage: dict[str, int] | None = None
 
     def public_status(self) -> dict[str, Any]:
         return {
@@ -35,6 +36,7 @@ class LLMResult:
             "error": self.error,
             "latency_ms": self.latency_ms,
             "image_attached": self.image_attached,
+            "usage": self.usage or {},
         }
 
 
@@ -284,10 +286,17 @@ class LLMProvider:
         api_key: str | None = None,
         model: str | None = None,
         provider: str | None = None,
+        allow_fallback: bool = True,
     ) -> LLMResult:
         image_data = self._image_data_url(image_path) if image_path else None
         image_attached = bool(image_data)
-        attempts = self._provider_attempts(base_url=base_url, api_key=api_key, model=model, provider=provider)
+        attempts = self._provider_attempts(
+            base_url=base_url,
+            api_key=api_key,
+            model=model,
+            provider=provider,
+            allow_fallback=allow_fallback,
+        )
         if not attempts:
             return LLMResult(False, "", "rule", provider or config.LLM_PROVIDER, model or config.LLM_MODEL, "provider_not_configured", image_attached=image_attached)
 
@@ -330,6 +339,7 @@ class LLMProvider:
         api_key: str | None,
         model: str | None,
         provider: str | None,
+        allow_fallback: bool = True,
     ) -> list[dict[str, str]]:
         explicit_provider_requested = bool((base_url or "").strip() or (api_key or "").strip())
         candidates: list[dict[str, str | None]] = []
@@ -344,22 +354,24 @@ class LLMProvider:
             )
         else:
             candidates.extend(self._local_demo_provider_attempts())
-        candidates.extend(
-            [
+        if not explicit_provider_requested or allow_fallback:
+            candidates.append(
                 {
                     "provider": provider or config.LLM_PROVIDER,
                     "base_url": self._normalize_base_url(config.LLM_BASE_URL),
                     "api_key": config.LLM_API_KEY,
                     "model": model or config.LLM_MODEL,
-                },
+                }
+            )
+        if allow_fallback:
+            candidates.append(
                 {
                     "provider": config.LLM_FALLBACK_PROVIDER,
                     "base_url": self._normalize_base_url(config.LLM_FALLBACK_BASE_URL),
                     "api_key": config.LLM_FALLBACK_API_KEY,
                     "model": config.LLM_FALLBACK_MODEL,
-                },
-            ]
-        )
+                }
+            )
         attempts: list[dict[str, str]] = []
         seen: set[tuple[str, str, str, str]] = set()
         for candidate in candidates:
@@ -454,7 +466,13 @@ class LLMProvider:
                 text = self._clean_text(str(text))
                 if not text:
                     return LLMResult(False, "", "provider", effective_provider, effective_model, "empty_response", latency_ms, image_attached)
-                return LLMResult(True, text, "provider", effective_provider, effective_model, None, latency_ms, image_attached)
+                raw_usage = payload.get("usage")
+                usage = {
+                    str(key): int(value)
+                    for key, value in raw_usage.items()
+                    if key in {"prompt_tokens", "completion_tokens", "total_tokens"} and isinstance(value, (int, float))
+                } if isinstance(raw_usage, dict) else {}
+                return LLMResult(True, text, "provider", effective_provider, effective_model, None, latency_ms, image_attached, usage)
             return LLMResult(False, "", "provider", effective_provider, effective_model, last_error, image_attached=image_attached)
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="ignore")[:240]
@@ -716,6 +734,14 @@ class LLMProvider:
             upload_root = config.UPLOAD_DIR.resolve()
             if upload_root == resolved or upload_root in resolved.parents:
                 return resolved
+        if image_path.startswith("eval://endobench/"):
+            relative = image_path.removeprefix("eval://endobench/")
+            try:
+                from app.services.data_governance import resolve_local_asset
+
+                return resolve_local_asset("endobench", f"EndoBench-Images/{relative}")
+            except (ValueError, FileNotFoundError):
+                return None
         return None
 
     def _clean_text(self, text: str) -> str:

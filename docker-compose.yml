@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: endotutor_stage1
+      POSTGRES_USER: endotutor_dev
+      POSTGRES_PASSWORD: endotutor_dev_only
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - endotutor_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U endotutor_dev -d endotutor_stage1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - endotutor_qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:56379:6379"
+    volumes:
+      - endotutor_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      ENDO_APP_ENV: demo
+      ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://redis:6379/0
+      ENDO_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    command: ["dramatiq", "app.workers.factory_worker"]
+    environment:
+      ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1
+      QDRANT_URL: http://qdrant:6333
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      backend:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  endotutor_postgres_data:
+  endotutor_qdrant_data:
+  endotutor_redis_data:
