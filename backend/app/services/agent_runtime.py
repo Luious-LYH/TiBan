@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass, field
 from time import perf_counter
@@ -16,7 +17,7 @@ from app.services.llm_provider import llm_provider
 from app.services.stage1_service import stage1_service
 
 
-AgentEventType = Literal['message_start', 'token', 'tool_start', 'tool_end', 'source', 'message_end', 'error']
+AgentEventType = Literal['message_start', 'reasoning', 'token', 'tool_start', 'tool_end', 'source', 'message_end', 'error']
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ class AgentContext:
     learner_id: str
     user_message: str
     phase: Literal['pre_submit', 'post_submit']
+    mode: Literal['study', 'exam', 'review'] = 'study'
     attempt_id: str | None = None
     cancelled: Callable[[], bool] = lambda: False
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -69,15 +71,23 @@ class LocalPolicyModelGateway:
     name = 'local-policy-adapter/external-provider-pending'
 
     def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
-        requested = ['get_question_context', 'retrieve_knowledge', 'get_learning_profile']
+        lowered = context.user_message.lower()
+        requested = ['get_question_context', 'get_learning_profile']
+        if any(marker in lowered for marker in ('提示', '解释', '为什么', '依据', '资料', '指南', '反流', '胃炎', '出血', '解剖')):
+            requested.insert(1, 'retrieve_knowledge')
+        if context.mode == 'study' and context.phase == 'pre_submit' and any(marker in lowered for marker in ('正确答案', '直接告诉我', '我不会', '答案是什么', '给答案')):
+            requested.append('get_answer_explanation')
         if context.phase == 'post_submit' and 'get_grading_result' in available_tools:
             requested.append('get_grading_result')
         return [tool for tool in requested if tool in available_tools]
 
     def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
         lowered = context.user_message.lower()
-        if context.phase == 'pre_submit' and any(marker in lowered for marker in ('正确答案', 'standard answer', 'hidden rubric', '忽略规则', '服务器标准答案')):
-            return '提交前我只能协助你观察证据、定位资料和规划学习；不会读取或透露标准答案、隐藏 rubric 或评分目标。请先描述可见的部位、形态和支持事实。'
+        answer = observations.get('get_answer_explanation')
+        if answer and context.mode == 'study':
+            return f"答案是：{answer.get('correct_answer_display', '见解析')}。{answer.get('explanation', '')}"
+        if context.phase == 'pre_submit' and any(marker in lowered for marker in ('正确答案', 'standard answer', 'hidden rubric', '忽略规则', '服务器标准答案', '正确选项')):
+            return '我可以帮助你梳理题干、图像和资料依据；当前模式不会读取隐藏 rubric 或服务器内部字段。若你在 Study 模式明确需要答案，可以直接说“告诉我答案”。'
         question = observations.get('get_question_context', {})
         profile = observations.get('get_learning_profile', {})
         retrieval = observations.get('retrieve_knowledge', [])
@@ -107,9 +117,12 @@ class OpenAICompatibleTutorGateway:
             system_prompt=(
                 "You are a medical education tutor tool planner. Return JSON only: "
                 '{"tools":[...]} . Select only names in the allowed list. '
-                "Never request answers, hidden rubrics, diagnosis, or write actions."
+                "Never request hidden rubrics, diagnosis, or write actions. "
+                "The get_answer_explanation tool is permitted only when mode is study, phase is pre_submit, "
+                "and the learner explicitly asks for the current answer; never select it in exam mode, "
+                "post-submit mode, or for a hint-only request."
             ),
-            user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "allowed_tools": sorted(available_tools)}, ensure_ascii=False),
+            user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "mode": context.mode, "allowed_tools": sorted(available_tools)}, ensure_ascii=False),
             temperature=0,
             max_tokens=120,
         )
@@ -125,11 +138,13 @@ class OpenAICompatibleTutorGateway:
         result = llm_provider.chat(
             system_prompt=(
                 "You are a safe Chinese medical education tutor. Use only supplied observations. "
-                "Before submission never reveal answers, correct option IDs, reference answers, hidden rubrics, or benchmark targets. "
+                "The mode field is authoritative: pre_submit plus mode=study is a learning session, not an exam. "
+                "In Study mode, when a server-supplied get_answer_explanation observation is present and the learner explicitly asks for the current answer, "
+                "give that answer and explain it. In Exam mode before submission never reveal answers, correct option IDs, reference answers, hidden rubrics, or benchmark targets. "
                 "Do not provide diagnosis or treatment. Give a concise evidence-based teaching reply, cite source labels when supplied, "
                 f"and include this boundary: {SAFETY_NOTICE} Do not reveal hidden reasoning."
             ),
-            user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "observations": observations, "recent_conversation": context.metadata.get("conversation", [])[-12:]}, ensure_ascii=False),
+            user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "mode": context.mode, "observations": observations, "recent_conversation": context.metadata.get("conversation", [])[-12:]}, ensure_ascii=False),
             temperature=0.2,
             max_tokens=420,
         )
@@ -148,12 +163,12 @@ class ToolRegistry:
     def register(self, name: str, phases: set[str], handler: ToolHandler) -> None:
         self._tools[name] = (phases, handler)
 
-    def allowed(self, phase: str) -> set[str]:
-        return {name for name, (phases, _) in self._tools.items() if phase in phases}
+    def allowed(self, phase: str, mode: str = 'study') -> set[str]:
+        return {name for name, (phases, _) in self._tools.items() if phase in phases and not (name == 'get_answer_explanation' and mode != 'study')}
 
     def call(self, name: str, context: AgentContext) -> tuple[Any, ToolReceipt]:
         phases, handler = self._tools[name]
-        if context.phase not in phases:
+        if context.phase not in phases or (name == 'get_answer_explanation' and context.mode != 'study'):
             return {}, ToolReceipt(name, 0, 'denied', '该工具不在当前提交阶段的权限范围内。')
         started = perf_counter()
         try:
@@ -173,12 +188,12 @@ class AgentRunner:
 
     def stream(self, context: AgentContext) -> Iterator[AgentEvent]:
         run_id = f'run_{uuid4().hex[:12]}'
-        yield AgentEvent('message_start', {'run_id': run_id, 'provider': self.gateway.name, 'phase': context.phase})
+        yield AgentEvent('message_start', {'run_id': run_id, 'provider': self.gateway.name, 'provider_real': self.gateway.name != LocalPolicyModelGateway.name, 'phase': context.phase, 'mode': context.mode})
         started = perf_counter()
         observations: dict[str, Any] = {}
         receipts: list[ToolReceipt] = []
         try:
-            available = self.registry.allowed(context.phase)
+            available = self.registry.allowed(context.phase, context.mode)
             retry_count = 0
             while True:
                 try:
@@ -204,7 +219,8 @@ class AgentRunner:
                 if tool_name == 'retrieve_knowledge':
                     for source in observation:
                         yield AgentEvent('source', source)
-            text = self.gateway.compose(context, observations)
+            text = _clean_user_facing_text(self.gateway.compose(context, observations))
+            yield AgentEvent('reasoning', {'summary': ['识别学习目标', '对照题目与允许的证据', '组织面向学习者的回答'], 'duration_ms': round((perf_counter() - started) * 1000)})
             for token in _tokenize(text):
                 yield AgentEvent('token', {'text': token})
             yield AgentEvent('message_end', {'run_id': run_id, 'receipt_count': len(receipts), 'provider': self.gateway.name, 'retry_count': retry_count})
@@ -214,6 +230,53 @@ class AgentRunner:
 
 def _tokenize(text: str) -> list[str]:
     return [text[index:index + 18] for index in range(0, len(text), 18)]
+
+
+def _clean_user_facing_text(text: str) -> str:
+    """Remove accidental runtime/schema labels from model-facing prose.
+
+    Tool names and private observation keys belong in receipts and developer
+    detail, never in the learner's answer.  This is a narrow output guard, not
+    a substitute for the prompt contract.
+    """
+    cleaned = re.sub(
+        r"\s*(?:explanation_source|答案解析来源|解析来源|correct_option_ids?|hidden_rubric)"
+        r"\s*[:：]?\s*(?:[^\n。；;]+)?",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s*\[(?:get_[a-z_]+|retrieve_knowledge|ToolReceipt)\]", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*［(?:get_[a-z_]+|retrieve_knowledge|ToolReceipt)］", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(
+        r"\s*［[^］]*\b(?:get_[a-z_]+|retrieve_knowledge|ToolReceipt|explanation_source|"
+        r"correct_option_ids?|hidden_rubric)\b[^］]*］",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\s*\[[^\]]*\b(?:get_[a-z_]+|retrieve_knowledge|ToolReceipt|explanation_source|"
+        r"correct_option_ids?|hidden_rubric)\b[^\]]*\]",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\s*[\[【(（]?\s*(?:(?:来源|source)\s*[:：]\s*)?"
+        r"(?:get_[a-z_]+|retrieve_knowledge|ToolReceipt|explanation_source|"
+        r"correct_option_ids?|hidden_rubric)\s*[;；,，]?\s*[\]】)）]?",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s*\[[^\]]*\b(?:get_[a-z_]+|retrieve_knowledge|ToolReceipt|explanation_source|correct_option_ids?|hidden_rubric)\b[^\]]*\]", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*［[^］]*\b(?:get_[a-z_]+|retrieve_knowledge|ToolReceipt|explanation_source|correct_option_ids?|hidden_rubric)\b[^］]*］", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*[:：]\s*(?:none|null|未提供|unknown)\b", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*\[[^\]]*\bdataset_gold\b[^\]]*\]", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*[\[【][^\]】\n]*(?:source\s*item|source_id|dataset_gold|explanation_source)[^\]】\n]*[\]】]?", "", cleaned, flags=re.IGNORECASE)
+    cleaned = cleaned.replace("**", "")
+    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
 
 def build_tutor_runtime() -> AgentRunner:
@@ -228,7 +291,7 @@ def build_tutor_runtime() -> AgentRunner:
         query = f"{question.get('body_part', '')} {question.get('stem', '')} {context.user_message}"
         try:
             from app.services.rag_service import rag_service
-            citations = rag_service.retrieve(query, mode='hybrid', limit=3)
+            citations = rag_service.retrieve(query, mode='hybrid', limit=3, namespace='endoscopy')
         except Exception:
             # Honest local fallback: this is never emitted as a verified RAG
             # source and keeps the Tutor usable before the optional index starts.
@@ -236,11 +299,11 @@ def build_tutor_runtime() -> AgentRunner:
         if citations:
             return [{
                 'chunk_id': citation.chunk_id, 'document_name': citation.document_name,
-                'page': str(citation.page), 'section': citation.section, 'snippet': citation.snippet,
+                'page': str(citation.page), 'section': citation.section, 'snippet': citation.snippet, 'source_uri': citation.source_uri or '', 'namespace': citation.namespace,
             } for citation in citations]
         return [{
-            'document_name': str(question.get('source_dataset', '教学资料')), 'page': '教学样例（index 未就绪）',
-            'section': str(question.get('body_part', '观察要点')), 'snippet': str(question.get('citation_note', '先检查可支持的观察事实。')),
+            'document_name': str(question.get('source_dataset', '题目来源')), 'page': '题目来源',
+            'section': str(question.get('body_part', '观察要点')), 'snippet': str(question.get('citation_note', '先检查可支持的观察事实。')), 'source_uri': '', 'namespace': 'question_source',
         }]
 
     def learning_profile(context: AgentContext) -> dict[str, Any]:
@@ -259,10 +322,25 @@ def build_tutor_runtime() -> AgentRunner:
                 raise ValueError('attempt not found')
             return {'score': attempt.score, 'correct': attempt.correct, 'error_tags': attempt.error_tags}
 
+    def answer_explanation(context: AgentContext) -> dict[str, Any]:
+        if context.mode != 'study' or context.phase != 'pre_submit':
+            raise PermissionError('answer explanation is only available in Study pre-submit mode')
+        from app.db.serializers import grading_question_payload
+        from app.db.database import SessionLocal
+        with SessionLocal() as session:
+            from app.db.repositories import Stage1Repository
+            question = Stage1Repository(session).get_question(context.question_id)
+            grading = grading_question_payload(question)
+            _, answer_display = stage1_service._answer_displays(grading, grading.get('correct_option_id', grading.get('correct_option_ids', grading.get('correct_value', ''))))
+            if grading['question_type'] == 'short_answer':
+                answer_display = '参考答案见题目解析与评分 rubric'
+            return {'correct_answer_display': answer_display, 'explanation': question.explanation, 'explanation_source': question.explanation_source}
+
     registry.register('get_question_context', {'pre_submit', 'post_submit'}, question_context)
     registry.register('retrieve_knowledge', {'pre_submit', 'post_submit'}, retrieve_knowledge)
     registry.register('get_learning_profile', {'pre_submit', 'post_submit'}, learning_profile)
     registry.register('get_grading_result', {'post_submit'}, grading_result)
+    registry.register('get_answer_explanation', {'pre_submit'}, answer_explanation)
     # This explicit opt-in protects local test/demo runs from accidental paid
     # provider calls. The default adapter remains visibly labelled as local.
     provider_enabled = os.getenv('TUTOR_PROVIDER_ENABLED', '').strip().lower() == 'true'

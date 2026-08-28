@@ -11,3 +11,8 @@ runtime_logs/
 frontend/release/
 frontend/artifacts/
 *.lnk
+data/external/
+data/normalized/
+data/fixtures/generated/
+knowledge/external/
+runtime/fastembed/

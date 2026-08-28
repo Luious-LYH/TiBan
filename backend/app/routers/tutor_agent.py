@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Literal
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
@@ -17,6 +18,7 @@ class TutorStreamRequest(BaseModel):
     learner_id: str = 'demo_learner'
     message: str = Field(min_length=1, max_length=2000)
     attempt_id: str | None = None
+    mode: Literal['study', 'exam', 'review'] = 'study'
     conversation: list[dict[str, str]] = Field(default_factory=list, max_length=12)
 
 
@@ -30,6 +32,7 @@ def tutor_stream(request: TutorStreamRequest) -> StreamingResponse:
             learner_id=request.learner_id,
             user_message=request.message,
             phase=phase,
+            mode=request.mode,
             attempt_id=request.attempt_id,
             metadata={"conversation": request.conversation[-12:]},
         )

@@ -327,6 +327,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/assets/local-vqa/{dataset_id}/{asset_path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Local Vqa Asset */
+        get: operations["local_vqa_asset_api_v3_assets_local_vqa__dataset_id___asset_path__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/evaluation/latest": {
         parameters: {
             query?: never;
@@ -1785,6 +1802,25 @@ export interface components {
              * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
              */
             safety_notice: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /**
+             * Business Usage
+             * @default user_ready
+             * @enum {string}
+             */
+            business_usage: "user_ready" | "needs_explanation" | "generation_source" | "benchmark_only" | "excluded";
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Derived From Dataset */
+            derived_from_dataset?: string | null;
+            /**
+             * Official Explanation Available
+             * @default false
+             */
+            official_explanation_available: boolean;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1902,10 +1938,10 @@ export interface components {
             bank_id: string;
             /**
              * Mode
-             * @default practice
+             * @default study
              * @enum {string}
              */
-            mode: "practice" | "review";
+            mode: "study" | "exam" | "review" | "practice";
         };
         /** PracticeSessionPublic */
         PracticeSessionPublic: {
@@ -1915,8 +1951,11 @@ export interface components {
             learner_id: string;
             /** Bank Id */
             bank_id: string;
-            /** Mode */
-            mode: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "study" | "exam" | "review" | "practice";
             /**
              * Status
              * @enum {string}
@@ -1948,6 +1987,12 @@ export interface components {
             hint_count: number;
             /** Duration Ms */
             duration_ms?: number | null;
+            /**
+             * Mode
+             * @default study
+             * @enum {string}
+             */
+            mode: "study" | "exam" | "review" | "practice";
         };
         /** PracticeSubmitResponse */
         PracticeSubmitResponse: {
@@ -1988,6 +2033,29 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Selected Answer */
+            selected_answer: string | string[] | boolean;
+            /** Selected Answer Display */
+            selected_answer_display: string;
+            /** Correct Answer Display */
+            correct_answer_display: string;
+            /**
+             * Answer Source
+             * @default dataset_gold
+             * @enum {string}
+             */
+            answer_source: "dataset_gold" | "human_verified" | "generated";
+            /**
+             * Explanation Source
+             * @default none
+             * @enum {string}
+             */
+            explanation_source: "dataset_gold" | "rag_generated" | "human_curated" | "none";
+            /**
+             * Official Explanation Available
+             * @default false
+             */
+            official_explanation_available: boolean;
         };
         /** ProviderPreflightRequest */
         ProviderPreflightRequest: {
@@ -2263,6 +2331,25 @@ export interface components {
              * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
              */
             safety_notice: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /**
+             * Business Usage
+             * @default user_ready
+             * @enum {string}
+             */
+            business_usage: "user_ready" | "needs_explanation" | "generation_source" | "benchmark_only" | "excluded";
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Derived From Dataset */
+            derived_from_dataset?: string | null;
+            /**
+             * Official Explanation Available
+             * @default false
+             */
+            official_explanation_available: boolean;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2315,6 +2402,25 @@ export interface components {
              * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
              */
             safety_notice: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /**
+             * Business Usage
+             * @default user_ready
+             * @enum {string}
+             */
+            business_usage: "user_ready" | "needs_explanation" | "generation_source" | "benchmark_only" | "excluded";
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Derived From Dataset */
+            derived_from_dataset?: string | null;
+            /**
+             * Official Explanation Available
+             * @default false
+             */
+            official_explanation_available: boolean;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2395,6 +2501,25 @@ export interface components {
              * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
              */
             safety_notice: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /**
+             * Business Usage
+             * @default user_ready
+             * @enum {string}
+             */
+            business_usage: "user_ready" | "needs_explanation" | "generation_source" | "benchmark_only" | "excluded";
+            /** Source Item Id */
+            source_item_id?: string | null;
+            /** Derived From Dataset */
+            derived_from_dataset?: string | null;
+            /**
+             * Official Explanation Available
+             * @default false
+             */
+            official_explanation_available: boolean;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2493,6 +2618,12 @@ export interface components {
             message: string;
             /** Attempt Id */
             attempt_id?: string | null;
+            /**
+             * Mode
+             * @default study
+             * @enum {string}
+             */
+            mode: "study" | "exam" | "review";
             /** Conversation */
             conversation?: {
                 [key: string]: string;
@@ -3143,6 +3274,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FactoryPublishResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    local_vqa_asset_api_v3_assets_local_vqa__dataset_id___asset_path__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                dataset_id: string;
+                asset_path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

@@ -26,8 +26,8 @@
           "recall_at_5": 1.0,
           "mrr": 0.95,
           "ndcg_at_5": 0.9631,
-          "p50_latency_ms": 62.56,
-          "p95_latency_ms": 76.28,
+          "p50_latency_ms": 9.0,
+          "p95_latency_ms": 12.93,
           "cases": [
             {
               "id": "t01",
@@ -53,7 +53,7 @@
                   "section": "间隔复习"
                 }
               ],
-              "latency_ms": 55.99
+              "latency_ms": 13.36
             },
             {
               "id": "t02",
@@ -83,7 +83,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 63.12
+              "latency_ms": 8.55
             },
             {
               "id": "t03",
@@ -109,7 +109,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 63.97
+              "latency_ms": 9.12
             },
             {
               "id": "t04",
@@ -139,7 +139,7 @@
                   "section": "简答题证据策略"
                 }
               ],
-              "latency_ms": 68.69
+              "latency_ms": 8.27
             },
             {
               "id": "t05",
@@ -169,7 +169,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 63.3
+              "latency_ms": 9.04
             },
             {
               "id": "t06",
@@ -199,7 +199,7 @@
                   "section": "间隔复习"
                 }
               ],
-              "latency_ms": 63.25
+              "latency_ms": 7.82
             },
             {
               "id": "t07",
@@ -229,7 +229,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 72.86
+              "latency_ms": 9.67
             },
             {
               "id": "t08",
@@ -259,7 +259,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 76.28
+              "latency_ms": 8.95
             },
             {
               "id": "t09",
@@ -289,7 +289,7 @@
                   "section": "胃部部位表达"
                 }
               ],
-              "latency_ms": 60.84
+              "latency_ms": 7.87
             },
             {
               "id": "t10",
@@ -319,7 +319,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 62.0
+              "latency_ms": 9.59
             },
             {
               "id": "t11",
@@ -349,7 +349,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 59.96
+              "latency_ms": 9.27
             },
             {
               "id": "t12",
@@ -379,7 +379,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 58.13
+              "latency_ms": 7.06
             },
             {
               "id": "t13",
@@ -409,7 +409,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 61.05
+              "latency_ms": 9.83
             },
             {
               "id": "t14",
@@ -439,7 +439,7 @@
                   "section": "胃部部位表达"
                 }
               ],
-              "latency_ms": 54.47
+              "latency_ms": 9.49
             },
             {
               "id": "t15",
@@ -465,7 +465,7 @@
                   "section": "图像质量与盲区"
                 }
               ],
-              "latency_ms": 68.36
+              "latency_ms": 7.6
             },
             {
               "id": "t16",
@@ -495,7 +495,7 @@
                   "section": "结直肠病灶边界"
                 }
               ],
-              "latency_ms": 65.53
+              "latency_ms": 10.46
             },
             {
               "id": "t17",
@@ -517,7 +517,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 59.67
+              "latency_ms": 9.11
             },
             {
               "id": "t18",
@@ -547,7 +547,7 @@
                   "section": "结直肠病灶边界"
                 }
               ],
-              "latency_ms": 59.94
+              "latency_ms": 7.21
             },
             {
               "id": "t19",
@@ -577,7 +577,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 63.16
+              "latency_ms": 11.28
             },
             {
               "id": "t20",
@@ -607,7 +607,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 55.23
+              "latency_ms": 10.5
             },
             {
               "id": "t21",
@@ -637,7 +637,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 74.58
+              "latency_ms": 8.9
             },
             {
               "id": "t22",
@@ -667,7 +667,7 @@
                   "section": "简答题证据策略"
                 }
               ],
-              "latency_ms": 57.65
+              "latency_ms": 7.44
             },
             {
               "id": "t23",
@@ -681,7 +681,7 @@
                   "section": "简答题证据策略"
                 }
               ],
-              "latency_ms": 74.33
+              "latency_ms": 9.78
             },
             {
               "id": "t24",
@@ -711,7 +711,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 69.1
+              "latency_ms": 8.18
             },
             {
               "id": "t25",
@@ -741,7 +741,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 61.55
+              "latency_ms": 7.61
             },
             {
               "id": "t26",
@@ -771,7 +771,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 60.63
+              "latency_ms": 10.85
             },
             {
               "id": "t27",
@@ -801,7 +801,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 84.09
+              "latency_ms": 7.94
             },
             {
               "id": "t28",
@@ -831,7 +831,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 57.59
+              "latency_ms": 7.31
             },
             {
               "id": "t29",
@@ -861,7 +861,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 74.13
+              "latency_ms": 12.93
             },
             {
               "id": "t30",
@@ -887,7 +887,7 @@
                   "section": "使用边界总结"
                 }
               ],
-              "latency_ms": 57.02
+              "latency_ms": 7.33
             }
           ]
         },
@@ -895,8 +895,8 @@
           "recall_at_5": 0.9667,
           "mrr": 0.8833,
           "ndcg_at_5": 0.9041,
-          "p50_latency_ms": 185.44,
-          "p95_latency_ms": 248.13,
+          "p50_latency_ms": 124.28,
+          "p95_latency_ms": 174.08,
           "cases": [
             {
               "id": "t01",
@@ -926,7 +926,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 255.91
+              "latency_ms": 167.29
             },
             {
               "id": "t02",
@@ -956,7 +956,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 248.13
+              "latency_ms": 117.75
             },
             {
               "id": "t03",
@@ -986,7 +986,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 239.91
+              "latency_ms": 128.17
             },
             {
               "id": "t04",
@@ -1016,7 +1016,7 @@
                   "section": "结直肠病灶边界"
                 }
               ],
-              "latency_ms": 167.44
+              "latency_ms": 144.78
             },
             {
               "id": "t05",
@@ -1046,7 +1046,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 224.65
+              "latency_ms": 132.77
             },
             {
               "id": "t06",
@@ -1076,7 +1076,7 @@
                   "section": "胃部部位表达"
                 }
               ],
-              "latency_ms": 167.55
+              "latency_ms": 141.84
             },
             {
               "id": "t07",
@@ -1106,7 +1106,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 169.68
+              "latency_ms": 174.08
             },
             {
               "id": "t08",
@@ -1136,7 +1136,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 183.65
+              "latency_ms": 181.4
             },
             {
               "id": "t09",
@@ -1166,7 +1166,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 168.58
+              "latency_ms": 115.63
             },
             {
               "id": "t10",
@@ -1196,7 +1196,7 @@
                   "section": "图像质量与盲区"
                 }
               ],
-              "latency_ms": 167.56
+              "latency_ms": 102.6
             },
             {
               "id": "t11",
@@ -1226,7 +1226,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 185.56
+              "latency_ms": 102.71
             },
             {
               "id": "t12",
@@ -1256,7 +1256,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 165.44
+              "latency_ms": 128.72
             },
             {
               "id": "t13",
@@ -1286,7 +1286,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 164.53
+              "latency_ms": 100.06
             },
             {
               "id": "t14",
@@ -1316,7 +1316,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 228.39
+              "latency_ms": 113.31
             },
             {
               "id": "t15",
@@ -1346,7 +1346,7 @@
                   "section": "生成题审核"
                 }
               ],
-              "latency_ms": 164.45
+              "latency_ms": 105.48
             },
             {
               "id": "t16",
@@ -1376,7 +1376,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 185.31
+              "latency_ms": 106.34
             },
             {
               "id": "t17",
@@ -1406,7 +1406,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 229.57
+              "latency_ms": 148.87
             },
             {
               "id": "t18",
@@ -1436,7 +1436,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 163.61
+              "latency_ms": 125.02
             },
             {
               "id": "t19",
@@ -1466,7 +1466,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 209.81
+              "latency_ms": 111.89
             },
             {
               "id": "t20",
@@ -1496,7 +1496,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 175.62
+              "latency_ms": 114.51
             },
             {
               "id": "t21",
@@ -1526,7 +1526,7 @@
                   "section": "资料引用与溯源"
                 }
               ],
-              "latency_ms": 178.85
+              "latency_ms": 142.76
             },
             {
               "id": "t22",
@@ -1556,7 +1556,7 @@
                   "section": "结直肠肠段定位"
                 }
               ],
-              "latency_ms": 212.62
+              "latency_ms": 123.54
             },
             {
               "id": "t23",
@@ -1586,7 +1586,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 165.04
+              "latency_ms": 133.38
             },
             {
               "id": "t24",
@@ -1616,7 +1616,7 @@
                   "section": "教学安全边界"
                 }
               ],
-              "latency_ms": 190.9
+              "latency_ms": 106.37
             },
             {
               "id": "t25",
@@ -1646,7 +1646,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 220.63
+              "latency_ms": 140.19
             },
             {
               "id": "t26",
@@ -1676,7 +1676,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 166.54
+              "latency_ms": 110.68
             },
             {
               "id": "t27",
@@ -1706,7 +1706,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 233.48
+              "latency_ms": 120.14
             },
             {
               "id": "t28",
@@ -1736,7 +1736,7 @@
                   "section": "图像质量与盲区"
                 }
               ],
-              "latency_ms": 187.17
+              "latency_ms": 107.64
             },
             {
               "id": "t29",
@@ -1766,7 +1766,7 @@
                   "section": "资料引用与溯源"
                 }
               ],
-              "latency_ms": 196.25
+              "latency_ms": 126.71
             },
             {
               "id": "t30",
@@ -1796,7 +1796,7 @@
                   "section": "图像质量与盲区"
                 }
               ],
-              "latency_ms": 223.12
+              "latency_ms": 151.29
             }
           ]
         },
@@ -1804,8 +1804,8 @@
           "recall_at_5": 1.0,
           "mrr": 0.9417,
           "ndcg_at_5": 0.9564,
-          "p50_latency_ms": 198.49,
-          "p95_latency_ms": 236.53,
+          "p50_latency_ms": 120.58,
+          "p95_latency_ms": 150.01,
           "cases": [
             {
               "id": "t01",
@@ -1835,7 +1835,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 190.0
+              "latency_ms": 109.55
             },
             {
               "id": "t02",
@@ -1865,7 +1865,7 @@
                   "section": "结直肠肠段定位"
                 }
               ],
-              "latency_ms": 216.94
+              "latency_ms": 114.87
             },
             {
               "id": "t03",
@@ -1895,7 +1895,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 187.26
+              "latency_ms": 135.17
             },
             {
               "id": "t04",
@@ -1925,7 +1925,7 @@
                   "section": "简答题证据策略"
                 }
               ],
-              "latency_ms": 162.75
+              "latency_ms": 125.31
             },
             {
               "id": "t05",
@@ -1955,7 +1955,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 201.95
+              "latency_ms": 148.29
             },
             {
               "id": "t06",
@@ -1985,7 +1985,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 189.07
+              "latency_ms": 115.15
             },
             {
               "id": "t07",
@@ -2015,7 +2015,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 201.55
+              "latency_ms": 134.77
             },
             {
               "id": "t08",
@@ -2045,7 +2045,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 200.78
+              "latency_ms": 124.98
             },
             {
               "id": "t09",
@@ -2075,7 +2075,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 169.7
+              "latency_ms": 106.0
             },
             {
               "id": "t10",
@@ -2105,7 +2105,7 @@
                   "section": "错题复盘"
                 }
               ],
-              "latency_ms": 195.72
+              "latency_ms": 106.65
             },
             {
               "id": "t11",
@@ -2135,7 +2135,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 182.08
+              "latency_ms": 112.07
             },
             {
               "id": "t12",
@@ -2165,7 +2165,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 203.26
+              "latency_ms": 142.98
             },
             {
               "id": "t13",
@@ -2195,7 +2195,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 225.95
+              "latency_ms": 133.25
             },
             {
               "id": "t14",
@@ -2225,7 +2225,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 161.96
+              "latency_ms": 100.03
             },
             {
               "id": "t15",
@@ -2255,7 +2255,7 @@
                   "section": "教学安全边界"
                 }
               ],
-              "latency_ms": 187.78
+              "latency_ms": 150.01
             },
             {
               "id": "t16",
@@ -2285,7 +2285,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 208.08
+              "latency_ms": 143.84
             },
             {
               "id": "t17",
@@ -2315,7 +2315,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 206.57
+              "latency_ms": 112.62
             },
             {
               "id": "t18",
@@ -2345,7 +2345,7 @@
                   "section": "结直肠肠段定位"
                 }
               ],
-              "latency_ms": 245.68
+              "latency_ms": 121.26
             },
             {
               "id": "t19",
@@ -2375,7 +2375,7 @@
                   "section": "教学安全边界"
                 }
               ],
-              "latency_ms": 236.53
+              "latency_ms": 115.68
             },
             {
               "id": "t20",
@@ -2405,7 +2405,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 196.2
+              "latency_ms": 178.56
             },
             {
               "id": "t21",
@@ -2435,7 +2435,7 @@
                   "section": "教学安全边界"
                 }
               ],
-              "latency_ms": 162.01
+              "latency_ms": 123.77
             },
             {
               "id": "t22",
@@ -2465,7 +2465,7 @@
                   "section": "结直肠病灶边界"
                 }
               ],
-              "latency_ms": 183.23
+              "latency_ms": 115.39
             },
             {
               "id": "t23",
@@ -2495,7 +2495,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 232.55
+              "latency_ms": 117.01
             },
             {
               "id": "t24",
@@ -2525,7 +2525,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 164.2
+              "latency_ms": 125.56
             },
             {
               "id": "t25",
@@ -2555,7 +2555,7 @@
                   "section": "出血证据表达"
                 }
               ],
-              "latency_ms": 227.92
+              "latency_ms": 110.47
             },
             {
               "id": "t26",
@@ -2585,7 +2585,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 177.62
+              "latency_ms": 119.89
             },
             {
               "id": "t27",
@@ -2615,7 +2615,7 @@
                   "section": "资料引用与溯源"
                 }
               ],
-              "latency_ms": 172.54
+              "latency_ms": 132.11
             },
             {
               "id": "t28",
@@ -2645,7 +2645,7 @@
                   "section": "教学安全边界"
                 }
               ],
-              "latency_ms": 215.99
+              "latency_ms": 129.69
             },
             {
               "id": "t29",
@@ -2675,7 +2675,7 @@
                   "section": "简答题证据策略"
                 }
               ],
-              "latency_ms": 226.51
+              "latency_ms": 109.77
             },
             {
               "id": "t30",
@@ -2705,7 +2705,7 @@
                   "section": "教学安全边界"
                 }
               ],
-              "latency_ms": 208.44
+              "latency_ms": 119.18
             }
           ]
         },
@@ -2713,8 +2713,8 @@
           "recall_at_5": 0.7333,
           "mrr": 0.5833,
           "ndcg_at_5": 0.6216,
-          "p50_latency_ms": 658.96,
-          "p95_latency_ms": 1714.41,
+          "p50_latency_ms": 433.15,
+          "p95_latency_ms": 599.08,
           "cases": [
             {
               "id": "t01",
@@ -2744,7 +2744,7 @@
                   "section": "出血证据表达"
                 }
               ],
-              "latency_ms": 3042.29
+              "latency_ms": 6788.15
             },
             {
               "id": "t02",
@@ -2774,7 +2774,7 @@
                   "section": "教学安全边界"
                 }
               ],
-              "latency_ms": 605.12
+              "latency_ms": 341.75
             },
             {
               "id": "t03",
@@ -2804,7 +2804,7 @@
                   "section": "使用边界总结"
                 }
               ],
-              "latency_ms": 627.47
+              "latency_ms": 396.53
             },
             {
               "id": "t04",
@@ -2834,7 +2834,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 558.22
+              "latency_ms": 366.75
             },
             {
               "id": "t05",
@@ -2864,7 +2864,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 645.42
+              "latency_ms": 401.8
             },
             {
               "id": "t06",
@@ -2894,7 +2894,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 690.73
+              "latency_ms": 384.06
             },
             {
               "id": "t07",
@@ -2924,7 +2924,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 745.81
+              "latency_ms": 404.8
             },
             {
               "id": "t08",
@@ -2954,7 +2954,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 927.82
+              "latency_ms": 434.13
             },
             {
               "id": "t09",
@@ -2984,7 +2984,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 1714.41
+              "latency_ms": 381.19
             },
             {
               "id": "t10",
@@ -3014,7 +3014,7 @@
                   "section": "图像质量与盲区"
                 }
               ],
-              "latency_ms": 1072.09
+              "latency_ms": 386.5
             },
             {
               "id": "t11",
@@ -3044,7 +3044,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 1272.29
+              "latency_ms": 496.34
             },
             {
               "id": "t12",
@@ -3074,7 +3074,7 @@
                   "section": "结直肠肠段定位"
                 }
               ],
-              "latency_ms": 1049.4
+              "latency_ms": 415.5
             },
             {
               "id": "t13",
@@ -3104,7 +3104,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 1311.75
+              "latency_ms": 544.36
             },
             {
               "id": "t14",
@@ -3134,7 +3134,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 738.29
+              "latency_ms": 456.55
             },
             {
               "id": "t15",
@@ -3164,7 +3164,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 972.53
+              "latency_ms": 495.41
             },
             {
               "id": "t16",
@@ -3194,7 +3194,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 632.02
+              "latency_ms": 588.31
             },
             {
               "id": "t17",
@@ -3224,7 +3224,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 672.49
+              "latency_ms": 459.57
             },
             {
               "id": "t18",
@@ -3254,7 +3254,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 506.45
+              "latency_ms": 484.32
             },
             {
               "id": "t19",
@@ -3284,7 +3284,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 519.48
+              "latency_ms": 446.13
             },
             {
               "id": "t20",
@@ -3314,7 +3314,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 536.6
+              "latency_ms": 464.17
             },
             {
               "id": "t21",
@@ -3344,7 +3344,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 749.25
+              "latency_ms": 566.16
             },
             {
               "id": "t22",
@@ -3374,7 +3374,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 592.66
+              "latency_ms": 545.03
             },
             {
               "id": "t23",
@@ -3404,7 +3404,7 @@
                   "section": "出血证据表达"
                 }
               ],
-              "latency_ms": 521.15
+              "latency_ms": 397.75
             },
             {
               "id": "t24",
@@ -3434,7 +3434,7 @@
                   "section": "结直肠肠段定位"
                 }
               ],
-              "latency_ms": 555.06
+              "latency_ms": 393.8
             },
             {
               "id": "t25",
@@ -3464,7 +3464,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 543.2
+              "latency_ms": 423.97
             },
             {
               "id": "t26",
@@ -3494,7 +3494,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 575.18
+              "latency_ms": 407.13
             },
             {
               "id": "t27",
@@ -3524,7 +3524,7 @@
                   "section": "简答题证据策略"
                 }
               ],
-              "latency_ms": 635.42
+              "latency_ms": 476.64
             },
             {
               "id": "t28",
@@ -3554,7 +3554,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 691.46
+              "latency_ms": 432.17
             },
             {
               "id": "t29",
@@ -3584,7 +3584,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 858.93
+              "latency_ms": 599.08
             },
             {
               "id": "t30",
@@ -3598,7 +3598,7 @@
                   "section": "间隔复习"
                 }
               ],
-              "latency_ms": 614.8
+              "latency_ms": 375.61
             }
           ]
         }
@@ -3612,8 +3612,8 @@
           "recall_at_5": 0.7333,
           "mrr": 0.5833,
           "ndcg_at_5": 0.6216,
-          "p50_latency_ms": 609.14,
-          "p95_latency_ms": 914.82,
+          "p50_latency_ms": 423.17,
+          "p95_latency_ms": 583.27,
           "cases": [
             {
               "id": "t01",
@@ -3643,7 +3643,7 @@
                   "section": "出血证据表达"
                 }
               ],
-              "latency_ms": 766.87
+              "latency_ms": 438.42
             },
             {
               "id": "t02",
@@ -3673,7 +3673,7 @@
                   "section": "教学安全边界"
                 }
               ],
-              "latency_ms": 636.66
+              "latency_ms": 399.06
             },
             {
               "id": "t03",
@@ -3703,7 +3703,7 @@
                   "section": "使用边界总结"
                 }
               ],
-              "latency_ms": 699.56
+              "latency_ms": 384.48
             },
             {
               "id": "t04",
@@ -3733,7 +3733,7 @@
                   "section": "资料引用与溯源"
                 }
               ],
-              "latency_ms": 667.18
+              "latency_ms": 419.8
             },
             {
               "id": "t05",
@@ -3763,7 +3763,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 673.34
+              "latency_ms": 408.39
             },
             {
               "id": "t06",
@@ -3793,7 +3793,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 864.58
+              "latency_ms": 375.87
             },
             {
               "id": "t07",
@@ -3823,7 +3823,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 612.06
+              "latency_ms": 373.63
             },
             {
               "id": "t08",
@@ -3853,7 +3853,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 606.23
+              "latency_ms": 403.77
             },
             {
               "id": "t09",
@@ -3883,7 +3883,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 549.7
+              "latency_ms": 427.74
             },
             {
               "id": "t10",
@@ -3913,7 +3913,7 @@
                   "section": "图像质量与盲区"
                 }
               ],
-              "latency_ms": 560.69
+              "latency_ms": 438.39
             },
             {
               "id": "t11",
@@ -3943,7 +3943,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 538.72
+              "latency_ms": 414.61
             },
             {
               "id": "t12",
@@ -3973,7 +3973,7 @@
                   "section": "结直肠肠段定位"
                 }
               ],
-              "latency_ms": 468.83
+              "latency_ms": 430.21
             },
             {
               "id": "t13",
@@ -4003,7 +4003,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 507.78
+              "latency_ms": 455.7
             },
             {
               "id": "t14",
@@ -4033,7 +4033,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 517.39
+              "latency_ms": 434.17
             },
             {
               "id": "t15",
@@ -4063,7 +4063,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 551.06
+              "latency_ms": 421.27
             },
             {
               "id": "t16",
@@ -4093,7 +4093,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 572.7
+              "latency_ms": 425.07
             },
             {
               "id": "t17",
@@ -4123,7 +4123,7 @@
                   "section": "观察记录的基本顺序"
                 }
               ],
-              "latency_ms": 547.98
+              "latency_ms": 398.22
             },
             {
               "id": "t18",
@@ -4153,7 +4153,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 590.45
+              "latency_ms": 486.95
             },
             {
               "id": "t19",
@@ -4183,7 +4183,7 @@
                   "section": "溃疡样改变描述"
                 }
               ],
-              "latency_ms": 545.82
+              "latency_ms": 405.15
             },
             {
               "id": "t20",
@@ -4213,7 +4213,7 @@
                   "section": "隆起与凹陷形态"
                 }
               ],
-              "latency_ms": 640.18
+              "latency_ms": 580.51
             },
             {
               "id": "t21",
@@ -4243,7 +4243,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 706.24
+              "latency_ms": 583.27
             },
             {
               "id": "t22",
@@ -4273,7 +4273,7 @@
                   "section": "胃黏膜颜色与皱襞"
                 }
               ],
-              "latency_ms": 878.12
+              "latency_ms": 885.73
             },
             {
               "id": "t23",
@@ -4303,7 +4303,7 @@
                   "section": "出血证据表达"
                 }
               ],
-              "latency_ms": 640.3
+              "latency_ms": 526.19
             },
             {
               "id": "t24",
@@ -4333,7 +4333,7 @@
                   "section": "结直肠肠段定位"
                 }
               ],
-              "latency_ms": 596.59
+              "latency_ms": 396.67
             },
             {
               "id": "t25",
@@ -4363,7 +4363,7 @@
                   "section": "十二指肠观察"
                 }
               ],
-              "latency_ms": 575.14
+              "latency_ms": 409.1
             },
             {
               "id": "t26",
@@ -4393,7 +4393,7 @@
                   "section": "食管黏膜形态"
                 }
               ],
-              "latency_ms": 558.36
+              "latency_ms": 529.61
             },
             {
               "id": "t27",
@@ -4423,7 +4423,7 @@
                   "section": "简答题证据策略"
                 }
               ],
-              "latency_ms": 914.82
+              "latency_ms": 455.71
             },
             {
               "id": "t28",
@@ -4453,7 +4453,7 @@
                   "section": "选择题证据策略"
                 }
               ],
-              "latency_ms": 819.3
+              "latency_ms": 457.1
             },
             {
               "id": "t29",
@@ -4483,7 +4483,7 @@
                   "section": "食管解剖定位"
                 }
               ],
-              "latency_ms": 1033.31
+              "latency_ms": 410.36
             },
             {
               "id": "t30",
@@ -4497,7 +4497,7 @@
                   "section": "间隔复习"
                 }
               ],
-              "latency_ms": 675.81
+              "latency_ms": 397.03
             }
           ]
         }

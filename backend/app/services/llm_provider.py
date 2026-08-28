@@ -58,6 +58,9 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
 
 
 class LLMProvider:
+    _TRANSIENT_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504}
+    _CHAT_RETRIES = 2
+
     def _local_demo_provider_paths(self) -> list[Path]:
         return [
             config.PROJECT_DIR / ".demo_llm_providers.json",
@@ -290,22 +293,35 @@ class LLMProvider:
 
         last_result: LLMResult | None = None
         for attempt in attempts:
-            result = self._chat_once(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                image_data=image_data,
-                image_attached=image_attached,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                effective_provider=attempt["provider"],
-                effective_base_url=attempt["base_url"],
-                effective_api_key=attempt["api_key"],
-                effective_model=attempt["model"],
-            )
-            if result.ok:
-                return result
-            last_result = result
+            for retry_index in range(self._CHAT_RETRIES + 1):
+                result = self._chat_once(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    image_data=image_data,
+                    image_attached=image_attached,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    effective_provider=attempt["provider"],
+                    effective_base_url=attempt["base_url"],
+                    effective_api_key=attempt["api_key"],
+                    effective_model=attempt["model"],
+                )
+                if result.ok:
+                    return result
+                last_result = result
+                if retry_index < self._CHAT_RETRIES and self._is_transient_provider_error(result.error):
+                    time.sleep(0.5 * (2**retry_index))
+                    continue
+                break
         return last_result or LLMResult(False, "", "rule", provider or config.LLM_PROVIDER, model or config.LLM_MODEL, "provider_not_configured", image_attached=image_attached)
+
+    def _is_transient_provider_error(self, error: str | None) -> bool:
+        if not error:
+            return False
+        return any(
+            error.startswith(f"http_{status}")
+            for status in self._TRANSIENT_HTTP_STATUSES
+        ) or error in {"TimeoutError", "socket.timeout", "RemoteDisconnected", "ConnectionResetError"}
 
     def _provider_attempts(
         self,
@@ -652,7 +668,7 @@ class LLMProvider:
             return False
         try:
             ipaddress.ip_address(canonical)
-            return False
+            return config.LLM_PROVIDER_ALLOW_PRIVATE_NETWORK and self._is_allowlisted_private_address(ipaddress.ip_address(canonical))
         except ValueError:
             return canonical in config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST or canonical in self._local_demo_provider_hosts()
 

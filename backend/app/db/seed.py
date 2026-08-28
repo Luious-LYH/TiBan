@@ -83,6 +83,16 @@ def legacy_question_to_record(question: Question) -> dict[str, Any]:
             "reference_constraints": ["仅作观察性描述", "保留医生复核边界"],
         }
     modality = "image" if question.image_url else "text"
+    source_dataset = question.source_dataset
+    if source_dataset == "EndoBench":
+        business_usage = "benchmark_only"
+    elif source_dataset in {"Kvasir-VQA", "Kvasir-VQA-x1"}:
+        # Legacy VQA fixtures lack the source-item lineage required by the
+        # curated importer.  Keep them as generation material instead of
+        # letting an older seed fixture bypass the suitability gate.
+        business_usage = "generation_source"
+    else:
+        business_usage = "user_ready"
     return {
         "bank_id": bank_id,
         "bank_name": bank_name,
@@ -112,6 +122,18 @@ def legacy_question_to_record(question: Question) -> dict[str, Any]:
         "false_premise": question.false_premise_flag,
         "doctor_review_required": question.doctor_review_required,
         "safety_notice": question.safety_notice or SAFETY_NOTICE,
+        "business_usage": business_usage,
+        "derived_from_dataset": question.source_dataset if question.source_dataset in {"EndoBench", "Kvasir-VQA", "Kvasir-VQA-x1"} else None,
+        "license_gate_status": "allow_noncommercial" if question.source_dataset in {"EndoBench", "Kvasir-VQA", "Kvasir-VQA-x1"} else "needs_review",
+        "answer_source": "dataset_gold",
+        "explanation_source": "none",
+        "official_explanation_available": False,
+        "source_uri": (
+            "https://github.com/medAI-NEU/EndoBench" if question.source_dataset == "EndoBench"
+            else "https://github.com/ENDObenchmark/Kvasir-VQA" if question.source_dataset == "Kvasir-VQA"
+            else "https://github.com/ENDObenchmark/Kvasir-VQA-x1" if question.source_dataset == "Kvasir-VQA-x1"
+            else None
+        ),
     }
 
 
@@ -131,10 +153,14 @@ def seed_database(session: Session) -> int:
         grouped[record["bank_id"]].append(record)
 
     for bank_id, items in grouped.items():
-        type_counts = Counter(item["question_type"] for item in items)
-        modality_counts = Counter(item["modality"] for item in items)
-        body_parts = sorted({item["body_part"] for item in items})
-        first = items[0]
+        # Only product-ready rows become learner-facing bank inventory.  Keep
+        # generation_source rows in the database for lineage/import audits,
+        # but never let a fresh database seed expose them as playable counts.
+        visible_items = [item for item in items if item.get("business_usage") == "user_ready"]
+        type_counts = Counter(item["question_type"] for item in visible_items)
+        modality_counts = Counter(item["modality"] for item in visible_items)
+        body_parts = sorted({item["body_part"] for item in visible_items})
+        first = visible_items[0] if visible_items else items[0]
         session.add(
             QuestionBankModel(
                 bank_id=bank_id,
@@ -143,7 +169,7 @@ def seed_database(session: Session) -> int:
                 description=first["bank_description"],
                 version="seed-v1",
                 status="published",
-                question_count=len(items),
+                question_count=len(visible_items),
                 question_type_counts=dict(type_counts),
                 modality_counts=dict(modality_counts),
                 body_parts=body_parts,

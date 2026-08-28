@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
         </nav>
-        <span className="s1-stage-badge"><span />Stage 2 · Agent Intelligence</span>
+        <span className="s1-stage-badge"><span />本地学习演示</span>
       </header>
       <main className="s1-main">{children}</main>
       <footer className="s1-footer">教学研修与医生复核前辅助 · 不作为独立诊断依据</footer>

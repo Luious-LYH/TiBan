@@ -24,7 +24,7 @@ export function BanksPage() {
 
   return (
     <div className="s1-page" data-testid="banks-page">
-      <section className="s1-page-intro"><div><span className="s1-kicker">QUESTION BANKS</span><h1>选择一个真实题库，开始练习。</h1><p>题库内容来自当前项目 seed catalog；题型和进度均由 backend 返回，不在前端写死。</p></div><span className="s1-source-pill">{banksQuery.data.length} 个题库 · backend</span></section>
+      <section className="s1-page-intro"><div><span className="s1-kicker">QUESTION BANKS</span><h1>选择一个真实题库，开始练习。</h1><p>题库和进度来自服务端；内容保留来源标记，方便按题型与学习状态练习。</p></div><span className="s1-source-pill">{banksQuery.data.length} 个题库 · backend</span></section>
       <section className="s1-card s1-toolbar" aria-label="题库筛选">
         <label className="s1-search"><Search size={17} /><span className="s1-visually-hidden">搜索题库</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索部位、题库名称…" /></label>
         <label className="s1-select"><SlidersHorizontal size={16} /><span className="s1-visually-hidden">按题型筛选</span><select value={type} onChange={(event) => setType(event.target.value)}><option value="all">全部题型</option>{Object.entries(typeLabels).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>

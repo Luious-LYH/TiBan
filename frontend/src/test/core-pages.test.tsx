@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getLatestEvaluation, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer } from '../api/client'
+import { createPracticeSession, getLatestEvaluation, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer } from '../api/client'
 import type { Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -11,6 +11,7 @@ import { PracticePage } from '../pages/practice/PracticePage'
 import { EvaluationPage } from '../pages/evaluation/EvaluationPage'
 
 vi.mock('../api/client', () => ({
+  createPracticeSession: vi.fn(),
   getLatestEvaluation: vi.fn(),
   getOverview: vi.fn(),
   getQuestionBanks: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock('../api/client', () => ({
 }))
 
 const mockedGetOverview = vi.mocked(getOverview)
+const mockedCreateSession = vi.mocked(createPracticeSession)
 const mockedGetQuestionBanks = vi.mocked(getQuestionBanks)
 const mockedGetQuestions = vi.mocked(getQuestions)
 const mockedSubmit = vi.mocked(submitPracticeAnswer)
@@ -31,13 +33,14 @@ const mockedReview = vi.mocked(submitFsrsReview)
 const mockedEvaluation = vi.mocked(getLatestEvaluation)
 
 const safety = '仅供教学研修或医生复核前辅助，不作为独立诊断依据。'
-const baseQuestion = { id: 'q-1', bank_id: 'bank-a', domain_id: 'endoscopy', title: '胃部观察练习', stem: '请根据当前证据选择答案。', case_summary: '稳定的测试病例摘要。', modality: 'image' as const, image_url: '/assets/real_samples/endo_image_0.jpg', image_alt: '测试内镜图像', difficulty: 'easy' as const, tags: ['胃'], body_part: '胃', source_dataset: 'test', citation_note: 'test seed', doctor_review_required: true, safety_notice: safety }
+const baseQuestion = { id: 'q-1', bank_id: 'bank-a', domain_id: 'endoscopy', title: '胃部观察练习', stem: '请根据当前证据选择答案。', case_summary: '稳定的测试病例摘要。', modality: 'image' as const, image_url: '/assets/real_samples/endo_image_0.jpg', image_alt: '测试内镜图像', difficulty: 'easy' as const, tags: ['胃'], body_part: '胃', source_dataset: 'test', citation_note: 'test seed', doctor_review_required: true, safety_notice: safety, business_usage: 'user_ready' as const, official_explanation_available: true }
 const questionVariants: Question[] = [
   { ...baseQuestion, id: 'single', question_type: 'single_choice', options: [{ id: 'opt_01', text: '选项一' }, { id: 'opt_02', text: '选项二' }] },
   { ...baseQuestion, id: 'multi', question_type: 'multiple_choice', options: [{ id: 'opt_01', text: '选项一' }, { id: 'opt_02', text: '选项二' }] },
   { ...baseQuestion, id: 'judge', question_type: 'true_false' },
   { ...baseQuestion, id: 'short', question_type: 'short_answer' },
 ]
+const textOnlyQuestion: Question = { ...baseQuestion, id: 'text-only', modality: 'text', image_url: null, image_alt: null, case_summary: '来自 CMB-Exam 的真实题目；用于教学研修，保留上游来源与授权边界。', question_type: 'single_choice', options: [{ id: 'opt_01', text: '选项一' }, { id: 'opt_02', text: '选项二' }] }
 const banks: QuestionBank[] = [
   { bank_id: 'bank-a', domain_id: 'endoscopy', name: '胃部观察题库', description: '胃部位与可见事实训练。', version: 'test-v1', status: 'published', question_count: 4, question_type_counts: { single_choice: 1, multiple_choice: 1, true_false: 1, short_answer: 1 }, modality_counts: { image: 4 }, body_parts: ['胃'], completed_count: 0, progress: 0 },
   { bank_id: 'bank-b', domain_id: 'endoscopy', name: '食管观察题库', description: '食管观察与表达训练。', version: 'test-v1', status: 'published', question_count: 2, question_type_counts: { single_choice: 2 }, modality_counts: { text: 2 }, body_parts: ['食管'], completed_count: 0, progress: 0 },
@@ -49,7 +52,7 @@ function questionsResponse(items: Question[]): QuestionsResponse {
 }
 
 function submitResult(questionId: string): SubmitResult {
-  return { attempt_id: 'attempt-test', question_id: questionId, session_id: 'session-test', learner_id: 'demo_learner', is_correct: true, score: 100, error_tags: [], fact_feedback: [], explanation: '已按确定性规则记录。', next_recommendation: '可以继续下一题。', profile_updated: true, doctor_review_required: true, safety_notice: safety, created_at: '2026-08-28T00:00:00Z' }
+  return { attempt_id: 'attempt-test', question_id: questionId, session_id: 'session-test', learner_id: 'demo_learner', is_correct: true, score: 100, error_tags: [], fact_feedback: [], explanation: '已按确定性规则记录。', next_recommendation: '可以继续下一题。', profile_updated: true, doctor_review_required: true, safety_notice: safety, created_at: '2026-08-28T00:00:00Z', selected_answer: 'opt_01', selected_answer_display: '选项一', correct_answer_display: '选项一', answer_source: 'dataset_gold', explanation_source: 'dataset_gold', official_explanation_available: true }
 }
 
 function renderPage(ui: React.ReactNode, initialEntries = ['/']) {
@@ -62,14 +65,16 @@ beforeEach(() => {
   mockedGetOverview.mockResolvedValue(overview)
   mockedGetQuestionBanks.mockResolvedValue(banks)
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
+  mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z' })
   mockedSubmit.mockResolvedValue(submitResult('single'))
   mockedMentor.mockResolvedValue({ learner_id: 'demo_learner', study_goal: '复盘', due_review_count: 1, focus: '胃', weak_areas: ['胃'], recent_errors: [], steps: [{ kind: 'review', title: '完成复习', question_ids: [] }] })
   mockedReview.mockResolvedValue({ review_card_id: 'review-test', question_id: 'single', due_at: '2026-08-29T00:00:00Z', interval_days: 1, difficulty: 2, stability: 1, retrievability: .9, state: 'Learning', review_count: 1 })
   mockedStreamTutor.mockImplementation(async (_request, onEvent) => {
-    onEvent({ event: 'message_start', data: { run_id: 'run-test' } })
+    onEvent({ event: 'message_start', data: { run_id: 'run-test', provider_real: true } })
     onEvent({ event: 'tool_start', data: { tool_name: 'get_question_context' } })
     onEvent({ event: 'tool_end', data: { tool_name: 'get_question_context' } })
     onEvent({ event: 'source', data: { document_name: 'test source', page: '1', section: '观察要点' } })
+    onEvent({ event: 'reasoning', data: { summary: ['识别学习目标', '对照可见证据'] } })
     onEvent({ event: 'token', data: { text: '先观察可支持事实。' } })
     onEvent({ event: 'message_end', data: { run_id: 'run-test' } })
   })
@@ -151,7 +156,17 @@ describe('Stage 1 page contracts', () => {
     await user.type(screen.getByLabelText('向 Tutor 提问'), '请帮助我观察')
     await user.click(screen.getByLabelText('发送给 Tutor'))
     expect(await screen.findByText('先观察可支持事实。')).toBeInTheDocument()
-    expect(screen.getByText('辅导依据与工具记录')).toBeInTheDocument()
     expect(screen.getByTestId('tutor-sources')).toHaveTextContent('test source')
+  })
+
+  it('uses a full-width text-only question layout and hides importer provenance copy', async () => {
+    mockedGetQuestions.mockResolvedValueOnce(questionsResponse([textOnlyQuestion]))
+    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    expect(await screen.findByTestId('practice-page')).toBeInTheDocument()
+    const questionCard = screen.getByTestId('question-card')
+    expect(questionCard).toHaveClass('text-only')
+    expect(questionCard).toHaveAttribute('data-question-layout', 'text-only')
+    expect(screen.queryByText('来自 CMB-Exam 的真实题目；用于教学研修，保留上游来源与授权边界。')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('question-card')?.querySelector('.s1-question-image')).toBeNull()
   })
 })

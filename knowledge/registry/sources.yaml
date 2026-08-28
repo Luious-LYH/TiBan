@@ -1,0 +1,64 @@
+version: stage2.5-knowledge-registry-v1
+license_gate_statuses: [allow, allow_noncommercial, metadata_only, do_not_ingest, needs_review]
+sources:
+  - source_id: project-curated-gastro-v1
+    title: 项目中文消化内镜教学笔记
+    publisher: EndoTutor project
+    source_url: https://www.niddk.nih.gov/health-information/digestive-diseases
+    license: project-curated summary from reviewed public sources
+    license_url: https://www.niddk.nih.gov/copyright
+    allowed_use: RAG and Factory evidence; not direct diagnosis
+    ai_ingestion_allowed: true
+    language: zh-CN
+    domain: gastroenterology/endoscopy
+    authority_tier: project-curated-from-tier-A
+    status: allow_noncommercial
+    attribution: 项目中文整理，非官方翻译；使用前须进行医生复核。
+  - source_id: niddk-digestive-diseases
+    title: NIDDK digestive diseases information
+    publisher: National Institute of Diabetes and Digestive and Kidney Diseases
+    source_url: https://www.niddk.nih.gov/health-information/digestive-diseases
+    license: government copyright guidance requires page-level check
+    license_url: https://www.niddk.nih.gov/copyright
+    allowed_use: metadata only until page-level rights are recorded
+    ai_ingestion_allowed: false
+    language: en
+    domain: gastroenterology
+    authority_tier: tier-A
+    status: metadata_only
+  - source_id: nih-owned-text
+    title: NIH owned medical text
+    publisher: National Institutes of Health
+    source_url: https://www.nih.gov/institutes-nih/nih-office-director/office-communications-public-liaison/clear-communication
+    license: public-domain candidate; third-party content must be excluded
+    license_url: https://www.nih.gov/copyright-policy
+    allowed_use: metadata only pending item-level review
+    ai_ingestion_allowed: false
+    language: en
+    domain: general-medicine
+    authority_tier: tier-A
+    status: metadata_only
+  - source_id: ncbi-bookshelf
+    title: NCBI Bookshelf
+    publisher: NLM
+    source_url: https://www.ncbi.nlm.nih.gov/books/
+    license: varies by book/chapter
+    license_url: https://www.ncbi.nlm.nih.gov/books/NBK47095/
+    allowed_use: only individually verified public-domain/OA chapters
+    ai_ingestion_allowed: false
+    language: en
+    domain: medicine
+    authority_tier: tier-A/B
+    status: needs_review
+  - source_id: openstax-anatomy
+    title: Anatomy and Physiology 2e
+    publisher: OpenStax
+    source_url: https://openstax.org/details/books/anatomy-and-physiology-2e
+    license: CC BY-NC-SA with explicit generative AI ingestion restriction
+    license_url: https://openstax.org/attribution
+    allowed_use: link-only; do not ingest
+    ai_ingestion_allowed: false
+    language: en
+    domain: anatomy-physiology
+    authority_tier: tier-B
+    status: do_not_ingest

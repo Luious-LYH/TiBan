@@ -1,0 +1,115 @@
+{
+  "root": "E:\\2.Projects\\ARIS\\VQA\\data",
+  "read_only": true,
+  "datasets": [
+    {
+      "dataset_id": "kvasir-vqa",
+      "local_path": "E:\\2.Projects\\ARIS\\VQA\\data\\Kvasir-VQA",
+      "json": "E:\\2.Projects\\ARIS\\VQA\\data\\Kvasir-VQA\\Kvasir-VQA.json",
+      "file_count": 6588,
+      "image_file_count": 6507,
+      "qa_count": 58849,
+      "image_count": 6500,
+      "image_linked_count": 58849,
+      "image_linkage_rate": 1.0,
+      "missing_assets_sample": [],
+      "schema": [
+        "answer",
+        "dataset",
+        "gt",
+        "id",
+        "image_path",
+        "img_id",
+        "question",
+        "source"
+      ],
+      "question_type_counts": {
+        "visual_observation": 43606,
+        "true_false": 15243
+      },
+      "answer_type_counts": {
+        "structured_answer": 43606,
+        "yes_no": 15243
+      },
+      "duplicate_ids": 0,
+      "license": "CC BY-NC 4.0",
+      "source_url": "https://github.com/ENDObenchmark/Kvasir-VQA",
+      "candidate_business_usage": "suitability_classified",
+      "content_hash": "6be1ee739519aee4be6a379718a89906640a27e38278a1fced3a031e3648bd7c"
+    },
+    {
+      "dataset_id": "kvasir-vqa-x1",
+      "local_path": "E:\\2.Projects\\ARIS\\VQA\\data\\Kvasir-VQA-x1",
+      "json": "E:\\2.Projects\\ARIS\\VQA\\data\\Kvasir-VQA-x1\\Kvasir-VQA-x1.json",
+      "file_count": 13020,
+      "image_file_count": 6500,
+      "qa_count": 159549,
+      "image_count": 6449,
+      "image_linked_count": 159549,
+      "image_linkage_rate": 1.0,
+      "missing_assets_sample": [],
+      "schema": [
+        "answer",
+        "complexity",
+        "dataset",
+        "gt",
+        "id",
+        "image_path",
+        "image_url",
+        "img_id",
+        "original",
+        "question",
+        "question_class",
+        "split"
+      ],
+      "question_type_counts": {
+        "multi_aspect_structured": 159549
+      },
+      "answer_type_counts": {
+        "structured_answer": 159549
+      },
+      "duplicate_ids": 0,
+      "license": "CC BY-NC 4.0",
+      "source_url": "https://github.com/ENDObenchmark/Kvasir-VQA-x1",
+      "candidate_business_usage": "generation_source",
+      "content_hash": "498be084851472322165f6cd6d410aaff4ef3fd9424e8ad46c09da180da7e952"
+    },
+    {
+      "dataset_id": "endobench",
+      "local_path": "E:\\2.Projects\\ARIS\\VQA\\data\\EndoBench",
+      "json": "E:\\2.Projects\\ARIS\\VQA\\data\\EndoBench\\EndoBench.json",
+      "file_count": 6837,
+      "image_file_count": 6832,
+      "qa_count": 6832,
+      "image_count": 6832,
+      "image_linked_count": 6832,
+      "image_linkage_rate": 1.0,
+      "missing_assets_sample": [],
+      "schema": [
+        "answer",
+        "category",
+        "dataset",
+        "gt",
+        "id",
+        "image_path",
+        "options",
+        "original_image_path",
+        "question",
+        "scene",
+        "subtask",
+        "task"
+      ],
+      "question_type_counts": {
+        "visual_observation": 6832
+      },
+      "answer_type_counts": {
+        "structured_answer": 6832
+      },
+      "duplicate_ids": 0,
+      "license": "CC BY-SA 3.0",
+      "source_url": "https://github.com/medAI-NEU/EndoBench",
+      "candidate_business_usage": "benchmark_only",
+      "content_hash": "3c957b9213a76c28ebe8d3edd71a80cbe4fcb34c63769c7eb32ae3f762dbbfb6"
+    }
+  ]
+}

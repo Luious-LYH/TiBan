@@ -11,3 +11,7 @@ The upload boundary accepts only Markdown or PDF, validates filename extension, 
 The Generator receives evidence and emits `GeneratedDraft`. The Judge receives only draft, source evidence and rubric fields, emits `JudgeDecision`, and never sees generator reasoning. Deterministic gates enforce public option/answer and citation shape first. A failed Judge creates a new `QuestionRevision` with parent revision, rewrite instruction, prompt version, source chunk IDs and timestamp; it never overwrites the initial draft.
 
 The no-secret deterministic adapters prove local workflow and schemas. They are explicitly not evidence of external-provider generation. A real Redis + Dramatiq worker run is retained in the Stage 2 evidence; an operator can run a provider-backed adapter later without changing the workflow contract.
+
+## Stage 2.5 source policy
+
+Factory evidence must resolve through the same `SourceDocument → DocumentVersion → KnowledgeChunk → Citation` graph as Tutor RAG. A source passes only when its registry entry passes the License Gate. `Kvasir-VQA-x1` is a generation source, while `EndoBench` is a frozen evaluation source and is rejected from Factory input. Repairs retain revision lineage; the initial draft is never overwritten.

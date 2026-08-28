@@ -204,7 +204,7 @@ def process_factory_job(job_id: str) -> dict[str, Any]:
         job = session.get(FactoryJobModel, job_id); assert job is not None
         _record_event(job, "indexing", "正在写入 PostgreSQL source/chunk metadata 与 Qdrant index。")
         session.commit()
-    rag_service.index_markdown(markdown, document_id=document.document_id, child_size=180)
+    rag_service.index_markdown(markdown, document_id=document.document_id, child_size=180, namespace="factory_sources", business_usage="factory_source", license_gate_status="allow_noncommercial", ai_ingestion_allowed=True)
 
     with SessionLocal() as session:
         job = session.get(FactoryJobModel, job_id); assert job is not None

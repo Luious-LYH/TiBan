@@ -59,6 +59,16 @@ class QuestionModel(Base):
     doctor_review_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     safety_notice: Mapped[str] = mapped_column(Text, nullable=False)
     source_document_id: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    source_item_id: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    derived_from_dataset: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    business_usage: Mapped[str] = mapped_column(String(40), nullable=False, default="user_ready")
+    answer_source: Mapped[str] = mapped_column(String(40), nullable=False, default="dataset_gold")
+    explanation_source: Mapped[str] = mapped_column(String(40), nullable=False, default="none")
+    license_gate_status: Mapped[str] = mapped_column(String(30), nullable=False, default="needs_review")
+    source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
+    official_explanation_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    subject: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
+    topic: Mapped[str | None] = mapped_column(String(160), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
@@ -123,6 +133,13 @@ class SourceDocumentModel(Base):
     media_type: Mapped[str] = mapped_column(String(100), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="seed")
+    source_id: Mapped[str | None] = mapped_column(String(180), nullable=True, index=True)
+    business_usage: Mapped[str] = mapped_column(String(40), nullable=False, default="knowledge_base")
+    license_gate_status: Mapped[str] = mapped_column(String(30), nullable=False, default="needs_review")
+    ai_ingestion_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
+    namespace: Mapped[str] = mapped_column(String(80), nullable=False, default="medical_general", index=True)
+    attribution: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
@@ -151,6 +168,8 @@ class KnowledgeChunkModel(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    namespace: Mapped[str] = mapped_column(String(80), nullable=False, default="medical_general", index=True)
+    source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 

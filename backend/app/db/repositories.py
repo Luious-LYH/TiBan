@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from collections import Counter
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import SAFETY_NOTICE
@@ -19,6 +20,26 @@ class Stage1Repository:
 
     def ensure_seeded(self) -> None:
         seed_database(self.session)
+        # Legacy seed rows included benchmark and research samples before
+        # Stage 2.5. Keep them for evaluation/audit history, but remove all
+        # non-user-ready rows from product catalog counts and learner queries.
+        benchmark_rows = list(self.session.scalars(select(QuestionModel).where(QuestionModel.source_dataset == "EndoBench")))
+        for question in benchmark_rows:
+            question.business_usage = "benchmark_only"
+            question.derived_from_dataset = "EndoBench"
+            question.license_gate_status = "allow_noncommercial"
+            question.source_uri = "https://github.com/medAI-NEU/EndoBench"
+        if benchmark_rows:
+            for bank in self.session.scalars(select(QuestionBankModel)).all():
+                visible = list(self.session.scalars(select(QuestionModel).where(QuestionModel.bank_id == bank.bank_id, QuestionModel.business_usage == "user_ready")))
+                bank.question_count = len(visible)
+                bank.question_type_counts = dict(Counter(item.question_type for item in visible))
+                bank.modality_counts = dict(Counter(item.modality for item in visible))
+                bank.body_parts = sorted({item.body_part for item in visible})
+            # Quarantine is a data-policy migration, not a response-only
+            # projection. Persist it so a fresh process cannot expose legacy
+            # benchmark/research rows before the next repository read.
+            self.session.commit()
 
     def list_banks(self, learner_id: str = "demo_learner") -> list[QuestionBankModel]:
         self.ensure_seeded()
@@ -27,7 +48,11 @@ class Stage1Repository:
             completed = self.session.scalar(
                 select(func.count(func.distinct(AttemptModel.question_id)))
                 .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
-                .where(AttemptModel.learner_id == learner_id, QuestionModel.bank_id == bank.bank_id)
+                .where(
+                    AttemptModel.learner_id == learner_id,
+                    QuestionModel.bank_id == bank.bank_id,
+                    QuestionModel.business_usage == "user_ready",
+                )
             ) or 0
             bank._stage1_completed_count = int(completed)
         return banks
@@ -50,7 +75,16 @@ class Stage1Repository:
         offset: int = 0,
     ) -> list[QuestionModel]:
         self.ensure_seeded()
-        statement = select(QuestionModel).order_by(QuestionModel.question_id)
+        statement = select(QuestionModel).where(QuestionModel.business_usage == "user_ready").order_by(
+            # Keep the legacy compatibility endpoint representative while
+            # bank-scoped Stage 2.5 sessions still filter deterministically.
+            case(
+                (QuestionModel.source_dataset.not_in(["CMExam", "CMB-Exam", "Kvasir-VQA"]), 0),
+                (QuestionModel.modality == "image", 1),
+                else_=2,
+            ),
+            QuestionModel.question_id,
+        )
         if bank_id:
             statement = statement.where(QuestionModel.bank_id == bank_id)
         if question_type:

@@ -34,6 +34,8 @@ class Citation:
     section: str
     snippet: str
     score: float
+    namespace: str = 'medical_general'
+    source_uri: str | None = None
 
 
 def _hash(value: str) -> str:
@@ -76,11 +78,11 @@ class RagService:
             self._reranker = CrossEncoder(RERANK_MODEL, cache_dir=str(MODEL_CACHE / 'cross-encoder'))
         return self._reranker
 
-    def index_markdown(self, path: Path, *, document_id: str = 'source-stage2-endoscopy-v1', child_size: int = 180) -> list[str]:
+    def index_markdown(self, path: Path, *, document_id: str = 'source-stage2-endoscopy-v1', child_size: int = 180, namespace: str = 'medical_general', source_id: str | None = None, source_uri: str | None = None, business_usage: str = 'knowledge_base', license_gate_status: str = 'allow_noncommercial', ai_ingestion_allowed: bool = True) -> list[str]:
         text = path.read_text(encoding='utf-8')
         document_name = path.name
         source_hash = _hash(text)
-        chunks = list(_chunk_markdown(text, child_size))
+        chunks = list(_chunk_markdown(_strip_frontmatter(text), child_size))
         # Chunk identity changed in Stage 2 so identical uploads can coexist
         # without primary-key collisions.  Keep the previous runtime index
         # untouched for auditability; v2 is the only version eligible for new
@@ -94,8 +96,15 @@ class RagService:
         with SessionLocal() as session:
             document = session.get(SourceDocumentModel, document_id)
             if not document:
-                session.add(SourceDocumentModel(document_id=document_id, domain_id='endoscopy', bank_id=None, name=document_name, media_type='text/markdown', content_hash=source_hash, status='indexed'))
+                session.add(SourceDocumentModel(document_id=document_id, domain_id='endoscopy', bank_id=None, name=document_name, media_type='text/markdown', content_hash=source_hash, status='indexed', source_id=source_id, business_usage=business_usage, license_gate_status=license_gate_status, ai_ingestion_allowed=ai_ingestion_allowed, source_uri=source_uri or str(path.resolve()), namespace=namespace))
                 session.flush()
+            else:
+                document.namespace = namespace
+                document.source_id = source_id or document.source_id
+                document.source_uri = source_uri or document.source_uri or str(path.resolve())
+                document.business_usage = business_usage
+                document.license_gate_status = license_gate_status
+                document.ai_ingestion_allowed = ai_ingestion_allowed
             if not session.get(DocumentVersionModel, version_id):
                 session.add(DocumentVersionModel(version_id=version_id, document_id=document_id, version_label=version_label, source_path=str(path.resolve()), content_hash=source_hash, parser='heading-aware-markdown', status='indexed'))
             for ordinal, (section, content) in enumerate(chunks):
@@ -105,8 +114,20 @@ class RagService:
                 chunk_id = f'chunk-{document_id[-12:]}-{source_hash[:8]}-{child_size}-{ordinal:02d}-v2'
                 # Dramatiq may retry after a transient Qdrant failure.  The
                 # relational chunk insert is idempotent across such retries.
-                if session.get(KnowledgeChunkModel, chunk_id) is None:
-                    session.add(KnowledgeChunkModel(chunk_id=chunk_id, document_id=document_id, version_id=version_id, parent_section=section, page=1, ordinal=ordinal, content=content, content_hash=_hash(content), token_count=len(content)))
+                chunk = session.get(KnowledgeChunkModel, chunk_id)
+                if chunk is None:
+                    session.add(KnowledgeChunkModel(chunk_id=chunk_id, document_id=document_id, version_id=version_id, parent_section=section, page=1, ordinal=ordinal, content=content, content_hash=_hash(content), token_count=len(content), namespace=namespace, source_uri=source_uri or str(path.resolve())))
+                else:
+                    # Re-indexing is idempotent but also refreshes parser
+                    # output when a curated note's frontmatter or section
+                    # handling changes.
+                    chunk.parent_section = section
+                    chunk.ordinal = ordinal
+                    chunk.content = content
+                    chunk.content_hash = _hash(content)
+                    chunk.token_count = len(content)
+                    chunk.namespace = namespace
+                    chunk.source_uri = source_uri or str(path.resolve())
             session.commit()
             rows = list(session.scalars(select(KnowledgeChunkModel).where(KnowledgeChunkModel.version_id == version_id).order_by(KnowledgeChunkModel.ordinal)))
             document = session.get(SourceDocumentModel, document_id)
@@ -115,16 +136,20 @@ class RagService:
             client = self.qdrant
             if not client.collection_exists(COLLECTION):
                 client.create_collection(COLLECTION, vectors_config=models.VectorParams(size=len(vectors[0]), distance=models.Distance.COSINE))
-            client.upsert(COLLECTION, points=[models.PointStruct(id=_point_id(row.chunk_id), vector=vector.tolist(), payload={'chunk_id': row.chunk_id, 'version_id': row.version_id, 'document_name': document.name, 'page': row.page, 'section': row.parent_section, 'content': row.content}) for row, vector in zip(rows, vectors)])
+            client.upsert(COLLECTION, points=[models.PointStruct(id=_point_id(row.chunk_id), vector=vector.tolist(), payload={'chunk_id': row.chunk_id, 'version_id': row.version_id, 'namespace': row.namespace, 'document_name': document.name, 'page': row.page, 'section': row.parent_section, 'source_uri': row.source_uri, 'content': row.content}) for row, vector in zip(rows, vectors)])
             return [row.chunk_id for row in rows]
 
-    def retrieve(self, query: str, mode: Literal['sparse', 'dense', 'hybrid', 'hybrid_rerank'] = 'hybrid', limit: int = 5, *, version_id: str | None = None) -> list[Citation]:
+    def retrieve(self, query: str, mode: Literal['sparse', 'dense', 'hybrid', 'hybrid_rerank'] = 'hybrid', limit: int = 5, *, version_id: str | None = None, namespace: str | None = None, namespaces: list[str] | None = None) -> list[Citation]:
         started = perf_counter()
         with SessionLocal() as session:
             # Product retrieval intentionally uses one frozen, benchmarked
             # version. Historical chunks remain for artifact reproducibility but
             # must never leak into Tutor citations.
-            if version_id is None:
+            # An explicit version is required for frozen benchmark runs.  A
+            # namespace-scoped product query intentionally searches all
+            # approved documents in that namespace so newly curated KB notes
+            # are visible to Tutor without changing the benchmark artifact.
+            if version_id is None and namespace is None and not namespaces:
                 active = session.scalar(
                     select(DocumentVersionModel.version_id)
                     .where(DocumentVersionModel.document_id == 'source-stage2-endoscopy-v1', DocumentVersionModel.version_label == 'retrieval-eval-v1-child-180-identity-v2')
@@ -134,15 +159,35 @@ class RagService:
             statement = select(KnowledgeChunkModel).order_by(KnowledgeChunkModel.ordinal)
             if version_id:
                 statement = statement.where(KnowledgeChunkModel.version_id == version_id)
+            if namespace:
+                statement = statement.where(KnowledgeChunkModel.namespace == namespace)
+            elif namespaces:
+                statement = statement.where(KnowledgeChunkModel.namespace.in_(namespaces))
+            # A benchmark row is never eligible even if a caller accidentally
+            # points at a historical version.  License and ingestion are data
+            # policy, not a UI convention.
+            statement = statement.join(SourceDocumentModel, SourceDocumentModel.document_id == KnowledgeChunkModel.document_id).where(
+                SourceDocumentModel.business_usage != 'benchmark_only',
+                SourceDocumentModel.business_usage != 'excluded',
+                SourceDocumentModel.ai_ingestion_allowed.is_(True),
+                SourceDocumentModel.license_gate_status.in_(['allow', 'allow_noncommercial']),
+            )
             rows = list(session.scalars(statement))
-            names = {row.document_id: session.get(SourceDocumentModel, row.document_id).name for row in rows if session.get(SourceDocumentModel, row.document_id)}
+            docs = {doc.document_id: doc for doc in session.scalars(select(SourceDocumentModel).where(SourceDocumentModel.document_id.in_({row.document_id for row in rows})))}
         if not rows:
             return []
         sparse = {row.chunk_id: _sparse_score(query, row.content) for row in rows}
         dense: dict[str, float] = {}
         if mode != 'sparse':
             vector = next(self.embedder.query_embed(query)).tolist()
-            query_filter = models.Filter(must=[models.FieldCondition(key='version_id', match=models.MatchValue(value=version_id))]) if version_id else None
+            conditions = []
+            if version_id:
+                conditions.append(models.FieldCondition(key='version_id', match=models.MatchValue(value=version_id)))
+            if namespace:
+                conditions.append(models.FieldCondition(key='namespace', match=models.MatchValue(value=namespace)))
+            elif namespaces:
+                conditions.append(models.FieldCondition(key='namespace', match=models.MatchAny(any=namespaces)))
+            query_filter = models.Filter(must=conditions) if conditions else None
             result = self.qdrant.query_points(COLLECTION, query=vector, limit=max(limit * 3, 10), with_payload=True, query_filter=query_filter).points
             dense = {str(point.payload['chunk_id']): float(point.score) for point in result}
         scores: dict[str, float] = {}
@@ -163,7 +208,7 @@ class RagService:
         else:
             selected = candidates[:limit]
         _ = perf_counter() - started
-        return [Citation(chunk_id=row.chunk_id, document_name=names.get(row.document_id, '教学资料'), page=row.page, section=row.parent_section, snippet=row.content[:220], score=round(scores[row.chunk_id], 5)) for row in selected if scores[row.chunk_id] > 0]
+        return [Citation(chunk_id=row.chunk_id, document_name=docs.get(row.document_id).name if row.document_id in docs else '教学资料', page=row.page, section=row.parent_section, snippet=row.content[:220], score=round(scores[row.chunk_id], 5), namespace=row.namespace, source_uri=docs.get(row.document_id).source_uri if row.document_id in docs else row.source_uri) for row in selected if scores[row.chunk_id] > 0]
 
 
 def _point_id(value: str) -> int:
@@ -196,6 +241,17 @@ def _chunk_markdown(text: str, child_size: int) -> Iterable[tuple[str, str]]:
 def _split_section(section: str, content: str, child_size: int) -> Iterable[tuple[str, str]]:
     for index in range(0, len(content), child_size):
         yield section, content[index:index + child_size]
+
+
+def _strip_frontmatter(text: str) -> str:
+    """Remove YAML metadata from retrieval text while retaining it in source files."""
+
+    if not text.startswith('---'):
+        return text
+    closing = text.find('\n---', 3)
+    if closing < 0:
+        return text
+    return text[closing + len('\n---'):]
 
 
 rag_service = RagService()

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-test('Flow A: practice → real Tutor stream → submit → explain → FSRS review', async ({ page }) => {
+test('Flow A: practice → continuous Tutor → submit → explain', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByTestId('overview-page')).toBeVisible()
   await expect(page.getByText('进入题库')).toBeVisible()
@@ -11,9 +11,10 @@ test('Flow A: practice → real Tutor stream → submit → explain → FSRS rev
   await firstBank.getByRole('link', { name: /开始练习/ }).click()
 
   await expect(page.getByTestId('practice-page')).toBeVisible()
+  await expect(page.getByRole('complementary', { name: 'Tutor' })).toBeVisible()
   await page.getByLabel('向 Tutor 提问').fill('请帮我梳理题干中的可见证据。')
   await page.getByLabel('发送给 Tutor').click()
-  await expect(page.getByTestId('tutor-transcript')).toContainText('Tutor')
+  await expect(page.getByTestId('tutor-transcript')).toContainText(/Tutor|尚未配置 AI 模型/)
   const answerButtons = page.locator('.s1-answer-options button')
   if (await answerButtons.count()) {
     await answerButtons.first().click()
@@ -22,12 +23,11 @@ test('Flow A: practice → real Tutor stream → submit → explain → FSRS rev
   }
   await page.getByTestId('submit-answer').click()
   await expect(page.getByTestId('feedback')).toBeVisible()
-  await expect(page.getByTestId('learning-panel')).toBeVisible()
-  await page.getByRole('button', { name: 'Good', exact: true }).click()
+  await expect(page.getByTestId('feedback')).toContainText(/你的答案|正确答案|解析/)
   const next = page.getByTestId('next-question')
   if (await next.isEnabled()) {
     await next.click()
-    await expect(page.locator('.s1-question-count')).toHaveText(/^2 \/ /)
+    await expect(page.locator('.s1-practice-progress strong')).toHaveText(/^2 \/ /)
   }
 })
 

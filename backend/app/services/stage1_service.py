@@ -93,6 +93,7 @@ class Stage1Service:
                 request.learner_id,
                 bank_id,
                 request.session_id,
+                request.mode,
             )
             grading = grading_question_payload(question)
             normalized = self._normalize_submission(request.selected_answer, grading)
@@ -116,7 +117,9 @@ class Stage1Service:
                 )
                 for index, fact in enumerate(facts)
             ]
-            explanation = self._explanation(question.question_type, correct, score, error_tags)
+            exam_locked = request.mode == "exam"
+            explanation = "考试进行中；提交本题后暂不显示正确答案和解析，结束后统一复盘。" if exam_locked else self._explanation(question.question_type, correct, score, error_tags)
+            selected_display, correct_display = self._answer_displays(grading, normalized)
             return PracticeSubmitResponse(
                 attempt_id=attempt.attempt_id,
                 question_id=question.question_id,
@@ -132,6 +135,12 @@ class Stage1Service:
                 doctor_review_required=True,
                 safety_notice=SAFETY_NOTICE,
                 created_at=attempt.created_at,
+                selected_answer=normalized,
+                selected_answer_display=selected_display,
+                correct_answer_display="考试结束后显示" if exam_locked else correct_display,
+                answer_source=question.answer_source if question.answer_source in {"dataset_gold", "human_verified", "generated"} else "dataset_gold",
+                explanation_source=question.explanation_source if question.explanation_source in {"dataset_gold", "rag_generated", "human_curated", "none"} else "none",
+                official_explanation_available=False if exam_locked else question.official_explanation_available,
             )
         finally:
             session.close()
@@ -194,6 +203,22 @@ class Stage1Service:
         if correct:
             return f"本次 {question_type} 提交已通过当前确定性评分规则（{score} 分）。结果仅用于教学训练和复盘。"
         return f"本次提交得分 {score}。请回到题干与图像证据，检查选项判断和观察边界；记录的复盘标签：{'、'.join(error_tags)}。"
+
+    def _answer_displays(self, grading: dict[str, Any], selected: Any) -> tuple[str, str]:
+        question_type = grading["question_type"]
+        options = {item["id"]: item["text"] for item in grading.get("options", [])}
+        if question_type == "single_choice":
+            return options.get(str(selected), str(selected)), options.get(grading["correct_option_id"], grading["correct_option_id"])
+        if question_type == "multiple_choice":
+            selected_ids = selected if isinstance(selected, list) else [selected]
+            correct_ids = grading.get("correct_option_ids", [])
+            selected_text = "、".join(options.get(str(item), str(item)) for item in selected_ids)
+            correct_text = "、".join(options.get(str(item), str(item)) for item in correct_ids)
+            return selected_text, correct_text
+        if question_type == "true_false":
+            display = lambda value: "正确" if bool(value) else "错误"
+            return display(selected), display(grading["correct_value"])
+        return str(selected), "参考答案见题目解析与评分 rubric"
 
     def _split(self, value: str) -> list[str]:
         return [item.strip() for item in re.split(r"[；;,]", value) if item.strip()]

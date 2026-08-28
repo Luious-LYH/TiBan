@@ -1,0 +1,87 @@
+{
+  "artifact": "stage-2.5-qbank-import-v1",
+  "generated_at": "2026-08-28T12:37:51.241635+00:00",
+  "product_rule": "only business_usage=user_ready is learner-facing",
+  "banks": {
+    "bank-cmb-exam-real": {
+      "user_ready_count": 1778,
+      "types": {
+        "multiple_choice": 131,
+        "single_choice": 1647
+      }
+    },
+    "bank-cmexam-real": {
+      "user_ready_count": 1500,
+      "types": {
+        "single_choice": 1460,
+        "multiple_choice": 40
+      }
+    },
+    "bank-colorectal-observation": {
+      "user_ready_count": 0,
+      "types": {}
+    },
+    "bank-esophagus-observation": {
+      "user_ready_count": 2,
+      "types": {
+        "single_choice": 1,
+        "multiple_choice": 1
+      }
+    },
+    "bank-general-endoscopy": {
+      "user_ready_count": 1,
+      "types": {
+        "single_choice": 1
+      }
+    },
+    "bank-kvasir-vqa-curated": {
+      "user_ready_count": 400,
+      "types": {
+        "true_false": 400
+      }
+    },
+    "bank-small-bowel-observation": {
+      "user_ready_count": 2,
+      "types": {
+        "true_false": 1,
+        "multiple_choice": 1
+      }
+    },
+    "bank-stomach-observation": {
+      "user_ready_count": 3,
+      "types": {
+        "true_false": 1,
+        "single_choice": 1,
+        "short_answer": 1
+      }
+    },
+    "factory-generated-v1": {
+      "user_ready_count": 9,
+      "types": {
+        "single_choice": 9
+      }
+    }
+  },
+  "dataset_usage_counts": {
+    "CMB-Exam::user_ready": 1778,
+    "CMExam::user_ready": 1500,
+    "EndoBench::benchmark_only": 15,
+    "Factory / allowed document::user_ready": 9,
+    "Kvasir-VQA::generation_source": 15,
+    "Kvasir-VQA::user_ready": 400,
+    "Kvasir-VQA-x1::generation_source": 20,
+    "内镜研修人工整理题库::user_ready": 7,
+    "题库导入演示样例::user_ready": 1
+  },
+  "priority_imports": {
+    "CMExam": 1500,
+    "CMB-Exam": 1778,
+    "Kvasir-VQA_curated": 400,
+    "Kvasir-VQA-x1_direct_user_ready": 0,
+    "EndoBench_direct_user_ready": 0
+  },
+  "lineage_requirements": {
+    "all_priority_imports_have_source_item_or_quarantine": true,
+    "raw_dataset_paths_persisted": false
+  }
+}

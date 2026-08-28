@@ -1,0 +1,65 @@
+{
+  "artifact": "stage-2.5-knowledge-index-v1",
+  "generated_at": "2026-08-28T12:37:51.292174+00:00",
+  "postgresql": {
+    "source_document_count": 34,
+    "license_approved_document_count": 7,
+    "knowledge_chunk_count": 156,
+    "chunks_by_namespace": {
+      "medical_general": 135,
+      "endoscopy": 20,
+      "factory_sources": 1
+    },
+    "approved_documents": [
+      {
+        "document_id": "doc_0282ea126c0b",
+        "source_id": null,
+        "namespace": "factory_sources"
+      },
+      {
+        "document_id": "knowledge-digestive-tract-overview",
+        "source_id": "project-curated-gastro-v1",
+        "namespace": "endoscopy"
+      },
+      {
+        "document_id": "knowledge-gi-bleeding-terms",
+        "source_id": "project-curated-gastro-v1",
+        "namespace": "endoscopy"
+      },
+      {
+        "document_id": "knowledge-lesion-description",
+        "source_id": "project-curated-gastro-v1",
+        "namespace": "endoscopy"
+      },
+      {
+        "document_id": "knowledge-observation-language",
+        "source_id": "project-curated-gastro-v1",
+        "namespace": "endoscopy"
+      },
+      {
+        "document_id": "knowledge-upper-gi-landmarks",
+        "source_id": "project-curated-gastro-v1",
+        "namespace": "endoscopy"
+      },
+      {
+        "document_id": "source-stage2-endoscopy-v1",
+        "source_id": null,
+        "namespace": "medical_general"
+      }
+    ]
+  },
+  "qdrant": {
+    "url": "http://127.0.0.1:6333",
+    "collection": "endotutor_chunks_v1",
+    "points": 158,
+    "vector_dimension": 512,
+    "namespace_counts": {
+      "unknown": 94,
+      "medical_general": 41,
+      "endoscopy": 20,
+      "factory_sources": 3
+    },
+    "endobench_point_count": 0
+  },
+  "license_gate": "only allow/allow_noncommercial plus ai_ingestion_allowed=true enters retrieval"
+}

@@ -5,7 +5,8 @@ import json
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.agent_runtime import AgentContext, AgentRunner, ModelGateway, ToolRegistry, tutor_runner
+from app.services.agent_runtime import AgentContext, AgentRunner, ModelGateway, ToolRegistry, _clean_user_facing_text, tutor_runner
+from app.services.llm_provider import LLMProvider, LLMResult
 
 
 SENSITIVE = {'answer', 'correct_option_id', 'correct_option_ids', 'hidden_rubric', 'reference_answer', 'benchmark_target'}
@@ -95,3 +96,37 @@ def test_cancelled_context_emits_real_cancel_error_without_tools() -> None:
     )))
     assert [event.event for event in events] == ['message_start', 'error']
     assert events[-1].data['code'] == 'cancelled'
+
+
+def test_user_facing_text_removes_private_runtime_labels() -> None:
+    cleaned = _clean_user_facing_text('答案是 C。［get_answer_explanation］ explanation_source: none')
+    assert cleaned == '答案是 C。'
+    assert 'get_answer_explanation' not in cleaned
+    assert 'explanation_source' not in cleaned
+    assert _clean_user_facing_text('答案是 D。［get_answer_explanation：private observation］') == '答案是 D。'
+    assert 'get_answer_explanation' not in _clean_user_facing_text('答案是 D。\n【来源：get_answer_explanation；')
+    assert _clean_user_facing_text('答案是 D。答案解析来源：none') == '答案是 D。'
+    assert _clean_user_facing_text('**答案是 D。** [CMExam; dataset_gold]') == '答案是 D。'
+    assert 'source item' not in _clean_user_facing_text('答案是 D。 [CMB-Exam · source item train:0]')
+
+
+def test_provider_retries_transient_502_then_recovers(monkeypatch) -> None:
+    provider = LLMProvider()
+    calls = {'count': 0}
+
+    def fake_chat_once(**kwargs):
+        calls['count'] += 1
+        if calls['count'] == 1:
+            return LLMResult(False, '', 'provider', 'test', 'test', 'http_502: gateway', latency_ms=1)
+        return LLMResult(True, '已恢复', 'provider', 'test', 'test', latency_ms=1)
+
+    monkeypatch.setattr(provider, '_provider_attempts', lambda **kwargs: [{
+        'provider': 'test', 'base_url': 'http://test.invalid/v1', 'api_key': '', 'model': 'test'
+    }])
+    monkeypatch.setattr(provider, '_chat_once', fake_chat_once)
+    monkeypatch.setattr('app.services.llm_provider.time.sleep', lambda _: None)
+
+    result = provider.chat(system_prompt='system', user_prompt='user')
+    assert result.ok is True
+    assert result.text == '已恢复'
+    assert calls['count'] == 2

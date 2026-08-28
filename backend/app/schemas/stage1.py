@@ -47,6 +47,12 @@ class QuestionPublicBase(Stage1Model):
     citation_note: str
     doctor_review_required: bool = True
     safety_notice: str = SAFETY_NOTICE
+    subject: str | None = None
+    topic: str | None = None
+    business_usage: Literal["user_ready", "needs_explanation", "generation_source", "benchmark_only", "excluded"] = "user_ready"
+    source_item_id: str | None = None
+    derived_from_dataset: str | None = None
+    official_explanation_available: bool = False
 
 
 class SingleChoiceQuestionPublic(QuestionPublicBase):
@@ -168,14 +174,14 @@ AnswerValue: TypeAlias = Union[str, list[str], bool]
 class PracticeSessionCreateRequest(Stage1Model):
     learner_id: str = "demo_learner"
     bank_id: str
-    mode: Literal["practice", "review"] = "practice"
+    mode: Literal["study", "exam", "review", "practice"] = "study"
 
 
 class PracticeSessionPublic(Stage1Model):
     session_id: str
     learner_id: str
     bank_id: str
-    mode: str
+    mode: Literal["study", "exam", "review", "practice"]
     status: Literal["active", "completed"]
     started_at: datetime
 
@@ -187,6 +193,7 @@ class PracticeSubmitRequest(Stage1Model):
     learner_id: str = "demo_learner"
     hint_count: int = Field(default=0, ge=0)
     duration_ms: int | None = Field(default=None, ge=0)
+    mode: Literal["study", "exam", "review", "practice"] = "study"
 
 
 class FactFeedbackPublic(Stage1Model):
@@ -210,6 +217,12 @@ class PracticeSubmitResponse(Stage1Model):
     doctor_review_required: bool = True
     safety_notice: str = SAFETY_NOTICE
     created_at: datetime
+    selected_answer: AnswerValue
+    selected_answer_display: str
+    correct_answer_display: str
+    answer_source: Literal["dataset_gold", "human_verified", "generated"] = "dataset_gold"
+    explanation_source: Literal["dataset_gold", "rag_generated", "human_curated", "none"] = "none"
+    official_explanation_available: bool = False
 
 
 class RecentSessionPublic(Stage1Model):

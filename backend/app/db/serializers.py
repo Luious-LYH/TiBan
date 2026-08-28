@@ -34,6 +34,12 @@ def public_question_payload(question: QuestionModel) -> dict[str, Any]:
         "doctor_review_required": question.doctor_review_required,
         "safety_notice": question.safety_notice or SAFETY_NOTICE,
         "question_type": question.question_type,
+        "subject": question.subject,
+        "topic": question.topic,
+        "business_usage": question.business_usage,
+        "source_item_id": question.source_item_id,
+        "derived_from_dataset": question.derived_from_dataset,
+        "official_explanation_available": question.official_explanation_available,
     }
     if question.question_type in {"single_choice", "multiple_choice"}:
         payload["options"] = list(question.options or [])
@@ -78,7 +84,7 @@ def legacy_question_payload(question: QuestionModel) -> dict[str, Any]:
 
 
 def legacy_bank_payload(bank: QuestionBankModel, completed_count: int = 0) -> dict[str, Any]:
-    progress = completed_count / bank.question_count if bank.question_count else 0
+    progress = min(max(completed_count, 0), bank.question_count) / bank.question_count if bank.question_count else 0
     return {
         "id": bank.bank_id,
         "bank_id": bank.bank_id,
@@ -102,7 +108,7 @@ def legacy_bank_payload(bank: QuestionBankModel, completed_count: int = 0) -> di
 def public_bank_payload(bank: QuestionBankModel, completed_count: int = 0) -> dict[str, Any]:
     """Project a bank into the strict canonical Stage 1 response contract."""
 
-    progress = completed_count / bank.question_count if bank.question_count else 0
+    progress = min(max(completed_count, 0), bank.question_count) / bank.question_count if bank.question_count else 0
     return {
         "bank_id": bank.bank_id,
         "domain_id": bank.domain_id,

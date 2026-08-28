@@ -1,0 +1,8 @@
+version: local-datasets-v1
+local_root_env: ENDO_LOCAL_VQA_ROOT
+local_root_example: E:\2.Projects\ARIS\VQA\data
+read_only: true
+datasets:
+  Kvasir-VQA: Kvasir-VQA/Kvasir-VQA.json
+  Kvasir-VQA-x1: Kvasir-VQA-x1/Kvasir-VQA-x1.json
+  EndoBench: EndoBench/EndoBench.json

@@ -10,7 +10,8 @@ $logsRoot = Join-Path $codeRoot "runtime_logs"
 $ports = @(5173, 5174, 8002)
 $pidFiles = @(
   Join-Path $logsRoot "web-demo-frontend.pid",
-  Join-Path $logsRoot "web-demo-backend.pid"
+  Join-Path $logsRoot "web-demo-backend.pid",
+  Join-Path $logsRoot "web-demo-factory-worker.pid"
 )
 
 foreach ($pidFile in $pidFiles) {

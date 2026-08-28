@@ -18,8 +18,10 @@ $frontendDist = Join-Path $frontendRoot "dist"
 $logsRoot = Join-Path $codeRoot "runtime_logs"
 $backendPidFile = Join-Path $logsRoot "web-demo-backend.pid"
 $frontendPidFile = Join-Path $logsRoot "web-demo-frontend.pid"
+$factoryWorkerPidFile = Join-Path $logsRoot "web-demo-factory-worker.pid"
 $backendPort = if ($env:ARIS_BACKEND_PORT) { [int]$env:ARIS_BACKEND_PORT } else { 8002 }
 $frontendPort = if ($env:ARIS_FRONTEND_PORT) { [int]$env:ARIS_FRONTEND_PORT } else { 5174 }
+$redisPort = if ($env:ARIS_REDIS_PORT) { [int]$env:ARIS_REDIS_PORT } else { 56379 }
 $backendUrl = "http://127.0.0.1:$backendPort"
 $frontendUrl = "http://127.0.0.1:$frontendPort"
 
@@ -269,6 +271,48 @@ function Wait-HttpOk {
   return $false
 }
 
+function Start-FactoryWorker {
+  if ($env:ARIS_DISABLE_FACTORY_WORKER -eq "1") {
+    Write-Host "Factory worker: disabled by ARIS_DISABLE_FACTORY_WORKER=1." -ForegroundColor Yellow
+    return
+  }
+  if (-not (Test-PortOpen -Port $redisPort)) {
+    Write-Host "Factory worker: Redis is not reachable on 127.0.0.1:$redisPort; queued jobs will remain visible until Redis/Dramatiq is started." -ForegroundColor Yellow
+    return
+  }
+  if (Test-Path -LiteralPath $factoryWorkerPidFile) {
+    $workerPidText = (Get-Content -Raw -LiteralPath $factoryWorkerPidFile -ErrorAction SilentlyContinue).Trim()
+    if ($workerPidText) {
+      $existing = Get-Process -Id ([int]$workerPidText) -ErrorAction SilentlyContinue
+      if ($existing) {
+        Write-Host "Factory worker: already running." -ForegroundColor Green
+        return
+      }
+    }
+    Remove-Item -LiteralPath $factoryWorkerPidFile -Force -ErrorAction SilentlyContinue
+  }
+  $workerErrLog = Join-Path $logsRoot "web-demo-factory-worker.err.log"
+  $workerOutLog = Join-Path $logsRoot "web-demo-factory-worker.log"
+  Remove-Item -LiteralPath $workerErrLog, $workerOutLog -Force -ErrorAction SilentlyContinue
+  Write-Step "Starting Factory Dramatiq worker..."
+  $worker = Start-Process -FilePath $pythonExe `
+    -ArgumentList @("-m", "dramatiq", "app.workers.factory_worker", "--processes", "1", "--threads", "2") `
+    -WorkingDirectory $backendRoot `
+    -RedirectStandardOutput $workerOutLog `
+    -RedirectStandardError $workerErrLog `
+    -WindowStyle Hidden `
+    -PassThru
+  Set-Content -LiteralPath $factoryWorkerPidFile -Value $worker.Id -Encoding ascii
+  Start-Sleep -Milliseconds 1200
+  if (-not (Get-Process -Id $worker.Id -ErrorAction SilentlyContinue)) {
+    Show-ServiceLogs -Name "Factory worker" -StdoutPath $workerOutLog -StderrPath $workerErrLog
+    Remove-Item -LiteralPath $factoryWorkerPidFile -Force -ErrorAction SilentlyContinue
+    Write-Host "Factory worker: failed to stay alive; queued jobs remain auditable but will not advance." -ForegroundColor Yellow
+  } else {
+    Write-Host "Factory worker: ready (Redis/Dramatiq)." -ForegroundColor Green
+  }
+}
+
 function Read-LocalEnvValue {
   param([string]$Name)
   $rootEnv = Join-Path $codeRoot ".env"
@@ -341,6 +385,8 @@ $frontendAlreadyReady = Test-PortOpen -Port $frontendPort
 if ($backendAlreadyReady -and $frontendAlreadyReady) {
   Write-Host "Backend: already running." -ForegroundColor Green
   Write-Host "Frontend: already running." -ForegroundColor Green
+  $pythonExe = Get-PythonExecutable
+  Start-FactoryWorker
   Open-DemoBrowser -Url "$frontendUrl/report"
   Write-Host ""
   Write-Host "Ready: $frontendUrl/report" -ForegroundColor Green
@@ -364,6 +410,18 @@ if ($env:ARIS_KEEP_RUNNING -ne "1") {
 $providerHost = Get-ProviderHost
 if (-not $env:LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST -and -not $env:LLM_ALLOWED_PRIVATE_HOSTS -and $providerHost) {
   $env:LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST = $providerHost
+}
+
+# A configured local Provider is an explicit developer opt-in for the Tutor
+# path.  Keep offline/test runs on the deterministic adapter when no Provider
+# credentials are present, while making the normal local start command match
+# the configured Provider acceptance state.
+if (-not $env:TUTOR_PROVIDER_ENABLED) {
+  if ((Test-DemoProviderConfigured) -or ((Get-ConfiguredBaseUrl) -and (Get-ConfiguredApiKey))) {
+    $env:TUTOR_PROVIDER_ENABLED = "true"
+  } else {
+    $env:TUTOR_PROVIDER_ENABLED = "false"
+  }
 }
 
 if (Test-DemoProviderConfigured) {
@@ -440,6 +498,7 @@ if (-not (Wait-PortOpen -Port $frontendPort -Seconds 25 -ProcessId $frontendPid 
 }
 
 Write-Host "Frontend: ready at $frontendUrl" -ForegroundColor Green
+Start-FactoryWorker
 Open-DemoBrowser -Url "$frontendUrl/report"
 
 Write-Host ""

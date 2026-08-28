@@ -8,6 +8,11 @@ from .models import (  # noqa: F401
     QuestionModel,
     ReviewCardModel,
     SourceDocumentModel,
+    DocumentVersionModel,
+    KnowledgeChunkModel,
+    LearnerMasteryModel,
+    FactoryJobModel,
+    QuestionRevisionModel,
 )
 from .seed import seed_database
 

@@ -1,0 +1,49 @@
+version: stage2.5-registry-v1
+datasets:
+  - dataset_id: cmexam
+    name: CMExam
+    version: upstream-head-fadb22c89beb1b7115dc36460ba792eb96b7b972
+    source_url: https://github.com/williamliujl/CMExam
+    local_root: data/external/CMExam
+    license: Apache-2.0; upstream README retains academic/research-use note
+    license_url: https://github.com/williamliujl/CMExam/blob/main/LICENSE
+    intended_usage: user_ready
+    redistribution_policy: allow_noncommercial_pending_review
+  - dataset_id: cmb-exam
+    name: CMB-Exam
+    version: local-CMB-datasets.zip
+    source_url: https://huggingface.co/datasets/FreedomIntelligence/CMB
+    local_root: data/external/CMB
+    license: Apache-2.0
+    license_url: https://huggingface.co/datasets/FreedomIntelligence/CMB
+    intended_usage: user_ready
+    redistribution_policy: preserve_attribution
+  - dataset_id: kvasir-vqa
+    name: Kvasir-VQA
+    version: local-json
+    source_url: https://github.com/ENDObenchmark/Kvasir-VQA
+    local_root_env: ENDO_LOCAL_VQA_ROOT
+    license: CC BY-NC 4.0
+    license_url: https://creativecommons.org/licenses/by-nc/4.0/
+    intended_usage: suitability_classified
+    redistribution_policy: noncommercial_with_attribution
+  - dataset_id: kvasir-vqa-x1
+    name: Kvasir-VQA-x1
+    version: local-json
+    source_url: https://github.com/ENDObenchmark/Kvasir-VQA-x1
+    local_root_env: ENDO_LOCAL_VQA_ROOT
+    license: CC BY-NC 4.0
+    license_url: https://creativecommons.org/licenses/by-nc/4.0/
+    intended_usage: generation_source
+    redistribution_policy: noncommercial_with_attribution
+  - dataset_id: endobench
+    name: EndoBench
+    version: local-json
+    source_url: https://github.com/medAI-NEU/EndoBench
+    local_root_env: ENDO_LOCAL_VQA_ROOT
+    license: CC BY-SA 3.0
+    license_url: https://creativecommons.org/licenses/by-sa/3.0/
+    intended_usage: benchmark_only
+    tutor_rag_allowed: false
+    factory_source_allowed: false
+    qbank_import_allowed: false

@@ -30,7 +30,7 @@ export type EvaluationArtifact = components['schemas']['EvaluationArtifactRespon
 }
 export type TutorStreamRequest = components['schemas']['TutorStreamRequest']
 export type TutorStreamEvent = {
-  event: 'message_start' | 'token' | 'tool_start' | 'tool_end' | 'source' | 'message_end' | 'error'
+  event: 'message_start' | 'reasoning' | 'token' | 'tool_start' | 'tool_end' | 'source' | 'message_end' | 'error'
   data: Record<string, unknown>
 }
 // API payload contracts are generated from FastAPI/OpenAPI. Components may
@@ -80,9 +80,9 @@ export function getQuestions(query: QuestionQuery = {}): Promise<QuestionsRespon
   }))
 }
 
-export function createPracticeSession(bankId: string, learnerId = 'demo_learner'): Promise<SessionResponse> {
+export function createPracticeSession(bankId: string, learnerId = 'demo_learner', mode: 'study' | 'exam' | 'review' | 'practice' = 'study'): Promise<SessionResponse> {
   return unwrap(api.POST('/api/v3/practice/sessions', {
-    body: { bank_id: bankId, learner_id: learnerId, mode: 'practice' },
+    body: { bank_id: bankId, learner_id: learnerId, mode },
   }))
 }
 

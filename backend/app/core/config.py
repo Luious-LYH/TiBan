@@ -27,6 +27,9 @@ def _env_first(*names: str, default: str = "") -> str:
     return default
 
 
+LOCAL_VQA_ROOT = Path(_env_first("ENDO_LOCAL_VQA_ROOT", default=r"E:\2.Projects\ARIS\VQA\data"))
+
+
 DATABASE_URL = _env_first(
     "ENDO_DATABASE_URL",
     "DATABASE_URL",
@@ -49,6 +52,10 @@ LLM_FALLBACK_BASE_URL = _env_first("LLM_FALLBACK_BASE_URL").rstrip("/")
 LLM_FALLBACK_API_KEY = _env_first("LLM_FALLBACK_API_KEY")
 LLM_FALLBACK_MODEL = _env_first("LLM_FALLBACK_MODEL", default=LLM_MODEL)
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
+# Private-network Providers remain blocked by default.  A developer running a
+# deliberately local/LAN OpenAI-compatible gateway may opt in for the current
+# process; this flag is intentionally not enabled by any checked-in config.
+LLM_PROVIDER_ALLOW_PRIVATE_NETWORK = _env_first("LLM_PROVIDER_ALLOW_PRIVATE_NETWORK").lower() == "true"
 
 
 def _normalize_allowlist_host(value: str) -> str:

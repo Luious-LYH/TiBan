@@ -11,6 +11,7 @@ from app.routers.tutor import router as stage1_tutor_router
 from app.routers.tutor_agent import router as stage2_tutor_router
 from app.routers.learning import router as stage2_learning_router
 from app.routers.factory import router as stage2_factory_router
+from app.routers.assets import router as stage25_assets_router
 from app.routers.api import router
 
 app = FastAPI(
@@ -45,6 +46,7 @@ app.include_router(stage1_tutor_router)
 app.include_router(stage2_tutor_router)
 app.include_router(stage2_learning_router)
 app.include_router(stage2_factory_router)
+app.include_router(stage25_assets_router)
 app.include_router(stage1_evaluation_router)
 app.include_router(router)
 
