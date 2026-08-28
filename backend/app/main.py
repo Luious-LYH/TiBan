@@ -9,6 +9,8 @@ from app.routers.practice import canonical_router as stage1_practice_router
 from app.routers.practice import legacy_router as stage1_practice_compat_router
 from app.routers.tutor import router as stage1_tutor_router
 from app.routers.tutor_agent import router as stage2_tutor_router
+from app.routers.learning import router as stage2_learning_router
+from app.routers.factory import router as stage2_factory_router
 from app.routers.api import router
 
 app = FastAPI(
@@ -41,6 +43,8 @@ app.include_router(stage1_practice_router)
 app.include_router(stage1_practice_compat_router)
 app.include_router(stage1_tutor_router)
 app.include_router(stage2_tutor_router)
+app.include_router(stage2_learning_router)
+app.include_router(stage2_factory_router)
 app.include_router(stage1_evaluation_router)
 app.include_router(router)
 

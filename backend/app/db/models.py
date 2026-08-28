@@ -101,6 +101,14 @@ class ReviewCardModel(Base):
     interval_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     review_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # FSRS is the canonical scheduling state.  The legacy interval fields stay
+    # readable during migration, but are derived from this record after Stage 2.
+    fsrs_card: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    fsrs_logs: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    difficulty: Mapped[float | None] = mapped_column(Float, nullable=True)
+    stability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    retrievability: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fsrs_state: Mapped[str] = mapped_column(String(32), nullable=False, default="Learning")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
@@ -171,6 +179,7 @@ class FactoryJobModel(Base):
     detail: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    queue_message_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
 
 
 class QuestionRevisionModel(Base):
@@ -184,4 +193,5 @@ class QuestionRevisionModel(Base):
     judge_decision: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     rewrite_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     prompt_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    source_chunk_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)

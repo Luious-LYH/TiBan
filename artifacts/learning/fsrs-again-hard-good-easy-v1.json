@@ -1,0 +1,9 @@
+{
+  "sequence_time": "2026-01-02T00:00:00+00:00",
+  "rows": [
+    {"rating":"Again","baseline_interval_days":0,"fsrs_due":"2026-01-02T00:01:00+00:00","fsrs_interval_hours":0.02,"difficulty":6.4133,"stability":0.212,"retrievability_at_review":1.0,"scheduler":"fsrs==6.3.2","fuzzing":false},
+    {"rating":"Hard","baseline_interval_days":1,"fsrs_due":"2026-01-02T00:05:30+00:00","fsrs_interval_hours":0.09,"difficulty":5.1122,"stability":1.2931,"retrievability_at_review":1.0,"scheduler":"fsrs==6.3.2","fuzzing":false},
+    {"rating":"Good","baseline_interval_days":1,"fsrs_due":"2026-01-02T00:10:00+00:00","fsrs_interval_hours":0.17,"difficulty":2.1181,"stability":2.3065,"retrievability_at_review":1.0,"scheduler":"fsrs==6.3.2","fuzzing":false},
+    {"rating":"Easy","baseline_interval_days":4,"fsrs_due":"2026-01-10T00:00:00+00:00","fsrs_interval_hours":192.0,"difficulty":1.0,"stability":8.2956,"retrievability_at_review":1.0,"scheduler":"fsrs==6.3.2","fuzzing":false}
+  ]
+}

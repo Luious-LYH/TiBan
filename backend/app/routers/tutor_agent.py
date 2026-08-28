@@ -17,6 +17,7 @@ class TutorStreamRequest(BaseModel):
     learner_id: str = 'demo_learner'
     message: str = Field(min_length=1, max_length=2000)
     attempt_id: str | None = None
+    conversation: list[dict[str, str]] = Field(default_factory=list, max_length=12)
 
 
 @router.post('/stream')
@@ -30,6 +31,7 @@ def tutor_stream(request: TutorStreamRequest) -> StreamingResponse:
             user_message=request.message,
             phase=phase,
             attempt_id=request.attempt_id,
+            metadata={"conversation": request.conversation[-12:]},
         )
         for event in tutor_runner.stream(context):
             yield f'event: {event.event}\ndata: {json.dumps(event.data, ensure_ascii=False)}\n\n'

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
@@ -122,34 +122,11 @@ class Stage1Repository:
         )
         self.session.add(attempt)
         session.last_active_at = now
-        existing = self.session.scalar(
-            select(ReviewCardModel).where(
-                ReviewCardModel.learner_id == session.learner_id,
-                ReviewCardModel.question_id == question.question_id,
-            )
-        )
-        interval_days = 1 if correct else 0
-        due_at = now + timedelta(days=interval_days)
-        if existing:
-            existing.interval_days = interval_days
-            existing.due_at = due_at
-            existing.review_count += 1
-            existing.last_reviewed_at = now
-            existing.updated_at = now
-        else:
-            self.session.add(
-                ReviewCardModel(
-                    review_card_id=f"review_{uuid4().hex[:12]}",
-                    learner_id=session.learner_id,
-                    question_id=question.question_id,
-                    due_at=due_at,
-                    interval_days=interval_days,
-                    review_count=1,
-                    last_reviewed_at=now,
-                    created_at=now,
-                    updated_at=now,
-                )
-            )
+        # The submit workflow owns the only side effects: once the immutable
+        # attempt is staged, derive mastery and FSRS scheduling deterministically.
+        self.session.flush()
+        from app.services.learning_service import apply_learning_outcome
+        apply_learning_outcome(self.session, attempt=attempt, question=question, now=now)
         self.session.commit()
         self.session.refresh(attempt)
         return attempt

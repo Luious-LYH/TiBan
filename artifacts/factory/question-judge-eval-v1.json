@@ -1,0 +1,233 @@
+{
+  "dataset": "question-judge-manual-review-v1",
+  "sample_count": 30,
+  "manual_review_note": "30 条项目维护者人工标注的 pass/fail 与错误类别；仅为小样本验证，不外推临床或生产准确率。",
+  "deterministic_gate_only": {
+    "tp": 10,
+    "fp": 10,
+    "fn": 0,
+    "tn": 10,
+    "precision": 0.5,
+    "recall": 1.0
+  },
+  "gate_plus_judge": {
+    "tp": 10,
+    "fp": 0,
+    "fn": 0,
+    "tn": 20,
+    "precision": 1.0,
+    "recall": 1.0
+  },
+  "cases": [
+    {
+      "id": "review-01",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-02",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-03",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-04",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-05",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-06",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-07",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-08",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-09",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-10",
+      "manual_label": "pass",
+      "issue": "none",
+      "gate": true,
+      "judge": true
+    },
+    {
+      "id": "review-11",
+      "manual_label": "fail",
+      "issue": "answer",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-12",
+      "manual_label": "fail",
+      "issue": "answer",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-13",
+      "manual_label": "fail",
+      "issue": "answer",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-14",
+      "manual_label": "fail",
+      "issue": "answer",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-15",
+      "manual_label": "fail",
+      "issue": "answer",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-16",
+      "manual_label": "fail",
+      "issue": "citation",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-17",
+      "manual_label": "fail",
+      "issue": "citation",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-18",
+      "manual_label": "fail",
+      "issue": "citation",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-19",
+      "manual_label": "fail",
+      "issue": "citation",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-20",
+      "manual_label": "fail",
+      "issue": "citation",
+      "gate": false,
+      "judge": false
+    },
+    {
+      "id": "review-21",
+      "manual_label": "fail",
+      "issue": "groundedness",
+      "gate": true,
+      "judge": false
+    },
+    {
+      "id": "review-22",
+      "manual_label": "fail",
+      "issue": "groundedness",
+      "gate": true,
+      "judge": false
+    },
+    {
+      "id": "review-23",
+      "manual_label": "fail",
+      "issue": "groundedness",
+      "gate": true,
+      "judge": false
+    },
+    {
+      "id": "review-24",
+      "manual_label": "fail",
+      "issue": "groundedness",
+      "gate": true,
+      "judge": false
+    },
+    {
+      "id": "review-25",
+      "manual_label": "fail",
+      "issue": "safety",
+      "gate": true,
+      "judge": false
+    },
+    {
+      "id": "review-26",
+      "manual_label": "fail",
+      "issue": "safety",
+      "gate": true,
+      "judge": false
+    },
+    {
+      "id": "review-27",
+      "manual_label": "fail",
+      "issue": "safety",
+      "gate": true,
+      "judge": false
+    },
+    {
+      "id": "review-28",
+      "manual_label": "fail",
+      "issue": "distractor",
+      "gate": true,
+      "judge": false
+    },
+    {
+      "id": "review-29",
+      "manual_label": "fail",
+      "issue": "distractor",
+      "gate": true,
+      "judge": false
+    },
+    {
+      "id": "review-30",
+      "manual_label": "fail",
+      "issue": "distractor",
+      "gate": true,
+      "judge": false
+    }
+  ]
+}

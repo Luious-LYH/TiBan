@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getLatestEvaluation, getOverview, getQuestionBanks, getQuestions, streamTutor, submitPracticeAnswer } from '../api/client'
+import { getLatestEvaluation, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer } from '../api/client'
 import type { Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -15,7 +15,9 @@ vi.mock('../api/client', () => ({
   getOverview: vi.fn(),
   getQuestionBanks: vi.fn(),
   getQuestions: vi.fn(),
+  getMentorPlan: vi.fn(),
   streamTutor: vi.fn(),
+  submitFsrsReview: vi.fn(),
   submitPracticeAnswer: vi.fn(),
 }))
 
@@ -24,6 +26,8 @@ const mockedGetQuestionBanks = vi.mocked(getQuestionBanks)
 const mockedGetQuestions = vi.mocked(getQuestions)
 const mockedSubmit = vi.mocked(submitPracticeAnswer)
 const mockedStreamTutor = vi.mocked(streamTutor)
+const mockedMentor = vi.mocked(getMentorPlan)
+const mockedReview = vi.mocked(submitFsrsReview)
 const mockedEvaluation = vi.mocked(getLatestEvaluation)
 
 const safety = '仅供教学研修或医生复核前辅助，不作为独立诊断依据。'
@@ -59,6 +63,8 @@ beforeEach(() => {
   mockedGetQuestionBanks.mockResolvedValue(banks)
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
   mockedSubmit.mockResolvedValue(submitResult('single'))
+  mockedMentor.mockResolvedValue({ learner_id: 'demo_learner', study_goal: '复盘', due_review_count: 1, focus: '胃', weak_areas: ['胃'], recent_errors: [], steps: [{ kind: 'review', title: '完成复习', question_ids: [] }] })
+  mockedReview.mockResolvedValue({ review_card_id: 'review-test', question_id: 'single', due_at: '2026-08-29T00:00:00Z', interval_days: 1, difficulty: 2, stability: 1, retrievability: .9, state: 'Learning', review_count: 1 })
   mockedStreamTutor.mockImplementation(async (_request, onEvent) => {
     onEvent({ event: 'message_start', data: { run_id: 'run-test' } })
     onEvent({ event: 'tool_start', data: { tool_name: 'get_question_context' } })
@@ -138,13 +144,14 @@ describe('Stage 1 page contracts', () => {
     expect(screen.queryByText('100')).not.toBeInTheDocument()
   })
 
-  it('renders real Tutor stream tool and source parts through an explicit action', async () => {
+  it('renders a continuous Tutor chat with real tool and source parts', async () => {
     const user = userEvent.setup()
     renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
     await screen.findByTestId('practice-page')
-    await user.click(screen.getByTestId('tutor-hint'))
+    await user.type(screen.getByLabelText('向 Tutor 提问'), '请帮助我观察')
+    await user.click(screen.getByLabelText('发送给 Tutor'))
     expect(await screen.findByText('先观察可支持事实。')).toBeInTheDocument()
-    expect(screen.getByTestId('tutor-tool-status')).toHaveTextContent('get_question_context')
+    expect(screen.getByText('辅导依据与工具记录')).toBeInTheDocument()
     expect(screen.getByTestId('tutor-sources')).toHaveTextContent('test source')
   })
 })

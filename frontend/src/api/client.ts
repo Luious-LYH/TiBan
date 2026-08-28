@@ -33,6 +33,13 @@ export type TutorStreamEvent = {
   event: 'message_start' | 'token' | 'tool_start' | 'tool_end' | 'source' | 'message_end' | 'error'
   data: Record<string, unknown>
 }
+// API payload contracts are generated from FastAPI/OpenAPI. Components may
+// add purely presentational state around them, but not response schemas.
+export type FactoryDocument = components['schemas']['FactoryDocumentPublic']
+export type FactoryRevision = components['schemas']['FactoryRevisionPublic']
+export type FactoryJob = components['schemas']['FactoryJobPublic']
+export type MentorPlan = components['schemas']['MentorPlanPublic']
+export type ReviewCard = components['schemas']['ReviewCardPublic']
 
 export class ApiError extends Error {
   readonly status: number
@@ -112,4 +119,34 @@ export async function streamTutor(request: TutorStreamRequest, onEvent: (event: 
 export async function getLatestEvaluation(): Promise<EvaluationArtifact> {
   const response = await unwrap(api.GET('/api/v3/evaluation/latest'))
   return { ...response, metrics: response.metrics ?? {}, cases: response.cases ?? [] }
+}
+
+export async function uploadFactoryDocument(filename: string, contentBase64: string, contentType?: string): Promise<FactoryDocument> {
+  const response = await unwrap(api.POST('/api/v3/factory/documents', { body: { filename, content_base64: contentBase64, content_type: contentType } }))
+  return response.document
+}
+
+export async function createFactoryJob(documentId: string): Promise<{ job_id: string; status: string }> {
+  const response = await unwrap(api.POST('/api/v3/factory/jobs', { body: { document_id: documentId } }))
+  return response.item
+}
+
+export async function getFactoryJob(jobId: string): Promise<FactoryJob> {
+  const response = await unwrap(api.GET('/api/v3/factory/jobs/{job_id}', { params: { path: { job_id: jobId } } }))
+  return response.item
+}
+
+export async function publishFactoryRevision(jobId: string, revisionId: string): Promise<{ question_id: string; status: string }> {
+  const response = await unwrap(api.POST('/api/v3/factory/jobs/{job_id}/publish', { params: { path: { job_id: jobId } }, body: { revision_id: revisionId } }))
+  return response.item
+}
+
+export async function getMentorPlan(): Promise<MentorPlan> {
+  const response = await unwrap(api.GET('/api/v3/learning/mentor', { params: { query: { learner_id: 'demo_learner' } } }))
+  return response.plan
+}
+
+export async function submitFsrsReview(questionId: string, rating: 'Again' | 'Hard' | 'Good' | 'Easy'): Promise<ReviewCard> {
+  const response = await unwrap(api.POST('/api/v3/learning/review', { body: { learner_id: 'demo_learner', question_id: questionId, rating } }))
+  return response.item
 }

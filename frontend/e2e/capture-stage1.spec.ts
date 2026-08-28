@@ -18,8 +18,8 @@ test('capture Stage 1 responsive evidence', async ({ page }) => {
       await expect(page.getByTestId(item.marker)).toBeVisible()
       await page.screenshot({ path: path.join(outputDir, `${item.slug}-${width}.png`), fullPage: true })
       if (item.slug === 'practice' && width === 375) {
-        await page.getByRole('button', { name: /打开 Tutor 规则提示/ }).click()
-        await expect(page.getByRole('complementary', { name: 'Tutor 规则提示' })).toBeVisible()
+        await page.getByRole('button', { name: /打开 Tutor 实时 Agent/ }).click()
+        await expect(page.getByRole('complementary', { name: 'Tutor Agent 连续辅导' })).toBeVisible()
         await page.screenshot({ path: path.join(outputDir, 'practice-tutor-375.png'), fullPage: true })
       }
     }

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass, field
 from time import perf_counter
@@ -9,6 +11,8 @@ from typing import Any, Literal, Protocol
 from uuid import uuid4
 
 from app.core.config import SAFETY_NOTICE
+from app.core import config
+from app.services.llm_provider import llm_provider
 from app.services.stage1_service import stage1_service
 
 
@@ -77,13 +81,61 @@ class LocalPolicyModelGateway:
         question = observations.get('get_question_context', {})
         profile = observations.get('get_learning_profile', {})
         retrieval = observations.get('retrieve_knowledge', [])
-        prefix = f"先围绕「{question.get('title', '当前题目')}」梳理可见证据："
+        history = context.metadata.get('conversation', [])
+        continuation = '继续沿用上一步的证据范围。' if history and any(str(item.get('content', '')).strip() for item in history[-2:]) else ''
+        prefix = f"先围绕「{question.get('title', '当前题目')}」梳理可见证据：{continuation}"
         evidence = '、'.join(item.get('snippet', '') for item in retrieval[:2] if item.get('snippet'))
         plan = f"建议先区分部位、形态和不能由单帧推出的结论。{evidence}" if evidence else '建议先区分部位、形态和不能由单帧推出的结论。'
         if context.phase == 'post_submit':
             grading = observations.get('get_grading_result', {})
             plan += f" 本次得分为 {grading.get('score', '—')}；请以公开反馈复盘，而不是反向索取答案键。"
         return f"{prefix}{plan} 当前已记录练习 {profile.get('attempt_count', 0)} 次。{SAFETY_NOTICE}"
+
+
+class OpenAICompatibleTutorGateway:
+    """Opt-in provider gateway; no request is made unless explicitly enabled.
+
+    The gateway receives only the already permission-filtered tool names and
+    observations. It deliberately never asks a model to reveal reasoning or
+    select a data-write tool.
+    """
+
+    name = "openai-compatible-tutor"
+
+    def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
+        result = llm_provider.chat(
+            system_prompt=(
+                "You are a medical education tutor tool planner. Return JSON only: "
+                '{"tools":[...]} . Select only names in the allowed list. '
+                "Never request answers, hidden rubrics, diagnosis, or write actions."
+            ),
+            user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "allowed_tools": sorted(available_tools)}, ensure_ascii=False),
+            temperature=0,
+            max_tokens=120,
+        )
+        if not result.ok:
+            raise RuntimeError(result.error or "provider_tool_planning_failed")
+        try:
+            names = json.loads(result.text).get("tools", [])
+        except (json.JSONDecodeError, AttributeError) as exc:
+            raise RuntimeError("provider_tool_plan_not_json") from exc
+        return [str(name) for name in names if str(name) in available_tools]
+
+    def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
+        result = llm_provider.chat(
+            system_prompt=(
+                "You are a safe Chinese medical education tutor. Use only supplied observations. "
+                "Before submission never reveal answers, correct option IDs, reference answers, hidden rubrics, or benchmark targets. "
+                "Do not provide diagnosis or treatment. Give a concise evidence-based teaching reply, cite source labels when supplied, "
+                f"and include this boundary: {SAFETY_NOTICE} Do not reveal hidden reasoning."
+            ),
+            user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "observations": observations, "recent_conversation": context.metadata.get("conversation", [])[-12:]}, ensure_ascii=False),
+            temperature=0.2,
+            max_tokens=420,
+        )
+        if not result.ok:
+            raise RuntimeError(result.error or "provider_compose_failed")
+        return result.text
 
 
 ToolHandler = Callable[[AgentContext], Any]
@@ -112,7 +164,7 @@ class ToolRegistry:
 
 
 class AgentRunner:
-    def __init__(self, registry: ToolRegistry, gateway: ModelGateway | None = None, *, max_steps: int = 4, timeout_seconds: float = 8.0, retries: int = 1) -> None:
+    def __init__(self, registry: ToolRegistry, gateway: ModelGateway | None = None, *, max_steps: int = 4, timeout_seconds: float = 15.0, retries: int = 1) -> None:
         self.registry = registry
         self.gateway = gateway or LocalPolicyModelGateway()
         self.max_steps = max_steps
@@ -173,11 +225,22 @@ def build_tutor_runtime() -> AgentRunner:
 
     def retrieve_knowledge(context: AgentContext) -> list[dict[str, str]]:
         question = stage1_service.public_question(context.question_id)
+        query = f"{question.get('body_part', '')} {question.get('stem', '')} {context.user_message}"
+        try:
+            from app.services.rag_service import rag_service
+            citations = rag_service.retrieve(query, mode='hybrid', limit=3)
+        except Exception:
+            # Honest local fallback: this is never emitted as a verified RAG
+            # source and keeps the Tutor usable before the optional index starts.
+            citations = []
+        if citations:
+            return [{
+                'chunk_id': citation.chunk_id, 'document_name': citation.document_name,
+                'page': str(citation.page), 'section': citation.section, 'snippet': citation.snippet,
+            } for citation in citations]
         return [{
-            'document_name': str(question.get('source_dataset', '教学资料')),
-            'page': '教学样例',
-            'section': str(question.get('body_part', '观察要点')),
-            'snippet': str(question.get('citation_note', '先检查可支持的观察事实。')),
+            'document_name': str(question.get('source_dataset', '教学资料')), 'page': '教学样例（index 未就绪）',
+            'section': str(question.get('body_part', '观察要点')), 'snippet': str(question.get('citation_note', '先检查可支持的观察事实。')),
         }]
 
     def learning_profile(context: AgentContext) -> dict[str, Any]:
@@ -200,7 +263,15 @@ def build_tutor_runtime() -> AgentRunner:
     registry.register('retrieve_knowledge', {'pre_submit', 'post_submit'}, retrieve_knowledge)
     registry.register('get_learning_profile', {'pre_submit', 'post_submit'}, learning_profile)
     registry.register('get_grading_result', {'post_submit'}, grading_result)
-    return AgentRunner(registry)
+    # This explicit opt-in protects local test/demo runs from accidental paid
+    # provider calls. The default adapter remains visibly labelled as local.
+    provider_enabled = os.getenv('TUTOR_PROVIDER_ENABLED', '').strip().lower() == 'true'
+    gateway: ModelGateway
+    if provider_enabled and config.LLM_BASE_URL and config.LLM_API_KEY:
+        gateway = OpenAICompatibleTutorGateway()
+    else:
+        gateway = LocalPolicyModelGateway()
+    return AgentRunner(registry, gateway=gateway)
 
 
 tutor_runner = build_tutor_runtime()

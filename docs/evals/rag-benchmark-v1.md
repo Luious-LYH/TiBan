@@ -1,39 +1,30 @@
 # Retrieval benchmark v1
 
-## Frozen dataset
+`retrieval-eval-v1` is frozen at 50 manually authored and checked Chinese queries over the project-licensed teaching source: 20 development queries and 30 held-out test queries. Each query has a manually verified relevant parent section and plausible neighbouring sections as hard negatives. It does not use an LLM to generate queries, label relevance, or judge itself.
 
-`retrieval-eval-v1` has 8 manually written Chinese teaching queries against one project-licensed Markdown teaching source, four heading-aware chunks, and manually assigned relevant chunk IDs. It is intentionally a small smoke benchmark, not a production retrieval claim. The dataset and per-case ranks are frozen in `artifacts/rag/retrieval-eval-v1.json`.
+Runtime: PostgreSQL 16 for source state, Qdrant 1.13.2 for the index, FastEmbed `BAAI/bge-small-zh-v1.5` (512 dimensions, L2 normalization), and `cross-encoder/ms-marco-MiniLM-L6-v2` (Apache-2.0) for learned reranking. Full per-case ranks and latency are in [`artifacts/rag/retrieval-eval-v1.json`](../../artifacts/rag/retrieval-eval-v1.json).
 
-## Runtime
+## Frozen test split results (30 queries)
 
-- relational metadata/state: PostgreSQL 16
-- vector index: Qdrant 1.13.2, local Docker
-- dense embedding: `BAAI/bge-small-zh-v1.5` through FastEmbed, 512 dimensions, L2-normalized
-- sparse: deterministic Chinese character-bigram overlap
-- hybrid: reciprocal-rank fusion
-- hybrid+rerank: RRF plus transparent lexical evidence boost; it is not described as a learned reranker
-
-## Results (Recall@4 / MRR / nDCG@4 / P50-P95 ms)
-
-| Chain | Recall@4 | MRR | nDCG@4 | P50 | P95 |
+| Chain / child size | Recall@5 | MRR | nDCG@5 | P50 ms | P95 ms |
 |---|---:|---:|---:|---:|---:|
-| Sparse | 1.0000 | 1.0000 | 1.0000 | 12.01 | 12.84 |
-| Dense | 1.0000 | 0.8542 | 0.8914 | 129.32 | 170.84 |
-| Hybrid | 1.0000 | 1.0000 | 1.0000 | 100.22 | 102.67 |
-| Hybrid + rerank | 1.0000 | 1.0000 | 1.0000 | 102.32 | 112.96 |
+| Sparse / 180 | 1.00 | 0.95 | 0.96 | 62.56 | 76.28 |
+| Dense / 180 | 0.97 | 0.88 | 0.90 | 185.44 | 248.13 |
+| Hybrid (RRF) / 180 | 1.00 | 0.94 | 0.96 | 198.49 | 236.53 |
+| Hybrid + learned rerank / 180 | 0.73 | 0.58 | 0.62 | 658.96 | 1714.41 |
+| Hybrid + learned rerank / 280 | 0.73 | 0.58 | 0.62 | 609.14 | 914.82 |
 
-The corpus is only four chunks, so all rows are saturated at Recall@4. This artifact demonstrates real Qdrant + real embedding integration and a repeatable metric path; it does **not** justify a general quality-improvement claim. The dense chain’s weaker rank on wording such as “信息不足” is retained as a failure case in the artifact.
+## Decision and chunking ablation
 
-## Chunk ablation
-
-The chosen 180-character child configuration keeps citation units compact enough for the Tutor sidecar. A 280-character configuration is a planned benchmark input but has not been independently evaluated; no selection claim is made from it.
+The 180-child configuration yields more compact citation units; the reranker is intentionally retained as a negative result: it is a real cross-encoder invocation, but its English training makes it a poor selector for this Chinese benchmark and materially increases tail latency. Tutor therefore defaults to 180-character RRF Hybrid, rather than claiming a false rerank improvement. This small evaluation supports only that local design decision; it is not a clinical or production-quality metric. The reported `*-identity-v2` version contains exactly 21 (180) / 20 (280) chunks and is isolated from historical chunk-ID versions, so duplicate historical records cannot influence these metrics.
 
 ## Reproduction
 
 ```powershell
-cd code/backend
-$env:ENDO_DATABASE_URL = 'postgresql+psycopg://…@127.0.0.1:55432/endotutor_stage1'
-$env:PYTHONPATH = '.'
-python -c "from app.services.rag_service import rag_service; from pathlib import Path; rag_service.index_markdown(Path('../docs/fixtures/endoscopy-teaching-source-v1.md'), child_size=180)"
+cd code
+docker compose -p endotutor-stage2 -f compose.stage2-services.yml --profile stage2-rag up -d
+cd backend
+$env:ENDO_DATABASE_URL = 'postgresql+psycopg://endotutor_dev:endotutor_dev_only@127.0.0.1:55432/endotutor_stage1'
+$env:QDRANT_URL = 'http://127.0.0.1:6333'
 python scripts/run_rag_benchmark.py
 ```

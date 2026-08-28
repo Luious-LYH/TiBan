@@ -225,6 +225,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/learning/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit Review */
+        post: operations["submit_review_api_v3_learning_review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/learning/mentor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Mentor Plan */
+        get: operations["get_mentor_plan_api_v3_learning_mentor_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/factory/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Document */
+        post: operations["upload_document_api_v3_factory_documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/factory/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Job */
+        post: operations["create_job_api_v3_factory_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/factory/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Job */
+        get: operations["read_job_api_v3_factory_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/factory/jobs/{job_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish Job */
+        post: operations["publish_job_api_v3_factory_jobs__job_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/evaluation/latest": {
         parameters: {
             query?: never;
@@ -1324,6 +1426,15 @@ export interface components {
              */
             learner_id: string;
         };
+        /** DocumentUploadRequest */
+        DocumentUploadRequest: {
+            /** Filename */
+            filename: string;
+            /** Content Base64 */
+            content_base64: string;
+            /** Content Type */
+            content_type?: string | null;
+        };
         /** EvaluationArtifactResponse */
         EvaluationArtifactResponse: {
             /** Artifact Available */
@@ -1414,6 +1525,120 @@ export interface components {
             /** Note */
             note: string;
         };
+        /** FactoryDocumentPublic */
+        FactoryDocumentPublic: {
+            /** Document Id */
+            document_id: string;
+            /** Name */
+            name: string;
+            /** Media Type */
+            media_type: string;
+        };
+        /** FactoryDocumentResponse */
+        FactoryDocumentResponse: {
+            document: components["schemas"]["FactoryDocumentPublic"];
+            /** Api Source */
+            api_source: string;
+        };
+        /** FactoryDraftPublic */
+        FactoryDraftPublic: {
+            /** Title */
+            title?: string | null;
+            /** Stem */
+            stem?: string | null;
+            /** Explanation */
+            explanation?: string | null;
+            /** Citation */
+            citation?: {
+                [key: string]: string;
+            };
+        };
+        /** FactoryEventPublic */
+        FactoryEventPublic: {
+            /** Status */
+            status: string;
+            /** Detail */
+            detail: string;
+            /** At */
+            at: string;
+        };
+        /** FactoryJobCreateResponse */
+        FactoryJobCreateResponse: {
+            item: components["schemas"]["FactoryJobQueuedPublic"];
+            /** Api Source */
+            api_source: string;
+        };
+        /** FactoryJobDetailPublic */
+        FactoryJobDetailPublic: {
+            /** Events */
+            events?: components["schemas"]["FactoryEventPublic"][];
+        };
+        /** FactoryJobPublic */
+        FactoryJobPublic: {
+            /** Job Id */
+            job_id: string;
+            /** Document Id */
+            document_id: string;
+            /** Status */
+            status: string;
+            detail: components["schemas"]["FactoryJobDetailPublic"];
+            /** Queue Message Id */
+            queue_message_id: string | null;
+            /** Revisions */
+            revisions: components["schemas"]["FactoryRevisionPublic"][];
+        };
+        /** FactoryJobQueuedPublic */
+        FactoryJobQueuedPublic: {
+            /** Job Id */
+            job_id: string;
+            /** Status */
+            status: string;
+        };
+        /** FactoryJobReadResponse */
+        FactoryJobReadResponse: {
+            item: components["schemas"]["FactoryJobPublic"];
+            /** Api Source */
+            api_source: string;
+        };
+        /** FactoryJudgePublic */
+        FactoryJudgePublic: {
+            /** Passed */
+            passed?: boolean | null;
+            /** Rewrite Instruction */
+            rewrite_instruction?: string | null;
+        };
+        /** FactoryPublishPublic */
+        FactoryPublishPublic: {
+            /** Job Id */
+            job_id: string;
+            /** Revision Id */
+            revision_id: string;
+            /** Question Id */
+            question_id: string;
+            /** Status */
+            status: string;
+        };
+        /** FactoryPublishResponse */
+        FactoryPublishResponse: {
+            item: components["schemas"]["FactoryPublishPublic"];
+            /** Api Source */
+            api_source: string;
+        };
+        /** FactoryRevisionPublic */
+        FactoryRevisionPublic: {
+            /** Revision Id */
+            revision_id: string;
+            /** Parent Revision Id */
+            parent_revision_id: string | null;
+            /** Status */
+            status: string;
+            draft: components["schemas"]["FactoryDraftPublic"];
+            judge: components["schemas"]["FactoryJudgePublic"];
+            /** Rewrite Instruction */
+            rewrite_instruction: string | null;
+            /** Source Chunk Ids */
+            source_chunk_ids: string[];
+        };
         /** FavoriteRequest */
         FavoriteRequest: {
             /** Question Id */
@@ -1445,6 +1670,43 @@ export interface components {
              * @default demo_learner
              */
             learner_id: string;
+        };
+        /** JobRequest */
+        JobRequest: {
+            /** Document Id */
+            document_id: string;
+        };
+        /** MentorPlanPublic */
+        MentorPlanPublic: {
+            /** Learner Id */
+            learner_id: string;
+            /** Study Goal */
+            study_goal: string;
+            /** Due Review Count */
+            due_review_count: number;
+            /** Focus */
+            focus: string;
+            /** Weak Areas */
+            weak_areas: string[];
+            /** Recent Errors */
+            recent_errors: string[];
+            /** Steps */
+            steps: components["schemas"]["MentorStepPublic"][];
+        };
+        /** MentorResponse */
+        MentorResponse: {
+            plan: components["schemas"]["MentorPlanPublic"];
+            /** Api Source */
+            api_source: string;
+        };
+        /** MentorStepPublic */
+        MentorStepPublic: {
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Question Ids */
+            question_ids: string[];
         };
         /** ModelAdmissionTestRequest */
         ModelAdmissionTestRequest: {
@@ -1788,6 +2050,11 @@ export interface components {
             /** Sample Id */
             sample_id?: string | null;
         };
+        /** PublishRequest */
+        PublishRequest: {
+            /** Revision Id */
+            revision_id: string;
+        };
         /** QuestionBankListResponse */
         QuestionBankListResponse: {
             /** Items */
@@ -1910,6 +2177,45 @@ export interface components {
             api_key?: string | null;
             /** Model */
             model?: string | null;
+        };
+        /** ReviewCardPublic */
+        ReviewCardPublic: {
+            /** Review Card Id */
+            review_card_id: string;
+            /** Question Id */
+            question_id: string;
+            /** Due At */
+            due_at: string;
+            /** Interval Days */
+            interval_days: number;
+            /** Difficulty */
+            difficulty: number | null;
+            /** Stability */
+            stability: number | null;
+            /** Retrievability */
+            retrievability: number | null;
+            /** State */
+            state: string;
+            /** Review Count */
+            review_count: number;
+        };
+        /** ReviewRequest */
+        ReviewRequest: {
+            /**
+             * Learner Id
+             * @default demo_learner
+             */
+            learner_id: string;
+            /** Question Id */
+            question_id: string;
+            /** Rating */
+            rating: string;
+        };
+        /** ReviewResponse */
+        ReviewResponse: {
+            item: components["schemas"]["ReviewCardPublic"];
+            /** Api Source */
+            api_source: string;
         };
         /** ShortAnswerQuestionPublic */
         ShortAnswerQuestionPublic: {
@@ -2187,6 +2493,10 @@ export interface components {
             message: string;
             /** Attempt Id */
             attempt_id?: string | null;
+            /** Conversation */
+            conversation?: {
+                [key: string]: string;
+            }[];
         };
         /** ValidationError */
         ValidationError: {
@@ -2636,6 +2946,203 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_review_api_v3_learning_review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mentor_plan_api_v3_learning_mentor_get: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+                study_goal?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_document_api_v3_factory_documents_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactoryDocumentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_job_api_v3_factory_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactoryJobCreateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_job_api_v3_factory_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactoryJobReadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_job_api_v3_factory_jobs__job_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactoryPublishResponse"];
                 };
             };
             /** @description Validation Error */

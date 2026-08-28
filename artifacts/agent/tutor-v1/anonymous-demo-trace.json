@@ -6,7 +6,7 @@
     {
       "event": "message_start",
       "data": {
-        "run_id": "run_eeda8a7076f2",
+        "run_id": "run_b8ecc87715a4",
         "provider": "local-policy-adapter/external-provider-pending",
         "phase": "pre_submit"
       }
@@ -21,7 +21,7 @@
       "event": "tool_end",
       "data": {
         "tool_name": "get_question_context",
-        "elapsed_ms": 12,
+        "elapsed_ms": 61,
         "status": "ok",
         "summary": "已取得允许的观察数据。"
       }
@@ -36,7 +36,7 @@
       "event": "tool_end",
       "data": {
         "tool_name": "retrieve_knowledge",
-        "elapsed_ms": 1,
+        "elapsed_ms": 14257,
         "status": "ok",
         "summary": "已取得允许的观察数据。"
       }
@@ -44,10 +44,31 @@
     {
       "event": "source",
       "data": {
-        "document_name": "内镜研修人工整理题库",
-        "page": "教学样例",
-        "section": "食管",
-        "snippet": "根据消化内镜研修常见教学目标整理的演示题。"
+        "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+        "document_name": "endoscopy-teaching-source-v1.md",
+        "page": "1",
+        "section": "食管解剖定位",
+        "snippet": "食管观察先确认上、中、下段以及齿状线附近的位置。记录时可使用距门齿距离、腔内方向和相邻解剖标志帮助复盘，但不能把位置描述直接等同于疾病名称。资料不足时应回到可见的部位与形态，而不是猜测病理结论。"
+      }
+    },
+    {
+      "event": "source",
+      "data": {
+        "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+        "document_name": "endoscopy-teaching-source-v1.md",
+        "page": "1",
+        "section": "教学安全边界",
+        "snippet": "本资料只支持内镜教学中的观察、证据表达和复盘训练。单帧图像、简短文字或自动化检索均不能替代完整检查、病理结果和临床综合判断。任何输出都应保留医生复核边界，不应把教学练习表述为独立诊断、处方或治疗建议。"
+      }
+    },
+    {
+      "event": "source",
+      "data": {
+        "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+        "document_name": "endoscopy-teaching-source-v1.md",
+        "page": "1",
+        "section": "食管黏膜形态",
+        "snippet": "食管黏膜训练重点包括连续性、充血、糜烂、白色附着物、隆起或狭窄等可见形态。应说明改变是局灶还是弥漫、边界是否清楚，并避免仅凭红色或白色就作出确诊。若存在可疑改变，应提示结合完整检查和医生复核。"
       }
     },
     {
@@ -60,7 +81,7 @@
       "event": "tool_end",
       "data": {
         "tool_name": "get_learning_profile",
-        "elapsed_ms": 10,
+        "elapsed_ms": 41,
         "status": "ok",
         "summary": "已取得允许的观察数据。"
       }
@@ -80,31 +101,91 @@
     {
       "event": "token",
       "data": {
-        "text": "由单帧推出的结论。根据消化内镜研修常"
+        "text": "由单帧推出的结论。食管观察先确认上、"
       }
     },
     {
       "event": "token",
       "data": {
-        "text": "见教学目标整理的演示题。 当前已记录"
+        "text": "中、下段以及齿状线附近的位置。记录时"
       }
     },
     {
       "event": "token",
       "data": {
-        "text": "练习 0 次。仅供教学研修或医生复核"
+        "text": "可使用距门齿距离、腔内方向和相邻解剖"
       }
     },
     {
       "event": "token",
       "data": {
-        "text": "前辅助，不作为独立诊断依据。"
+        "text": "标志帮助复盘，但不能把位置描述直接等"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "同于疾病名称。资料不足时应回到可见的"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "部位与形态，而不是猜测病理结论。、本"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "资料只支持内镜教学中的观察、证据表达"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "和复盘训练。单帧图像、简短文字或自动"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "化检索均不能替代完整检查、病理结果和"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "临床综合判断。任何输出都应保留医生复"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "核边界，不应把教学练习表述为独立诊断"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "、处方或治疗建议。 当前已记录练习 "
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "0 次。仅供教学研修或医生复核前辅助"
+      }
+    },
+    {
+      "event": "token",
+      "data": {
+        "text": "，不作为独立诊断依据。"
       }
     },
     {
       "event": "message_end",
       "data": {
-        "run_id": "run_eeda8a7076f2",
+        "run_id": "run_b8ecc87715a4",
         "receipt_count": 3,
         "provider": "local-policy-adapter/external-provider-pending",
         "retry_count": 0

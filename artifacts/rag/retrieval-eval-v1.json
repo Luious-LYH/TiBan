@@ -1,445 +1,4507 @@
 {
   "dataset_version": "retrieval-eval-v1",
-  "query_count": 8,
-  "modes": {
-    "sparse": {
-      "recall_at_4": 1.0,
-      "mrr": 1.0,
-      "ndcg_at_4": 1.0,
-      "p50_latency_ms": 12.01,
-      "p95_latency_ms": 12.84,
-      "cases": [
-        {
-          "query": "食管检查要先记录哪些可见证据",
-          "relevant": "chunk-6e1cbb202f2a-180-00",
-          "topic": "食管",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-02"
-          ],
-          "latency_ms": 58.03
+  "query_count": 50,
+  "split": {
+    "development": 20,
+    "test": 30
+  },
+  "curation": "项目维护者按冻结教学资料逐条编写，并人工核验查询自然性、相关章节与干扰章节；不使用 LLM 生成或标注。",
+  "embedding": {
+    "provider": "fastembed",
+    "model": "BAAI/bge-small-zh-v1.5",
+    "dimension": 512,
+    "normalization": "L2"
+  },
+  "reranker": {
+    "provider": "sentence-transformers",
+    "model": "cross-encoder/ms-marco-MiniLM-L6-v2",
+    "license": "Apache-2.0"
+  },
+  "ablations": {
+    "180": {
+      "version_id": "source-stage2-endoscopy-v1-e833b71c56f8-180-v2",
+      "chunk_count": 21,
+      "test": {
+        "sparse": {
+          "recall_at_5": 1.0,
+          "mrr": 0.95,
+          "ndcg_at_5": 0.9631,
+          "p50_latency_ms": 62.56,
+          "p95_latency_ms": 76.28,
+          "cases": [
+            {
+              "id": "t01",
+              "split": "test",
+              "query": "单张溃疡图片能决定治疗吗",
+              "relevant_section": "溃疡样改变描述",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                }
+              ],
+              "latency_ms": 55.99
+            },
+            {
+              "id": "t02",
+              "split": "test",
+              "query": "十二指肠要先区分哪两个部位",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 63.12
+            },
+            {
+              "id": "t03",
+              "split": "test",
+              "query": "局部十二指肠图像可以外推全消化道吗",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 63.97
+            },
+            {
+              "id": "t04",
+              "split": "test",
+              "query": "十二指肠定位不确定如何写",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                }
+              ],
+              "latency_ms": 68.69
+            },
+            {
+              "id": "t05",
+              "split": "test",
+              "query": "结直肠病灶先确定什么",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 63.3
+            },
+            {
+              "id": "t06",
+              "split": "test",
+              "query": "结肠肠段定位依据有哪些",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                }
+              ],
+              "latency_ms": 63.25
+            },
+            {
+              "id": "t07",
+              "split": "test",
+              "query": "颜色能直接判断结直肠病变性质吗",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 72.86
+            },
+            {
+              "id": "t08",
+              "split": "test",
+              "query": "结直肠局灶改变怎样描述边界",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 76.28
+            },
+            {
+              "id": "t09",
+              "split": "test",
+              "query": "隆起凹陷和周围黏膜如何写",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                }
+              ],
+              "latency_ms": 60.84
+            },
+            {
+              "id": "t10",
+              "split": "test",
+              "query": "选择题为何要回到观察事实",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 62.0
+            },
+            {
+              "id": "t11",
+              "split": "test",
+              "query": "出血训练只应该记录哪些线索",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 59.96
+            },
+            {
+              "id": "t12",
+              "split": "test",
+              "query": "截图能确定是否持续出血吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 58.13
+            },
+            {
+              "id": "t13",
+              "split": "test",
+              "query": "出血严重程度能由教学图像决定吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 61.05
+            },
+            {
+              "id": "t14",
+              "split": "test",
+              "query": "隆起或凹陷需记录哪些形态",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                }
+              ],
+              "latency_ms": 54.47
+            },
+            {
+              "id": "t15",
+              "split": "test",
+              "query": "没有尺度和多角度时应该怎样说",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                }
+              ],
+              "latency_ms": 68.36
+            },
+            {
+              "id": "t16",
+              "split": "test",
+              "query": "隆起能直接贴良恶性标签吗",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                }
+              ],
+              "latency_ms": 65.53
+            },
+            {
+              "id": "t17",
+              "split": "test",
+              "query": "图像反光和残留物有什么影响",
+              "relevant_section": "图像质量与盲区",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 59.67
+            },
+            {
+              "id": "t18",
+              "split": "test",
+              "query": "视野不足时是否能自动补全事实",
+              "relevant_section": "图像质量与盲区",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                }
+              ],
+              "latency_ms": 59.94
+            },
+            {
+              "id": "t19",
+              "split": "test",
+              "query": "质量限制需要补什么检查",
+              "relevant_section": "图像质量与盲区",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 63.16
+            },
+            {
+              "id": "t20",
+              "split": "test",
+              "query": "选择题如何避免越过题干证据",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 55.23
+            },
+            {
+              "id": "t21",
+              "split": "test",
+              "query": "Tutor 提示能在提交前读正确选项吗",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 74.58
+            },
+            {
+              "id": "t22",
+              "split": "test",
+              "query": "绝对化诊断性选项为什么要警惕",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                }
+              ],
+              "latency_ms": 57.65
+            },
+            {
+              "id": "t23",
+              "split": "test",
+              "query": "简答题的第一步要写什么",
+              "relevant_section": "简答题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                }
+              ],
+              "latency_ms": 74.33
+            },
+            {
+              "id": "t24",
+              "split": "test",
+              "query": "简答需要猜中诊断才算好吗",
+              "relevant_section": "简答题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 69.1
+            },
+            {
+              "id": "t25",
+              "split": "test",
+              "query": "独立治疗语句在教学反馈中如何处理",
+              "relevant_section": "简答题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 61.55
+            },
+            {
+              "id": "t26",
+              "split": "test",
+              "query": "错题复盘需要保留哪些信息",
+              "relevant_section": "错题复盘",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 60.63
+            },
+            {
+              "id": "t27",
+              "split": "test",
+              "query": "为什么 Attempt 日志不可变",
+              "relevant_section": "错题复盘",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 84.09
+            },
+            {
+              "id": "t28",
+              "split": "test",
+              "query": "错题不是只看对错还要看什么",
+              "relevant_section": "错题复盘",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 57.59
+            },
+            {
+              "id": "t29",
+              "split": "test",
+              "query": "FSRS 的 due 和稳定性由谁产生",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 74.13
+            },
+            {
+              "id": "t30",
+              "split": "test",
+              "query": "Again Hard Good Easy 会更新什么",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                }
+              ],
+              "latency_ms": 57.02
+            }
+          ]
         },
-        {
-          "query": "单帧内镜图像为什么不能作临床诊断",
-          "relevant": "chunk-6e1cbb202f2a-180-00",
-          "topic": "安全",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-03"
-          ],
-          "latency_ms": 12.0
+        "dense": {
+          "recall_at_5": 0.9667,
+          "mrr": 0.8833,
+          "ndcg_at_5": 0.9041,
+          "p50_latency_ms": 185.44,
+          "p95_latency_ms": 248.13,
+          "cases": [
+            {
+              "id": "t01",
+              "split": "test",
+              "query": "单张溃疡图片能决定治疗吗",
+              "relevant_section": "溃疡样改变描述",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 255.91
+            },
+            {
+              "id": "t02",
+              "split": "test",
+              "query": "十二指肠要先区分哪两个部位",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 248.13
+            },
+            {
+              "id": "t03",
+              "split": "test",
+              "query": "局部十二指肠图像可以外推全消化道吗",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 239.91
+            },
+            {
+              "id": "t04",
+              "split": "test",
+              "query": "十二指肠定位不确定如何写",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                }
+              ],
+              "latency_ms": 167.44
+            },
+            {
+              "id": "t05",
+              "split": "test",
+              "query": "结直肠病灶先确定什么",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 224.65
+            },
+            {
+              "id": "t06",
+              "split": "test",
+              "query": "结肠肠段定位依据有哪些",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                }
+              ],
+              "latency_ms": 167.55
+            },
+            {
+              "id": "t07",
+              "split": "test",
+              "query": "颜色能直接判断结直肠病变性质吗",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 169.68
+            },
+            {
+              "id": "t08",
+              "split": "test",
+              "query": "结直肠局灶改变怎样描述边界",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 183.65
+            },
+            {
+              "id": "t09",
+              "split": "test",
+              "query": "隆起凹陷和周围黏膜如何写",
+              "relevant_section": "结直肠病灶边界",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 168.58
+            },
+            {
+              "id": "t10",
+              "split": "test",
+              "query": "选择题为何要回到观察事实",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 4,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                }
+              ],
+              "latency_ms": 167.56
+            },
+            {
+              "id": "t11",
+              "split": "test",
+              "query": "出血训练只应该记录哪些线索",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 185.56
+            },
+            {
+              "id": "t12",
+              "split": "test",
+              "query": "截图能确定是否持续出血吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 165.44
+            },
+            {
+              "id": "t13",
+              "split": "test",
+              "query": "出血严重程度能由教学图像决定吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 164.53
+            },
+            {
+              "id": "t14",
+              "split": "test",
+              "query": "隆起或凹陷需记录哪些形态",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 228.39
+            },
+            {
+              "id": "t15",
+              "split": "test",
+              "query": "没有尺度和多角度时应该怎样说",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-19-v2",
+                  "section": "生成题审核"
+                }
+              ],
+              "latency_ms": 164.45
+            },
+            {
+              "id": "t16",
+              "split": "test",
+              "query": "隆起能直接贴良恶性标签吗",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 185.31
+            },
+            {
+              "id": "t17",
+              "split": "test",
+              "query": "图像反光和残留物有什么影响",
+              "relevant_section": "图像质量与盲区",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 229.57
+            },
+            {
+              "id": "t18",
+              "split": "test",
+              "query": "视野不足时是否能自动补全事实",
+              "relevant_section": "图像质量与盲区",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 163.61
+            },
+            {
+              "id": "t19",
+              "split": "test",
+              "query": "质量限制需要补什么检查",
+              "relevant_section": "图像质量与盲区",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 209.81
+            },
+            {
+              "id": "t20",
+              "split": "test",
+              "query": "选择题如何避免越过题干证据",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-17-v2",
+                  "section": "资料引用与溯源"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 175.62
+            },
+            {
+              "id": "t21",
+              "split": "test",
+              "query": "Tutor 提示能在提交前读正确选项吗",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-17-v2",
+                  "section": "资料引用与溯源"
+                }
+              ],
+              "latency_ms": 178.85
+            },
+            {
+              "id": "t22",
+              "split": "test",
+              "query": "绝对化诊断性选项为什么要警惕",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                }
+              ],
+              "latency_ms": 212.62
+            },
+            {
+              "id": "t23",
+              "split": "test",
+              "query": "简答题的第一步要写什么",
+              "relevant_section": "简答题证据策略",
+              "rank": 4,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 165.04
+            },
+            {
+              "id": "t24",
+              "split": "test",
+              "query": "简答需要猜中诊断才算好吗",
+              "relevant_section": "简答题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                }
+              ],
+              "latency_ms": 190.9
+            },
+            {
+              "id": "t25",
+              "split": "test",
+              "query": "独立治疗语句在教学反馈中如何处理",
+              "relevant_section": "简答题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 220.63
+            },
+            {
+              "id": "t26",
+              "split": "test",
+              "query": "错题复盘需要保留哪些信息",
+              "relevant_section": "错题复盘",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 166.54
+            },
+            {
+              "id": "t27",
+              "split": "test",
+              "query": "为什么 Attempt 日志不可变",
+              "relevant_section": "错题复盘",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 233.48
+            },
+            {
+              "id": "t28",
+              "split": "test",
+              "query": "错题不是只看对错还要看什么",
+              "relevant_section": "错题复盘",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                }
+              ],
+              "latency_ms": 187.17
+            },
+            {
+              "id": "t29",
+              "split": "test",
+              "query": "FSRS 的 due 和稳定性由谁产生",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-17-v2",
+                  "section": "资料引用与溯源"
+                }
+              ],
+              "latency_ms": 196.25
+            },
+            {
+              "id": "t30",
+              "split": "test",
+              "query": "Again Hard Good Easy 会更新什么",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                }
+              ],
+              "latency_ms": 223.12
+            }
+          ]
         },
-        {
-          "query": "胃黏膜训练需要描述什么",
-          "relevant": "chunk-6e1cbb202f2a-180-01",
-          "topic": "胃",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-02"
-          ],
-          "latency_ms": 12.68
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "mrr": 0.9417,
+          "ndcg_at_5": 0.9564,
+          "p50_latency_ms": 198.49,
+          "p95_latency_ms": 236.53,
+          "cases": [
+            {
+              "id": "t01",
+              "split": "test",
+              "query": "单张溃疡图片能决定治疗吗",
+              "relevant_section": "溃疡样改变描述",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 190.0
+            },
+            {
+              "id": "t02",
+              "split": "test",
+              "query": "十二指肠要先区分哪两个部位",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                }
+              ],
+              "latency_ms": 216.94
+            },
+            {
+              "id": "t03",
+              "split": "test",
+              "query": "局部十二指肠图像可以外推全消化道吗",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 187.26
+            },
+            {
+              "id": "t04",
+              "split": "test",
+              "query": "十二指肠定位不确定如何写",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                }
+              ],
+              "latency_ms": 162.75
+            },
+            {
+              "id": "t05",
+              "split": "test",
+              "query": "结直肠病灶先确定什么",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 201.95
+            },
+            {
+              "id": "t06",
+              "split": "test",
+              "query": "结肠肠段定位依据有哪些",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 189.07
+            },
+            {
+              "id": "t07",
+              "split": "test",
+              "query": "颜色能直接判断结直肠病变性质吗",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 201.55
+            },
+            {
+              "id": "t08",
+              "split": "test",
+              "query": "结直肠局灶改变怎样描述边界",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 200.78
+            },
+            {
+              "id": "t09",
+              "split": "test",
+              "query": "隆起凹陷和周围黏膜如何写",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 4,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 169.7
+            },
+            {
+              "id": "t10",
+              "split": "test",
+              "query": "选择题为何要回到观察事实",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                }
+              ],
+              "latency_ms": 195.72
+            },
+            {
+              "id": "t11",
+              "split": "test",
+              "query": "出血训练只应该记录哪些线索",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 182.08
+            },
+            {
+              "id": "t12",
+              "split": "test",
+              "query": "截图能确定是否持续出血吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 203.26
+            },
+            {
+              "id": "t13",
+              "split": "test",
+              "query": "出血严重程度能由教学图像决定吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 225.95
+            },
+            {
+              "id": "t14",
+              "split": "test",
+              "query": "隆起或凹陷需记录哪些形态",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 161.96
+            },
+            {
+              "id": "t15",
+              "split": "test",
+              "query": "没有尺度和多角度时应该怎样说",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                }
+              ],
+              "latency_ms": 187.78
+            },
+            {
+              "id": "t16",
+              "split": "test",
+              "query": "隆起能直接贴良恶性标签吗",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 208.08
+            },
+            {
+              "id": "t17",
+              "split": "test",
+              "query": "图像反光和残留物有什么影响",
+              "relevant_section": "图像质量与盲区",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 206.57
+            },
+            {
+              "id": "t18",
+              "split": "test",
+              "query": "视野不足时是否能自动补全事实",
+              "relevant_section": "图像质量与盲区",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                }
+              ],
+              "latency_ms": 245.68
+            },
+            {
+              "id": "t19",
+              "split": "test",
+              "query": "质量限制需要补什么检查",
+              "relevant_section": "图像质量与盲区",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                }
+              ],
+              "latency_ms": 236.53
+            },
+            {
+              "id": "t20",
+              "split": "test",
+              "query": "选择题如何避免越过题干证据",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-17-v2",
+                  "section": "资料引用与溯源"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 196.2
+            },
+            {
+              "id": "t21",
+              "split": "test",
+              "query": "Tutor 提示能在提交前读正确选项吗",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                }
+              ],
+              "latency_ms": 162.01
+            },
+            {
+              "id": "t22",
+              "split": "test",
+              "query": "绝对化诊断性选项为什么要警惕",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                }
+              ],
+              "latency_ms": 183.23
+            },
+            {
+              "id": "t23",
+              "split": "test",
+              "query": "简答题的第一步要写什么",
+              "relevant_section": "简答题证据策略",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 232.55
+            },
+            {
+              "id": "t24",
+              "split": "test",
+              "query": "简答需要猜中诊断才算好吗",
+              "relevant_section": "简答题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 164.2
+            },
+            {
+              "id": "t25",
+              "split": "test",
+              "query": "独立治疗语句在教学反馈中如何处理",
+              "relevant_section": "简答题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                }
+              ],
+              "latency_ms": 227.92
+            },
+            {
+              "id": "t26",
+              "split": "test",
+              "query": "错题复盘需要保留哪些信息",
+              "relevant_section": "错题复盘",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 177.62
+            },
+            {
+              "id": "t27",
+              "split": "test",
+              "query": "为什么 Attempt 日志不可变",
+              "relevant_section": "错题复盘",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-17-v2",
+                  "section": "资料引用与溯源"
+                }
+              ],
+              "latency_ms": 172.54
+            },
+            {
+              "id": "t28",
+              "split": "test",
+              "query": "错题不是只看对错还要看什么",
+              "relevant_section": "错题复盘",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                }
+              ],
+              "latency_ms": 215.99
+            },
+            {
+              "id": "t29",
+              "split": "test",
+              "query": "FSRS 的 due 和稳定性由谁产生",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                }
+              ],
+              "latency_ms": 226.51
+            },
+            {
+              "id": "t30",
+              "split": "test",
+              "query": "Again Hard Good Easy 会更新什么",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-18-v2",
+                  "section": "生成题审核"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                }
+              ],
+              "latency_ms": 208.44
+            }
+          ]
         },
-        {
-          "query": "结直肠复盘如何表达不确定性",
-          "relevant": "chunk-6e1cbb202f2a-180-02",
-          "topic": "结直肠",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-03"
-          ],
-          "latency_ms": 12.02
-        },
-        {
-          "query": "错题复盘有哪些核心信息",
-          "relevant": "chunk-6e1cbb202f2a-180-03",
-          "topic": "复习",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 11.35
-        },
-        {
-          "query": "信息不足时报告应该怎么写",
-          "relevant": "chunk-6e1cbb202f2a-180-01",
-          "topic": "胃",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 11.86
-        },
-        {
-          "query": "选择题应该如何回到题干证据",
-          "relevant": "chunk-6e1cbb202f2a-180-02",
-          "topic": "结直肠",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-03"
-          ],
-          "latency_ms": 12.84
-        },
-        {
-          "query": "系统输出的教学安全边界是什么",
-          "relevant": "chunk-6e1cbb202f2a-180-03",
-          "topic": "安全",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02"
-          ],
-          "latency_ms": 11.88
+        "hybrid_rerank": {
+          "recall_at_5": 0.7333,
+          "mrr": 0.5833,
+          "ndcg_at_5": 0.6216,
+          "p50_latency_ms": 658.96,
+          "p95_latency_ms": 1714.41,
+          "cases": [
+            {
+              "id": "t01",
+              "split": "test",
+              "query": "单张溃疡图片能决定治疗吗",
+              "relevant_section": "溃疡样改变描述",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                }
+              ],
+              "latency_ms": 3042.29
+            },
+            {
+              "id": "t02",
+              "split": "test",
+              "query": "十二指肠要先区分哪两个部位",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-17-v2",
+                  "section": "资料引用与溯源"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                }
+              ],
+              "latency_ms": 605.12
+            },
+            {
+              "id": "t03",
+              "split": "test",
+              "query": "局部十二指肠图像可以外推全消化道吗",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                }
+              ],
+              "latency_ms": 627.47
+            },
+            {
+              "id": "t04",
+              "split": "test",
+              "query": "十二指肠定位不确定如何写",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-17-v2",
+                  "section": "资料引用与溯源"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 558.22
+            },
+            {
+              "id": "t05",
+              "split": "test",
+              "query": "结直肠病灶先确定什么",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 645.42
+            },
+            {
+              "id": "t06",
+              "split": "test",
+              "query": "结肠肠段定位依据有哪些",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 690.73
+            },
+            {
+              "id": "t07",
+              "split": "test",
+              "query": "颜色能直接判断结直肠病变性质吗",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 745.81
+            },
+            {
+              "id": "t08",
+              "split": "test",
+              "query": "结直肠局灶改变怎样描述边界",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 927.82
+            },
+            {
+              "id": "t09",
+              "split": "test",
+              "query": "隆起凹陷和周围黏膜如何写",
+              "relevant_section": "结直肠病灶边界",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 1714.41
+            },
+            {
+              "id": "t10",
+              "split": "test",
+              "query": "选择题为何要回到观察事实",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                }
+              ],
+              "latency_ms": 1072.09
+            },
+            {
+              "id": "t11",
+              "split": "test",
+              "query": "出血训练只应该记录哪些线索",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 1272.29
+            },
+            {
+              "id": "t12",
+              "split": "test",
+              "query": "截图能确定是否持续出血吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                }
+              ],
+              "latency_ms": 1049.4
+            },
+            {
+              "id": "t13",
+              "split": "test",
+              "query": "出血严重程度能由教学图像决定吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 1311.75
+            },
+            {
+              "id": "t14",
+              "split": "test",
+              "query": "隆起或凹陷需记录哪些形态",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 738.29
+            },
+            {
+              "id": "t15",
+              "split": "test",
+              "query": "没有尺度和多角度时应该怎样说",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 972.53
+            },
+            {
+              "id": "t16",
+              "split": "test",
+              "query": "隆起能直接贴良恶性标签吗",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 4,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 632.02
+            },
+            {
+              "id": "t17",
+              "split": "test",
+              "query": "图像反光和残留物有什么影响",
+              "relevant_section": "图像质量与盲区",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 672.49
+            },
+            {
+              "id": "t18",
+              "split": "test",
+              "query": "视野不足时是否能自动补全事实",
+              "relevant_section": "图像质量与盲区",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 506.45
+            },
+            {
+              "id": "t19",
+              "split": "test",
+              "query": "质量限制需要补什么检查",
+              "relevant_section": "图像质量与盲区",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 519.48
+            },
+            {
+              "id": "t20",
+              "split": "test",
+              "query": "选择题如何避免越过题干证据",
+              "relevant_section": "选择题证据策略",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 536.6
+            },
+            {
+              "id": "t21",
+              "split": "test",
+              "query": "Tutor 提示能在提交前读正确选项吗",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 749.25
+            },
+            {
+              "id": "t22",
+              "split": "test",
+              "query": "绝对化诊断性选项为什么要警惕",
+              "relevant_section": "选择题证据策略",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 592.66
+            },
+            {
+              "id": "t23",
+              "split": "test",
+              "query": "简答题的第一步要写什么",
+              "relevant_section": "简答题证据策略",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                }
+              ],
+              "latency_ms": 521.15
+            },
+            {
+              "id": "t24",
+              "split": "test",
+              "query": "简答需要猜中诊断才算好吗",
+              "relevant_section": "简答题证据策略",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                }
+              ],
+              "latency_ms": 555.06
+            },
+            {
+              "id": "t25",
+              "split": "test",
+              "query": "独立治疗语句在教学反馈中如何处理",
+              "relevant_section": "简答题证据策略",
+              "rank": 4,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 543.2
+            },
+            {
+              "id": "t26",
+              "split": "test",
+              "query": "错题复盘需要保留哪些信息",
+              "relevant_section": "错题复盘",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 575.18
+            },
+            {
+              "id": "t27",
+              "split": "test",
+              "query": "为什么 Attempt 日志不可变",
+              "relevant_section": "错题复盘",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                }
+              ],
+              "latency_ms": 635.42
+            },
+            {
+              "id": "t28",
+              "split": "test",
+              "query": "错题不是只看对错还要看什么",
+              "relevant_section": "错题复盘",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 691.46
+            },
+            {
+              "id": "t29",
+              "split": "test",
+              "query": "FSRS 的 due 和稳定性由谁产生",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-20-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 858.93
+            },
+            {
+              "id": "t30",
+              "split": "test",
+              "query": "Again Hard Good Easy 会更新什么",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-180-16-v2",
+                  "section": "间隔复习"
+                }
+              ],
+              "latency_ms": 614.8
+            }
+          ]
         }
-      ]
+      }
     },
-    "dense": {
-      "recall_at_4": 1.0,
-      "mrr": 0.8542,
-      "ndcg_at_4": 0.8914,
-      "p50_latency_ms": 129.32,
-      "p95_latency_ms": 170.84,
-      "cases": [
-        {
-          "query": "食管检查要先记录哪些可见证据",
-          "relevant": "chunk-6e1cbb202f2a-180-00",
-          "topic": "食管",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-03"
-          ],
-          "latency_ms": 392.07
-        },
-        {
-          "query": "单帧内镜图像为什么不能作临床诊断",
-          "relevant": "chunk-6e1cbb202f2a-180-00",
-          "topic": "安全",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02"
-          ],
-          "latency_ms": 108.79
-        },
-        {
-          "query": "胃黏膜训练需要描述什么",
-          "relevant": "chunk-6e1cbb202f2a-180-01",
-          "topic": "胃",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-03"
-          ],
-          "latency_ms": 95.92
-        },
-        {
-          "query": "结直肠复盘如何表达不确定性",
-          "relevant": "chunk-6e1cbb202f2a-180-02",
-          "topic": "结直肠",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-00"
-          ],
-          "latency_ms": 170.84
-        },
-        {
-          "query": "错题复盘有哪些核心信息",
-          "relevant": "chunk-6e1cbb202f2a-180-03",
-          "topic": "复习",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-00"
-          ],
-          "latency_ms": 138.6
-        },
-        {
-          "query": "信息不足时报告应该怎么写",
-          "relevant": "chunk-6e1cbb202f2a-180-01",
-          "topic": "胃",
-          "rank": 3,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-02"
-          ],
-          "latency_ms": 120.04
-        },
-        {
-          "query": "选择题应该如何回到题干证据",
-          "relevant": "chunk-6e1cbb202f2a-180-02",
-          "topic": "结直肠",
-          "rank": 2,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 146.9
-        },
-        {
-          "query": "系统输出的教学安全边界是什么",
-          "relevant": "chunk-6e1cbb202f2a-180-03",
-          "topic": "安全",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 99.27
+    "280": {
+      "version_id": "source-stage2-endoscopy-v1-e833b71c56f8-280-v2",
+      "chunk_count": 20,
+      "test": {
+        "hybrid_rerank": {
+          "recall_at_5": 0.7333,
+          "mrr": 0.5833,
+          "ndcg_at_5": 0.6216,
+          "p50_latency_ms": 609.14,
+          "p95_latency_ms": 914.82,
+          "cases": [
+            {
+              "id": "t01",
+              "split": "test",
+              "query": "单张溃疡图片能决定治疗吗",
+              "relevant_section": "溃疡样改变描述",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-10-v2",
+                  "section": "出血证据表达"
+                }
+              ],
+              "latency_ms": 766.87
+            },
+            {
+              "id": "t02",
+              "split": "test",
+              "query": "十二指肠要先区分哪两个部位",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-17-v2",
+                  "section": "资料引用与溯源"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-19-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-00-v2",
+                  "section": "教学安全边界"
+                }
+              ],
+              "latency_ms": 636.66
+            },
+            {
+              "id": "t03",
+              "split": "test",
+              "query": "局部十二指肠图像可以外推全消化道吗",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-19-v2",
+                  "section": "使用边界总结"
+                }
+              ],
+              "latency_ms": 699.56
+            },
+            {
+              "id": "t04",
+              "split": "test",
+              "query": "十二指肠定位不确定如何写",
+              "relevant_section": "十二指肠观察",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-19-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-17-v2",
+                  "section": "资料引用与溯源"
+                }
+              ],
+              "latency_ms": 667.18
+            },
+            {
+              "id": "t05",
+              "split": "test",
+              "query": "结直肠病灶先确定什么",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 673.34
+            },
+            {
+              "id": "t06",
+              "split": "test",
+              "query": "结肠肠段定位依据有哪些",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 864.58
+            },
+            {
+              "id": "t07",
+              "split": "test",
+              "query": "颜色能直接判断结直肠病变性质吗",
+              "relevant_section": "结直肠肠段定位",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 612.06
+            },
+            {
+              "id": "t08",
+              "split": "test",
+              "query": "结直肠局灶改变怎样描述边界",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 606.23
+            },
+            {
+              "id": "t09",
+              "split": "test",
+              "query": "隆起凹陷和周围黏膜如何写",
+              "relevant_section": "结直肠病灶边界",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 549.7
+            },
+            {
+              "id": "t10",
+              "split": "test",
+              "query": "选择题为何要回到观察事实",
+              "relevant_section": "结直肠病灶边界",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-12-v2",
+                  "section": "图像质量与盲区"
+                }
+              ],
+              "latency_ms": 560.69
+            },
+            {
+              "id": "t11",
+              "split": "test",
+              "query": "出血训练只应该记录哪些线索",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 538.72
+            },
+            {
+              "id": "t12",
+              "split": "test",
+              "query": "截图能确定是否持续出血吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                }
+              ],
+              "latency_ms": 468.83
+            },
+            {
+              "id": "t13",
+              "split": "test",
+              "query": "出血严重程度能由教学图像决定吗",
+              "relevant_section": "出血证据表达",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-19-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 507.78
+            },
+            {
+              "id": "t14",
+              "split": "test",
+              "query": "隆起或凹陷需记录哪些形态",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 517.39
+            },
+            {
+              "id": "t15",
+              "split": "test",
+              "query": "没有尺度和多角度时应该怎样说",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 551.06
+            },
+            {
+              "id": "t16",
+              "split": "test",
+              "query": "隆起能直接贴良恶性标签吗",
+              "relevant_section": "隆起与凹陷形态",
+              "rank": 4,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 572.7
+            },
+            {
+              "id": "t17",
+              "split": "test",
+              "query": "图像反光和残留物有什么影响",
+              "relevant_section": "图像质量与盲区",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-19-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                }
+              ],
+              "latency_ms": 547.98
+            },
+            {
+              "id": "t18",
+              "split": "test",
+              "query": "视野不足时是否能自动补全事实",
+              "relevant_section": "图像质量与盲区",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-12-v2",
+                  "section": "图像质量与盲区"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 590.45
+            },
+            {
+              "id": "t19",
+              "split": "test",
+              "query": "质量限制需要补什么检查",
+              "relevant_section": "图像质量与盲区",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-06-v2",
+                  "section": "溃疡样改变描述"
+                }
+              ],
+              "latency_ms": 545.82
+            },
+            {
+              "id": "t20",
+              "split": "test",
+              "query": "选择题如何避免越过题干证据",
+              "relevant_section": "选择题证据策略",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                }
+              ],
+              "latency_ms": 640.18
+            },
+            {
+              "id": "t21",
+              "split": "test",
+              "query": "Tutor 提示能在提交前读正确选项吗",
+              "relevant_section": "选择题证据策略",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-19-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-07-v2",
+                  "section": "十二指肠观察"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 706.24
+            },
+            {
+              "id": "t22",
+              "split": "test",
+              "query": "绝对化诊断性选项为什么要警惕",
+              "relevant_section": "选择题证据策略",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-05-v2",
+                  "section": "胃黏膜颜色与皱襞"
+                }
+              ],
+              "latency_ms": 878.12
+            },
+            {
+              "id": "t23",
+              "split": "test",
+              "query": "简答题的第一步要写什么",
+              "relevant_section": "简答题证据策略",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-10-v2",
+                  "section": "出血证据表达"
+                }
+              ],
+              "latency_ms": 640.3
+            },
+            {
+              "id": "t24",
+              "split": "test",
+              "query": "简答需要猜中诊断才算好吗",
+              "relevant_section": "简答题证据策略",
+              "rank": 2,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                }
+              ],
+              "latency_ms": 596.59
+            },
+            {
+              "id": "t25",
+              "split": "test",
+              "query": "独立治疗语句在教学反馈中如何处理",
+              "relevant_section": "简答题证据策略",
+              "rank": 4,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-19-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-07-v2",
+                  "section": "十二指肠观察"
+                }
+              ],
+              "latency_ms": 575.14
+            },
+            {
+              "id": "t26",
+              "split": "test",
+              "query": "错题复盘需要保留哪些信息",
+              "relevant_section": "错题复盘",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-01-v2",
+                  "section": "观察记录的基本顺序"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-04-v2",
+                  "section": "胃部部位表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-03-v2",
+                  "section": "食管黏膜形态"
+                }
+              ],
+              "latency_ms": 558.36
+            },
+            {
+              "id": "t27",
+              "split": "test",
+              "query": "为什么 Attempt 日志不可变",
+              "relevant_section": "错题复盘",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-15-v2",
+                  "section": "错题复盘"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-00-v2",
+                  "section": "教学安全边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-19-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-02-v2",
+                  "section": "食管解剖定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                }
+              ],
+              "latency_ms": 914.82
+            },
+            {
+              "id": "t28",
+              "split": "test",
+              "query": "错题不是只看对错还要看什么",
+              "relevant_section": "错题复盘",
+              "rank": null,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-08-v2",
+                  "section": "结直肠肠段定位"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-11-v2",
+                  "section": "隆起与凹陷形态"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-06-v2",
+                  "section": "溃疡样改变描述"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-09-v2",
+                  "section": "结直肠病灶边界"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-13-v2",
+                  "section": "选择题证据策略"
+                }
+              ],
+              "latency_ms": 819.3
+            },
+            {
+              "id": "t29",
+              "split": "test",
+              "query": "FSRS 的 due 和稳定性由谁产生",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-16-v2",
+                  "section": "间隔复习"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-10-v2",
+                  "section": "出血证据表达"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-14-v2",
+                  "section": "简答题证据策略"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-19-v2",
+                  "section": "使用边界总结"
+                },
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-02-v2",
+                  "section": "食管解剖定位"
+                }
+              ],
+              "latency_ms": 1033.31
+            },
+            {
+              "id": "t30",
+              "split": "test",
+              "query": "Again Hard Good Easy 会更新什么",
+              "relevant_section": "间隔复习",
+              "rank": 1,
+              "returned": [
+                {
+                  "chunk_id": "chunk-endoscopy-v1-e833b71c-280-16-v2",
+                  "section": "间隔复习"
+                }
+              ],
+              "latency_ms": 675.81
+            }
+          ]
         }
-      ]
-    },
-    "hybrid": {
-      "recall_at_4": 1.0,
-      "mrr": 1.0,
-      "ndcg_at_4": 1.0,
-      "p50_latency_ms": 100.22,
-      "p95_latency_ms": 102.67,
-      "cases": [
-        {
-          "query": "食管检查要先记录哪些可见证据",
-          "relevant": "chunk-6e1cbb202f2a-180-00",
-          "topic": "食管",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 99.06
-        },
-        {
-          "query": "单帧内镜图像为什么不能作临床诊断",
-          "relevant": "chunk-6e1cbb202f2a-180-00",
-          "topic": "安全",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02"
-          ],
-          "latency_ms": 102.67
-        },
-        {
-          "query": "胃黏膜训练需要描述什么",
-          "relevant": "chunk-6e1cbb202f2a-180-01",
-          "topic": "胃",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-03"
-          ],
-          "latency_ms": 98.18
-        },
-        {
-          "query": "结直肠复盘如何表达不确定性",
-          "relevant": "chunk-6e1cbb202f2a-180-02",
-          "topic": "结直肠",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-00"
-          ],
-          "latency_ms": 97.12
-        },
-        {
-          "query": "错题复盘有哪些核心信息",
-          "relevant": "chunk-6e1cbb202f2a-180-03",
-          "topic": "复习",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-00"
-          ],
-          "latency_ms": 101.44
-        },
-        {
-          "query": "信息不足时报告应该怎么写",
-          "relevant": "chunk-6e1cbb202f2a-180-01",
-          "topic": "胃",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02"
-          ],
-          "latency_ms": 96.79
-        },
-        {
-          "query": "选择题应该如何回到题干证据",
-          "relevant": "chunk-6e1cbb202f2a-180-02",
-          "topic": "结直肠",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 103.12
-        },
-        {
-          "query": "系统输出的教学安全边界是什么",
-          "relevant": "chunk-6e1cbb202f2a-180-03",
-          "topic": "安全",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 101.39
-        }
-      ]
-    },
-    "hybrid_rerank": {
-      "recall_at_4": 1.0,
-      "mrr": 1.0,
-      "ndcg_at_4": 1.0,
-      "p50_latency_ms": 102.32,
-      "p95_latency_ms": 112.96,
-      "cases": [
-        {
-          "query": "食管检查要先记录哪些可见证据",
-          "relevant": "chunk-6e1cbb202f2a-180-00",
-          "topic": "食管",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 96.69
-        },
-        {
-          "query": "单帧内镜图像为什么不能作临床诊断",
-          "relevant": "chunk-6e1cbb202f2a-180-00",
-          "topic": "安全",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-02"
-          ],
-          "latency_ms": 97.34
-        },
-        {
-          "query": "胃黏膜训练需要描述什么",
-          "relevant": "chunk-6e1cbb202f2a-180-01",
-          "topic": "胃",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-03"
-          ],
-          "latency_ms": 139.22
-        },
-        {
-          "query": "结直肠复盘如何表达不确定性",
-          "relevant": "chunk-6e1cbb202f2a-180-02",
-          "topic": "结直肠",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-00"
-          ],
-          "latency_ms": 112.96
-        },
-        {
-          "query": "错题复盘有哪些核心信息",
-          "relevant": "chunk-6e1cbb202f2a-180-03",
-          "topic": "复习",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-00"
-          ],
-          "latency_ms": 97.68
-        },
-        {
-          "query": "信息不足时报告应该怎么写",
-          "relevant": "chunk-6e1cbb202f2a-180-01",
-          "topic": "胃",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-01",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02"
-          ],
-          "latency_ms": 104.27
-        },
-        {
-          "query": "选择题应该如何回到题干证据",
-          "relevant": "chunk-6e1cbb202f2a-180-02",
-          "topic": "结直肠",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 102.39
-        },
-        {
-          "query": "系统输出的教学安全边界是什么",
-          "relevant": "chunk-6e1cbb202f2a-180-03",
-          "topic": "安全",
-          "rank": 1,
-          "returned": [
-            "chunk-6e1cbb202f2a-180-03",
-            "chunk-6e1cbb202f2a-180-02",
-            "chunk-6e1cbb202f2a-180-00",
-            "chunk-6e1cbb202f2a-180-01"
-          ],
-          "latency_ms": 102.25
-        }
-      ]
+      }
     }
   }
 }
