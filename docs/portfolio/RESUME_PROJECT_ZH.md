@@ -1,5 +1,7 @@
 # EndoTutor 项目经历（中文）
 
+**v1.0 / Stage 4 冻结版本：** 面向消化内镜教学的 Agent-native 学习与模型评测平台；下列能力均对应当前代码、测试与 artifact，不将延期的人审包装为专家或临床结论。
+
 ## Agent / LLM 应用工程方向
 
 - 设计并实现面向消化内镜培训的 bounded Tutor Agent：以 `AgentRunner / ToolRegistry / ModelGateway` 组织受限 tool loop，通过 SSE 输出真实 `AgentEvent`/ToolReceipt，支持 max steps、超时、取消、有限重试和阶段化权限；Study 与 Exam 的答案边界由服务端权限控制。

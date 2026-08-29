@@ -1,5 +1,9 @@
 # EndoTutor interview Q&A
 
+This file is synchronized with the Stage 4 / v1.0 frozen release. Human review
+of the RAG and Judge label sets is deferred; answers below describe engineering
+evidence, not expert or clinical validation.
+
 ## Why React/Vite instead of Next.js?
 
 **Decision:** React/Vite. **Reason:** the product is a local runnable workbench

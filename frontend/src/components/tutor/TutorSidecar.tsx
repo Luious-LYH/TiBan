@@ -52,7 +52,7 @@ export function TutorSidecar({ questionId, attemptId, mode, open, onClose }: { q
       if (turn.id !== assistantId) return turn
       if (event.event === 'token' && providerRealRef.current) return { ...turn, text: turn.text + String(event.data.text ?? '') }
       if (event.event === 'reasoning') return { ...turn, reasoning: Array.isArray(event.data.summary) ? event.data.summary.map(String) : [] }
-      if (event.event === 'source') return { ...turn, sources: [...(turn.sources ?? []), event.data as Source] }
+      if (event.event === 'source' && event.data.status !== 'none') return { ...turn, sources: [...(turn.sources ?? []), event.data as Source] }
       if (event.event === 'error') return { ...turn, error: String(event.data.message ?? 'Tutor 暂不可用，请重试。') }
       return turn
     }))

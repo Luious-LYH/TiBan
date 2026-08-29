@@ -4,6 +4,22 @@ import { useEffect, useState } from 'react'
 import { createFactoryJob, getFactoryJob, publishFactoryRevision, uploadFactoryDocument } from '../../api/client'
 import type { FactoryJob } from '../../api/client'
 
+const factoryStatusLabels: Record<string, string> = {
+  queued: '等待生成',
+  parsing: '正在读取资料',
+  indexing: '正在整理资料',
+  generating: '正在生成题目',
+  judging: '正在检查题目',
+  repairing: '正在优化草稿',
+  ready_for_review: '待你审核',
+  published: '已发布',
+  failed: '生成失败',
+}
+
+function factoryStatusLabel(status: string) {
+  return factoryStatusLabels[status] ?? '正在处理'
+}
+
 function readFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(reader.error); reader.onload = () => resolve(String(reader.result).split(',')[1] ?? ''); reader.readAsDataURL(file) })
 }
@@ -39,13 +55,13 @@ export function FactoryStudio() {
   }
 
   return <section className="s1-card s1-factory" data-testid="factory-studio">
-    <div className="s1-factory-head"><div><span className="s1-kicker">FACTORY STUDIO</span><h2>从允许资料到可审核草稿</h2><p>真实 Dramatiq job 状态；Generator/Judge 独立 schema；每次 repair 保留 revision lineage。</p></div><ShieldCheck size={26} /></div>
+    <div className="s1-factory-head"><div><span className="s1-kicker">QUESTION FACTORY</span><h2>从教学资料到题目草稿</h2><p>上传资料后生成题目草稿；你可以查看结果、根据建议修改，再发布到题库。</p></div><ShieldCheck size={26} /></div>
     <label className="s1-file-input"><FileUp size={17} /><span>{file?.name ?? '选择 .md 或 .pdf 教学资料（≤5 MiB）'}</span><input aria-label="上传教学资料" type="file" accept=".md,.pdf,text/markdown,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
     <div className="s1-question-actions"><button className="s1-button s1-button-secondary" data-testid="factory-generate" disabled={!file || busy} onClick={() => void start()}>{busy ? <LoaderCircle className="s1-spin" size={15} /> : <Play size={15} />}上传并生成</button></div>
     {error && <div className="s1-inline-error" role="alert">{error}</div>}
-    {job && <div className="s1-factory-ledger"><strong>Job {job.job_id}</strong><span className={`s1-status-pill is-${job.status}`}>{job.status}</span>{job.detail.events?.map((event) => <small key={`${event.at}-${event.status}`}>{event.status} · {event.detail}</small>)}</div>}
-    {job?.revisions.map((revision) => <article key={revision.revision_id} className="s1-factory-revision"><div><strong>{revision.parent_revision_id ? 'Repair revision' : 'Initial draft'}</strong><span>{revision.status}</span></div><p>{revision.draft.stem}</p><small>Judge: {revision.judge.passed ? 'pass' : 'fail'} · citation chunk 已保留</small>{revision.rewrite_instruction && <small>Rewrite: {revision.rewrite_instruction}</small>}</article>)}
-    {job?.status === 'ready_for_review' && <button className="s1-button s1-button-primary" data-testid="factory-publish" disabled={busy} onClick={() => void publish()}><Send size={15} />人工发布到题库</button>}
-    {published && <p className="s1-safety">已发布为 {published}；可在题库中进入练习。仅供教学研修或医生复核前辅助，不作为独立诊断依据。</p>}
+    {job && <div className="s1-factory-ledger"><strong>生成进度</strong><span className={`s1-status-pill is-${job.status}`}>{factoryStatusLabel(job.status)}</span>{job.detail.events?.map((event) => <small key={`${event.at}-${event.status}`}>{factoryStatusLabel(event.status)}</small>)}</div>}
+    {job?.revisions.map((revision) => <article key={revision.revision_id} className="s1-factory-revision"><div><strong>{revision.parent_revision_id ? '优化后草稿' : '初始草稿'}</strong><span>{factoryStatusLabel(revision.status)}</span></div><p>{revision.draft.stem}</p><small>内容检查：{revision.judge.passed ? '符合要求' : '建议调整'}</small>{revision.rewrite_instruction && <small>修改建议：{revision.rewrite_instruction}</small>}</article>)}
+    {job?.status === 'ready_for_review' && <button className="s1-button s1-button-primary" data-testid="factory-publish" disabled={busy} onClick={() => void publish()}><Send size={15} />发布到题库</button>}
+    {published && <p className="s1-safety">题目已发布，可在题库中开始练习。仅供教学研修或医生复核前辅助，不作为独立诊断依据。</p>}
   </section>
 }

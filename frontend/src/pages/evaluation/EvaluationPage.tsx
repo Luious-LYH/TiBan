@@ -34,7 +34,7 @@ function asCase(item: Record<string, unknown>): EvaluationCase {
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : '请求失败，请检查 provider 配置与服务状态。'
+  return error instanceof Error ? error.message : '请求失败，请检查模型服务配置与连接状态。'
 }
 
 function formatMetric(value: unknown, suffix = ''): string {
@@ -43,15 +43,23 @@ function formatMetric(value: unknown, suffix = ''): string {
   return String(value)
 }
 
+function learnerDatasetDescription(datasetId: string, fallback: string): string {
+  const summaries: Record<string, string> = {
+    'cmexam-text-eval-v1': '用于比较模型对医学文本题的回答表现。',
+    'endobench-vlm-eval-v1': '用于比较模型对内镜图像题的回答表现。',
+  }
+  return summaries[datasetId] ?? fallback
+}
+
 function ConnectionReceipt({ result }: { result: EvaluationConnection }) {
   return (
     <div className={`eval-connection-receipt ${result.ok ? 'is-ok' : 'is-error'}`} role="status">
       {result.ok ? <CheckCircle2 size={17} /> : <AlertCircle size={17} />}
       <div>
-        <strong>{result.ok ? 'Provider 连接成功' : 'Provider 连接失败'}</strong>
-        <span>{result.ok ? `${result.model} · ${result.latency_ms ?? '—'} ms · 未启用 fallback` : result.error ?? '未返回错误详情'}</span>
+        <strong>{result.ok ? '模型连接成功' : '模型连接失败'}</strong>
+        <span>{result.ok ? `${result.model} · ${result.latency_ms ?? '—'} ms` : result.error ?? '未返回错误详情'}</span>
       </div>
-      <small>key persisted: {result.key_persisted ? '是' : '否'}</small>
+      <small>本次连接不会保存密钥</small>
     </div>
   )
 }
@@ -64,12 +72,12 @@ function RunHeader({ run, revealed, onReveal, revealing }: { run: EvaluationRun;
         <span className={`eval-status-mark ${run.status === 'completed' ? 'is-ok' : 'is-warning'}`}><CheckCircle2 size={17} /></span>
         <div>
           <strong>{label}</strong>
-          <span>{run.sample_count} cases · {run.dataset_version} · no fallback</span>
+          <span>{run.sample_count} 道题 · 本次评测</span>
         </div>
       </div>
       <button className="s1-button s1-button-secondary" type="button" onClick={onReveal} disabled={revealed || revealing}>
         {revealed ? <EyeOff size={15} /> : <Eye size={15} />}
-        {revealed ? 'Gold 已展示' : revealing ? '正在读取 Gold…' : 'Reveal Gold / 对照答案'}
+        {revealed ? '参考答案已展示' : revealing ? '正在读取参考答案…' : '查看对照答案'}
       </button>
     </div>
   )
@@ -130,7 +138,7 @@ export function EvaluationPage() {
     return matchesTopic && matchesFilter
   }), [filter, runCases, topicFilter])
 
-  if (datasetsQuery.isPending) return <LoadingState label="正在读取冻结评测集…" />
+  if (datasetsQuery.isPending) return <LoadingState label="正在读取评测集…" />
   if (datasetsQuery.isError) return <ErrorState message={errorMessage(datasetsQuery.error)} onRetry={() => void datasetsQuery.refetch()} />
 
   return (
@@ -138,46 +146,46 @@ export function EvaluationPage() {
       <section className="s1-page-intro">
         <div>
           <span className="s1-kicker">MODEL EVALUATION WORKBENCH</span>
-          <h1>把候选模型放进真实、可复现的评测回路。</h1>
-          <p>选择冻结评测集，临时连接 OpenAI-compatible provider，查看逐例结果与聚合指标。Evaluation 数据与 Tutor、Factory、learner QBank 隔离。</p>
+          <h1>用真实题目，了解模型的回答表现。</h1>
+          <p>选择评测集，临时连接兼容的模型服务，查看每道题的结果与整体表现。</p>
         </div>
-        <span className="s1-source-pill"><FlaskConical size={14} /> BYOK · fallback off</span>
+        <span className="s1-source-pill"><FlaskConical size={14} />临时连接 · 不会保存</span>
       </section>
 
       <section className="eval-privacy-strip">
         <LockKeyhole size={16} />
-        <div><strong>一次性授权边界</strong><span>API Key 仅用于本次请求，不持久化、不写日志、不进 trace 或 artifact；普通结果默认不展示 Gold。</span></div>
+        <div><strong>一次性授权</strong><span>API Key 仅用于本次评测，不会保存；查看对照答案前，结果只展示模型回答。</span></div>
       </section>
 
       <div className="eval-config-grid">
         <section className="s1-card eval-config-card">
-          <div className="s1-section-heading"><div><span className="s1-kicker">RUN CONFIGURATION</span><h2>连接候选模型</h2></div><Server size={18} color="var(--teal)" /></div>
+          <div className="s1-section-heading"><div><span className="s1-kicker">EVALUATION SETTINGS</span><h2>连接候选模型</h2></div><Server size={18} color="var(--teal)" /></div>
           <div className="eval-form-grid">
-            <label className="eval-field eval-field-wide"><span>API Base</span><input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="https://provider.example/v1" autoComplete="off" /></label>
-            <label className="eval-field"><span>Model</span><input value={model} onChange={(event) => setModel(event.target.value)} placeholder="candidate-model" autoComplete="off" /></label>
+            <label className="eval-field eval-field-wide"><span>连接地址</span><input value={apiBase} onChange={(event) => setApiBase(event.target.value)} placeholder="https://provider.example/v1" autoComplete="off" /></label>
+            <label className="eval-field"><span>模型名称</span><input value={model} onChange={(event) => setModel(event.target.value)} placeholder="candidate-model" autoComplete="off" /></label>
             <label className="eval-field"><span>API Key <small>不会保存</small></span><div className="eval-secret-input"><KeyRound size={15} /><input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="••••••••" autoComplete="off" /></div></label>
-            <label className="eval-field"><span>Dataset</span><select value={effectiveDatasetId} onChange={(event) => setSelectedDatasetId(event.target.value)}>{datasets.map((dataset) => <option key={dataset.dataset_id} value={dataset.dataset_id}>{dataset.name}</option>)}</select></label>
-            <label className="eval-field"><span>Sample count <small>1–300</small></span><input type="number" min="1" max="300" value={sampleCount} onChange={(event) => setSampleCount(event.target.value)} /></label>
+            <label className="eval-field"><span>评测集</span><select value={effectiveDatasetId} onChange={(event) => setSelectedDatasetId(event.target.value)}>{datasets.map((dataset) => <option key={dataset.dataset_id} value={dataset.dataset_id}>{dataset.name}</option>)}</select></label>
+            <label className="eval-field"><span>评测题量 <small>1–300</small></span><input type="number" min="1" max="300" value={sampleCount} onChange={(event) => setSampleCount(event.target.value)} /></label>
           </div>
-          {selectedDataset && <div className="eval-dataset-receipt"><div><strong>{selectedDataset.sample_count} frozen cases</strong><span>{selectedDataset.version}</span></div><code>{selectedDataset.dataset_hash.slice(0, 16)}…</code><p>{selectedDataset.description}</p><small>tutor_indexed: {selectedDataset.tutor_indexed ? 'true' : 'false'} · modality: {selectedDataset.modality}{selectedDataset.supports_vision ? ' · vision required' : ''}</small></div>}
+          {selectedDataset && <div className="eval-dataset-receipt"><div><strong>{selectedDataset.sample_count} 道评测题</strong><span>{selectedDataset.supports_vision ? '图像题' : '文本题'}</span></div><p>{learnerDatasetDescription(selectedDataset.dataset_id, selectedDataset.description)}</p><small>{selectedDataset.supports_vision ? '此评测需要模型支持图像输入。' : '本评测使用文本题。'}</small></div>}
           <div className="eval-action-row">
-            <button className="s1-button s1-button-light" type="button" onClick={() => connection.mutate()} disabled={connection.isPending || !apiBase.trim() || !model.trim() || !apiKey}><RefreshCw size={15} className={connection.isPending ? 's1-spin' : ''} />{connection.isPending ? '连接测试中…' : 'Test Connection'}</button>
-            <button className="s1-button s1-button-primary" type="button" onClick={() => evaluation.mutate()} disabled={evaluation.isPending || !selectedDataset || !apiBase.trim() || !model.trim() || !apiKey}><Play size={15} />{evaluation.isPending ? '模型推理进行中…' : 'Start Evaluation'}</button>
+            <button className="s1-button s1-button-light" type="button" onClick={() => connection.mutate()} disabled={connection.isPending || !apiBase.trim() || !model.trim() || !apiKey}><RefreshCw size={15} className={connection.isPending ? 's1-spin' : ''} />{connection.isPending ? '正在测试连接…' : '测试连接'}</button>
+            <button className="s1-button s1-button-primary" type="button" onClick={() => evaluation.mutate()} disabled={evaluation.isPending || !selectedDataset || !apiBase.trim() || !model.trim() || !apiKey}><Play size={15} />{evaluation.isPending ? '正在评测…' : '开始评测'}</button>
           </div>
           {connectionResult && <ConnectionReceipt result={connectionResult} />}
           {connection.isError && <div className="eval-inline-error" role="alert"><AlertCircle size={15} />{errorMessage(connection.error)}</div>}
           {evaluation.isError && <div className="eval-inline-error" role="alert"><AlertCircle size={15} />{errorMessage(evaluation.error)}<button type="button" onClick={() => evaluation.reset()}>清除</button></div>}
-          <p className="s1-safety">{selectedDataset?.source_dataset === 'EndoBench' ? 'EndoBench 仅用于 Evaluation，不进入 Tutor RAG、Question Factory 或 learner QBank。' : '评测结果用于工程与模型比较，不代表临床性能或独立诊断能力。'}</p>
+          <p className="s1-safety">{selectedDataset?.source_dataset === 'EndoBench' ? '内镜图像题仅用于模型评测。' : '评测结果用于模型比较，不代表临床性能或独立诊断能力。'}</p>
         </section>
 
         <aside className="s1-card eval-boundary-card">
-          <div className="s1-section-heading"><div><span className="s1-kicker">DATA BOUNDARY</span><h2>数据域隔离</h2></div><BarChart3 size={18} color="var(--teal)" /></div>
+          <div className="s1-section-heading"><div><span className="s1-kicker">EVALUATION SCOPE</span><h2>评测内容</h2></div><BarChart3 size={18} color="var(--teal)" /></div>
           <div className="eval-boundary-list">
-            <div><span className="eval-boundary-dot is-blue" /><div><strong>Text Medical Eval</strong><small>CMExam · text · hidden gold</small></div></div>
-            <div><span className="eval-boundary-dot is-amber" /><div><strong>Endoscopy VLM Eval</strong><small>EndoBench · image · Evaluation-only</small></div></div>
-            <div><span className="eval-boundary-dot is-teal" /><div><strong>Tutor / Factory</strong><small>不读取评测集与评测答案</small></div></div>
+            <div><span className="eval-boundary-dot is-blue" /><div><strong>医学文本题</strong><small>CMExam · 单选题</small></div></div>
+            <div><span className="eval-boundary-dot is-amber" /><div><strong>内镜图像题</strong><small>EndoBench · 图像问答</small></div></div>
+            <div><span className="eval-boundary-dot is-teal" /><div><strong>对照答案</strong><small>需要时可手动查看</small></div></div>
           </div>
-          <div className="eval-boundary-note"><LockKeyhole size={14} /><span>视觉评测需要候选 provider 真正支持 image input；不支持时记录失败，不降级成 text-only。</span></div>
+          <div className="eval-boundary-note"><LockKeyhole size={14} /><span>图像评测需要模型支持图像输入；不支持时会提示评测失败。</span></div>
         </aside>
       </div>
 

@@ -1,140 +1,112 @@
 # EndoTutor v1.0
 
-EndoTutor v1.0 是一个面向消化内镜医师培训的刷题、实时 Tutor、知识检索、题目生成和候选模型评测平台。它服务于教学研修与医生复核前辅助，不是自主诊断系统。
+**Agent-native medical learning and assessment platform** for endoscopy education: real question banks, a continuous Tutor chat, adaptive practice and review, knowledge-grounded explanations, question generation, and model evaluation.
 
-## Product flow
+> 教学研修与医生复核前辅助，不作为独立诊断依据。
 
-```text
-Real QBank ──→ Practice ↔ Tutor ──→ Learning / Review
-                    │                    │
-                    └──── Knowledge RAG ┘
+![Question banks](./docs/portfolio/evidence/stage-4/01-banks.png)
 
-每次提交都会沿着 `grade → Attempt → mastery → FSRS` 写回学习状态；下一
-次 session 读取到期复习、薄弱知识点和覆盖情况，并在工作台显示推荐原因。
+## What a learner can do
 
-Allowed documents ──→ Question Factory ──→ Review ──→ Published QBank
+- Choose from 3,678 curated demo questions: CMExam 1,500, CMB-Exam 1,778, and Kvasir-VQA curated 400.
+- Practice in Study, Exam, or Review mode with a persistent desktop Tutor sidecar.
+- Submit an answer, receive feedback, and let the next practice session prioritize review due dates, weak topics, and coverage.
+- Upload an allowed Markdown/PDF teaching document, generate a reviewable question draft, and publish only after review.
+- Temporarily connect a compatible model to compare text or image-question results without storing its API key.
 
-Evaluation datasets ──→ BYOK Model Evaluation ──→ per-case + aggregate artifact
-```
+| Practice + Tutor | Adaptive learning loop |
+| --- | --- |
+| ![Practice with Tutor](./docs/portfolio/evidence/stage-4/02-practice-tutor.png) | ![Learning overview](./docs/portfolio/evidence/stage-4/03-adaptive-learning-loop.png) |
 
-核心入口：
-
-- `/` 学习总览
-- `/banks` 题库目录与 Question Factory
-- `/practice` Study / Exam / Review 工作台；桌面端右侧持续 Tutor chat
-- `/eval` BYOK Model Evaluation workbench
+| Question Factory | Model evaluation |
+| --- | --- |
+| ![Question Factory](./docs/portfolio/evidence/stage-4/04-question-factory.png) | ![Model evaluation](./docs/portfolio/evidence/stage-4/05-model-evaluation.png) |
 
 ## Architecture
 
 ```text
 React + Vite + TypeScript
-          │ OpenAPI-generated client / SSE
-FastAPI ──┼── PostgreSQL (canonical state)
-          ├── Qdrant (retrieval index)
-          ├── Redis + Dramatiq (long jobs)
-          ├── bounded Tutor AgentRunner / ToolRegistry / ModelGateway
-          ├── Hybrid RAG + citations
-          ├── Generator → deterministic gate → Judge → Repair
-          ├── py-fsrs learning projection
-          └── isolated BYOK Evaluation domain + artifacts
+          │ generated OpenAPI client / SSE
+FastAPI ──┼── PostgreSQL: canonical learning, citation, and job state
+          ├── Qdrant: retrieval index
+          ├── Redis + Dramatiq: durable Factory jobs
+          ├── bounded Tutor runtime: tools, permissions, retry, cancel, trace
+          ├── Question Factory: Generator → gate → Judge → repair → publish
+          ├── py-fsrs: review scheduling
+          └── isolated BYOK evaluation domain
 ```
 
-QBank、Knowledge、Evaluation 和 Factory generation source 是四个隔离数据域。Tutor 只使用通过 License Gate 的知识源；EndoBench 永远只用于 Evaluation，不进入 Tutor RAG、Question Factory 或 learner-facing QBank。Tutor 不写学习状态，submit workflow 确定性执行 `grade → Attempt → mastery → review scheduling`。
+The Tutor has read-only tools. Successful submission deterministically executes
+`grade → Attempt → mastery → review scheduling`; a model never writes learner state.
+The Factory's backend and worker share a durable upload volume so a queued job can
+read the exact document recorded by the API.
 
-## Real data boundary
+## Retrieval and adaptive learning
 
-当前 demo QBank 包含 3,678 道精选题：CMExam 1,500、CMB-Exam 1,778、curated Kvasir-VQA 400。规模验收另在独立 PostgreSQL profile 中导入了 CMExam 68,112 道有效题（68,119 行输入，7 行因 contract 不完整被拒绝）。
+Dense retrieval is the v1.0 Tutor default. On the frozen portfolio engineering
+benchmark, it provided the selected quality/latency trade-off among the default
+paths; sparse, hybrid, and hybrid+rerank remain implemented and benchmarkable.
+This is not a claim that Dense is universally superior. See
+[the RAG benchmark](./docs/evals/rag-benchmark-v2.md).
 
-本地 VQA 数据通过环境变量配置：
-
-```bash
-ENDO_LOCAL_VQA_ROOT=/path/to/local/VQA/data
-```
-
-Docker Demo 默认启用完整 Portfolio QBank bootstrap。Compose 会将仓库的
-`data/` 挂载到 `/app/data`，并将 `ENDO_LOCAL_VQA_HOST_ROOT`（本机默认值为
-`E:/2.Projects/ARIS/VQA/data`）只读挂载到 `/app/vqa-data`；容器内使用
-`ENDO_LOCAL_VQA_ROOT=/app/vqa-data`。启动时会幂等校验并补齐 CMExam 1,500、
-CMB-Exam 1,778、curated Kvasir-VQA 400。若启用了 Demo bootstrap 但源文件
-不可用，后端会明确失败，不能静默回退为早期 legacy seed。换机器时只需在
-`.env` 设置 `ENDO_LOCAL_VQA_HOST_ROOT`，不要把数据文件提交到 Git。
-
-项目不重新分发本地大型数据；来源、用途与隔离边界见 [`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md)。
-
-## Benchmarks and evidence
-
-- RAG v2：90 条冻结候选（30 development / 60 held-out），比较 sparse / dense / hybrid / hybrid+rerank；held-out Recall@5 分别为 0.7667 / 0.8833 / 0.7167 / 0.9000，Stage 1 Tutor default 为 Dense。详见 [`docs/evals/rag-benchmark-v2.md`](./docs/evals/rag-benchmark-v2.md)。
-- Question Judge v2：80 条 portfolio-sized candidate review set；Deterministic Gate 与 Provider Judge 的工程结果及人工审校边界详见 [`docs/evals/question-judge-eval-v2.md`](./docs/evals/question-judge-eval-v2.md)，未将其包装为人工/临床准确率。
-- Tutor answer eval v1：50 条冻结场景、六维人工 rubric、保留 failure candidate；provider 质量分数在独立审校前保持 pending，见 [`docs/evals/tutor-answer-eval-v1.md`](./docs/evals/tutor-answer-eval-v1.md)。
-- FSRS：真实 `py-fsrs` Again / Hard / Good / Easy 序列，见 [`docs/evals/fsrs-comparison.md`](./docs/evals/fsrs-comparison.md)。
-- Model Evaluation：冻结 CMExam text 与 EndoBench VLM packs，真实 provider acceptance 与 no-fallback 结果见 [`docs/evals/model-evaluation-acceptance.md`](./docs/evals/model-evaluation-acceptance.md)。
-
-所有数字只描述当前 artifact 与工程验收，不代表临床有效性。RAG、Judge fixture 的最终人工/临床审校仍需由指定 reviewer 完成。
+The adaptive-loop artifact demonstrates the full state transition from a deliberate
+mistake to a weak-topic next-session recommendation:
+[adaptive-loop-demo-v1.json](./artifacts/learning/adaptive-loop-demo-v1.json).
 
 ## Quick start
 
-### Local development
+Requires Python 3.12+, Node.js 22+, Docker Desktop, and npm.
 
-Requires Python 3.12+, Node.js 22+, Docker Desktop and npm.
-
-```bash
-cd backend
-python -m pip install -r requirements.txt
-set PYTHONPATH=.
-python -m uvicorn app.main:app --reload --port 8000
-```
-
-另开终端：
-
-```bash
-cd frontend
-npm ci
-npm run dev -- --host 127.0.0.1 --port 5173
-```
-
-### Docker core
-
-```bash
+```powershell
 docker compose up --build
 ```
 
-这会启动 frontend、backend、PostgreSQL、Qdrant、Redis 和 Dramatiq worker。默认 compose 凭据仅用于本机开发，不应复用到外部环境。真实 provider 配置使用未跟踪 `.env`，不要提交 key。
+This starts frontend, backend, PostgreSQL, Qdrant, Redis, and the Dramatiq worker.
+The demo bootstrap validates and restores the three complete Portfolio QBanks; it
+does not silently fall back to the old small teaching seed. Configure local-only
+paths and optional model credentials in an ignored `.env` copied from `.env.example`.
+Never commit keys or local data roots.
 
-## Tests
+## Verification
 
-```bash
-# backend
+```powershell
+# Backend
 cd backend
-set PYTHONPATH=.
+$env:PYTHONPATH='.'
+$env:TUTOR_PROVIDER_ENABLED='false'
 python -m pytest -q
 
-# frontend
+# Frontend
 cd ../frontend
 npm run api:check
 npm run lint
-npm test
+npm test -- --run
 npm run build
-npx playwright test e2e/core-flow.spec.ts
+npx playwright test e2e/core-flow.spec.ts --grep 'Flow A:' --project=chromium
 ```
 
-`npm run api:generate` 从 FastAPI OpenAPI 重新生成 `frontend/src/api/generated.ts`；业务 view model 可以手写，但 API contract 不手写。CI fast profile 位于 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)。
+`npm run api:generate` deterministically rebuilds
+`frontend/src/api/generated.ts` from FastAPI OpenAPI. The checked-in GitHub
+Actions workflow is named **EndoTutor fast profile**. It is intentionally shown
+as `external_pending` until a maintainer pushes this branch and obtains a hosted
+run; no passing badge is claimed in this repository.
 
-## Safety and limitations
+## Evidence and limits
 
-- 所有医学输出都保留：`仅供教学研修或医生复核前辅助，不作为独立诊断依据。`
-- Study 模式只有用户明确请求时才走受控的只读答案解释路径；Exam 模式提交前无答案路径。
-- 普通 UI 不显示 raw chain-of-thought；只展示可审计的高层摘要、tool receipt、source citation 和结果状态。
-- BYOK key 是 request-scoped，不落库、不进日志、trace 或 artifact；候选模型评测禁止 fallback。
-- Provider acceptance 是本地工程证据，不是生产可用性或临床能力结论。
+- [Stage 4 v1.0 final report](./docs/stages/stage-4-v1.0-final-report.md)
+- [Final evidence matrix](./docs/portfolio/FINAL_EVIDENCE_MATRIX.md)
+- [90-second demo script](./docs/portfolio/DEMO_SCRIPT.md)
+- [Data attribution and license boundaries](./THIRD_PARTY_DATA.md)
+- [Security notes](./SECURITY_NOTES.md)
 
-## Documentation
-
-- 架构：[`docs/architecture/`](./docs/architecture/)
-- Stage 3 final report：[`docs/stages/stage-3-final-release-report.md`](./docs/stages/stage-3-final-release-report.md)
-- 最终 evidence matrix：[`docs/portfolio/FINAL_EVIDENCE_MATRIX.md`](./docs/portfolio/FINAL_EVIDENCE_MATRIX.md)
-- Demo script：[`docs/portfolio/DEMO_SCRIPT.md`](./docs/portfolio/DEMO_SCRIPT.md)
-- Dataset attribution：[`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md)
+RAG and Question Judge human review remains deferred from v1.0 and is documented
+only in evidence materials. It is not presented as expert or clinical validation.
+EndoBench is evaluation-only and cannot enter Tutor knowledge, Factory sources, or
+learner-facing QBanks. Raw chain-of-thought and secrets are neither displayed nor
+persisted.
 
 ## License
 
-代码按仓库现有许可证发布；第三方数据不随仓库重新分发，具体 license 与用途边界以 [`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md) 和 `knowledge/registry/sources.yaml` 为准。
+Code follows the repository license. Third-party datasets are not redistributed;
+their usage and attribution boundaries are recorded in
+[THIRD_PARTY_DATA.md](./THIRD_PARTY_DATA.md) and `knowledge/registry/sources.yaml`.

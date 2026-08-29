@@ -6,7 +6,7 @@ const navItems = [
   { to: '/', label: '学习总览', icon: LayoutDashboard, end: true },
   { to: '/banks', label: '题库', icon: BookOpen },
   { to: '/practice', label: '刷题', icon: ClipboardCheck },
-  { to: '/eval', label: '评测 artifact', icon: BarChart3 },
+  { to: '/eval', label: '模型评测', icon: BarChart3 },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {

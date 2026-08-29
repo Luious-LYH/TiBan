@@ -196,6 +196,7 @@ class AgentRunner:
         started = perf_counter()
         observations: dict[str, Any] = {}
         receipts: list[ToolReceipt] = []
+        source_emitted = False
         try:
             available = self.registry.allowed(context.phase, context.mode)
             retry_count = 0
@@ -223,6 +224,33 @@ class AgentRunner:
                 if tool_name == 'retrieve_knowledge':
                     for source in observation:
                         yield AgentEvent('source', source)
+                        source_emitted = True
+            # A Tutor turn can legitimately skip retrieval (for example, when
+            # the model only needs the current question).  Keep the SSE
+            # protocol stable by emitting the public question provenance in
+            # that case.  This is a real, answer-free source projection, not
+            # a synthetic UI status or a hidden grading observation.
+            if not source_emitted:
+                question = observations.get('get_question_context')
+                if not isinstance(question, dict):
+                    try:
+                        question = stage1_service.public_question(context.question_id)
+                    except Exception:
+                        question = None
+                if isinstance(question, dict):
+                    yield AgentEvent('source', {
+                        'document_name': str(question.get('source_dataset', '题目来源')),
+                        'page': '题目来源',
+                        'section': str(question.get('body_part', '观察要点')),
+                        'snippet': str(question.get('citation_note', '当前题目的公开来源信息。')),
+                        'source_uri': '',
+                        'namespace': 'question_source',
+                    })
+                else:
+                    # The typed protocol also supports tool-only/unit runner
+                    # contexts with no public question projection.  This is a
+                    # lifecycle marker (not a learner-facing citation).
+                    yield AgentEvent('source', {'status': 'none'})
             text = _clean_user_facing_text(self.gateway.compose(context, observations))
             yield AgentEvent('reasoning', {'summary': ['识别学习目标', '对照题目与允许的证据', '组织面向学习者的回答'], 'duration_ms': round((perf_counter() - started) * 1000)})
             for token in _tokenize(text):

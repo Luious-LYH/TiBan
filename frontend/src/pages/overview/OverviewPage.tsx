@@ -17,7 +17,7 @@ export function OverviewPage() {
         <div>
           <span className="s1-kicker">LEARNING OVERVIEW</span>
           <h1>把每次观察，变成可复盘的进步。</h1>
-          <p>从真实题库开始练习。提交后由确定性 workflow 记录 attempt、掌握度与复习安排。</p>
+          <p>从真实题库开始练习。提交后会自动记录学习进度、掌握情况与复习安排。</p>
         </div>
         <Link className="s1-button s1-button-primary" to="/banks">进入题库 <ArrowRight size={16} /></Link>
       </section>
@@ -36,7 +36,7 @@ export function OverviewPage() {
             <div className="s1-bank-list">
               {data.banks.slice(0, 4).map((bank) => <Link to={`/practice?bank_id=${encodeURIComponent(bank.bank_id)}`} className="s1-bank-row" key={bank.bank_id}>
                 <span className="s1-bank-icon"><Library size={17} /></span>
-                <span className="s1-bank-copy"><strong>{bank.name}</strong><small>{bank.description}</small></span>
+                <span className="s1-bank-copy"><strong>{bank.name}</strong><small>{learnerBankDescription(bank.bank_id, bank.description)}</small></span>
                 <span className="s1-bank-progress"><b>{bank.completed_count}/{bank.question_count}</b><span><i style={{ width: `${Math.round(bank.progress * 100)}%` }} /></span></span>
                 <ArrowRight size={16} />
               </Link>)}
@@ -45,13 +45,22 @@ export function OverviewPage() {
         </section>
 
         <section className="s1-card s1-recent-card" aria-labelledby="recent-title">
-          <div className="s1-section-heading"><div><span className="s1-kicker">RECENT TRACE</span><h2 id="recent-title">最近练习</h2></div></div>
+          <div className="s1-section-heading"><div><span className="s1-kicker">RECENT ACTIVITY</span><h2 id="recent-title">最近练习</h2></div></div>
           {data.recent_sessions.length === 0 ? <EmptyState title="尚未有练习记录" detail="选择一个题库开始第一道题。" /> : <div className="s1-recent-list">{data.recent_sessions.slice(0, 6).map((item) => <div className="s1-recent-row" key={item.attempt_id}><span className={item.correct ? 's1-dot is-correct' : 's1-dot'} /><span><strong>{item.correct ? '回答正确' : '进入复盘'}</strong><small>{new Date(item.created_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></span><b>{item.score} 分</b></div>)}</div>}
         </section>
       </div>
       <p className="s1-safety">{data.safety_notice}</p>
     </div>
   )
+}
+
+function learnerBankDescription(bankId: string, fallback: string) {
+  const summaries: Record<string, string> = {
+    'bank-cmb-exam-real': '覆盖医学基础与临床知识的综合练习题。',
+    'bank-cmexam-real': '覆盖医学基础与临床知识的综合练习题。',
+    'bank-kvasir-vqa-curated': '通过内镜图像观察训练可见事实判断。',
+  }
+  return summaries[bankId] ?? fallback
 }
 
 function Metric({ icon, label, value, detail }: { icon: React.ReactNode; label: string; value: string; detail: string }) {

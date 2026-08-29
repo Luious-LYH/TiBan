@@ -1,5 +1,9 @@
 # EndoTutor project experience
 
+**v1.0 / Stage 4 frozen release:** an agent-native learning and model-evaluation
+platform for endoscopy education. Each claim below maps to current code, tests,
+and an artifact; deferred human review is not presented as expert or clinical validation.
+
 ## Agent / LLM application engineering
 
 - Built a bounded Tutor Agent for endoscopy education around `AgentRunner`, `ToolRegistry`, and `ModelGateway`, with real SSE `AgentEvent`/ToolReceipt traces, max-step/timeout/cancel/retry controls, and server-enforced Study vs Exam permissions.

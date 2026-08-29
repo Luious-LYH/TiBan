@@ -8,9 +8,10 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from fsrs import Card, Rating, Scheduler
+from sqlalchemy import select
 
 from app.db.database import SessionLocal
-from app.db.models import LearnerMasteryModel, ReviewCardModel
+from app.db.models import DocumentVersionModel, LearnerMasteryModel, ReviewCardModel
 from app.main import app
 from app.services.factory_service import (
     GeneratedDraft,
@@ -22,7 +23,9 @@ from app.services.factory_service import (
     _provider_generator,
     _provider_judge,
     _normalize_provider_judge,
+    enqueue_factory_job,
     import_allowed_document,
+    process_factory_job,
 )
 from app.services.llm_provider import LLMResult
 from app.services.rag_service import Citation, _chunk_markdown
@@ -153,3 +156,26 @@ def test_rag_heading_chunks_and_frozen_benchmark_are_traceable() -> None:
 def test_factory_rejects_disallowed_document_types(filename: str) -> None:
     with pytest.raises(ValueError):
         import_allowed_document(filename, b"not a document")
+
+
+def test_factory_missing_shared_upload_marks_job_failed(tmp_path: Path) -> None:
+    """Regression: a worker must report an unreadable upload, not retry forever."""
+    document = import_allowed_document(
+        "missing-upload.md",
+        b"# Teaching source\n\nThis content is valid but the worker source path will be unavailable.",
+        "text/markdown",
+    )
+    queued = enqueue_factory_job(document["document_id"])
+    with SessionLocal() as session:
+        version = session.scalar(
+            select(DocumentVersionModel)
+            .where(DocumentVersionModel.document_id == document["document_id"])
+            .order_by(DocumentVersionModel.created_at.desc())
+        )
+        assert version is not None
+        version.source_path = str(tmp_path / "unavailable-after-container-handoff.md")
+        session.commit()
+
+    result = process_factory_job(queued["job_id"])
+
+    assert result["status"] == "failed"

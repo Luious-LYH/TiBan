@@ -28,7 +28,7 @@ def _env_first(*names: str, default: str = "") -> str:
     return default
 
 
-LOCAL_VQA_ROOT = Path(_env_first("ENDO_LOCAL_VQA_ROOT", default=r"E:\2.Projects\ARIS\VQA\data"))
+LOCAL_VQA_ROOT = Path(_env_first("ENDO_LOCAL_VQA_ROOT", default=str(PROJECT_DIR / "data" / "vqa")))
 LOCAL_PROJECT_DATA_ROOT = Path(
     _env_first("ENDO_PROJECT_DATA_ROOT", default=str(PROJECT_DIR / "data"))
 )

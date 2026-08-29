@@ -120,6 +120,10 @@ def create_job(request: JobRequest) -> FactoryJobCreateResponse:
         return FactoryJobCreateResponse(item=FactoryJobQueuedPublic.model_validate(item), api_source="backend")
     except KeyError as exc:
         raise HTTPException(404, "Document not found") from exc
+    except Exception as exc:
+        # The queued row remains canonical evidence, but learners must receive
+        # an actionable failure instead of an opaque 500 when Redis is down.
+        raise HTTPException(503, "任务队列暂不可用，请稍后重试。") from exc
 
 
 @router.get("/jobs/{job_id}", response_model=FactoryJobReadResponse)

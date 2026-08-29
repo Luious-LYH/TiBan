@@ -75,4 +75,4 @@ jobs:
         working-directory: frontend
         env:
           CI: true
-        run: npx playwright test e2e/core-flow.spec.ts --grep "practice" --project=chromium
+        run: npx playwright test e2e/core-flow.spec.ts --grep "Flow A:" --project=chromium

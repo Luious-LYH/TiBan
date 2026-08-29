@@ -1,27 +1,24 @@
-# EndoTutor 7-minute demo script
+# EndoTutor v1.0 — 75-second demo script
 
-Use a stable local provider and seeded demo data. Do not download datasets or
-models during the recording.
+Do not enter an API key during the recording. Use the seeded local Docker stack
+and the existing demo learner state.
 
-| Time | Surface | Talk track |
+| Time | Surface | Narration |
 |---|---|---|
-| 0:00–0:40 | Overview / Banks | Show the learner-facing QBank counts and explain that demo data is curated and source-governed. |
-| 0:40–2:00 | Practice / Study | Open a text or image question, show the server-generated adaptive recommendation, submit an answer, show deterministic feedback, then ask the persistent right-side Tutor a follow-up. |
-| 2:00–2:40 | Tutor | Show token streaming, real tool/source parts, collapsed high-level reasoning summary and the teaching safety notice; do not open raw reasoning. |
-| 2:40–3:30 | Exam / Review | Switch to Exam, show locked pre-submit answer feedback, then review an incorrect attempt and apply Again/Hard/Good/Easy. |
-| 3:30–5:00 | Question Factory | Upload one allowed Markdown/PDF source, show real job states, Generator/Judge result, repaired revision lineage, review gate and explicit publish. |
-| 5:00–6:20 | Model Evaluation | Select CMExam or EndoBench, enter a temporary provider configuration, Test Connection, run a small sample, inspect per-case and aggregate results, and explain no-fallback/secret boundary. |
-| 6:20–7:00 | Evidence | Open Developer Detail, RAG benchmark, Judge evaluation and FSRS artifact. End by stating that the numbers are engineering evidence, not clinical claims. |
+| 0:00–0:12 | `/banks` | “EndoTutor starts with 3,678 real teaching questions across CMExam, CMB-Exam, and curated Kvasir-VQA. I choose a topic and begin directly.” |
+| 0:12–0:30 | `/practice?bank_id=bank-cmb-exam-real` | “The study workspace creates a session from unfinished items, review due dates, and weak topics. The Tutor stays beside the question, so a learner can ask naturally while practicing.” |
+| 0:30–0:45 | Submit + Tutor | “After I submit, grading, attempt history, mastery, and review scheduling update deterministically. The Tutor can explain using the current question and permitted source material; it does not control learning-state writes.” |
+| 0:45–0:56 | Overview / review | “The next session reads that new state. Here the recommendation records why this learner should revisit a weak topic or an item that is due.” |
+| 0:56–1:06 | Factory | “An allowed teaching document becomes a reviewable draft through parsing, retrieval, generation, checking, repair, and explicit publishing. Versions remain available for review.” |
+| 1:06–1:15 | `/eval` | “The evaluation workbench temporarily connects a candidate model, compares its text or image-question responses, and never stores the key. EndoBench remains evaluation-only.” |
 
-Stable routes:
+Close with: “This is a medical education and physician-review-before-use
+assistant, not an autonomous diagnostic system.”
 
-```text
-/  → /banks → /practice?bank_id=bank-cmexam-real → /eval
-```
+## Optional technical follow-up
 
-Keep the API key out of recordings. For EndoBench, explicitly say
-“Evaluation-only”; never present it as Tutor knowledge or a learner QBank.
-
-Stage 1 adaptive proof: open `artifacts/learning/adaptive-loop-demo-v1.json`
-after the Practice flow and point out the before state, deliberate Topic A
-error, after-state mastery/ReviewCard and next-session `weak_topic` reason.
+For an engineering interviewer, show the adaptive-loop artifact
+[`../../artifacts/learning/adaptive-loop-demo-v1.json`](../../artifacts/learning/adaptive-loop-demo-v1.json),
+then the frozen RAG benchmark and Factory revision evidence. Do not present RAG
+or Judge metrics as expert/clinical validation; their human review is deferred
+from v1.0.

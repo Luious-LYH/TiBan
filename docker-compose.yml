@@ -50,13 +50,30 @@ services:
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
       ENDO_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      # Read local provider configuration from the ignored root .env without
+      # baking a gateway address or credential into the compose file.
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai_compatible}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-5.6-sol}
+      model_reasoning_effort: ${model_reasoning_effort:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-25}
+      TUTOR_PROVIDER_ENABLED: ${TUTOR_PROVIDER_ENABLED:-false}
+      LLM_PROVIDER_ALLOW_PRIVATE_NETWORK: ${LLM_PROVIDER_ALLOW_PRIVATE_NETWORK:-false}
+      LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST: ${LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST:-}
     volumes:
+      # User-uploaded Factory sources must be visible to the separate
+      # Dramatiq worker.  A named volume keeps the job's durable database row
+      # and its source file in the same local Docker lifecycle.
+      - type: volume
+        source: endotutor_factory_uploads
+        target: /app/runtime/uploads
       - type: bind
         source: ./data
         target: /app/data
         read_only: true
       - type: bind
-        source: ${ENDO_LOCAL_VQA_HOST_ROOT:-E:/2.Projects/ARIS/VQA/data}
+        source: ${ENDO_LOCAL_VQA_HOST_ROOT:-./data/vqa}
         target: /app/vqa-data
         read_only: true
     ports:
@@ -84,13 +101,25 @@ services:
       ENDO_LOCAL_VQA_ROOT: /app/vqa-data
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
+      # Factory uses the same local-only provider configuration as the API.
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai_compatible}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-5.6-sol}
+      model_reasoning_effort: ${model_reasoning_effort:-}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-25}
+      LLM_PROVIDER_ALLOW_PRIVATE_NETWORK: ${LLM_PROVIDER_ALLOW_PRIVATE_NETWORK:-false}
+      LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST: ${LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST:-}
     volumes:
+      - type: volume
+        source: endotutor_factory_uploads
+        target: /app/runtime/uploads
       - type: bind
         source: ./data
         target: /app/data
         read_only: true
       - type: bind
-        source: ${ENDO_LOCAL_VQA_HOST_ROOT:-E:/2.Projects/ARIS/VQA/data}
+        source: ${ENDO_LOCAL_VQA_HOST_ROOT:-./data/vqa}
         target: /app/vqa-data
         read_only: true
     depends_on:
@@ -114,3 +143,4 @@ volumes:
   endotutor_postgres_data:
   endotutor_qdrant_data:
   endotutor_redis_data:
+  endotutor_factory_uploads:

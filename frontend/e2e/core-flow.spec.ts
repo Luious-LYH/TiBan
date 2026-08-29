@@ -39,10 +39,10 @@ test('Flow B: upload → Dramatiq generate → Judge/repair → publish → prac
     buffer: Buffer.from('# 教学资料\n\n## 观察边界\n\n资料只能用于观察训练，需要保留医生复核和非独立诊断边界。'),
   })
   await page.getByTestId('factory-generate').click()
-  await expect(page.locator('.s1-factory-ledger')).toContainText(/queued|parsing|indexing|generating|judging|repairing|ready_for_review/)
+  await expect(page.locator('.s1-factory-ledger')).toContainText(/等待生成|正在读取资料|正在整理资料|正在生成题目|正在检查题目|正在优化草稿|待你审核/)
   await expect(page.getByTestId('factory-publish')).toBeVisible({ timeout: 90_000 })
   await page.getByTestId('factory-publish').click()
-  await expect(page.getByText(/已发布为 factory_question_/)).toBeVisible()
+  await expect(page.getByText('题目已发布，可在题库中开始练习。')).toBeVisible()
   await page.getByRole('link', { name: '开始练习' }).last().click()
   await expect(page.getByTestId('practice-page')).toBeVisible()
 })

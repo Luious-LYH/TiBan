@@ -388,7 +388,12 @@ def process_factory_job(
             return {"job_id": job_id, "status": "failed"}
         _record_event(job, "parsing", "正在解析允许使用的 Markdown/PDF 教学文档。")
         session.commit()
-        markdown = _markdown_from_document(version)
+        try:
+            markdown = _markdown_from_document(version)
+        except (OSError, ValueError) as exc:
+            _record_event(job, "failed", "上传资料当前不可读取，请重新上传后再试。")
+            session.commit()
+            return {"job_id": job_id, "status": "failed", "error": type(exc).__name__}
         version.parser = "heading-aware-markdown" if markdown.suffix == ".md" else "pymupdf"
         version.source_path = str(markdown.resolve())
         session.commit()
@@ -397,17 +402,25 @@ def process_factory_job(
         job = session.get(FactoryJobModel, job_id); assert job is not None
         _record_event(job, "indexing", "正在写入 PostgreSQL source/chunk metadata 与 Qdrant index。")
         session.commit()
-    rag_service.index_markdown(
-        markdown,
-        document_id=document.document_id,
-        child_size=180,
-        namespace="factory_sources",
-        source_id=document.source_id,
-        source_uri=document.source_uri,
-        business_usage=document.business_usage,
-        license_gate_status=document.license_gate_status,
-        ai_ingestion_allowed=document.ai_ingestion_allowed,
-    )
+    try:
+        rag_service.index_markdown(
+            markdown,
+            document_id=document.document_id,
+            child_size=180,
+            namespace="factory_sources",
+            source_id=document.source_id,
+            source_uri=document.source_uri,
+            business_usage=document.business_usage,
+            license_gate_status=document.license_gate_status,
+            ai_ingestion_allowed=document.ai_ingestion_allowed,
+        )
+    except Exception as exc:
+        with SessionLocal() as session:
+            job = session.get(FactoryJobModel, job_id)
+            if job is not None:
+                _record_event(job, "failed", "资料整理未完成，请稍后重试。")
+                session.commit()
+        return {"job_id": job_id, "status": "failed", "error": type(exc).__name__}
 
     with SessionLocal() as session:
         job = session.get(FactoryJobModel, job_id); assert job is not None
