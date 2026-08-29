@@ -29,6 +29,9 @@ def _env_first(*names: str, default: str = "") -> str:
 
 
 LOCAL_VQA_ROOT = Path(_env_first("ENDO_LOCAL_VQA_ROOT", default=r"E:\2.Projects\ARIS\VQA\data"))
+LOCAL_PROJECT_DATA_ROOT = Path(
+    _env_first("ENDO_PROJECT_DATA_ROOT", default=str(PROJECT_DIR / "data"))
+)
 
 
 DATABASE_URL = _env_first(
@@ -54,6 +57,15 @@ LLM_FALLBACK_API_KEY = _env_first("LLM_FALLBACK_API_KEY")
 LLM_FALLBACK_MODEL = _env_first("LLM_FALLBACK_MODEL", default=LLM_MODEL)
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
 FACTORY_PROVIDER_ENABLED = _env_first("FACTORY_PROVIDER_ENABLED").lower() == "true"
+# The learner-facing Docker demo is expected to contain the complete portfolio
+# QBank.  Keep this opt-in for ordinary unit tests and lightweight local
+# development; the canonical Docker compose profile enables it explicitly.
+DEMO_QBANK_BOOTSTRAP = _env_first("ENDO_DEMO_QBANK_BOOTSTRAP", default="false").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 # Private-network Providers remain blocked by default.  A developer running a
 # deliberately local/LAN OpenAI-compatible gateway may opt in for the current
 # process; this flag is intentionally not enabled by any checked-in config.

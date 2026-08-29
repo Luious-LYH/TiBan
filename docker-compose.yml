@@ -43,12 +43,30 @@ services:
     build: ./backend
     environment:
       ENDO_APP_ENV: demo
+      ENDO_DEMO_QBANK_BOOTSTRAP: "true"
+      ENDO_PROJECT_DATA_ROOT: /app/data
+      ENDO_LOCAL_VQA_ROOT: /app/vqa-data
       ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
       ENDO_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    volumes:
+      - type: bind
+        source: ./data
+        target: /app/data
+        read_only: true
+      - type: bind
+        source: ${ENDO_LOCAL_VQA_HOST_ROOT:-E:/2.Projects/ARIS/VQA/data}
+        target: /app/vqa-data
+        read_only: true
     ports:
       - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,11 +80,22 @@ services:
     command: ["dramatiq", "app.workers.factory_worker"]
     environment:
       ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1
+      ENDO_PROJECT_DATA_ROOT: /app/data
+      ENDO_LOCAL_VQA_ROOT: /app/vqa-data
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
+    volumes:
+      - type: bind
+        source: ./data
+        target: /app/data
+        read_only: true
+      - type: bind
+        source: ${ENDO_LOCAL_VQA_HOST_ROOT:-E:/2.Projects/ARIS/VQA/data}
+        target: /app/vqa-data
+        read_only: true
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -79,7 +108,7 @@ services:
       - "127.0.0.1:5173:80"
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
 
 volumes:
   endotutor_postgres_data:

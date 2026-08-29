@@ -51,6 +51,14 @@ QBank、Knowledge、Evaluation 和 Factory generation source 是四个隔离数�
 ENDO_LOCAL_VQA_ROOT=/path/to/local/VQA/data
 ```
 
+Docker Demo 默认启用完整 Portfolio QBank bootstrap。Compose 会将仓库的
+`data/` 挂载到 `/app/data`，并将 `ENDO_LOCAL_VQA_HOST_ROOT`（本机默认值为
+`E:/2.Projects/ARIS/VQA/data`）只读挂载到 `/app/vqa-data`；容器内使用
+`ENDO_LOCAL_VQA_ROOT=/app/vqa-data`。启动时会幂等校验并补齐 CMExam 1,500、
+CMB-Exam 1,778、curated Kvasir-VQA 400。若启用了 Demo bootstrap 但源文件
+不可用，后端会明确失败，不能静默回退为早期 legacy seed。换机器时只需在
+`.env` 设置 `ENDO_LOCAL_VQA_HOST_ROOT`，不要把数据文件提交到 Git。
+
 项目不重新分发本地大型数据；来源、用途与隔离边界见 [`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md)。
 
 ## Benchmarks and evidence

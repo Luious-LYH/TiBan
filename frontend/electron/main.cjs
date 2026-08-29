@@ -50,6 +50,8 @@ function spawnBackend() {
       env: {
         ...process.env,
         PYTHONUNBUFFERED: '1',
+        ENDO_DEMO_QBANK_BOOTSTRAP: process.env.ENDO_DEMO_QBANK_BOOTSTRAP || 'true',
+        ENDO_PROJECT_DATA_ROOT: process.env.ENDO_PROJECT_DATA_ROOT || path.join(codeRoot, 'data'),
       },
     },
   )

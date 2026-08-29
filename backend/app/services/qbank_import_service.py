@@ -11,15 +11,14 @@ from typing import Any, Iterable
 
 from sqlalchemy import select
 
-from app.core.config import LOCAL_VQA_ROOT, SAFETY_NOTICE
+from app.core.config import LOCAL_PROJECT_DATA_ROOT, LOCAL_VQA_ROOT, SAFETY_NOTICE
 from app.db.database import SessionLocal
 from app.db.models import QuestionBankModel, QuestionModel, SourceDocumentModel
 from app.services.data_governance import dataset_policy
 
 
-PROJECT_DIR = Path(__file__).resolve().parents[3]
-CMEXAM_ROOT = PROJECT_DIR / "data" / "external" / "CMExam"
-CMB_ROOT = PROJECT_DIR / "data" / "external" / "CMB" / "CMB-Exam"
+CMEXAM_ROOT = LOCAL_PROJECT_DATA_ROOT / "external" / "CMExam"
+CMB_ROOT = LOCAL_PROJECT_DATA_ROOT / "external" / "CMB" / "CMB-Exam"
 
 
 def _read_text(path: Path) -> str:
@@ -298,10 +297,48 @@ def kvasir_classification(limit: int | None = None) -> tuple[list[dict[str, Any]
     return records, counts
 
 
+def _kvasir_user_ready_records(limit: int) -> list[dict[str, Any]]:
+    """Read only the bounded curated subset needed by the learner QBank.
+
+    The full classification command intentionally audits every local row.  A
+    service startup, however, only needs the first ``limit`` learner-ready
+    rows.  Avoiding an ``is_file`` syscall for every non-Yes/No record keeps a
+    Windows-host bind mount from turning a normal restart into a long stall.
+    """
+
+    if limit < 1:
+        return []
+    path = LOCAL_VQA_ROOT / "Kvasir-VQA" / "Kvasir-VQA.json"
+    selected: list[dict[str, Any]] = []
+    for raw in json.loads(_read_text(path)):
+        question = str(raw.get("question") or "").strip()
+        answer = str(raw.get("answer") or raw.get("gt") or "").strip()
+        if answer.lower() not in {"yes", "no"} or not question:
+            continue
+        relative = str(raw.get("image_path") or "")
+        image_exists = (path.parent / relative).is_file()
+        if classify_kvasir_item(raw, image_exists) != "user_ready":
+            continue
+        selected.append(
+            {
+                "source_item_id": str(raw.get("id")),
+                "image_id": str(raw.get("img_id") or ""),
+                "image_path": relative.replace("\\", "/"),
+                "question": question,
+                "answer": answer,
+                "source": str(raw.get("source") or ""),
+                "business_usage": "user_ready",
+                "image_exists": True,
+            }
+        )
+        if len(selected) >= limit:
+            break
+    return selected
+
+
 def import_kvasir(limit: int = 400) -> int:
     policy = dataset_policy("kvasir-vqa")
-    records, _ = kvasir_classification()
-    selected = [record for record in records if record["business_usage"] == "user_ready"][:limit]
+    selected = _kvasir_user_ready_records(limit)
     rows: list[dict[str, Any]] = []
     for record in selected:
         answer = record["answer"].strip().lower()

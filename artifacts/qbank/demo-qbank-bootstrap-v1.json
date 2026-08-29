@@ -1,0 +1,35 @@
+{
+  "artifact": "demo-qbank-bootstrap-v1",
+  "generated_at": "2026-08-29",
+  "database": "Docker PostgreSQL clean-start acceptance volume",
+  "bootstrap": {
+    "mode": "ENDO_DEMO_QBANK_BOOTSTRAP=true",
+    "source_mounts": ["/app/data:ro", "/app/vqa-data:ro"],
+    "idempotent": true,
+    "destructive_operations": false
+  },
+  "priority_imports": {
+    "CMExam": 1500,
+    "CMB-Exam": 1778,
+    "Kvasir-VQA_curated": 400,
+    "portfolio_total": 3678
+  },
+  "learner_catalog": {
+    "zero_question_banks_visible": 0,
+    "zero_question_bank_detail_status": 404,
+    "zero_question_bank_session_status": 404
+  },
+  "persistence": {
+    "after_backend_restart": {
+      "CMExam": 1500,
+      "CMB-Exam": 1778,
+      "Kvasir-VQA_curated": 400
+    },
+    "volumes_deleted": false
+  },
+  "policy": {
+    "learner_rule": "business_usage=user_ready",
+    "EndoBench": "benchmark_only",
+    "raw_dataset_files_committed": false
+  }
+}

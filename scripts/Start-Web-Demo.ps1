@@ -22,6 +22,17 @@ $factoryWorkerPidFile = Join-Path $logsRoot "web-demo-factory-worker.pid"
 $backendPort = if ($env:ARIS_BACKEND_PORT) { [int]$env:ARIS_BACKEND_PORT } else { 8002 }
 $frontendPort = if ($env:ARIS_FRONTEND_PORT) { [int]$env:ARIS_FRONTEND_PORT } else { 5174 }
 $redisPort = if ($env:ARIS_REDIS_PORT) { [int]$env:ARIS_REDIS_PORT } else { 56379 }
+
+# The normal local launcher is also a Demo runtime.  Make the complete
+# portfolio QBank bootstrap explicit so a fresh local SQLite/PostgreSQL store
+# cannot silently fall back to the tiny legacy teaching seed.  Respect an
+# explicit caller override for isolated tests or lightweight development.
+if (-not $env:ENDO_DEMO_QBANK_BOOTSTRAP) {
+  $env:ENDO_DEMO_QBANK_BOOTSTRAP = "true"
+}
+if (-not $env:ENDO_PROJECT_DATA_ROOT) {
+  $env:ENDO_PROJECT_DATA_ROOT = Join-Path $codeRoot "data"
+}
 $backendUrl = "http://127.0.0.1:$backendPort"
 $frontendUrl = "http://127.0.0.1:$frontendPort"
 

@@ -147,6 +147,20 @@ def test_overview_banks_are_serializable_public_contract() -> None:
     assert not (_walk_keys(payload) & SENSITIVE_KEYS)
 
 
+def test_zero_question_bank_is_not_learner_visible_or_startable() -> None:
+    banks = client.get("/api/v3/question-banks").json()["items"]
+    assert all(item["question_count"] > 0 for item in banks)
+    assert client.get("/api/v3/question-banks/bank-colorectal-observation").status_code == 404
+
+    response = client.post("/api/v3/practice/sessions", json={
+        "learner_id": f"empty-bank-{uuid4().hex[:8]}",
+        "bank_id": "bank-colorectal-observation",
+        "mode": "study",
+        "question_count": 20,
+    })
+    assert response.status_code == 404
+
+
 def test_server_session_persists_random_membership_and_navigator_state() -> None:
     initialize_database()
     learner_id = f"session-membership-{uuid4().hex[:8]}"

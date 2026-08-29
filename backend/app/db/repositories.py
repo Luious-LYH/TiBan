@@ -38,21 +38,64 @@ class Stage1Repository:
             question.derived_from_dataset = "EndoBench"
             question.license_gate_status = "allow_noncommercial"
             question.source_uri = "https://github.com/medAI-NEU/EndoBench"
-        if benchmark_rows:
-            for bank in self.session.scalars(select(QuestionBankModel)).all():
-                visible = list(self.session.scalars(select(QuestionModel).where(QuestionModel.bank_id == bank.bank_id, QuestionModel.business_usage == "user_ready")))
-                bank.question_count = len(visible)
-                bank.question_type_counts = dict(Counter(item.question_type for item in visible))
-                bank.modality_counts = dict(Counter(item.modality for item in visible))
-                bank.body_parts = sorted({item.body_part for item in visible})
-            # Quarantine is a data-policy migration, not a response-only
-            # projection. Persist it so a fresh process cannot expose legacy
-            # benchmark/research rows before the next repository read.
+        banks = list(self.session.scalars(select(QuestionBankModel)).all())
+        type_rows = self.session.execute(
+            select(QuestionModel.bank_id, QuestionModel.question_type, func.count(QuestionModel.question_id))
+            .where(QuestionModel.business_usage == "user_ready")
+            .group_by(QuestionModel.bank_id, QuestionModel.question_type)
+        ).all()
+        modality_rows = self.session.execute(
+            select(QuestionModel.bank_id, QuestionModel.modality, func.count(QuestionModel.question_id))
+            .where(QuestionModel.business_usage == "user_ready")
+            .group_by(QuestionModel.bank_id, QuestionModel.modality)
+        ).all()
+        body_rows = self.session.execute(
+            select(QuestionModel.bank_id, QuestionModel.body_part)
+            .where(QuestionModel.business_usage == "user_ready")
+            .distinct()
+        ).all()
+        types_by_bank: dict[str, dict[str, int]] = {}
+        for bank_id, question_type, count in type_rows:
+            types_by_bank.setdefault(str(bank_id), {})[str(question_type)] = int(count)
+        modalities_by_bank: dict[str, dict[str, int]] = {}
+        for bank_id, modality, count in modality_rows:
+            modalities_by_bank.setdefault(str(bank_id), {})[str(modality)] = int(count)
+        bodies_by_bank: dict[str, list[str]] = {}
+        for bank_id, body_part in body_rows:
+            bodies_by_bank.setdefault(str(bank_id), []).append(str(body_part))
+
+        inventory_changed = False
+        for bank in banks:
+            type_counts = types_by_bank.get(bank.bank_id, {})
+            modality_counts = modalities_by_bank.get(bank.bank_id, {})
+            body_parts = sorted(bodies_by_bank.get(bank.bank_id, []))
+            question_count = sum(type_counts.values())
+            if (
+                bank.question_count != question_count
+                or dict(bank.question_type_counts or {}) != type_counts
+                or dict(bank.modality_counts or {}) != modality_counts
+                or list(bank.body_parts or []) != body_parts
+            ):
+                bank.question_count = question_count
+                bank.question_type_counts = type_counts
+                bank.modality_counts = modality_counts
+                bank.body_parts = body_parts
+                inventory_changed = True
+        if benchmark_rows or inventory_changed:
+            # Quarantine and inventory are data-policy projections, not
+            # response-only filters. Persist them so a fresh process cannot
+            # expose benchmark rows or stale zero-question counts.
             self.session.commit()
 
     def list_banks(self, learner_id: str = "demo_learner") -> list[QuestionBankModel]:
         self.ensure_seeded()
-        banks = list(self.session.scalars(select(QuestionBankModel).order_by(QuestionBankModel.name)))
+        banks = list(
+            self.session.scalars(
+                select(QuestionBankModel)
+                .where(QuestionBankModel.question_count > 0)
+                .order_by(QuestionBankModel.name)
+            )
+        )
         for bank in banks:
             completed = self.session.scalar(
                 select(func.count(func.distinct(AttemptModel.question_id)))
@@ -69,7 +112,7 @@ class Stage1Repository:
     def get_bank(self, bank_id: str) -> QuestionBankModel:
         self.ensure_seeded()
         bank = self.session.get(QuestionBankModel, bank_id)
-        if not bank:
+        if not bank or bank.question_count <= 0:
             raise KeyError(f"Question bank not found: {bank_id}")
         return bank
 
