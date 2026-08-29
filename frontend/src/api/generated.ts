@@ -2201,6 +2201,19 @@ export interface components {
             question_count: number;
             /** Question Ids */
             question_ids?: string[];
+            /**
+             * Selection Strategy
+             * @default coverage
+             * @enum {string}
+             */
+            selection_strategy: "due_review" | "weak_topic" | "coverage";
+            /**
+             * Selection Reason
+             * @default 本次按题库覆盖安排练习。
+             */
+            selection_reason: string;
+            /** Selection Evidence */
+            selection_evidence?: string[];
             /** Items */
             items?: components["schemas"]["PracticeSessionQuestionStatePublic"][];
         };
@@ -2231,6 +2244,19 @@ export interface components {
             question_count: number;
             /** Question Ids */
             question_ids?: string[];
+            /**
+             * Selection Strategy
+             * @default coverage
+             * @enum {string}
+             */
+            selection_strategy: "due_review" | "weak_topic" | "coverage";
+            /**
+             * Selection Reason
+             * @default 本次按题库覆盖安排练习。
+             */
+            selection_reason: string;
+            /** Selection Evidence */
+            selection_evidence?: string[];
         };
         /** PracticeSessionQuestionStatePublic */
         PracticeSessionQuestionStatePublic: {
@@ -3032,6 +3058,7 @@ export interface operations {
                 subject?: string | null;
                 topic?: string | null;
                 search?: string | null;
+                session_id?: string | null;
                 limit?: number;
                 offset?: number;
             };

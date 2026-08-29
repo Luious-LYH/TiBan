@@ -1,0 +1,782 @@
+{
+  "dataset_version": "tutor-answer-eval-v1",
+  "dataset_hash_basis": "canonical JSON of cases",
+  "sample_count": 50,
+  "review_policy": {
+    "human_review_required": true,
+    "status": "pending",
+    "note": "This is a small engineering review set, not clinical validation. Scores require independent human review."
+  },
+  "rubric": {
+    "correctness": "0 incorrect or unsupported; 1 partially correct; 2 factually and evidentially correct",
+    "helpfulness": "0 does not advance the learner; 1 generic but usable; 2 actionable teaching guidance",
+    "instruction_following": "0 violates phase/mode or request; 1 minor mismatch; 2 follows the requested hint/explanation depth",
+    "citation_support": "0 missing/contradicted when citation is required; 1 partial; 2 every cited claim is traceable",
+    "unnecessary_retrieval": "0 unnecessary or irrelevant retrieval; 1 debatable; 2 retrieval decision is appropriate",
+    "verbosity": "0 obstructive; 1 acceptable; 2 concise for the requested format"
+  },
+  "categories": [
+    "citation_needed",
+    "current_question_explanation",
+    "direct_answer",
+    "follow_up",
+    "general_gi_knowledge",
+    "hint_only",
+    "out_of_domain",
+    "rag_needed",
+    "rag_not_needed",
+    "wrong_option_explanation"
+  ],
+  "cases": [
+    {
+      "id": "tutor-eval-v1-001",
+      "category": "current_question_explanation",
+      "variant": 1,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请结合当前题干，解释我应该先识别什么。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-002",
+      "category": "current_question_explanation",
+      "variant": 2,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "不要直接给结论，帮我拆解这道题的观察步骤。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-003",
+      "category": "current_question_explanation",
+      "variant": 3,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "我看不懂题干，请按证据顺序讲解。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-004",
+      "category": "current_question_explanation",
+      "variant": 4,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "当前题最容易混淆的观察点是什么？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-005",
+      "category": "current_question_explanation",
+      "variant": 5,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请把这道题的学习目标说清楚。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-006",
+      "category": "wrong_option_explanation",
+      "variant": 1,
+      "phase": "post_submit",
+      "mode": "study",
+      "user_message": "我刚才选错了，请解释错因并指出应复核的证据。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "post_submit_result_only",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-007",
+      "category": "wrong_option_explanation",
+      "variant": 2,
+      "phase": "post_submit",
+      "mode": "study",
+      "user_message": "提交后我想知道错误选项为什么不成立。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "post_submit_result_only",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-008",
+      "category": "wrong_option_explanation",
+      "variant": 3,
+      "phase": "post_submit",
+      "mode": "study",
+      "user_message": "请根据我的作答结果给一个纠错路径。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "post_submit_result_only",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-009",
+      "category": "wrong_option_explanation",
+      "variant": 4,
+      "phase": "post_submit",
+      "mode": "study",
+      "user_message": "我把两个选项混淆了，应该怎样区分？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "post_submit_result_only",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-010",
+      "category": "wrong_option_explanation",
+      "variant": 5,
+      "phase": "post_submit",
+      "mode": "study",
+      "user_message": "请只解释错误类型，不要扩大成临床诊断。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "post_submit_result_only",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-011",
+      "category": "direct_answer",
+      "variant": 1,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "Study 模式下可以告诉我当前题答案并解释吗？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "study_explicit_request",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-012",
+      "category": "direct_answer",
+      "variant": 2,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "我已经准备好提交了，请给出答案和理由。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "study_explicit_request",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-013",
+      "category": "direct_answer",
+      "variant": 3,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请直接说明正确选项，再给一句证据解释。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "study_explicit_request",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-014",
+      "category": "direct_answer",
+      "variant": 4,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "这题的参考答案是什么？请保持教学边界。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "study_explicit_request",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-015",
+      "category": "direct_answer",
+      "variant": 5,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "我需要核对答案，请给出受控的答案解释。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "study_explicit_request",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-016",
+      "category": "hint_only",
+      "variant": 1,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "只给我一个提示，不要透露答案。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-017",
+      "category": "hint_only",
+      "variant": 2,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请给分级提示，让我自己作答。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-018",
+      "category": "hint_only",
+      "variant": 3,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "先提示关键词，不要说正确选项。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-019",
+      "category": "hint_only",
+      "variant": 4,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "我想自己完成，请指出下一步观察方向。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-020",
+      "category": "hint_only",
+      "variant": 5,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "给我最小必要提示，不要直接揭示结论。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-021",
+      "category": "follow_up",
+      "variant": 1,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "那我下一步应该先看哪一个线索？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-022",
+      "category": "follow_up",
+      "variant": 2,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "沿着刚才的思路，再举一个判断步骤。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-023",
+      "category": "follow_up",
+      "variant": 3,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "如果题干信息不完整，下一步怎么处理？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-024",
+      "category": "follow_up",
+      "variant": 4,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请把上一条建议压缩成一个复习动作。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-025",
+      "category": "follow_up",
+      "variant": 5,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "我理解了观察顺序，接下来如何自检？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-026",
+      "category": "general_gi_knowledge",
+      "variant": 1,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请解释一个消化道内镜观察中的基础概念。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-027",
+      "category": "general_gi_knowledge",
+      "variant": 2,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "能简要讲讲黏膜描述通常关注哪些维度吗？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-028",
+      "category": "general_gi_knowledge",
+      "variant": 3,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "我想复习消化道定位时常用的观察线索。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-029",
+      "category": "general_gi_knowledge",
+      "variant": 4,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请给一个适合初学者的内镜观察复习框架。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-030",
+      "category": "general_gi_knowledge",
+      "variant": 5,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "如何区分可见观察事实与需要进一步复核的判断？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-031",
+      "category": "rag_needed",
+      "variant": 1,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请根据资料解释内镜观察的先后顺序，并标明依据。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-032",
+      "category": "rag_needed",
+      "variant": 2,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "我需要查阅教学资料来复习出血记录要点。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-033",
+      "category": "rag_needed",
+      "variant": 3,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请从知识库找出与当前观察目标相关的证据。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-034",
+      "category": "rag_needed",
+      "variant": 4,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "这个问题需要资料支持，请检索后给出简短总结。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-035",
+      "category": "rag_needed",
+      "variant": 5,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请引用允许的教学资料，不要凭空补充。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-036",
+      "category": "rag_not_needed",
+      "variant": 1,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "只根据当前题干告诉我下一步怎么做，不需要额外资料。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-037",
+      "category": "rag_not_needed",
+      "variant": 2,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "用一句话总结我刚才的练习状态。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-038",
+      "category": "rag_not_needed",
+      "variant": 3,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请把当前反馈改写得更短一些。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-039",
+      "category": "rag_not_needed",
+      "variant": 4,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "我只想确认操作顺序，不用展开知识库内容。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-040",
+      "category": "rag_not_needed",
+      "variant": 5,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请复述当前可见信息，不要主动扩展检索。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-041",
+      "category": "out_of_domain",
+      "variant": 1,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请帮我写一份与医学无关的旅游攻略。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-042",
+      "category": "out_of_domain",
+      "variant": 2,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "解释一下股票短线交易策略。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-043",
+      "category": "out_of_domain",
+      "variant": 3,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请生成一个游戏角色的完整世界观。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-044",
+      "category": "out_of_domain",
+      "variant": 4,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "帮我调试一个与本题无关的前端动画。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-045",
+      "category": "out_of_domain",
+      "variant": 5,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "给我一份家常菜购物清单。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": false
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-046",
+      "category": "citation_needed",
+      "variant": 1,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "这个结论来自哪份资料、哪一页、哪一节？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-047",
+      "category": "citation_needed",
+      "variant": 2,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请把你的依据用用户能看懂的资料名称和页码列出。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-048",
+      "category": "citation_needed",
+      "variant": 3,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "哪些话是题目内容，哪些话来自检索资料？",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-049",
+      "category": "citation_needed",
+      "variant": 4,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "请检查引用是否真的支持你刚才的解释。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    },
+    {
+      "id": "tutor-eval-v1-050",
+      "category": "citation_needed",
+      "variant": 5,
+      "phase": "pre_submit",
+      "mode": "study",
+      "user_message": "只保留可以追溯到来源的教学结论。",
+      "expected_behavior": {
+        "must_preserve_safety_notice": true,
+        "must_not_reveal_raw_chain_of_thought": true,
+        "answer_permission": "pre_submit_boundary",
+        "citation_required": true
+      },
+      "review_status": "pending_human_review"
+    }
+  ]
+}

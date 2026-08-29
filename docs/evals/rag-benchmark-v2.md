@@ -33,10 +33,15 @@ Heading-aware parent plus child-180 produced Hybrid MRR 0.6635 / nDCG@5 0.6723;
 child-280 produced MRR 0.7017 / nDCG@5 0.6982. This is a small engineering
 ablation, not a clinical study.
 
-## Decision and limitation
+## Default decision and limitation
 
-The deployed Tutor default remains the existing Hybrid RRF path until a
-clinician/educator reviews the frozen query relevance and hard negatives.
+The Stage 1 Tutor default is **Dense**. Sparse wins the small development
+screen, but the frozen held-out verification reverses that ordering; Dense is
+the stronger non-reranked generalization trade-off while avoiding the
+substantial tail latency of hybrid+rerank. Sparse, Hybrid RRF and Hybrid +
+Rerank remain available as benchmark/diagnostic paths. The decision artifact
+is [`retrieval-default-decision-v1.json`](../../artifacts/rag/retrieval-default-decision-v1.json).
+
 Reranking is measurable evidence with a substantial latency cost, not an
 automatic product-default change. The candidate fixture is explicitly marked
 `human_review_status: pending`; therefore these figures may support an

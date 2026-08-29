@@ -6,7 +6,7 @@ models during the recording.
 | Time | Surface | Talk track |
 |---|---|---|
 | 0:00–0:40 | Overview / Banks | Show the learner-facing QBank counts and explain that demo data is curated and source-governed. |
-| 0:40–2:00 | Practice / Study | Open a text or image question, submit an answer, show deterministic feedback, then ask the persistent right-side Tutor a follow-up. |
+| 0:40–2:00 | Practice / Study | Open a text or image question, show the server-generated adaptive recommendation, submit an answer, show deterministic feedback, then ask the persistent right-side Tutor a follow-up. |
 | 2:00–2:40 | Tutor | Show token streaming, real tool/source parts, collapsed high-level reasoning summary and the teaching safety notice; do not open raw reasoning. |
 | 2:40–3:30 | Exam / Review | Switch to Exam, show locked pre-submit answer feedback, then review an incorrect attempt and apply Again/Hard/Good/Easy. |
 | 3:30–5:00 | Question Factory | Upload one allowed Markdown/PDF source, show real job states, Generator/Judge result, repaired revision lineage, review gate and explicit publish. |
@@ -21,3 +21,7 @@ Stable routes:
 
 Keep the API key out of recordings. For EndoBench, explicitly say
 “Evaluation-only”; never present it as Tutor knowledge or a learner QBank.
+
+Stage 1 adaptive proof: open `artifacts/learning/adaptive-loop-demo-v1.json`
+after the Practice flow and point out the before state, deliberate Topic A
+error, after-state mastery/ReviewCard and next-session `weak_topic` reason.

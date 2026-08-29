@@ -4,8 +4,10 @@ import json
 
 from fastapi.testclient import TestClient
 
+from app.db.database import SessionLocal
+from app.db.models import QuestionModel
 from app.main import app
-from app.services.agent_runtime import AgentContext, AgentRunner, ModelGateway, ToolRegistry, _clean_user_facing_text, tutor_runner
+from app.services.agent_runtime import AgentContext, AgentRunner, LocalPolicyModelGateway, ModelGateway, ToolRegistry, _clean_user_facing_text, tutor_runner
 from app.services.llm_provider import LLMProvider, LLMResult
 
 
@@ -47,6 +49,37 @@ def test_event_order_is_real_tool_receipt_then_tokens_then_end() -> None:
     assert names[0] == 'message_start'
     assert names.index('tool_start') < names.index('tool_end') < names.index('token') < names.index('message_end')
     assert any(event.event == 'source' for event in events)
+
+
+def test_recent_mistakes_is_read_only_and_answer_free() -> None:
+    learner_id = 'agent-recent-mistakes'
+    with SessionLocal() as session:
+        question = session.get(QuestionModel, 'endo_text_esophagus_reflux_single')
+        assert question is not None
+        correct_id = question.grading_payload['correct_option_id']
+        wrong_id = next(option['id'] for option in question.options if option['id'] != correct_id)
+
+    client = TestClient(app)
+    submitted = client.post('/api/v3/practice/submit', json={
+        'learner_id': learner_id,
+        'question_id': question.question_id,
+        'selected_answer': wrong_id,
+        'mode': 'study',
+    })
+    assert submitted.status_code == 200, submitted.text
+
+    context = AgentContext(
+        question_id=question.question_id,
+        learner_id=learner_id,
+        user_message='请结合我近期错题告诉我该复习什么。',
+        phase='pre_submit',
+    )
+    selected = LocalPolicyModelGateway().select_tools(context, tutor_runner.registry.allowed('pre_submit'))
+    assert 'get_recent_mistakes' in selected
+    observation, receipt = tutor_runner.registry.call('get_recent_mistakes', context)
+    assert receipt.status == 'ok'
+    assert observation and observation[0]['question_id'] == question.question_id
+    assert not (_keys(observation) & (SENSITIVE | {'selected_answer', 'grading_payload', 'explanation'}))
 
 
 def test_sse_endpoint_emits_protocol_events() -> None:

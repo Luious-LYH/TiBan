@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { StrictMode } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
@@ -68,12 +69,17 @@ function renderPage(ui: React.ReactNode, initialEntries = ['/']) {
   return render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider>)
 }
 
+function renderStrictPage(ui: React.ReactNode, initialEntries = ['/']) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(<StrictMode><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider></StrictMode>)
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockedGetOverview.mockResolvedValue(overview)
   mockedGetQuestionBanks.mockResolvedValue(banks)
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
-  mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [] })
+  mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'] })
   mockedSubmit.mockResolvedValue(submitResult('single'))
   mockedMentor.mockResolvedValue({ learner_id: 'demo_learner', study_goal: '复盘', due_review_count: 1, focus: '胃', weak_areas: ['胃'], recent_errors: [], steps: [{ kind: 'review', title: '完成复习', question_ids: [] }] })
   mockedReview.mockResolvedValue({ review_card_id: 'review-test', question_id: 'single', due_at: '2026-08-29T00:00:00Z', interval_days: 1, difficulty: 2, stability: 1, retrievability: .9, state: 'Learning', review_count: 1 })
@@ -141,6 +147,44 @@ describe('Stage 1 page contracts', () => {
       expect(JSON.stringify(payload)).not.toContain('correct_option_id')
       view.unmount()
     }
+  })
+
+  it('uses server session membership and shows the adaptive selection reason', async () => {
+    const orderedQuestions: Question[] = questionVariants.map((question) => ({
+      ...question,
+      title: `题-${question.id}`,
+      stem: `题干-${question.id}`,
+    }))
+    const sessionQuestions = [
+      orderedQuestions.find((question) => question.id === 'short')!,
+      orderedQuestions.find((question) => question.id === 'single')!,
+    ]
+    mockedGetQuestions.mockResolvedValue(questionsResponse(sessionQuestions))
+    mockedCreateSession.mockResolvedValueOnce({
+      session_id: 'session-adaptive',
+      bank_id: 'bank-a',
+      learner_id: 'demo_learner',
+      mode: 'study',
+      status: 'active',
+      started_at: '2026-08-28T00:00:00Z',
+      question_count: 2,
+      question_ids: ['short', 'single'],
+      selection_strategy: 'weak_topic',
+      selection_reason: '优先巩固「胃」相关题目，再维持题库覆盖。',
+      selection_evidence: ['「胃」当前掌握度 40.0%。'],
+    })
+
+    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    expect(await screen.findByTestId('session-recommendation')).toHaveAttribute('data-selection-strategy', 'weak_topic')
+    expect(screen.getByText('优先巩固「胃」相关题目，再维持题库覆盖。')).toBeInTheDocument()
+    expect(screen.getByText('题-short')).toBeInTheDocument()
+    expect(mockedGetQuestions).toHaveBeenLastCalledWith({ bankId: 'bank-a', sessionId: 'session-adaptive' })
+  })
+
+  it('does not duplicate a server session under React StrictMode', async () => {
+    renderStrictPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    await screen.findByTestId('session-recommendation')
+    expect(mockedCreateSession).toHaveBeenCalledTimes(1)
   })
 
   it('shows loading, error and no private answer fields in the browser UI', async () => {

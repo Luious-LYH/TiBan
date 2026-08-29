@@ -11,7 +11,15 @@ from sqlalchemy.orm import Session
 
 from app.core.config import SAFETY_NOTICE
 
-from .models import AttemptModel, PracticeSessionItemModel, PracticeSessionModel, QuestionBankModel, QuestionModel, ReviewCardModel
+from .models import (
+    AttemptModel,
+    LearnerMasteryModel,
+    PracticeSessionItemModel,
+    PracticeSessionModel,
+    QuestionBankModel,
+    QuestionModel,
+    ReviewCardModel,
+)
 from .seed import TYPE_CODE, TYPE_LABEL, seed_database
 
 
@@ -121,22 +129,25 @@ class Stage1Repository:
         mode: str = "practice",
         question_count: int = 20,
         shuffle_seed: int | None = None,
-    ) -> PracticeSessionModel:
+    ) -> tuple[PracticeSessionModel, dict[str, Any]]:
         self.get_bank(bank_id)
-        question_ids = list(
+        questions = list(
             self.session.scalars(
-                select(QuestionModel.question_id)
+                select(QuestionModel)
                 .where(QuestionModel.bank_id == bank_id, QuestionModel.business_usage == "user_ready")
                 .order_by(QuestionModel.question_id)
             )
         )
-        if not question_ids:
+        if not questions:
             raise KeyError(f"No learner-ready questions in bank: {bank_id}")
-        selection_size = min(max(question_count, 1), len(question_ids))
-        # A supplied seed makes a scale run reproducible; ordinary learner
-        # sessions use a fresh RNG and never depend on client-only ordering.
-        rng = random.Random(shuffle_seed) if shuffle_seed is not None else random.SystemRandom()
-        selected_ids = rng.sample(question_ids, selection_size)
+        selection_size = min(max(question_count, 1), len(questions))
+        selected_ids, selection = self._select_adaptive_session_questions(
+            learner_id=learner_id,
+            bank_id=bank_id,
+            questions=questions,
+            selection_size=selection_size,
+            shuffle_seed=shuffle_seed,
+        )
         session = PracticeSessionModel(
             session_id=f"session_{uuid4().hex[:12]}",
             learner_id=learner_id,
@@ -159,14 +170,156 @@ class Stage1Repository:
         )
         self.session.commit()
         self.session.refresh(session)
-        return session
+        return session, selection
+
+    def _select_adaptive_session_questions(
+        self,
+        *,
+        learner_id: str,
+        bank_id: str,
+        questions: list[QuestionModel],
+        selection_size: int,
+        shuffle_seed: int | None,
+    ) -> tuple[list[str], dict[str, Any]]:
+        """Select a bounded session from existing deterministic learner state.
+
+        No selection result is stored as a second LearningState record.  The
+        immutable attempts, derived mastery rows and FSRS cards remain the
+        sources of truth; the returned reason is a transparent projection of
+        the choice made at this session boundary.
+        """
+
+        question_ids = [question.question_id for question in questions]
+        now = datetime.utcnow()
+        attempt_rows = list(
+            self.session.execute(
+                select(AttemptModel, QuestionModel)
+                .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
+                .where(
+                    AttemptModel.learner_id == learner_id,
+                    QuestionModel.bank_id == bank_id,
+                    QuestionModel.business_usage == "user_ready",
+                )
+                .order_by(AttemptModel.created_at.desc())
+            ).all()
+        )
+        attempted_ids = {attempt.question_id for attempt, _ in attempt_rows}
+        error_count_by_point: Counter[str] = Counter()
+        for attempt, question in attempt_rows:
+            if not attempt.correct:
+                error_count_by_point.update(self._question_points(question))
+
+        mastery_by_point = {
+            row.knowledge_point: row
+            for row in self.session.scalars(
+                select(LearnerMasteryModel).where(LearnerMasteryModel.learner_id == learner_id)
+            )
+            if row.attempt_count > 0
+        }
+        due_by_question = {
+            row.question_id: row
+            for row in self.session.scalars(
+                select(ReviewCardModel).where(
+                    ReviewCardModel.learner_id == learner_id,
+                    ReviewCardModel.question_id.in_(question_ids),
+                )
+            )
+            if row.due_at <= now
+        }
+
+        # A supplied seed preserves reproducibility for scale/acceptance runs.
+        # Normal sessions may rotate otherwise-equivalent coverage questions,
+        # but never bypass due-review or weak-topic priority tiers.
+        rng = random.Random(shuffle_seed) if shuffle_seed is not None else random.SystemRandom()
+        tie_breakers = {question.question_id: rng.random() for question in questions}
+
+        def weak_records(question: QuestionModel) -> list[LearnerMasteryModel]:
+            return [
+                mastery_by_point[point]
+                for point in self._question_points(question)
+                if point in mastery_by_point and mastery_by_point[point].mastery_score < 80
+            ]
+
+        def rank(question: QuestionModel) -> tuple[int, float, int, float]:
+            due = due_by_question.get(question.question_id)
+            if due is not None:
+                return (0, due.due_at.timestamp(), 0, tie_breakers[question.question_id])
+            weak = weak_records(question)
+            if weak:
+                weakest = min(weak, key=lambda row: row.mastery_score)
+                return (
+                    1,
+                    weakest.mastery_score,
+                    -max(error_count_by_point.get(point, 0) for point in self._question_points(question)),
+                    tie_breakers[question.question_id],
+                )
+            if question.question_id not in attempted_ids:
+                return (2, 0, 0, tie_breakers[question.question_id])
+            return (3, 0, 0, tie_breakers[question.question_id])
+
+        selected = sorted(questions, key=rank)[:selection_size]
+        selected_due = [question for question in selected if question.question_id in due_by_question]
+        selected_weak = [question for question in selected if weak_records(question)]
+        selected_unseen = [question for question in selected if question.question_id not in attempted_ids]
+
+        if selected_due:
+            strategy = "due_review"
+            evidence = [f"优先放入 {len(selected_due)} 道已到复习时间的题目。"]
+            if selected_unseen:
+                evidence.append(f"其余题目中补入 {len(selected_unseen)} 道未练题，保持题库覆盖。")
+            reason = "本次先安排到期复习，再补齐尚未覆盖的练习。"
+        elif selected_weak:
+            strategy = "weak_topic"
+            focus = min(
+                (
+                    row
+                    for question in selected_weak
+                    for row in weak_records(question)
+                ),
+                key=lambda row: row.mastery_score,
+            )
+            errors = error_count_by_point.get(focus.knowledge_point, 0)
+            evidence = [
+                f"「{focus.knowledge_point}」当前掌握度 {focus.mastery_score:.1f}%。",
+                f"该知识点已有 {focus.attempt_count} 次练习，累计错误 {errors} 次。",
+            ]
+            if selected_unseen:
+                evidence.append(f"同时保留 {len(selected_unseen)} 道未练题，避免只重复单一知识点。")
+            reason = f"优先巩固「{focus.knowledge_point}」相关题目，再维持题库覆盖。"
+        else:
+            strategy = "coverage"
+            evidence = [f"当前没有到期复习或显著薄弱项，优先安排 {len(selected_unseen)} 道未练题。"]
+            reason = "本次按未练题与题库覆盖安排练习。"
+
+        return [question.question_id for question in selected], {
+            "selection_strategy": strategy,
+            "selection_reason": reason,
+            "selection_evidence": evidence,
+        }
+
+    @staticmethod
+    def _question_points(question: QuestionModel) -> set[str]:
+        return {str(item).strip() for item in (question.teaching_tags or [question.body_part]) if str(item).strip()}
 
     def get_or_create_session(self, learner_id: str, bank_id: str, session_id: str | None, mode: str = "practice") -> PracticeSessionModel:
         if session_id:
             current = self.session.get(PracticeSessionModel, session_id)
             if current and current.learner_id == learner_id and current.bank_id == bank_id:
                 return current
-        return self.create_session(learner_id, bank_id, mode)
+        created, _ = self.create_session(learner_id, bank_id, mode)
+        return created
+
+    def session_questions(self, session_id: str) -> list[QuestionModel]:
+        """Return persisted server membership in its authoritative order."""
+
+        return list(
+            self.session.scalars(
+                select(QuestionModel)
+                .join(PracticeSessionItemModel, PracticeSessionItemModel.question_id == QuestionModel.question_id)
+                .where(PracticeSessionItemModel.practice_session_id == session_id)
+                .order_by(PracticeSessionItemModel.ordinal)
+            )
+        )
 
     def session_items(self, session_id: str) -> list[dict[str, object]]:
         session = self.session.get(PracticeSessionModel, session_id)

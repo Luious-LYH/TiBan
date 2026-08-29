@@ -8,6 +8,22 @@ with an independently runnable FastAPI backend, SSE and a small route surface.
 generated OpenAPI boundary is explicit. **Evidence:** frontend build and API
 drift checks.
 
+## What does “adaptive learning loop” mean here?
+
+It is not online training of LLM weights. A submit follows deterministic
+`grade → immutable Attempt → mastery projection → FSRS ReviewCard`; the next
+session builder reads due cards, weak topics and coverage state to select its
+questions and returns a short reason. The isolated demo artifact shows a
+deliberate Topic A error changing the next session to `weak_topic`.
+
+## Why is Dense the Tutor retrieval default?
+
+The development screen favored sparse, but the frozen held-out verification
+favored Dense among the non-reranked paths. Dense is therefore the product
+default; sparse, Hybrid RRF and Hybrid + rerank remain benchmark/diagnostic
+paths. The reranker is not the default because its tail latency is materially
+higher. This is an engineering benchmark decision, not clinical validation.
+
 ## Why a custom Tutor harness instead of LangGraph?
 
 **Decision:** a small custom runtime. **Reason:** Tutor only needs a bounded
@@ -35,8 +51,9 @@ coordination. **Evidence:** RAG pipeline and corpus artifact.
 Chinese teaching notes have stable terminology and a small corpus, so character
 bigram sparse matching is competitive and cheap. The English-trained
 cross-encoder added latency and mismatched the Chinese domain; the benchmark
-keeps that negative result instead of hiding it. Hybrid remains the selected
-product trade-off.
+keeps that negative result instead of hiding it. Dense remains the selected
+product default after the held-out check, while the other chains remain
+available for comparison.
 
 ## How was RAG ground truth created?
 

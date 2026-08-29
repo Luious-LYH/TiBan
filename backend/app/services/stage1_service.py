@@ -38,22 +38,43 @@ class Stage1Service:
         subject: str | None = None,
         topic: str | None = None,
         search: str | None = None,
+        session_id: str | None = None,
         limit: int = 18,
         offset: int = 0,
         legacy: bool = False,
     ) -> list[dict[str, Any]]:
         session, repository = self._repository()
         try:
-            questions = repository.list_questions(
-                bank_id=bank_id,
-                question_type=question_type,
-                body_part=body_part,
-                subject=subject,
-                topic=topic,
-                search=search,
-                limit=limit,
-                offset=offset,
-            )
+            if session_id:
+                practice_session = session.get(PracticeSessionModel, session_id)
+                if practice_session is None:
+                    raise KeyError(session_id)
+                if bank_id and practice_session.bank_id != bank_id:
+                    raise KeyError(session_id)
+                questions = [
+                    question
+                    for question in repository.session_questions(session_id)
+                    if self._matches_question_filters(
+                        question,
+                        question_type=question_type,
+                        body_part=body_part,
+                        subject=subject,
+                        topic=topic,
+                        search=search,
+                    )
+                ]
+                questions = questions[max(offset, 0): max(offset, 0) + max(min(limit, 100), 1)]
+            else:
+                questions = repository.list_questions(
+                    bank_id=bank_id,
+                    question_type=question_type,
+                    body_part=body_part,
+                    subject=subject,
+                    topic=topic,
+                    search=search,
+                    limit=limit,
+                    offset=offset,
+                )
             if legacy:
                 from app.db.serializers import legacy_question_payload
 
@@ -84,7 +105,7 @@ class Stage1Service:
     ) -> dict[str, Any]:
         session, repository = self._repository()
         try:
-            created = repository.create_session(learner_id, bank_id, mode, question_count, shuffle_seed)
+            created, selection = repository.create_session(learner_id, bank_id, mode, question_count, shuffle_seed)
             items = repository.session_items(created.session_id)
             return {
                 "session_id": created.session_id,
@@ -95,6 +116,7 @@ class Stage1Service:
                 "started_at": created.started_at,
                 "question_count": len(items),
                 "question_ids": [str(item["question_id"]) for item in items],
+                **selection,
             }
         finally:
             session.close()
@@ -210,6 +232,32 @@ class Stage1Service:
                 return value
             return str(value).strip().lower() in {"true", "1", "正确", "是", "yes"}
         return str(value).strip()
+
+    @staticmethod
+    def _matches_question_filters(
+        question: Any,
+        *,
+        question_type: str | None,
+        body_part: str | None,
+        subject: str | None,
+        topic: str | None,
+        search: str | None,
+    ) -> bool:
+        if question_type and question.question_type != question_type:
+            return False
+        if body_part and question.body_part != body_part:
+            return False
+        if subject and question.subject != subject:
+            return False
+        if topic and question.topic != topic:
+            return False
+        if search:
+            query = search.strip().lower()
+            if query and query not in " ".join(
+                str(value or "") for value in (question.title, question.stem, question.body_part)
+            ).lower():
+                return False
+        return True
 
     def _grade(self, question: Any, grading: dict[str, Any], selected: Any) -> tuple[int, bool, list[str]]:
         question_type = grading["question_type"]

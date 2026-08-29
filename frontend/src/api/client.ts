@@ -75,17 +75,18 @@ export interface QuestionQuery {
   bankId?: string
   questionType?: string
   search?: string
+  sessionId?: string
 }
 
 export function getQuestions(query: QuestionQuery = {}): Promise<QuestionsResponse> {
   return unwrap(api.GET('/api/v3/practice/questions', {
-    params: { query: { bank_id: query.bankId, question_type: query.questionType, search: query.search, limit: 100 } },
+    params: { query: { bank_id: query.bankId, question_type: query.questionType, search: query.search, session_id: query.sessionId, limit: 100 } },
   }))
 }
 
-export function createPracticeSession(bankId: string, learnerId = 'demo_learner', mode: 'study' | 'exam' | 'review' | 'practice' = 'study'): Promise<SessionResponse> {
+export function createPracticeSession(bankId: string, learnerId = 'demo_learner', mode: 'study' | 'exam' | 'review' | 'practice' = 'study', questionCount = 20): Promise<SessionResponse> {
   return unwrap(api.POST('/api/v3/practice/sessions', {
-    body: { bank_id: bankId, learner_id: learnerId, mode, question_count: 20 },
+    body: { bank_id: bankId, learner_id: learnerId, mode, question_count: questionCount },
   }))
 }
 

@@ -36,19 +36,24 @@ def list_questions_v3(
     subject: str | None = Query(default=None),
     topic: str | None = Query(default=None),
     search: str | None = Query(default=None),
+    session_id: str | None = Query(default=None),
     limit: int = Query(default=18, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
-    items = stage1_service.list_public_questions(
-        bank_id=bank_id,
-        question_type=question_type,
-        body_part=body_part,
-        subject=subject,
-        topic=topic,
-        search=search,
-        limit=limit,
-        offset=offset,
-    )
+    try:
+        items = stage1_service.list_public_questions(
+            bank_id=bank_id,
+            question_type=question_type,
+            body_part=body_part,
+            subject=subject,
+            topic=topic,
+            search=search,
+            session_id=session_id,
+            limit=limit,
+            offset=offset,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Practice session not found.") from exc
     return {
         "items": items,
         "total": len(items),

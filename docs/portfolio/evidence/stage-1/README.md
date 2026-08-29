@@ -11,4 +11,10 @@ Evidence was captured from the real local FastAPI + Vite services with Playwrigh
 
 Additional mobile interaction evidence: [practice-tutor-375.png](practice-tutor-375.png), captured after opening the Tutor bottom sheet.
 
+Stage 1 adaptive-loop evidence is captured against the Docker clean-start
+frontend: [adaptive-session-docker-1280.png](adaptive-session-docker-1280.png)
+and [adaptive-session-docker-375.png](adaptive-session-docker-375.png). The
+session recommendation is rendered from the server-created session contract;
+the mobile Tutor sheet remains a responsive interaction surface.
+
 The screenshots show the backend-seeded catalog and existing offline evaluation artifact. They are not mock product data.

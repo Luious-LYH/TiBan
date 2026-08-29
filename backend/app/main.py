@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import APP_NAME
+from app.core.config import APP_NAME, APP_VERSION
 from app.db.bootstrap import initialize_database
 from app.routers.banks import router as stage1_banks_router
 from app.routers.evaluation import router as stage1_evaluation_router
@@ -17,7 +17,7 @@ from app.routers.api import router
 app = FastAPI(
     title="消化内镜研修与模型评测平台",
     description="面向消化内镜教学研修、报告草稿辅助和模型评测演示的本机服务。",
-    version="0.1.0",
+    version=APP_VERSION,
 )
 
 app.add_middleware(
@@ -58,4 +58,4 @@ def startup_database() -> None:
 
 @app.get("/")
 def root() -> dict[str, str]:
-    return {"service": APP_NAME, "status": "ok", "docs": "/docs"}
+    return {"service": APP_NAME, "status": "ok", "version": APP_VERSION, "docs": "/docs"}

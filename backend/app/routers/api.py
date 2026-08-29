@@ -10,7 +10,7 @@ from uuid import uuid4
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from app.core.config import APP_NAME, SAFETY_NOTICE, UPLOAD_DIR
+from app.core.config import APP_NAME, APP_VERSION, SAFETY_NOTICE, UPLOAD_DIR
 from app.schemas import (
     ChallengeBenchmarkRequest,
     ExamSessionRequest,
@@ -57,7 +57,7 @@ def health() -> dict[str, object]:
     return {
         "status": "ok",
         "service": APP_NAME,
-        "version": "portfolio-v2.2",
+        "version": APP_VERSION,
         "capabilities": [
             "v3_session",
             "model_evaluation",

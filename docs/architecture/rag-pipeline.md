@@ -14,10 +14,11 @@ Sparse scoring uses Chinese character bigram overlap. Dense scoring uses the rea
 The frozen `retrieval-eval-v2` benchmark contains 90 candidates (30
 development and 60 held-out test). On the held-out set, sparse reached
 Recall@5 0.7667, dense 0.8833, hybrid 0.7167 and hybrid+rerank 0.9000; the
-reranker P50 was 1062.82 ms. The English-trained cross-encoder is therefore
-retained as a measured comparison, while the default Tutor route stays
-**Hybrid** for its latency/quality trade-off. These are portfolio benchmark
-results, not clinical effectiveness claims.
+reranker P50 was 1062.82 ms. Sparse won the development screen but did not
+generalize to the held-out fixture, so the Stage 1 Tutor default is **Dense**.
+The English-trained cross-encoder is retained as a measured comparison/high-
+value path. These are portfolio benchmark results, not clinical effectiveness
+claims.
 
 User-facing source cards expose only source name, page and section plus a short snippet. Internal vector IDs and scores do not appear in the UI. Generated questions reuse the same SourceDocument/KnowledgeChunk relation.
 

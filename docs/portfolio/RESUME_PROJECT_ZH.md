@@ -4,7 +4,8 @@
 
 - 设计并实现面向消化内镜培训的 bounded Tutor Agent：以 `AgentRunner / ToolRegistry / ModelGateway` 组织受限 tool loop，通过 SSE 输出真实 `AgentEvent`/ToolReceipt，支持 max steps、超时、取消、有限重试和阶段化权限；Study 与 Exam 的答案边界由服务端权限控制。
 - 基于 PostgreSQL source/citation state + Qdrant retrieval index 实现 sparse/dense/hybrid/hybrid+rerank 四路 RAG，在 60 条 held-out test 上记录 Recall@5、MRR、nDCG 和 P50/P95 延迟，保留 reranker 负结果和选择依据。
-- 构建 Question Factory：允许文档经 Parse/Index 后进入独立 Generator schema、deterministic gate、Provider Judge、Repair revision lineage 和 publish workflow；Judge 评测在 portfolio-sized review set 上将 precision 从 0.2540 提升至 0.9412，未将人工审校状态包装成临床结论。
+- 构建 Question Factory：允许文档经 Parse/Index 后进入独立 Generator schema、deterministic gate、Provider Judge、Repair revision lineage 和 publish workflow；保留冻结 review set、failure case 与人工审校边界，不把未审校结果包装成 Judge 准确率或临床结论。
+- 实现 Adaptive Learning Loop：提交后的 immutable Attempt 驱动 mastery 与 FSRS ReviewCard，下一 session 读取到期复习、薄弱知识点与覆盖状态，并把推荐原因返回到 Practice 工作台。
 - 将 CMExam/CMB/Kvasir 数据与 Knowledge、Factory generation source、Evaluation 域隔离；EndoBench 仅用于 VLM Evaluation，避免 benchmark contamination。
 - 增加 BYOK Model Evaluation workbench，支持冻结 CMExam text / EndoBench VLM pack、真实 image input、per-case/aggregate artifact；候选模型请求禁止 fallback，API key 不落库、不进日志或 artifact。
 

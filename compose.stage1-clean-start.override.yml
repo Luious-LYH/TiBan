@@ -1,0 +1,21 @@
+# Local-only clean-start evidence override. It avoids ports used by an
+# existing developer stack; it is not part of the production topology.
+services:
+  postgres:
+    ports: !override
+      - "127.0.0.1:55433:5432"
+  qdrant:
+    ports: !override
+      - "127.0.0.1:6334:6333"
+  redis:
+    ports: !override
+      - "127.0.0.1:56380:6379"
+  backend:
+    ports: !override
+      - "127.0.0.1:8003:8000"
+  frontend:
+    build:
+      args:
+        VITE_API_BASE_URL: http://localhost:8003
+    ports: !override
+      - "127.0.0.1:5174:80"

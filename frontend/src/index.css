@@ -188,6 +188,15 @@ a { color: inherit; }
 .s1-practice-statusbar button { min-height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: 99px; background: #fff; color: var(--muted); font-size: 10px; cursor: pointer; }
 .s1-practice-statusbar button b { margin-left: 3px; color: var(--ink); }
 .s1-practice-statusbar button.is-active { border-color: #9ccdc6; background: #eef9f7; color: var(--teal-deep); }
+.s1-session-recommendation { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, .7fr); gap: 18px; align-items: center; padding: 15px 18px; border: 1px solid #b8dcd6; border-radius: 10px; background: linear-gradient(110deg, #f1faf8 0%, #fbfdfd 68%); }
+.s1-session-recommendation-main { display: flex; gap: 11px; min-width: 0; align-items: flex-start; color: var(--teal-deep); }
+.s1-session-recommendation-main > svg { flex: 0 0 auto; margin-top: 3px; }
+.s1-session-recommendation h2 { margin: 2px 0 4px; color: var(--ink); font-size: 15px; letter-spacing: -.015em; }
+.s1-session-recommendation p { margin: 0; color: #45616a; font-size: 12px; line-height: 1.55; }
+.s1-session-recommendation ul { display: grid; gap: 5px; min-width: 0; margin: 0; padding: 0; list-style: none; color: #45616a; font-size: 11px; line-height: 1.45; }
+.s1-session-recommendation li { position: relative; padding-left: 12px; overflow-wrap: anywhere; }
+.s1-session-recommendation li::before { position: absolute; left: 0; color: var(--teal); content: '•'; }
+.s1-session-fallback { padding: 10px 12px; border: 1px solid #f0d39b; border-radius: 8px; background: #fffaf0; color: #8b5d16; font-size: 11px; line-height: 1.5; }
 .s1-review-controls { display: grid; gap: 7px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #dce8e5; }
 .s1-review-controls strong { color: var(--ink); font-size: 11px; }
 .s1-review-controls > div { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -420,6 +429,7 @@ a { color: inherit; }
   .s1-question-image img { max-height: 210px; }
   .s1-boolean-options { grid-template-columns: 1fr; }
   .s1-question-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .s1-session-recommendation { grid-template-columns: 1fr; gap: 11px; padding: 14px; }
   .s1-result { grid-template-columns: 1fr; gap: 9px; }
   .s1-session-summary { align-items: start; }
   .s1-summary-metrics { width: 100%; margin-left: 0; }

@@ -1,0 +1,100 @@
+{
+  "artifact_version": "adaptive-loop-demo-v1",
+  "scenario": {
+    "learner_id": "synthetic_demo_only",
+    "bank_id": "adaptive-demo-bank",
+    "steps": [
+      "initial session built from unseen coverage",
+      "one deliberate wrong answer on Topic A",
+      "deterministic submit projection updates Attempt, mastery and FSRS ReviewCard",
+      "next session reads those existing records and prioritizes Topic A"
+    ]
+  },
+  "before_state": {
+    "attempts": [],
+    "mastery": [],
+    "review_cards": []
+  },
+  "initial_selection": {
+    "session_id": "session_6c9af31eab59",
+    "question_ids": [
+      "adaptive-demo-topic-a-2",
+      "adaptive-demo-topic-a-1"
+    ],
+    "selection_strategy": "coverage",
+    "selection_reason": "本次按未练题与题库覆盖安排练习。",
+    "selection_evidence": [
+      "当前没有到期复习或显著薄弱项，优先安排 2 道未练题。"
+    ]
+  },
+  "after_state": {
+    "attempts": [
+      {
+        "question_id": "adaptive-demo-topic-a-1",
+        "correct": false,
+        "score": 0,
+        "error_tags": [
+          "答案与当前评分规则不一致"
+        ]
+      }
+    ],
+    "mastery": [
+      {
+        "knowledge_point": "Topic A",
+        "attempt_count": 1,
+        "mastery_score": 0.0,
+        "common_errors": [
+          "答案与当前评分规则不一致"
+        ]
+      }
+    ],
+    "review_cards": [
+      {
+        "question_id": "adaptive-demo-topic-a-1",
+        "due_at": "2026-08-29T10:20:47.008423",
+        "difficulty": 6.4133,
+        "stability": 0.212,
+        "retrievability": 1.0,
+        "state": "Learning"
+      }
+    ]
+  },
+  "next_session_selection": {
+    "session_id": "session_dd43a83bd2c4",
+    "question_ids": [
+      "adaptive-demo-topic-a-2",
+      "adaptive-demo-topic-a-1"
+    ],
+    "items": [
+      {
+        "question_id": "adaptive-demo-topic-a-2",
+        "ordinal": 0,
+        "state": "unanswered"
+      },
+      {
+        "question_id": "adaptive-demo-topic-a-1",
+        "ordinal": 1,
+        "state": "unanswered"
+      }
+    ],
+    "selection_strategy": "weak_topic",
+    "selection_reason": "优先巩固「Topic A」相关题目，再维持题库覆盖。",
+    "selection_evidence": [
+      "「Topic A」当前掌握度 0.0%。",
+      "该知识点已有 1 次练习，累计错误 1 次。",
+      "同时保留 1 道未练题，避免只重复单一知识点。"
+    ]
+  },
+  "assertions": {
+    "attempt_written": true,
+    "weak_topic_mastery_written": true,
+    "fsrs_review_card_written": true,
+    "next_session_reads_state": true,
+    "recommendation_reason_present": true
+  },
+  "privacy": {
+    "synthetic_data_only": true,
+    "contains_patient_data": false,
+    "contains_secret": false
+  }
+}

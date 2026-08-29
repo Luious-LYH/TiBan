@@ -73,6 +73,8 @@ class LocalPolicyModelGateway:
     def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
         lowered = context.user_message.lower()
         requested = ['get_question_context', 'get_learning_profile']
+        if any(marker in lowered for marker in ('错题', '错误', '薄弱', '近期', '历史表现', '复习记录')):
+            requested.append('get_recent_mistakes')
         if any(marker in lowered for marker in ('提示', '解释', '为什么', '依据', '资料', '指南', '反流', '胃炎', '出血', '解剖')):
             requested.insert(1, 'retrieve_knowledge')
         if context.mode == 'study' and context.phase == 'pre_submit' and any(marker in lowered for marker in ('正确答案', '直接告诉我', '我不会', '答案是什么', '给答案')):
@@ -90,6 +92,7 @@ class LocalPolicyModelGateway:
             return '我可以帮助你梳理题干、图像和资料依据；当前模式不会读取隐藏 rubric 或服务器内部字段。若你在 Study 模式明确需要答案，可以直接说“告诉我答案”。'
         question = observations.get('get_question_context', {})
         profile = observations.get('get_learning_profile', {})
+        mistakes = observations.get('get_recent_mistakes', [])
         retrieval = observations.get('retrieve_knowledge', [])
         history = context.metadata.get('conversation', [])
         continuation = '继续沿用上一步的证据范围。' if history and any(str(item.get('content', '')).strip() for item in history[-2:]) else ''
@@ -99,7 +102,8 @@ class LocalPolicyModelGateway:
         if context.phase == 'post_submit':
             grading = observations.get('get_grading_result', {})
             plan += f" 本次得分为 {grading.get('score', '—')}；请以公开反馈复盘，而不是反向索取答案键。"
-        return f"{prefix}{plan} 当前已记录练习 {profile.get('attempt_count', 0)} 次。{SAFETY_NOTICE}"
+        history_note = f" 近期可复盘错题 {len(mistakes)} 条。" if mistakes else ''
+        return f"{prefix}{plan} 当前已记录练习 {profile.get('attempt_count', 0)} 次。{history_note}{SAFETY_NOTICE}"
 
 
 class OpenAICompatibleTutorGateway:
@@ -291,7 +295,11 @@ def build_tutor_runtime() -> AgentRunner:
         query = f"{question.get('body_part', '')} {question.get('stem', '')} {context.user_message}"
         try:
             from app.services.rag_service import rag_service
-            citations = rag_service.retrieve(query, mode='hybrid', limit=3, namespace='endoscopy')
+            # Stage 1 default: sparse won the synthetic development screen but
+            # did not generalize to the frozen held-out fixture. Dense is the
+            # stronger non-reranked product trade-off; other chains remain
+            # available to benchmark/diagnostic callers.
+            citations = rag_service.retrieve(query, mode='dense', limit=3, namespace='endoscopy')
         except Exception:
             # Honest local fallback: this is never emitted as a verified RAG
             # source and keeps the Tutor usable before the optional index starts.
@@ -309,6 +317,38 @@ def build_tutor_runtime() -> AgentRunner:
     def learning_profile(context: AgentContext) -> dict[str, Any]:
         overview = stage1_service.overview(context.learner_id)
         return {'attempt_count': overview['completed_today'], 'due_review_count': overview['due_review_count'], 'weak_areas': overview['weak_areas']}
+
+    def recent_mistakes(context: AgentContext) -> list[dict[str, Any]]:
+        """Expose a bounded, answer-free learning-history observation.
+
+        The Tool reads immutable attempts only. It deliberately omits both the
+        learner's submitted value and the grading payload, so it cannot become
+        an indirect pre-submit answer channel.
+        """
+
+        from sqlalchemy import select
+
+        from app.db.database import SessionLocal
+        from app.db.models import AttemptModel, QuestionModel
+
+        with SessionLocal() as session:
+            rows = session.execute(
+                select(AttemptModel, QuestionModel)
+                .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
+                .where(AttemptModel.learner_id == context.learner_id, AttemptModel.correct.is_(False))
+                .order_by(AttemptModel.created_at.desc())
+                .limit(5)
+            ).all()
+        return [
+            {
+                'question_id': attempt.question_id,
+                'title': question.title,
+                'tags': list(question.teaching_tags or [question.body_part]),
+                'error_tags': list(attempt.error_tags or []),
+                'created_at': attempt.created_at.isoformat(),
+            }
+            for attempt, question in rows
+        ]
 
     def grading_result(context: AgentContext) -> dict[str, Any]:
         if not context.attempt_id:
@@ -339,6 +379,7 @@ def build_tutor_runtime() -> AgentRunner:
     registry.register('get_question_context', {'pre_submit', 'post_submit'}, question_context)
     registry.register('retrieve_knowledge', {'pre_submit', 'post_submit'}, retrieve_knowledge)
     registry.register('get_learning_profile', {'pre_submit', 'post_submit'}, learning_profile)
+    registry.register('get_recent_mistakes', {'pre_submit', 'post_submit'}, recent_mistakes)
     registry.register('get_grading_result', {'post_submit'}, grading_result)
     registry.register('get_answer_explanation', {'pre_submit'}, answer_explanation)
     # This explicit opt-in protects local test/demo runs from accidental paid

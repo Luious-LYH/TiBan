@@ -14,12 +14,13 @@ npm run test:e2e
 
 | Check | Result |
 |---|---|
-| Vitest + React Testing Library | PASS — 6 tests |
+| Vitest + React Testing Library | PASS — 10 tests |
 | ESLint | PASS — zero errors/warnings in active Stage 1 source |
 | TypeScript + Vite build | PASS |
 | Playwright core flow | PASS — Overview → Banks → Practice → Submit → Feedback → Next |
 | Responsive capture flow | PASS — 16 page screenshots + mobile Tutor sheet |
 | PostgreSQL runtime | PASS — Docker PostgreSQL 16 health, migration, seed/idempotency, submit/review-card and restart persistence |
+| Adaptive learning loop | PASS — isolated Attempt → mastery → FSRS projection changes next session to weak-topic selection |
 
 ## Core-flow artifact
 
@@ -30,6 +31,13 @@ npm run test:e2e
 All four pages were launched against the real local services at widths `375`, `768`, `1280`, and `1440`. Representative evidence also includes `practice-tutor-375.png`, captured after opening the mobile Tutor bottom sheet.
 
 See [stage-1 evidence](../portfolio/evidence/stage-1/).
+
+The Docker clean-start adaptive evidence is recorded in
+`artifacts/learning/adaptive-loop-demo-v1.json` and the two responsive
+captures in the Stage 1 evidence directory. The acceptance stack used an
+isolated Compose project on alternate localhost ports because another local
+developer stack already occupied the default ports; no existing volume was
+deleted.
 
 ## PostgreSQL runtime evidence
 

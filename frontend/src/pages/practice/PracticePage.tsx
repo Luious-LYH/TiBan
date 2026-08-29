@@ -1,9 +1,9 @@
-import { ArrowLeft, Bookmark, Check, CheckCircle2, ChevronDown, Flag, ImageIcon, List, MessageCircle, NotebookPen, XCircle } from 'lucide-react'
+import { ArrowLeft, Bookmark, Check, CheckCircle2, ChevronDown, Flag, ImageIcon, List, MessageCircle, NotebookPen, Target, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { createPracticeSession, getQuestionBanks, getQuestions, submitFsrsReview, submitPracticeAnswer, type AnswerValue, type Question, type ReviewCard, type SubmitResult } from '../../api/client'
+import { createPracticeSession, getQuestionBanks, getQuestions, submitFsrsReview, submitPracticeAnswer, type AnswerValue, type Question, type ReviewCard, type SessionResponse, type SubmitResult } from '../../api/client'
 import { EmptyState, ErrorState, LoadingState } from '../../components/shared/AsyncState'
 import { TutorSidecar } from '../../components/tutor/TutorSidecar'
 
@@ -27,24 +27,44 @@ export function PracticePage() {
   const [questionCount, setQuestionCount] = useState(20)
   const [navigatorOpen, setNavigatorOpen] = useState(true)
   const [tutorOpen, setTutorOpen] = useState(false)
-  const [sessionId, setSessionId] = useState<string | undefined>()
-  const sessionKey = useRef<string>('')
+  const [session, setSession] = useState<SessionResponse | null>(null)
+  const [sessionError, setSessionError] = useState<string | null>(null)
+  const [sessionBuilding, setSessionBuilding] = useState(false)
+  const sessionRequest = useRef<{ key: string; promise: Promise<SessionResponse> } | null>(null)
   const queryClient = useQueryClient()
 
   const banksQuery = useQuery({ queryKey: ['question-banks'], queryFn: () => getQuestionBanks() })
   const selectedBankId = bankId ?? banksQuery.data?.[0]?.bank_id
-  const questionsQuery = useQuery({ queryKey: ['practice-questions', selectedBankId], queryFn: () => getQuestions({ bankId: selectedBankId }), enabled: Boolean(selectedBankId) })
+  const activeSession = session && session.bank_id === selectedBankId && session.mode === mode ? session : null
+  const questionsQuery = useQuery({
+    queryKey: ['practice-questions', selectedBankId, activeSession?.session_id ?? 'catalog-fallback'],
+    queryFn: () => getQuestions({ bankId: selectedBankId, sessionId: activeSession?.session_id }),
+    enabled: Boolean(selectedBankId) && Boolean(activeSession || sessionError),
+  })
 
   useEffect(() => {
     if (!selectedBankId) return
-    const key = `${selectedBankId}:${mode}`
-    if (sessionKey.current === key) return
-    sessionKey.current = key
-    setSessionId(undefined)
-    createPracticeSession(selectedBankId, 'demo_learner', mode).then((session) => setSessionId(session.session_id)).catch(() => setSessionId(undefined))
-  }, [mode, selectedBankId])
+    const key = `${selectedBankId}:${mode}:${questionCount}`
+    let current = true
+    const activeRequest = sessionRequest.current?.key === key
+      ? sessionRequest.current.promise
+      : createPracticeSession(selectedBankId, 'demo_learner', mode, questionCount)
+    sessionRequest.current = { key, promise: activeRequest }
+    activeRequest
+      .then((nextSession) => { if (current) setSession(nextSession) })
+      .catch((error: unknown) => {
+        if (!current) return
+        if (sessionRequest.current?.key === key) sessionRequest.current = null
+        setSessionError(error instanceof Error ? error.message : '无法创建服务端练习 session。')
+      })
+      .finally(() => { if (current) setSessionBuilding(false) })
+    return () => { current = false }
+  }, [mode, questionCount, selectedBankId])
 
-  const pool = useMemo(() => (questionsQuery.data?.items ?? []).slice(0, questionCount), [questionCount, questionsQuery.data?.items])
+  const pool = useMemo(() => {
+    const items = questionsQuery.data?.items ?? []
+    return activeSession ? items : items.slice(0, questionCount)
+  }, [activeSession, questionCount, questionsQuery.data?.items])
   const visibleQuestions = useMemo(() => pool.filter((question) => {
     if (statusFilter === 'unused') return !results[question.id]
     if (statusFilter === 'incorrect') return results[question.id] && !results[question.id].is_correct
@@ -58,7 +78,7 @@ export function PracticePage() {
   const selectedBank = banksQuery.data?.find((bank) => bank.bank_id === selectedBankId)
 
   const submitMutation = useMutation({
-    mutationFn: (payload: { question: Question; answer: AnswerValue }) => submitPracticeAnswer({ question_id: payload.question.id, selected_answer: payload.answer, session_id: sessionId, mode, learner_id: 'demo_learner' }),
+    mutationFn: (payload: { question: Question; answer: AnswerValue }) => submitPracticeAnswer({ question_id: payload.question.id, selected_answer: payload.answer, session_id: activeSession?.session_id, mode, learner_id: 'demo_learner' }),
     onSuccess: (data, variables) => {
       setResults((current) => ({ ...current, [variables.question.id]: data }))
       void queryClient.invalidateQueries({ queryKey: ['overview'] })
@@ -69,18 +89,18 @@ export function PracticePage() {
     mutationFn: (payload: { questionId: string; rating: 'Again' | 'Hard' | 'Good' | 'Easy' }) => submitFsrsReview(payload.questionId, payload.rating),
   })
 
-  if (banksQuery.isPending || questionsQuery.isPending) return <LoadingState label="正在准备练习工作台…" />
+  if (banksQuery.isPending || !selectedBankId || (sessionBuilding && !activeSession) || (!activeSession && !sessionError) || questionsQuery.isPending) return <LoadingState label="正在根据学习记录准备练习工作台…" />
   if (banksQuery.isError) return <ErrorState message={banksQuery.error.message} onRetry={() => void banksQuery.refetch()} />
   if (questionsQuery.isError) return <ErrorState message={questionsQuery.error.message} onRetry={() => void questionsQuery.refetch()} />
 
   function changeBank(nextBankId: string) {
     setSearchParams({ bank_id: nextBankId, ...(mode !== 'study' ? { mode } : {}) })
-    setActiveIndex(0); setAnswers({}); setResults({}); setMarked({}); setNotes({}); sessionKey.current = ''
+    setActiveIndex(0); setAnswers({}); setResults({}); setMarked({}); setNotes({}); setSession(null); setSessionError(null)
   }
 
   function changeMode(nextMode: Mode) {
     setSearchParams({ ...(selectedBankId ? { bank_id: selectedBankId } : {}), ...(nextMode !== 'study' ? { mode: nextMode } : {}) })
-    setActiveIndex(0); setAnswers({}); setResults({}); setStatusFilter('all'); sessionKey.current = ''
+    setActiveIndex(0); setAnswers({}); setResults({}); setStatusFilter('all'); setSession(null); setSessionError(null)
   }
 
   function setAnswer(value: AnswerValue) {
@@ -108,9 +128,11 @@ export function PracticePage() {
   return <div className="s1-page s1-practice-page" data-testid="practice-page">
     <section className="s1-practice-top">
       <div><Link className="s1-back-link" to="/banks"><ArrowLeft size={15} />返回题库</Link><span className="s1-kicker">LEARNING WORKSPACE</span><h1>{selectedBank?.name ?? '练习工作台'}</h1><p>先作答，再理解；Tutor 会在右侧陪你完成这次练习。</p></div>
-      <div className="s1-practice-top-controls"><label className="s1-select s1-bank-select"><span>题库</span><select aria-label="选择题库" value={selectedBankId ?? ''} onChange={(event) => changeBank(event.target.value)}>{banksQuery.data.map((bank) => <option key={bank.bank_id} value={bank.bank_id}>{bank.name}</option>)}</select></label><label className="s1-select"><span>模式</span><select aria-label="选择练习模式" value={mode} onChange={(event) => changeMode(event.target.value as Mode)}>{Object.entries(modeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="s1-select"><span>题量</span><select aria-label="选择题量" value={questionCount} onChange={(event) => { const value = event.target.value; setQuestionCount(value === 'all' ? 100 : Number(value)); setActiveIndex(0) }}><option value="10">10</option><option value="20">20</option><option value="40">40</option><option value="all">全部</option></select></label></div>
+      <div className="s1-practice-top-controls"><label className="s1-select s1-bank-select"><span>题库</span><select aria-label="选择题库" value={selectedBankId ?? ''} onChange={(event) => changeBank(event.target.value)}>{banksQuery.data.map((bank) => <option key={bank.bank_id} value={bank.bank_id}>{bank.name}</option>)}</select></label><label className="s1-select"><span>模式</span><select aria-label="选择练习模式" value={mode} onChange={(event) => changeMode(event.target.value as Mode)}>{Object.entries(modeLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label className="s1-select"><span>题量</span><select aria-label="选择题量" value={questionCount} onChange={(event) => { const value = event.target.value; setQuestionCount(value === 'all' ? 100 : Number(value)); setActiveIndex(0); setAnswers({}); setResults({}); setMarked({}); setNotes({}); setSession(null); setSessionError(null) }}><option value="10">10</option><option value="20">20</option><option value="40">40</option><option value="all">全部</option></select></label></div>
     </section>
     <div className="s1-practice-statusbar" aria-label="题目状态筛选"><span>题目状态</span>{(Object.keys(statusLabels) as StatusFilter[]).map((status) => { const count = status === 'all' ? pool.length : status === 'unused' ? pool.filter((item) => !results[item.id]).length : status === 'incorrect' ? pool.filter((item) => results[item.id] && !results[item.id].is_correct).length : pool.filter((item) => marked[item.id]).length; return <button key={status} type="button" className={statusFilter === status ? 'is-active' : ''} onClick={() => { setStatusFilter(status); setActiveIndex(0) }}>{statusLabels[status]} <b>{count}</b></button> })}</div>
+    {activeSession && <section className="s1-session-recommendation" data-testid="session-recommendation" data-selection-strategy={activeSession.selection_strategy}><div className="s1-session-recommendation-main"><Target size={18} /><div><span className="s1-kicker">ADAPTIVE SESSION</span><h2>本次选题依据</h2><p>{activeSession.selection_reason}</p></div></div>{(activeSession.selection_evidence ?? []).length > 0 && <ul>{(activeSession.selection_evidence ?? []).map((item) => <li key={item}>{item}</li>)}</ul>}</section>}
+    {sessionError && <div className="s1-session-fallback" role="status">服务端 session 暂不可用，当前仅按题库目录展示：{sessionError}</div>}
     {pool.length === 0 ? <section className="s1-card"><EmptyState title="当前题库还没有可用题目" detail="返回题库目录选择其他题库。" /></section> : <>
       <button className="s1-mobile-tutor-trigger" onClick={() => setTutorOpen(true)}><MessageCircle size={16} />打开 Tutor <span>边刷边聊</span></button>
       <div className="s1-practice-layout s1-practice-layout-wide">

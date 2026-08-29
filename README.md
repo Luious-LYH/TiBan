@@ -1,6 +1,6 @@
-# EndoTutor
+# EndoTutor v1.0
 
-EndoTutor 是一个面向消化内镜医师培训的刷题、实时 Tutor、知识检索、题目生成和候选模型评测平台。它服务于教学研修与医生复核前辅助，不是自主诊断系统。
+EndoTutor v1.0 是一个面向消化内镜医师培训的刷题、实时 Tutor、知识检索、题目生成和候选模型评测平台。它服务于教学研修与医生复核前辅助，不是自主诊断系统。
 
 ## Product flow
 
@@ -8,6 +8,9 @@ EndoTutor 是一个面向消化内镜医师培训的刷题、实时 Tutor、知�
 Real QBank ──→ Practice ↔ Tutor ──→ Learning / Review
                     │                    │
                     └──── Knowledge RAG ┘
+
+每次提交都会沿着 `grade → Attempt → mastery → FSRS` 写回学习状态；下一
+次 session 读取到期复习、薄弱知识点和覆盖情况，并在工作台显示推荐原因。
 
 Allowed documents ──→ Question Factory ──→ Review ──→ Published QBank
 
@@ -52,8 +55,9 @@ ENDO_LOCAL_VQA_ROOT=/path/to/local/VQA/data
 
 ## Benchmarks and evidence
 
-- RAG v2：90 条冻结候选（30 development / 60 held-out），比较 sparse / dense / hybrid / hybrid+rerank；held-out Recall@5 分别为 0.7667 / 0.8833 / 0.7167 / 0.9000。详见 [`docs/evals/rag-benchmark-v2.md`](./docs/evals/rag-benchmark-v2.md)。
-- Question Judge v2：80 条 portfolio-sized review set；Deterministic Gate precision 0.2540，Gate + Provider Judge precision 0.9412，人工审校状态与边界详见 [`docs/evals/question-judge-eval-v2.md`](./docs/evals/question-judge-eval-v2.md)。
+- RAG v2：90 条冻结候选（30 development / 60 held-out），比较 sparse / dense / hybrid / hybrid+rerank；held-out Recall@5 分别为 0.7667 / 0.8833 / 0.7167 / 0.9000，Stage 1 Tutor default 为 Dense。详见 [`docs/evals/rag-benchmark-v2.md`](./docs/evals/rag-benchmark-v2.md)。
+- Question Judge v2：80 条 portfolio-sized candidate review set；Deterministic Gate 与 Provider Judge 的工程结果及人工审校边界详见 [`docs/evals/question-judge-eval-v2.md`](./docs/evals/question-judge-eval-v2.md)，未将其包装为人工/临床准确率。
+- Tutor answer eval v1：50 条冻结场景、六维人工 rubric、保留 failure candidate；provider 质量分数在独立审校前保持 pending，见 [`docs/evals/tutor-answer-eval-v1.md`](./docs/evals/tutor-answer-eval-v1.md)。
 - FSRS：真实 `py-fsrs` Again / Hard / Good / Easy 序列，见 [`docs/evals/fsrs-comparison.md`](./docs/evals/fsrs-comparison.md)。
 - Model Evaluation：冻结 CMExam text 与 EndoBench VLM packs，真实 provider acceptance 与 no-fallback 结果见 [`docs/evals/model-evaluation-acceptance.md`](./docs/evals/model-evaluation-acceptance.md)。
 

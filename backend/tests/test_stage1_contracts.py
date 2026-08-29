@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -8,7 +9,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from app.db.database import SessionLocal
 from app.db.bootstrap import initialize_database
-from app.db.models import AttemptModel, ReviewCardModel
+from app.db.models import AttemptModel, LearnerMasteryModel, QuestionBankModel, QuestionModel, ReviewCardModel
 from app.main import app
 from app.schemas import QuestionPublic
 
@@ -178,3 +179,109 @@ def test_server_session_persists_random_membership_and_navigator_state() -> None
     assert submitted.status_code == 200, submitted.text
     refreshed = client.get(f"/api/v3/practice/sessions/{payload['session_id']}").json()
     assert refreshed["items"][0]["state"] in {"correct", "incorrect"}
+
+
+def test_adaptive_session_reuses_attempt_mastery_and_review_state_without_new_schema() -> None:
+    """A wrong Topic A answer must change the next canonical session selection."""
+
+    suffix = uuid4().hex[:8]
+    bank_id = f"adaptive-bank-{suffix}"
+    focus_id = f"adaptive-focus-{suffix}"
+    sibling_id = f"adaptive-sibling-{suffix}"
+    coverage_id = f"adaptive-coverage-{suffix}"
+    learner_id = f"adaptive-learner-{suffix}"
+
+    def question(question_id: str, title: str, tags: list[str]) -> QuestionModel:
+        return QuestionModel(
+            question_id=question_id,
+            bank_id=bank_id,
+            domain_id="endoscopy",
+            question_type="single_choice",
+            modality="text",
+            title=title,
+            stem=f"{title} 的观察练习",
+            case_summary="测试用教学摘要。",
+            image_url=None,
+            image_alt=None,
+            difficulty="easy",
+            complexity=1,
+            question_class="基础识别",
+            task="观察训练",
+            body_part="胃",
+            source_type="test",
+            source_dataset="test",
+            citation_note="测试来源。",
+            options=[{"id": "a", "text": "错误选项"}, {"id": "b", "text": "正确选项"}],
+            grading_payload={"correct_option_id": "b"},
+            explanation="测试解析。",
+            teaching_tags=tags,
+            expected_keywords=[],
+            false_premise=False,
+            doctor_review_required=True,
+            safety_notice="仅供教学研修或医生复核前辅助，不作为独立诊断依据。",
+            business_usage="user_ready",
+            answer_source="dataset_gold",
+            explanation_source="none",
+            official_explanation_available=False,
+        )
+
+    with SessionLocal() as session:
+        session.add(QuestionBankModel(
+            bank_id=bank_id,
+            domain_id="endoscopy",
+            name="自适应闭环测试题库",
+            description="用于证明下一次选题读取已有学习状态。",
+            version="test-v1",
+            status="published",
+            question_count=3,
+            question_type_counts={"single_choice": 3},
+            modality_counts={"text": 3},
+            body_parts=["胃"],
+        ))
+        session.add_all([
+            question(focus_id, "Topic A 初始题", ["Topic A"]),
+            question(sibling_id, "Topic A 巩固题", ["Topic A"]),
+            question(coverage_id, "Topic B 覆盖题", ["Topic B"]),
+        ])
+        session.commit()
+
+    submitted = client.post("/api/v3/practice/submit", json={
+        "learner_id": learner_id,
+        "question_id": focus_id,
+        "selected_answer": "a",
+        "mode": "study",
+    })
+    assert submitted.status_code == 200, submitted.text
+    assert submitted.json()["is_correct"] is False
+
+    # Isolate weak-topic selection from the separately-tested due-review tier.
+    with SessionLocal() as session:
+        mastery = session.query(LearnerMasteryModel).filter_by(learner_id=learner_id, knowledge_point="Topic A").one()
+        assert mastery.mastery_score == 0
+        card = session.query(ReviewCardModel).filter_by(learner_id=learner_id, question_id=focus_id).one()
+        card.due_at = datetime.utcnow() + timedelta(days=7)
+        session.commit()
+
+    created = client.post("/api/v3/practice/sessions", json={
+        "learner_id": learner_id,
+        "bank_id": bank_id,
+        "mode": "study",
+        "question_count": 2,
+        "shuffle_seed": 20260829,
+    })
+    assert created.status_code == 200, created.text
+    payload = created.json()
+    assert payload["selection_strategy"] == "weak_topic"
+    assert payload["question_ids"][0] in {focus_id, sibling_id}
+    assert "Topic A" in payload["selection_reason"]
+    assert any("Topic A" in item for item in payload["selection_evidence"])
+
+    # The learner-facing list endpoint must return the authoritative persisted
+    # membership/order, not a client-side slice of the bank catalog.
+    session_questions = client.get("/api/v3/practice/questions", params={
+        "bank_id": bank_id,
+        "session_id": payload["session_id"],
+        "limit": 100,
+    })
+    assert session_questions.status_code == 200, session_questions.text
+    assert [item["id"] for item in session_questions.json()["items"]] == payload["question_ids"]
