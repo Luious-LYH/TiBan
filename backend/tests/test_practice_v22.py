@@ -6,7 +6,7 @@ from app.main import app
 
 
 class PracticeV22Tests(unittest.TestCase):
-    def test_qbank_exposes_text_and_visual_question_forms(self):
+    def test_public_teaching_seed_exposes_supported_text_question_forms(self):
         with TestClient(app) as client:
             response = client.get("/api/practice/questions?limit=60")
 
@@ -25,10 +25,7 @@ class PracticeV22Tests(unittest.TestCase):
         # The public clean-checkout seed contains text questions only.  Image
         # questions are exercised by the local licensed Kvasir acceptance
         # profile, where the image files can be mounted and verified.
-        self.assertTrue(
-            any(item.get("image_url") for item in payload["items"])
-            or payload["total"] <= 8
-        )
+        self.assertFalse(any(item.get("image_url") for item in payload["items"]))
 
     def test_body_part_filter_keeps_curated_text_questions(self):
         with TestClient(app) as client:
