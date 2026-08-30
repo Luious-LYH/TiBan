@@ -46,7 +46,7 @@ export function OverviewPage() {
 
         <section className="s1-card s1-recent-card" aria-labelledby="recent-title">
           <div className="s1-section-heading"><div><span className="s1-kicker">RECENT ACTIVITY</span><h2 id="recent-title">最近练习</h2></div></div>
-          {data.recent_sessions.length === 0 ? <EmptyState title="尚未有练习记录" detail="选择一个题库开始第一道题。" /> : <div className="s1-recent-list">{data.recent_sessions.slice(0, 6).map((item) => <div className="s1-recent-row" key={item.attempt_id}><span className={item.correct ? 's1-dot is-correct' : 's1-dot'} /><span><strong>{item.correct ? '回答正确' : '进入复盘'}</strong><small>{new Date(item.created_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></span><b>{item.score} 分</b></div>)}</div>}
+          {data.recent_sessions.length === 0 ? <EmptyState title="尚未有练习记录" detail="选择一个题库开始第一道题。" /> : <div className="s1-recent-list">{data.recent_sessions.slice(0, 6).map((item) => <div className="s1-recent-row" key={item.attempt_id}><span className={item.correct ? 's1-dot is-correct' : 's1-dot'} /><span><strong>{item.correct ? '回答正确' : '进入复盘'}</strong><small>{new Date(item.created_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></span><b>{item.correct ? `${item.score} 分` : '—'}</b></div>)}</div>}
         </section>
       </div>
       <p className="s1-safety">{data.safety_notice}</p>

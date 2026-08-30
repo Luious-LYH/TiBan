@@ -108,6 +108,18 @@ describe('Stage 1 page contracts', () => {
     expect(screen.getByText('0 / 10')).toBeInTheDocument()
   })
 
+  it('does not present a review activity as a zero-point score', async () => {
+    mockedGetOverview.mockResolvedValueOnce({
+      ...overview,
+      recent_sessions: [{ attempt_id: 'attempt-review', question_id: 'single', score: 0, correct: false, created_at: '2026-08-28T00:00:00Z' }],
+    })
+
+    renderPage(<OverviewPage />)
+    expect(await screen.findByText('进入复盘')).toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(screen.queryByText('0 分')).not.toBeInTheDocument()
+  })
+
   it('renders bank search and routes to a selected bank', async () => {
     const user = userEvent.setup()
     renderPage(<BanksPage />)
@@ -203,6 +215,8 @@ describe('Stage 1 page contracts', () => {
     renderPage(<EvaluationPage />, ['/eval'])
     expect(await screen.findByTestId('evaluation-page')).toBeInTheDocument()
     expect(screen.getByText('连接候选模型')).toBeInTheDocument()
+    expect(screen.getByText('评测集总规模：5 道题')).toBeInTheDocument()
+    expect(screen.getByText('本次抽样题量')).toBeInTheDocument()
     expect(screen.queryByText('100')).not.toBeInTheDocument()
   })
 
