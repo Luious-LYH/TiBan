@@ -17,7 +17,7 @@ export function OverviewPage() {
         <div>
           <span className="s1-kicker">LEARNING OVERVIEW</span>
           <h1>把每次观察，变成可复盘的进步。</h1>
-          <p>从真实题库开始练习。提交后会自动记录学习进度、掌握情况与复习安排。</p>
+          <p>从示例或已接入的题库开始练习。提交后会自动记录学习进度、掌握情况与复习安排。</p>
         </div>
         <Link className="s1-button s1-button-primary" to="/banks">进入题库 <ArrowRight size={16} /></Link>
       </section>
@@ -25,7 +25,7 @@ export function OverviewPage() {
       <section className="s1-metric-grid" aria-label="学习指标">
         <Metric icon={<CheckCircle2 />} label="今日完成" value={`${data.completed_today} / ${data.daily_target}`} detail="道题" />
         <Metric icon={<Target />} label="待复习" value={String(data.due_review_count)} detail="张卡片" />
-        <Metric icon={<Library />} label="可用题库" value={String(data.banks.length)} detail="个真实题库" />
+        <Metric icon={<Library />} label="可用题库" value={String(data.banks.length)} detail="示例 / 已接入" />
         <Metric icon={<Clock3 />} label="近期准确率" value={`${Math.round(data.recent_accuracy * 100)}%`} detail="最近 10 次" />
       </section>
 

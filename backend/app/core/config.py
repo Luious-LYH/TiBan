@@ -6,7 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 APP_NAME = "消化内镜研修与模型评测平台"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
 SAFETY_NOTICE = "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
 DEMO_LEARNER_ID = "demo_learner"
 
@@ -64,9 +64,9 @@ LLM_FALLBACK_API_KEY = _env_first("LLM_FALLBACK_API_KEY")
 LLM_FALLBACK_MODEL = _env_first("LLM_FALLBACK_MODEL", default=LLM_MODEL)
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
 FACTORY_PROVIDER_ENABLED = _env_first("FACTORY_PROVIDER_ENABLED").lower() == "true"
-# The learner-facing Docker demo is expected to contain the complete portfolio
-# QBank.  Keep this opt-in for ordinary unit tests and lightweight local
-# development; the canonical Docker compose profile enables it explicitly.
+# Large third-party QBanks are optional local import-validation fixtures, not
+# a redistributed product catalogue. Keep their bootstrap opt-in; public
+# clean-start and user-owned upload flows use the compact teaching seed.
 DEMO_QBANK_BOOTSTRAP = _env_first("ENDO_DEMO_QBANK_BOOTSTRAP", default="false").lower() in {
     "1",
     "true",

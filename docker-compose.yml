@@ -43,7 +43,7 @@ services:
     build: ./backend
     environment:
       ENDO_APP_ENV: demo
-      ENDO_DEMO_QBANK_BOOTSTRAP: "true"
+      ENDO_DEMO_QBANK_BOOTSTRAP: "false"
       ENDO_PROJECT_DATA_ROOT: /app/data
       ENDO_LOCAL_VQA_ROOT: /app/vqa-data
       ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1

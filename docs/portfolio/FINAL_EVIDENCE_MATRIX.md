@@ -11,9 +11,9 @@ resume-eligible. Portfolio metrics are not clinical-effectiveness claims.
 | Citation lineage | Chunk → document → page → section is preserved for retrieved source cards. | RAG/citation tests and knowledge artifacts. | Yes. |
 | Question Factory | Parse → index → Generator → deterministic gate → Judge → repair → review → publish. Docker backend and worker share the persisted upload volume. | Factory tests; Stage 4 Docker job reached `ready_for_review` with two revision records. | Yes. |
 | Learning loop | Immutable Attempt updates mastery and a real py-fsrs ReviewCard; next session reads the state and prioritizes weak topics. | `artifacts/learning/adaptive-loop-demo-v1.json`, FSRS tests. | Yes. |
-| QBank bootstrap | Docker clean-start catalog contains CMExam 1,500, CMB-Exam 1,778, Kvasir-VQA curated 400 (total 3,678). | QBank acceptance artifact and Docker database count check. | Yes, exact scope. |
+| QBank fixture boundary | Docker clean start uses a compact teaching seed; optional locally authorized CMExam/CMB/Kvasir adapters remain import-validation fixtures and are not redistributed. | `THIRD_PARTY_DATA.md`, source registry, Docker/bootstrap checks. | Yes, as data-governance engineering. |
 | BYOK evaluation | Separate text/VLM packs, request-scoped key, no fallback, per-case and aggregate results. | `docs/evals/model-evaluation-acceptance.md`, evaluation tests. | Yes, as engineering acceptance. |
-| API and delivery | FastAPI OpenAPI → generated TypeScript client; Docker Compose topology; GitHub Actions fast profile. | `npm run api:check`, compose config, `.github/workflows/ci.yml`. | Yes; hosted run is external pending. |
+| API and delivery | FastAPI OpenAPI → generated TypeScript client; Docker Compose topology; GitHub Actions fast profile. | `npm run api:check`, compose config, `.github/workflows/ci.yml`, [run 33296518709](https://github.com/Luious-LYH/TiBan/actions/runs/33296518709). | Yes. |
 
 ## Release evidence
 
@@ -32,6 +32,5 @@ resume-eligible. Portfolio metrics are not clinical-effectiveness claims.
 - EndoBench is evaluation-only and never enters Tutor retrieval, Factory source
   ingestion, or learner-facing question banks.
 - Raw chain-of-thought and secrets are not stored or displayed.
-- Hosted GitHub Actions: `external_pending` because this local checkout has no
-  configured remote. Run `git push origin refactor/v3-agent-learning-platform`
-  after connecting the intended remote, then inspect **EndoTutor fast profile**.
+- Hosted GitHub Actions passed for release baseline `86fb139` in
+  [run 33296518709](https://github.com/Luious-LYH/TiBan/actions/runs/33296518709).

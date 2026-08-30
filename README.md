@@ -1,4 +1,4 @@
-# EndoTutor v1.0
+# EndoTutor v1.0.1
 
 **Agent-native medical learning and assessment platform** for endoscopy education: real question banks, a continuous Tutor chat, adaptive practice and review, knowledge-grounded explanations, question generation, and model evaluation.
 
@@ -8,7 +8,7 @@
 
 ## What a learner can do
 
-- Choose from 3,678 curated demo questions: CMExam 1,500, CMB-Exam 1,778, and Kvasir-VQA curated 400.
+- Start with a compact checked-in teaching seed for local verification; use governed, locally authorized source data only as an optional import-validation fixture.
 - Practice in Study, Exam, or Review mode with a persistent desktop Tutor sidecar.
 - Submit an answer, receive feedback, and let the next practice session prioritize review due dates, weak topics, and coverage.
 - Upload an allowed Markdown/PDF teaching document, generate a reviewable question draft, and publish only after review.
@@ -61,11 +61,13 @@ Requires Python 3.12+, Node.js 22+, Docker Desktop, and npm.
 docker compose up --build
 ```
 
-This starts frontend, backend, PostgreSQL, Qdrant, Redis, and the Dramatiq worker.
-The demo bootstrap validates and restores the three complete Portfolio QBanks; it
-does not silently fall back to the old small teaching seed. Configure local-only
-paths and optional model credentials in an ignored `.env` copied from `.env.example`.
-Never commit keys or local data roots.
+This starts frontend, backend, PostgreSQL, Qdrant, Redis, and the Dramatiq worker
+with the compact teaching seed. It does not redistribute or require a large
+third-party QBank. To exercise a locally authorized import fixture, explicitly
+set `ENDO_DEMO_QBANK_BOOTSTRAP=true` and configure the ignored local data paths
+in `.env`. The product direction is governed user/organization-owned source
+upload rather than a platform-owned public dataset catalogue. Never commit keys
+or local data roots.
 
 ## Verification
 
@@ -87,9 +89,9 @@ npx playwright test e2e/core-flow.spec.ts --grep 'Flow A:' --project=chromium
 
 `npm run api:generate` deterministically rebuilds
 `frontend/src/api/generated.ts` from FastAPI OpenAPI. The checked-in GitHub
-Actions workflow is named **EndoTutor fast profile**. It is intentionally shown
-as `external_pending` until a maintainer pushes this branch and obtains a hosted
-run; no passing badge is claimed in this repository.
+Actions workflow is named **EndoTutor fast profile**. Its hosted promotion run
+for commit `86fb139` passed backend, frontend, and Playwright Flow A:
+[run 33296518709](https://github.com/Luious-LYH/TiBan/actions/runs/33296518709).
 
 ## Evidence and limits
 

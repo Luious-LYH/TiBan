@@ -1,11 +1,11 @@
-# EndoTutor v1.0 — 75-second demo script
+# EndoTutor v1.0.1 — 75-second demo script
 
 Do not enter an API key during the recording. Use the seeded local Docker stack
 and the existing demo learner state.
 
 | Time | Surface | Narration |
 |---|---|---|
-| 0:00–0:12 | `/banks` | “EndoTutor starts with 3,678 real teaching questions across CMExam, CMB-Exam, and curated Kvasir-VQA. I choose a topic and begin directly.” |
+| 0:00–0:12 | `/banks` | “EndoTutor starts with a compact teaching seed for the product demo. Large local datasets are optional import-validation fixtures; the product path is governed user or organization-owned source upload. I choose a topic and begin directly.” |
 | 0:12–0:30 | `/practice?bank_id=bank-cmb-exam-real` | “The study workspace creates a session from unfinished items, review due dates, and weak topics. The Tutor stays beside the question, so a learner can ask naturally while practicing.” |
 | 0:30–0:45 | Submit + Tutor | “After I submit, grading, attempt history, mastery, and review scheduling update deterministically. The Tutor can explain using the current question and permitted source material; it does not control learning-state writes.” |
 | 0:45–0:56 | Overview / review | “The next session reads that new state. Here the recommendation records why this learner should revisit a weak topic or an item that is due.” |

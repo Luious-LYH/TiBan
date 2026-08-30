@@ -1,6 +1,8 @@
 # Stage 4 — v1.0 Interview Ready final report
 
-**Status:** local Release Gate complete; hosted CI is `external_pending`.
+**Status:** v1.0 promotion evidence recorded; hosted CI passed for the promoted
+release baseline. The existing public `v1.0.0` tag remains immutable; v1.0.1
+is the safe promotion version.
 
 Stage 4 freezes the product as v1.0 Interview Ready. No Stage 5 memory or
 personalization feature work is included.
@@ -10,8 +12,9 @@ personalization feature work is included.
 - Performed a learner-facing copy audit across overview, banks, practice/Tutor,
   Factory, and evaluation. Engineering/audit vocabulary remains in Developer
   Detail and evidence only; product copy uses learner-facing states.
-- Restored and verified the complete Docker demo QBank bootstrap: CMExam 1,500,
-  CMB-Exam 1,778, curated Kvasir-VQA 400, total 3,678.
+- Reframed large third-party QBanks as optional, locally authorized
+  import-validation fixtures. The public clean start uses a compact teaching
+  seed; raw data remains ignored and is not a product-owned catalogue.
 - Kept Dense as the frozen v1.0 Tutor retrieval default while retaining sparse,
   hybrid, and rerank implementations and benchmark evidence.
 - Preserved the adaptive learning loop evidence: `Attempt → mastery → FSRS →
@@ -35,7 +38,7 @@ personalization feature work is included.
 | Adaptive learning loop | PASS | `artifacts/learning/adaptive-loop-demo-v1.json` proves a deliberate error produces `weak_topic` next-session selection. |
 | Retrieval default documentation | PASS | README and evidence matrix accurately scope Dense as a frozen engineering decision, not universal superiority. |
 | Factory durable job | PASS | Docker document upload reached `ready_for_review` after parse, Qdrant index, Generator, Judge, repair, and revision lineage. |
-| QBank bootstrap | PASS | Docker acceptance catalog presents the complete 3,678-question portfolio demo. |
+| QBank bootstrap | PASS | Docker clean start uses the compact teaching seed. Optional local QBank bootstrap remains explicitly opt-in for authorized adapter validation. |
 | Backend regression | PASS | `python -m pytest -q`: 55 passed (local adapter mode). |
 | OpenAPI drift | PASS | `npm run api:check`. |
 | Frontend quality | PASS | lint, 10 unit tests, production build. |
@@ -43,7 +46,7 @@ personalization feature work is included.
 | Docker topology | PASS | `docker compose ... config --quiet`; local acceptance stack healthy. |
 | Runtime secret/data scan | PASS | No secret, local provider URL, or large data was staged; `.env` stays ignored. |
 | README / evidence / résumé / interview package | PASS | README, evidence matrix, screenshot index, résumé files, interview Q&A, and demo script synchronized. |
-| Hosted GitHub Actions | EXTERNAL PENDING | No Git remote is configured in this checkout. |
+| Hosted GitHub Actions | PASS | [Run 33296518709](https://github.com/Luious-LYH/TiBan/actions/runs/33296518709) passed backend, frontend, and Playwright Flow A for `86fb139`. |
 | Human RAG/Judge review | DEFERRED | Per Stage 4 scope; not a release blocker and not shown in learner UI. |
 
 ## Provider acceptance
@@ -63,16 +66,11 @@ Electron/electron-builder development packaging chain and are documented in
 
 ## Hosted CI handoff and tag
 
-Run the following after configuring the intended remote:
-
-```powershell
-git push origin refactor/v3-agent-learning-platform
-```
-
-Then confirm the **EndoTutor fast profile** workflow is green. The existing
-`v1.0.0` tag points to an earlier commit and was not moved. Stage 4 should create
-an annotated `v1.0.0-rc1` candidate locally; promote or retag `v1.0.0` only after
-the hosted run is green and the existing-tag conflict is explicitly resolved.
+The release branch is published to
+[`Luious-LYH/TiBan`](https://github.com/Luious-LYH/TiBan). The **EndoTutor fast
+profile** hosted run above is green. The existing public `v1.0.0` tag was not
+moved. Promotion therefore creates an annotated `v1.0.1` tag without any force
+push or historic-tag rewrite.
 
 ## Known limitations
 
@@ -83,6 +81,9 @@ the hosted run is green and the existing-tag conflict is explicitly resolved.
 - The committed CI fast profile covers the core Tutor practice flow. The full
   Factory job is separately accepted on the real Docker backend/Redis/Qdrant/
   worker topology because it requires those services and the real embedding path.
+- Large external QBanks are intentionally not committed or required for the
+  default Docker start. They are local, authorized fixtures only; future
+  product use is governed user/organization-owned source intake.
 - Desktop packaging dependencies still require a deliberate future security
   upgrade review before public installer distribution.
 
