@@ -18,6 +18,7 @@ jobs:
         working-directory: backend
         env:
           PYTHONPATH: .
+          TUTOR_RETRIEVAL_ENABLED: "false"
         run: python -m pytest -q
 
   frontend:

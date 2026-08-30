@@ -321,17 +321,21 @@ def build_tutor_runtime() -> AgentRunner:
     def retrieve_knowledge(context: AgentContext) -> list[dict[str, str]]:
         question = stage1_service.public_question(context.question_id)
         query = f"{question.get('body_part', '')} {question.get('stem', '')} {context.user_message}"
-        try:
-            from app.services.rag_service import rag_service
-            # Stage 1 default: sparse won the synthetic development screen but
-            # did not generalize to the frozen held-out fixture. Dense is the
-            # stronger non-reranked product trade-off; other chains remain
-            # available to benchmark/diagnostic callers.
-            citations = rag_service.retrieve(query, mode='dense', limit=3, namespace='endoscopy')
-        except Exception:
-            # Honest local fallback: this is never emitted as a verified RAG
-            # source and keeps the Tutor usable before the optional index starts.
-            citations = []
+        retrieval_enabled = os.getenv('TUTOR_RETRIEVAL_ENABLED', 'true').strip().lower() in {'1', 'true', 'yes', 'on'}
+        citations = []
+        if retrieval_enabled:
+            try:
+                from app.services.rag_service import rag_service
+                # Dense remains the frozen product default. Sparse, hybrid,
+                # and rerank paths are exercised by their own RAG tests and
+                # benchmark instead of being made a prerequisite for every
+                # local Tutor smoke run.
+                citations = rag_service.retrieve(query, mode='dense', limit=3, namespace='endoscopy')
+            except Exception:
+                # Honest local fallback: this is never emitted as a verified
+                # RAG source and keeps Tutor usable before the optional index
+                # is available.
+                citations = []
         if citations:
             return [{
                 'chunk_id': citation.chunk_id, 'document_name': citation.document_name,

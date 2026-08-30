@@ -14,6 +14,7 @@ const integrationEnv = {
   QDRANT_URL: process.env.QDRANT_URL ?? 'http://127.0.0.1:6333',
   REDIS_URL: process.env.REDIS_URL ?? 'redis://127.0.0.1:56379/0',
   TUTOR_PROVIDER_ENABLED: 'false',
+  TUTOR_RETRIEVAL_ENABLED: 'false',
 }
 const factoryWorker = process.env.PLAYWRIGHT_FACTORY_E2E === 'true'
   ? [{ command: 'dramatiq app.workers.factory_worker --processes 1 --threads 1', cwd: '../backend', timeout: 120_000, env: integrationEnv }]
