@@ -1,8 +1,16 @@
 import { defineConfig, devices } from '@playwright/test'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
 
+const backendDirectory = fileURLToPath(new URL('../backend/', import.meta.url))
+const smokeDatabasePath = path.join(backendDirectory, 'runtime', 'data', 'playwright-smoke.sqlite3').replaceAll('\\', '/')
 const integrationEnv = {
   PYTHONPATH: '.',
-  ENDO_DATABASE_URL: process.env.ENDO_DATABASE_URL ?? 'postgresql+psycopg://endotutor_dev:endotutor_dev_only@127.0.0.1:55432/endotutor_stage1',
+  // Hosted CI deliberately has no Docker services. Use the checked-in public
+  // teaching seed with an isolated SQLite file there; Docker acceptance still
+  // exercises the PostgreSQL/Qdrant topology through explicit environment.
+  ENDO_DATABASE_URL: process.env.ENDO_DATABASE_URL ?? `sqlite:///${smokeDatabasePath}`,
+  ENDO_DEMO_QBANK_BOOTSTRAP: 'false',
   QDRANT_URL: process.env.QDRANT_URL ?? 'http://127.0.0.1:6333',
   REDIS_URL: process.env.REDIS_URL ?? 'redis://127.0.0.1:56379/0',
   TUTOR_PROVIDER_ENABLED: 'false',
@@ -27,5 +35,5 @@ export default defineConfig({
     ...factoryWorker,
     { command: 'npm run dev -- --host 127.0.0.1 --port 5173 --strictPort', cwd: '.', url: 'http://127.0.0.1:5173', reuseExistingServer: true, timeout: 120_000 },
   ],
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], channel: 'chrome' } }],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 })
