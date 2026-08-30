@@ -1,0 +1,11 @@
+{
+  "compose_project": "tibanstage6",
+  "isolated_ports": {"backend": 8004, "frontend": 5176, "postgres": 55434, "qdrant": 6335, "redis": 56381},
+  "core_services": {"postgres": "healthy", "qdrant": "healthy", "redis": "healthy", "backend": "healthy", "worker": "running", "frontend": "running"},
+  "practice_submit": "pass",
+  "tutor_sse": "pass",
+  "factory_job": {"status": "failed", "stage": "failed", "progress": 30, "attempt": 1, "error_code": "indexing_failed"},
+  "failure_boundary": "real bge-small-zh-v1.5 FastEmbed cache file size mismatch inside worker image",
+  "result": "EXTERNAL EMBEDDING ACCEPTANCE PENDING",
+  "no_fake_embedding_used": true
+}

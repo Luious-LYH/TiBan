@@ -21,3 +21,7 @@ and an artifact; deferred human review is not presented as expert or clinical va
 - Added backend regression tests, frontend lint/unit/build, Playwright smoke coverage, Docker Compose, GitHub Actions fast profile, and artifact-backed evidence for model/RAG/Factory claims.
 
 Safety boundary: for teaching and physician-review-before-use assistance only; not an autonomous diagnostic system or a clinical effectiveness claim.
+
+## Stage 6 / v1.2 engineering evolution (release-pending draft)
+
+Incrementally evolved the stable product into a pragmatic modular monolith: a Practice use-case boundary preserved the atomic learning transaction, Tutor-owned minimal dependency ports isolated storage/retrieval/model providers, and PostgreSQL durable Question Factory jobs added idempotency, cancellation, heartbeat and stale-worker recovery. Promote this paragraph only after the complete Stage 6 Release Gate passes.

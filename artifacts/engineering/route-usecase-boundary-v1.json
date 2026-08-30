@@ -1,0 +1,6 @@
+{
+  "slice": "Practice/Learning",
+  "before": "FastAPI route -> Stage1Service -> SessionLocal/ORM/grading/learning workflow",
+  "after": "FastAPI route -> PracticeUseCases -> PracticeWorkflowPort -> Stage1PracticeWorkflowAdapter -> Stage1Service",
+  "invariant": "grade -> Attempt -> mastery -> FSRS -> learning memory remains one deterministic database transaction"
+}

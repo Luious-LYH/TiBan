@@ -1,0 +1,6 @@
+{
+  "test": "tests/test_stage6_engineering.py::test_factory_job_idempotency_and_stale_recovery_are_durable",
+  "sequence": ["queued", "duplicate reuses job", "running with stale heartbeat", "retrying", "queued"],
+  "result": "pass",
+  "source_of_truth": "PostgreSQL factory_jobs"
+}

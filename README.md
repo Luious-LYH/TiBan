@@ -1,4 +1,4 @@
-# EndoTutor v1.1.0
+# TiBan v1.2.0
 
 **Agent-native medical learning and assessment platform** for endoscopy education: real question banks, a continuous Tutor chat, adaptive practice and review, knowledge-grounded explanations, question generation, and model evaluation.
 
@@ -53,6 +53,11 @@ The Tutor has read-only tools. Successful submission deterministically executes
 `grade → Attempt → mastery → review scheduling`; a model never writes learner state.
 The Factory's backend and worker share a durable upload volume so a queued job can
 read the exact document recorded by the API.
+
+v1.2 evolves this incrementally into a pragmatic modular monolith: Practice
+uses a transport-free use-case boundary, Tutor runtime dependencies are supplied
+by owned adapters, and PostgreSQL Factory jobs have idempotency, cancellation,
+heartbeat recovery, and durable error state. See the [architecture notes](./docs/architecture/modular-monolith-v1.2.md).
 
 ## Retrieval and adaptive learning
 

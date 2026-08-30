@@ -5,7 +5,7 @@ import base64
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.factory_service import enqueue_factory_job, get_job, import_allowed_document, publish_revision, record_queue_message
+from app.services.factory_service import enqueue_factory_job, get_job, import_allowed_document, publish_revision, record_queue_message, request_job_cancellation
 from app.workers.factory_worker import process_factory_job_actor
 
 
@@ -60,6 +60,11 @@ class FactoryJobPublic(BaseModel):
     job_id: str
     document_id: str
     status: str
+    stage: str = "queued"
+    progress: int = Field(default=0, ge=0, le=100)
+    attempt: int = Field(default=0, ge=0)
+    error_code: str | None = None
+    error_message: str | None = None
     detail: FactoryJobDetailPublic
     queue_message_id: str | None
     revisions: list[FactoryRevisionPublic]
@@ -73,6 +78,7 @@ class FactoryDocumentResponse(BaseModel):
 class FactoryJobQueuedPublic(BaseModel):
     job_id: str
     status: str
+    reused: str | None = None
 
 
 class FactoryPublishPublic(BaseModel):
@@ -130,6 +136,15 @@ def create_job(request: JobRequest) -> FactoryJobCreateResponse:
 def read_job(job_id: str) -> FactoryJobReadResponse:
     try:
         return FactoryJobReadResponse(item=FactoryJobPublic.model_validate(get_job(job_id)), api_source="backend")
+    except KeyError as exc:
+        raise HTTPException(404, "Factory job not found") from exc
+
+
+@router.post("/jobs/{job_id}/cancel", response_model=FactoryJobCreateResponse)
+def cancel_job(job_id: str) -> FactoryJobCreateResponse:
+    try:
+        item = request_job_cancellation(job_id)
+        return FactoryJobCreateResponse(item=FactoryJobQueuedPublic.model_validate(item), api_source="backend")
     except KeyError as exc:
         raise HTTPException(404, "Factory job not found") from exc
 

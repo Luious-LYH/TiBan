@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import os
 import re
 from collections.abc import Callable, Iterator
 from dataclasses import asdict, dataclass, field
@@ -12,9 +10,6 @@ from typing import Any, Literal, Protocol
 from uuid import uuid4
 
 from app.core.config import SAFETY_NOTICE
-from app.core import config
-from app.services.llm_provider import llm_provider
-from app.services.stage1_service import stage1_service
 
 
 AgentEventType = Literal['message_start', 'reasoning', 'token', 'tool_start', 'tool_end', 'source', 'message_end', 'error']
@@ -55,6 +50,25 @@ class AgentResult:
     provider: str
     retry_count: int
     completed: bool
+
+
+@dataclass(frozen=True)
+class TutorDependencies:
+    """Ports consumed by the Tutor runtime, supplied by composition.
+
+    This remains a small, business-specific boundary: the runtime owns
+    permissions/events while adapters own SQLAlchemy, RAG and memory access.
+    """
+
+    question_context: Callable[[AgentContext], dict[str, Any]]
+    retrieve_knowledge: Callable[[AgentContext], list[dict[str, str]]]
+    learning_profile: Callable[[AgentContext], dict[str, Any]]
+    learning_memory: Callable[[AgentContext], dict[str, Any]]
+    recent_mistakes: Callable[[AgentContext], list[dict[str, Any]]]
+    grading_result: Callable[[AgentContext], dict[str, Any]]
+    answer_explanation: Callable[[AgentContext], dict[str, Any]]
+    public_source: Callable[[AgentContext], dict[str, str] | None]
+    record_explicit_confusion: Callable[[AgentContext, str], str | None]
 
 
 class ModelGateway(Protocol):
@@ -119,58 +133,6 @@ class LocalPolicyModelGateway:
         return f"{prefix}{plan} 当前已记录练习 {profile.get('attempt_count', 0)} 次。{memory_note}{history_note}{SAFETY_NOTICE}"
 
 
-class OpenAICompatibleTutorGateway:
-    """Opt-in provider gateway; no request is made unless explicitly enabled.
-
-    The gateway receives only the already permission-filtered tool names and
-    observations. It deliberately never asks a model to reveal reasoning or
-    select a data-write tool.
-    """
-
-    name = "openai-compatible-tutor"
-
-    def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
-        result = llm_provider.chat(
-            system_prompt=(
-                "You are a medical education tutor tool planner. Return JSON only: "
-                '{"tools":[...]} . Select only names in the allowed list. '
-                "Never request hidden rubrics, diagnosis, or write actions. "
-                "get_learning_memory is a read-only, current-learner-only compact learning-fact tool; use it only when current topic or query makes it relevant. "
-                "The get_answer_explanation tool is permitted only when mode is study, phase is pre_submit, "
-                "and the learner explicitly asks for the current answer; never select it in exam mode, "
-                "post-submit mode, or for a hint-only request."
-            ),
-            user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "mode": context.mode, "allowed_tools": sorted(available_tools)}, ensure_ascii=False),
-            temperature=0,
-            max_tokens=120,
-        )
-        if not result.ok:
-            raise RuntimeError(result.error or "provider_tool_planning_failed")
-        try:
-            names = json.loads(result.text).get("tools", [])
-        except (json.JSONDecodeError, AttributeError) as exc:
-            raise RuntimeError("provider_tool_plan_not_json") from exc
-        return [str(name) for name in names if str(name) in available_tools]
-
-    def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
-        result = llm_provider.chat(
-            system_prompt=(
-                "You are a safe Chinese medical education tutor. Use only supplied observations. "
-                "The mode field is authoritative: pre_submit plus mode=study is a learning session, not an exam. "
-                "In Study mode, when a server-supplied get_answer_explanation observation is present and the learner explicitly asks for the current answer, "
-                "give that answer and explain it. In Exam mode before submission never reveal answers, correct option IDs, reference answers, hidden rubrics, or benchmark targets. "
-                "Do not provide diagnosis or treatment. Give a concise evidence-based teaching reply, cite source labels when supplied, "
-                f"and include this boundary: {SAFETY_NOTICE} Do not reveal hidden reasoning."
-            ),
-            user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "mode": context.mode, "observations": observations, "recent_conversation": context.metadata.get("conversation", [])[-12:]}, ensure_ascii=False),
-            temperature=0.2,
-            max_tokens=420,
-        )
-        if not result.ok:
-            raise RuntimeError(result.error or "provider_compose_failed")
-        return result.text
-
-
 ToolHandler = Callable[[AgentContext], Any]
 
 
@@ -197,12 +159,24 @@ class ToolRegistry:
 
 
 class AgentRunner:
-    def __init__(self, registry: ToolRegistry, gateway: ModelGateway | None = None, *, max_steps: int = 4, timeout_seconds: float = 15.0, retries: int = 1) -> None:
+    def __init__(
+        self,
+        registry: ToolRegistry,
+        gateway: ModelGateway | None = None,
+        *,
+        max_steps: int = 4,
+        timeout_seconds: float = 15.0,
+        retries: int = 1,
+        public_source: Callable[[AgentContext], dict[str, str] | None] | None = None,
+        record_explicit_confusion: Callable[[AgentContext, str], str | None] | None = None,
+    ) -> None:
         self.registry = registry
         self.gateway = gateway or LocalPolicyModelGateway()
         self.max_steps = max_steps
         self.timeout_seconds = timeout_seconds
         self.retries = retries
+        self._public_source = public_source
+        self._record_explicit_confusion = record_explicit_confusion
 
     def stream(self, context: AgentContext) -> Iterator[AgentEvent]:
         run_id = f'run_{uuid4().hex[:12]}'
@@ -246,11 +220,8 @@ class AgentRunner:
             # a synthetic UI status or a hidden grading observation.
             if not source_emitted:
                 question = observations.get('get_question_context')
-                if not isinstance(question, dict):
-                    try:
-                        question = stage1_service.public_question(context.question_id)
-                    except Exception:
-                        question = None
+                if not isinstance(question, dict) and self._public_source is not None:
+                    question = self._public_source(context)
                 if isinstance(question, dict):
                     yield AgentEvent('source', {
                         'document_name': str(question.get('source_dataset', '题目来源')),
@@ -279,23 +250,10 @@ class AgentRunner:
             # deterministic extractor stores only a compact validated fact and
             # a run reference, never the raw message or model reasoning.
             try:
-                from app.db.database import SessionLocal
-                from app.db.models import QuestionModel
-                from app.services.learning_memory_service import learning_memory_service
-
-                with SessionLocal() as session:
-                    question = session.get(QuestionModel, context.question_id)
-                    if question is not None:
-                        memory_write = learning_memory_service.record_explicit_confusion(
-                            session,
-                            learner_id=context.learner_id,
-                            question=question,
-                            message=context.user_message,
-                            tutor_run_id=run_id,
-                        )
-                        if memory_write is not None:
-                            session.commit()
-                            memory_trace['candidate_memory_id'] = memory_write.memory_id
+                if self._record_explicit_confusion is not None:
+                    memory_id = self._record_explicit_confusion(context, run_id)
+                    if memory_id:
+                        memory_trace['candidate_memory_id'] = memory_id
             except Exception:
                 # A memory-write failure is non-critical: the Tutor response
                 # and its existing read-only receipts remain valid.
@@ -359,133 +317,32 @@ def _clean_user_facing_text(text: str) -> str:
     return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
 
-def build_tutor_runtime() -> AgentRunner:
+def build_tutor_runtime(
+    dependencies: TutorDependencies | None = None,
+    gateway: ModelGateway | None = None,
+) -> AgentRunner:
+    """Compose the fixed Tutor v1 runtime from its owned dependency ports."""
+    if dependencies is None or gateway is None:
+        # Kept at the composition edge for backwards-compatible CLI/tests.
+        # The runtime itself has no SQLAlchemy, Qdrant or learning-service calls.
+        from app.adapters.tutor_dependencies import build_tutor_dependencies, configured_tutor_gateway
+
+        dependencies = dependencies or build_tutor_dependencies()
+        gateway = gateway or configured_tutor_gateway()
     registry = ToolRegistry()
-
-    def question_context(context: AgentContext) -> dict[str, Any]:
-        # Public projection is deliberate: grading payload is never passed to the Tutor pre-submit.
-        return stage1_service.public_question(context.question_id)
-
-    def retrieve_knowledge(context: AgentContext) -> list[dict[str, str]]:
-        question = stage1_service.public_question(context.question_id)
-        query = f"{question.get('body_part', '')} {question.get('stem', '')} {context.user_message}"
-        retrieval_enabled = os.getenv('TUTOR_RETRIEVAL_ENABLED', 'true').strip().lower() in {'1', 'true', 'yes', 'on'}
-        citations = []
-        if retrieval_enabled:
-            try:
-                from app.services.rag_service import rag_service
-                # Dense remains the frozen product default. Sparse, hybrid,
-                # and rerank paths are exercised by their own RAG tests and
-                # benchmark instead of being made a prerequisite for every
-                # local Tutor smoke run.
-                citations = rag_service.retrieve(query, mode='dense', limit=3, namespace='endoscopy')
-            except Exception:
-                # Honest local fallback: this is never emitted as a verified
-                # RAG source and keeps Tutor usable before the optional index
-                # is available.
-                citations = []
-        if citations:
-            return [{
-                'chunk_id': citation.chunk_id, 'document_name': citation.document_name,
-                'page': str(citation.page), 'section': citation.section, 'snippet': citation.snippet, 'source_uri': citation.source_uri or '', 'namespace': citation.namespace,
-            } for citation in citations]
-        return [{
-            'document_name': str(question.get('source_dataset', '题目来源')), 'page': '题目来源',
-            'section': str(question.get('body_part', '观察要点')), 'snippet': str(question.get('citation_note', '先检查可支持的观察事实。')), 'source_uri': '', 'namespace': 'question_source',
-        }]
-
-    def learning_profile(context: AgentContext) -> dict[str, Any]:
-        overview = stage1_service.overview(context.learner_id)
-        return {'attempt_count': overview['completed_today'], 'due_review_count': overview['due_review_count'], 'weak_areas': overview['weak_areas']}
-
-    def learning_memory(context: AgentContext) -> dict[str, Any]:
-        """Read only compact, relevant facts from the requesting learner."""
-
-        from app.db.database import SessionLocal
-        from app.services.learning_memory_service import learning_memory_service
-
-        with SessionLocal() as session:
-            return learning_memory_service.retrieve_relevant(
-                session,
-                learner_id=context.learner_id,
-                question_id=context.question_id,
-                user_message=context.user_message,
-            )
-
-    def recent_mistakes(context: AgentContext) -> list[dict[str, Any]]:
-        """Expose a bounded, answer-free learning-history observation.
-
-        The Tool reads immutable attempts only. It deliberately omits both the
-        learner's submitted value and the grading payload, so it cannot become
-        an indirect pre-submit answer channel.
-        """
-
-        from sqlalchemy import select
-
-        from app.db.database import SessionLocal
-        from app.db.models import AttemptModel, QuestionModel
-
-        with SessionLocal() as session:
-            rows = session.execute(
-                select(AttemptModel, QuestionModel)
-                .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
-                .where(AttemptModel.learner_id == context.learner_id, AttemptModel.correct.is_(False))
-                .order_by(AttemptModel.created_at.desc())
-                .limit(5)
-            ).all()
-        return [
-            {
-                'question_id': attempt.question_id,
-                'title': question.title,
-                'tags': list(question.teaching_tags or [question.body_part]),
-                'error_tags': list(attempt.error_tags or []),
-                'created_at': attempt.created_at.isoformat(),
-            }
-            for attempt, question in rows
-        ]
-
-    def grading_result(context: AgentContext) -> dict[str, Any]:
-        if not context.attempt_id:
-            raise ValueError('attempt_id required post submit')
-        from app.db.database import SessionLocal
-        from app.db.models import AttemptModel
-
-        with SessionLocal() as session:
-            attempt = session.get(AttemptModel, context.attempt_id)
-            if not attempt or attempt.learner_id != context.learner_id:
-                raise ValueError('attempt not found')
-            return {'score': attempt.score, 'correct': attempt.correct, 'error_tags': attempt.error_tags}
-
-    def answer_explanation(context: AgentContext) -> dict[str, Any]:
-        if context.mode != 'study' or context.phase != 'pre_submit':
-            raise PermissionError('answer explanation is only available in Study pre-submit mode')
-        from app.db.serializers import grading_question_payload
-        from app.db.database import SessionLocal
-        with SessionLocal() as session:
-            from app.db.repositories import Stage1Repository
-            question = Stage1Repository(session).get_question(context.question_id)
-            grading = grading_question_payload(question)
-            _, answer_display = stage1_service._answer_displays(grading, grading.get('correct_option_id', grading.get('correct_option_ids', grading.get('correct_value', ''))))
-            if grading['question_type'] == 'short_answer':
-                answer_display = '参考答案见题目解析与评分 rubric'
-            return {'correct_answer_display': answer_display, 'explanation': question.explanation, 'explanation_source': question.explanation_source}
-
-    registry.register('get_question_context', {'pre_submit', 'post_submit'}, question_context)
-    registry.register('retrieve_knowledge', {'pre_submit', 'post_submit'}, retrieve_knowledge)
-    registry.register('get_learning_profile', {'pre_submit', 'post_submit'}, learning_profile)
-    registry.register('get_learning_memory', {'pre_submit', 'post_submit'}, learning_memory)
-    registry.register('get_recent_mistakes', {'pre_submit', 'post_submit'}, recent_mistakes)
-    registry.register('get_grading_result', {'post_submit'}, grading_result)
-    registry.register('get_answer_explanation', {'pre_submit'}, answer_explanation)
-    # This explicit opt-in protects local test/demo runs from accidental paid
-    # provider calls. The default adapter remains visibly labelled as local.
-    provider_enabled = os.getenv('TUTOR_PROVIDER_ENABLED', '').strip().lower() == 'true'
-    gateway: ModelGateway
-    if provider_enabled and config.LLM_BASE_URL and config.LLM_API_KEY:
-        gateway = OpenAICompatibleTutorGateway()
-    else:
-        gateway = LocalPolicyModelGateway()
-    return AgentRunner(registry, gateway=gateway)
+    registry.register('get_question_context', {'pre_submit', 'post_submit'}, dependencies.question_context)
+    registry.register('retrieve_knowledge', {'pre_submit', 'post_submit'}, dependencies.retrieve_knowledge)
+    registry.register('get_learning_profile', {'pre_submit', 'post_submit'}, dependencies.learning_profile)
+    registry.register('get_learning_memory', {'pre_submit', 'post_submit'}, dependencies.learning_memory)
+    registry.register('get_recent_mistakes', {'pre_submit', 'post_submit'}, dependencies.recent_mistakes)
+    registry.register('get_grading_result', {'post_submit'}, dependencies.grading_result)
+    registry.register('get_answer_explanation', {'pre_submit'}, dependencies.answer_explanation)
+    return AgentRunner(
+        registry,
+        gateway=gateway,
+        public_source=dependencies.public_source,
+        record_explicit_confusion=dependencies.record_explicit_confusion,
+    )
 
 
 tutor_runner = build_tutor_runtime()

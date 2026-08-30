@@ -1,0 +1,12 @@
+{
+  "environment": "isolated local SQLite smoke with ENDO_DEMO_QBANK_BOOTSTRAP=true",
+  "local_vqa_root": "configured locally; not committed",
+  "imported_question_count": 3678,
+  "banks": {
+    "CMExam": 1500,
+    "CMB-Exam": 1778,
+    "Kvasir-VQA curated": 400
+  },
+  "result": "bootstrap pass",
+  "raw_source_data_committed": false
+}

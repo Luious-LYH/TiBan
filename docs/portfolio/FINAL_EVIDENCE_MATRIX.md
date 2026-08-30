@@ -1,4 +1,4 @@
-# Final evidence matrix — Stage 4 / v1.0
+# Final evidence matrix — Stage 6 / v1.2
 
 Only claims tied to a current code path, repeatable check, and artifact are
 resume-eligible. Portfolio metrics are not clinical-effectiveness claims.
@@ -15,6 +15,7 @@ resume-eligible. Portfolio metrics are not clinical-effectiveness claims.
 | QBank fixture boundary | Docker clean start uses a compact teaching seed; optional locally authorized CMExam/CMB/Kvasir adapters remain import-validation fixtures and are not redistributed. | `THIRD_PARTY_DATA.md`, source registry, Docker/bootstrap checks. | Yes, as data-governance engineering. |
 | BYOK evaluation | Separate text/VLM packs, request-scoped key, no fallback, per-case and aggregate results. | `docs/evals/model-evaluation-acceptance.md`, evaluation tests. | Yes, as engineering acceptance. |
 | API and delivery | FastAPI OpenAPI → generated TypeScript client; Docker Compose topology; GitHub Actions fast profile. | `npm run api:check`, compose config, `.github/workflows/ci.yml`, [run 33296518709](https://github.com/Luious-LYH/TiBan/actions/runs/33296518709). | Yes. |
+| Modular monolith engineering | Selected Practice use-case boundary, Tutor-owned dependency adapters, normalized provider errors, and PostgreSQL durable Factory jobs with idempotency/recovery/cancel state. | `docs/architecture/*v1.2.md`, `artifacts/engineering/`, `backend/tests/test_stage6_engineering.py`. | Pending final release gate. |
 
 ## Release evidence
 

@@ -1,0 +1,1 @@
+"""Question Factory application rules."""

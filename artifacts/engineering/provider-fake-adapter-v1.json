@@ -1,0 +1,6 @@
+{
+  "test": "tests/test_stage6_engineering.py::test_tutor_application_runs_with_fake_model_and_retrieval_ports",
+  "result": "pass",
+  "dependencies": ["fake model gateway", "fake retrieval port"],
+  "assertions": ["real AgentEvent lifecycle", "source event emitted", "no external provider required"]
+}

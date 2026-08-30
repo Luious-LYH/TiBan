@@ -361,6 +361,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/factory/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Job */
+        post: operations["cancel_job_api_v3_factory_jobs__job_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/factory/jobs/{job_id}/publish": {
         parameters: {
             query?: never;
@@ -1883,6 +1900,25 @@ export interface components {
             document_id: string;
             /** Status */
             status: string;
+            /**
+             * Stage
+             * @default queued
+             */
+            stage: string;
+            /**
+             * Progress
+             * @default 0
+             */
+            progress: number;
+            /**
+             * Attempt
+             * @default 0
+             */
+            attempt: number;
+            /** Error Code */
+            error_code?: string | null;
+            /** Error Message */
+            error_message?: string | null;
             detail: components["schemas"]["FactoryJobDetailPublic"];
             /** Queue Message Id */
             queue_message_id: string | null;
@@ -1895,6 +1931,8 @@ export interface components {
             job_id: string;
             /** Status */
             status: string;
+            /** Reused */
+            reused?: string | null;
         };
         /** FactoryJobReadResponse */
         FactoryJobReadResponse: {
@@ -3734,6 +3772,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FactoryJobReadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_job_api_v3_factory_jobs__job_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactoryJobCreateResponse"];
                 };
             };
             /** @description Validation Error */

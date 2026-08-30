@@ -32,7 +32,7 @@ export function FactoryStudio() {
   const [published, setPublished] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!job || !['queued', 'parsing', 'indexing', 'generating', 'judging', 'repairing'].includes(job.status)) return
+    if (!job || !['queued', 'running', 'retrying'].includes(job.status)) return
     const timer = window.setInterval(() => { void getFactoryJob(job.job_id).then(setJob).catch((reason: Error) => setError(reason.message)) }, 1200)
     return () => window.clearInterval(timer)
   }, [job])
@@ -59,9 +59,9 @@ export function FactoryStudio() {
     <label className="s1-file-input"><FileUp size={17} /><span>{file?.name ?? '选择 .md 或 .pdf 教学资料（≤5 MiB）'}</span><input aria-label="上传教学资料" type="file" accept=".md,.pdf,text/markdown,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
     <div className="s1-question-actions"><button className="s1-button s1-button-secondary" data-testid="factory-generate" disabled={!file || busy} onClick={() => void start()}>{busy ? <LoaderCircle className="s1-spin" size={15} /> : <Play size={15} />}上传并生成</button></div>
     {error && <div className="s1-inline-error" role="alert">{error}</div>}
-    {job && <div className="s1-factory-ledger"><strong>生成进度</strong><span className={`s1-status-pill is-${job.status}`}>{factoryStatusLabel(job.status)}</span>{job.detail.events?.map((event) => <small key={`${event.at}-${event.status}`}>{factoryStatusLabel(event.status)}</small>)}</div>}
+    {job && <div className="s1-factory-ledger"><strong>生成进度</strong><span className={`s1-status-pill is-${job.stage}`}>{factoryStatusLabel(job.stage)}</span><small>{job.progress}% · 第 {Math.max(1, job.attempt)} 次执行</small>{job.error_message && <small className="s1-inline-error">{job.error_message}</small>}{job.detail.events?.map((event) => <small key={`${event.at}-${event.status}`}>{factoryStatusLabel(event.status)}</small>)}</div>}
     {job?.revisions.map((revision) => <article key={revision.revision_id} className="s1-factory-revision"><div><strong>{revision.parent_revision_id ? '优化后草稿' : '初始草稿'}</strong><span>{factoryStatusLabel(revision.status)}</span></div><p>{revision.draft.stem}</p><small>内容检查：{revision.judge.passed ? '符合要求' : '建议调整'}</small>{revision.rewrite_instruction && <small>修改建议：{revision.rewrite_instruction}</small>}</article>)}
-    {job?.status === 'ready_for_review' && <button className="s1-button s1-button-primary" data-testid="factory-publish" disabled={busy} onClick={() => void publish()}><Send size={15} />发布到题库</button>}
+    {job?.stage === 'ready_for_review' && <button className="s1-button s1-button-primary" data-testid="factory-publish" disabled={busy} onClick={() => void publish()}><Send size={15} />发布到题库</button>}
     {published && <p className="s1-safety">题目已发布，可在题库中开始练习。仅供教学研修或医生复核前辅助，不作为独立诊断依据。</p>}
   </section>
 }

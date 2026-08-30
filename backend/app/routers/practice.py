@@ -4,6 +4,7 @@ from collections import Counter
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.composition import practice_use_cases
 from app.core.config import SAFETY_NOTICE
 from app.db.seed import TYPE_LABEL
 from app.schemas import (
@@ -74,7 +75,7 @@ def get_question_v3(question_id: str) -> dict[str, object]:
 @canonical_router.post("/practice/sessions", response_model=PracticeSessionPublic)
 def create_session_v3(request: PracticeSessionCreateRequest) -> dict[str, object]:
     try:
-        return stage1_service.create_session(
+        return practice_use_cases.create_practice_session(
             request.learner_id,
             request.bank_id,
             request.mode,
@@ -99,7 +100,7 @@ def get_session_v3(
 @canonical_router.post("/practice/submit", response_model=PracticeSubmitResponse)
 def submit_v3(request: PracticeSubmitRequest) -> PracticeSubmitResponse:
     try:
-        return stage1_service.submit(request)
+        return practice_use_cases.submit_answer(request)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question or bank not found.") from exc
 
@@ -149,7 +150,7 @@ def get_question_compat(question_id: str) -> dict[str, object]:
 @legacy_router.post("/practice/sessions")
 def create_session_compat(request: PracticeSessionCreateRequest) -> dict[str, object]:
     try:
-        return stage1_service.create_session(
+        return practice_use_cases.create_practice_session(
             request.learner_id,
             request.bank_id,
             request.mode,
@@ -163,6 +164,6 @@ def create_session_compat(request: PracticeSessionCreateRequest) -> dict[str, ob
 @legacy_router.post("/practice/submit")
 def submit_compat(request: PracticeSubmitRequest) -> dict[str, object]:
     try:
-        return stage1_service.submit(request).model_dump(mode="json")
+        return practice_use_cases.submit_answer(request).model_dump(mode="json")
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question or bank not found.") from exc

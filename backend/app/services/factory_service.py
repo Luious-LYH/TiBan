@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -20,6 +20,7 @@ import fitz
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.application.factory.jobs import ACTIVE_JOB_STATUSES, JobTransitionError, TERMINAL_JOB_STATUSES, ensure_transition
 from app.core.config import FACTORY_PROVIDER_ENABLED, SAFETY_NOTICE, UPLOAD_DIR
 from app.db.database import SessionLocal
 from app.db.models import (
@@ -82,11 +83,44 @@ def _sha(value: bytes | str) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def _record_event(job: FactoryJobModel, status: str, detail: str) -> None:
+def _now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _record_event(job: FactoryJobModel, stage: str, detail: str, *, progress: int | None = None) -> None:
+    """Persist a truthful workflow checkpoint without changing lifecycle state."""
     events = list(job.detail.get("events", []))
-    events.append({"status": status, "detail": detail, "at": datetime.utcnow().isoformat()})
-    job.status = status
+    events.append({"status": stage, "detail": detail, "at": _now().isoformat()})
+    job.stage = stage
+    if progress is not None:
+        job.progress = max(0, min(progress, 100))
+    job.heartbeat_at = _now()
     job.detail = {**job.detail, "events": events}
+
+
+def _set_lifecycle(job: FactoryJobModel, status: str, *, stage: str | None = None, error_code: str | None = None, error_message: str | None = None) -> None:
+    ensure_transition(job.status, status)
+    job.status = status
+    job.heartbeat_at = _now()
+    if stage is not None:
+        job.stage = stage
+    if error_code is not None:
+        job.error_code = error_code
+    if error_message is not None:
+        job.error_message = error_message
+    if status in TERMINAL_JOB_STATUSES:
+        job.completed_at = _now()
+        if status == "succeeded":
+            job.progress = 100
+
+
+def _cancel_if_requested(job: FactoryJobModel) -> bool:
+    if job.cancel_requested_at is None:
+        return False
+    if job.status not in TERMINAL_JOB_STATUSES:
+        _set_lifecycle(job, "cancelled", stage="cancelled", error_code="job_cancelled", error_message="任务已按请求在安全检查点取消。")
+        _record_event(job, "cancelled", "任务已在安全检查点取消。", progress=job.progress)
+    return True
 
 
 def import_allowed_document(
@@ -133,14 +167,49 @@ def import_allowed_document(
 
 def enqueue_factory_job(document_id: str) -> dict[str, str]:
     with SessionLocal() as session:
-        if session.get(SourceDocumentModel, document_id) is None:
+        document = session.get(SourceDocumentModel, document_id)
+        if document is None:
             raise KeyError("document not found")
-        job = FactoryJobModel(job_id=f"factory_{uuid4().hex[:12]}", document_id=document_id, status="queued", detail={"events": []})
-        _record_event(job, "queued", "已接收允许使用的教学文档，等待 Dramatiq worker。")
+        version = session.scalar(
+            select(DocumentVersionModel)
+            .where(DocumentVersionModel.document_id == document_id)
+            .order_by(DocumentVersionModel.created_at.desc())
+        )
+        version_hash = version.content_hash if version is not None else document.content_hash
+        idempotency_key = _sha(f"question_factory:{document_id}:{version_hash}:{GENERATOR_PROMPT_VERSION}:{JUDGE_PROMPT_VERSION}")
+        existing = session.scalar(select(FactoryJobModel).where(FactoryJobModel.idempotency_key == idempotency_key))
+        if existing is not None:
+            if existing.status in ACTIVE_JOB_STATUSES or existing.status == "succeeded":
+                return {"job_id": existing.job_id, "status": existing.status, "reused": "true"}
+            # A failed/cancelled job is an explicit retry of the same durable
+            # input/config, not an accidental duplicate row.
+            ensure_transition(existing.status, "queued")
+            existing.status = "queued"
+            existing.stage = "queued"
+            existing.progress = 0
+            existing.error_code = None
+            existing.error_message = None
+            existing.cancel_requested_at = None
+            existing.completed_at = None
+            _record_event(existing, "queued", "已重新排队执行同一版本的 Factory 任务。", progress=0)
+            session.commit()
+            return {"job_id": existing.job_id, "status": existing.status, "reused": "true"}
+        job = FactoryJobModel(
+            job_id=f"factory_{uuid4().hex[:12]}",
+            document_id=document_id,
+            job_type="question_factory",
+            status="queued",
+            stage="queued",
+            progress=0,
+            input_summary={"document_id": document_id, "content_hash": version_hash, "generator_prompt_version": GENERATOR_PROMPT_VERSION, "judge_prompt_version": JUDGE_PROMPT_VERSION},
+            idempotency_key=idempotency_key,
+            detail={"events": []},
+        )
+        _record_event(job, "queued", "已接收允许使用的教学文档，等待 Dramatiq worker。", progress=0)
         session.add(job)
         session.commit()
         job_id = job.job_id
-    return {"job_id": job_id, "status": "queued"}
+    return {"job_id": job_id, "status": "queued", "reused": "false"}
 
 
 def record_queue_message(job_id: str, message_id: str) -> None:
@@ -150,6 +219,41 @@ def record_queue_message(job_id: str, message_id: str) -> None:
             raise KeyError("factory job not found")
         job.queue_message_id = message_id
         session.commit()
+
+
+def request_job_cancellation(job_id: str) -> dict[str, str]:
+    """Record cancellation durably; workers observe it at safe checkpoints."""
+    with SessionLocal() as session:
+        job = session.get(FactoryJobModel, job_id)
+        if job is None:
+            raise KeyError("factory job not found")
+        if job.status in TERMINAL_JOB_STATUSES:
+            return {"job_id": job_id, "status": job.status, "stage": job.stage}
+        job.cancel_requested_at = _now()
+        _record_event(job, job.stage, "已记录取消请求，worker 将在下一个安全检查点停止。", progress=job.progress)
+        if job.status == "queued":
+            _cancel_if_requested(job)
+        session.commit()
+        return {"job_id": job_id, "status": job.status, "stage": job.stage}
+
+
+def recover_stale_factory_jobs(*, stale_after_seconds: int = 300) -> list[str]:
+    """Return crash-stale jobs to the durable queue for one explicit re-dispatch."""
+    cutoff = _now() - timedelta(seconds=stale_after_seconds)
+    recovered: list[str] = []
+    with SessionLocal() as session:
+        jobs = list(session.scalars(select(FactoryJobModel).where(
+            FactoryJobModel.status == "running",
+            FactoryJobModel.heartbeat_at.is_not(None),
+            FactoryJobModel.heartbeat_at < cutoff,
+        )))
+        for job in jobs:
+            _set_lifecycle(job, "retrying", stage="retrying", error_code="worker_stale", error_message="检测到 worker 心跳过期，已安排重试。")
+            _record_event(job, "retrying", "检测到 worker 心跳过期，任务已恢复到队列。", progress=job.progress)
+            _set_lifecycle(job, "queued", stage="queued")
+            recovered.append(job.job_id)
+        session.commit()
+    return recovered
 
 
 def _markdown_from_document(version: DocumentVersionModel) -> Path:
@@ -380,18 +484,30 @@ def process_factory_job(
         job = session.get(FactoryJobModel, job_id)
         if job is None:
             raise KeyError("factory job not found")
+        if job.status in TERMINAL_JOB_STATUSES:
+            return {"job_id": job_id, "status": job.status, "stage": job.stage, "idempotent": True}
+        if job.status == "running":
+            return {"job_id": job_id, "status": "running", "stage": job.stage, "idempotent": True}
+        if _cancel_if_requested(job):
+            session.commit()
+            return {"job_id": job_id, "status": "cancelled", "stage": "cancelled"}
+        _set_lifecycle(job, "running", stage="parsing")
+        job.attempt += 1
+        job.started_at = _now()
         document = session.get(SourceDocumentModel, job.document_id)
         version = session.scalar(select(DocumentVersionModel).where(DocumentVersionModel.document_id == job.document_id).order_by(DocumentVersionModel.created_at.desc()))
         if document is None or version is None:
-            _record_event(job, "failed", "源文档或版本不存在。")
+            _set_lifecycle(job, "failed", stage="failed", error_code="source_missing", error_message="源文档或版本不存在。")
+            _record_event(job, "failed", "源文档或版本不存在。", progress=0)
             session.commit()
             return {"job_id": job_id, "status": "failed"}
-        _record_event(job, "parsing", "正在解析允许使用的 Markdown/PDF 教学文档。")
+        _record_event(job, "parsing", "正在解析允许使用的 Markdown/PDF 教学文档。", progress=10)
         session.commit()
         try:
             markdown = _markdown_from_document(version)
         except (OSError, ValueError) as exc:
-            _record_event(job, "failed", "上传资料当前不可读取，请重新上传后再试。")
+            _set_lifecycle(job, "failed", stage="failed", error_code="source_unreadable", error_message="上传资料当前不可读取，请重新上传后再试。")
+            _record_event(job, "failed", "上传资料当前不可读取，请重新上传后再试。", progress=10)
             session.commit()
             return {"job_id": job_id, "status": "failed", "error": type(exc).__name__}
         version.parser = "heading-aware-markdown" if markdown.suffix == ".md" else "pymupdf"
@@ -400,7 +516,9 @@ def process_factory_job(
 
     with SessionLocal() as session:
         job = session.get(FactoryJobModel, job_id); assert job is not None
-        _record_event(job, "indexing", "正在写入 PostgreSQL source/chunk metadata 与 Qdrant index。")
+        if _cancel_if_requested(job):
+            session.commit(); return {"job_id": job_id, "status": "cancelled"}
+        _record_event(job, "indexing", "正在写入 PostgreSQL source/chunk metadata 与 Qdrant index。", progress=30)
         session.commit()
     try:
         rag_service.index_markdown(
@@ -418,27 +536,32 @@ def process_factory_job(
         with SessionLocal() as session:
             job = session.get(FactoryJobModel, job_id)
             if job is not None:
-                _record_event(job, "failed", "资料整理未完成，请稍后重试。")
+                _set_lifecycle(job, "failed", stage="failed", error_code="indexing_failed", error_message="资料整理未完成，请稍后重试。")
+                _record_event(job, "failed", "资料整理未完成，请稍后重试。", progress=30)
                 session.commit()
         return {"job_id": job_id, "status": "failed", "error": type(exc).__name__}
 
     with SessionLocal() as session:
         job = session.get(FactoryJobModel, job_id); assert job is not None
+        if _cancel_if_requested(job):
+            session.commit(); return {"job_id": job_id, "status": "cancelled"}
         chunk = session.scalar(select(KnowledgeChunkModel).where(KnowledgeChunkModel.document_id == job.document_id).order_by(KnowledgeChunkModel.ordinal))
         if chunk is None:
-            _record_event(job, "failed", "文档没有可用知识块。")
+            _set_lifecycle(job, "failed", stage="failed", error_code="no_knowledge_chunk", error_message="文档没有可用知识块。")
+            _record_event(job, "failed", "文档没有可用知识块。", progress=45)
             session.commit(); return {"job_id": job_id, "status": "failed"}
         generation_detail = "Generator 使用独立 schema 生成可追溯草稿。"
         if resolved_mode == "provider":
             generation_detail = "Generator 正在调用已配置的真实 Provider；失败将保留为失败，不会改用本地 adapter。"
-        _record_event(job, "generating", generation_detail)
+        _record_event(job, "generating", generation_detail, progress=55)
         try:
             initial = _run_generator(
                 GeneratorInput(evidence=chunk.content, source_chunk_id=chunk.chunk_id, source_document_id=chunk.document_id),
                 mode=resolved_mode,
             )
         except ProviderFactoryError as exc:
-            _record_event(job, "failed", f"Provider Generator 未生成可用 schema：{exc}。")
+            _set_lifecycle(job, "failed", stage="failed", error_code="generator_provider_failed", error_message="Provider Generator 未生成可用 schema。")
+            _record_event(job, "failed", f"Provider Generator 未生成可用 schema：{exc}。", progress=55)
             session.commit()
             return {"job_id": job_id, "status": "failed", "error": str(exc)}
         valid, gate_error = _deterministic_gate(initial, chunk.content)
@@ -452,7 +575,7 @@ def process_factory_job(
         judging_detail = "Judge 使用独立 schema，只读取草稿、资料证据与 rubric。"
         if resolved_mode == "provider":
             judging_detail = "Judge 正在调用独立真实 Provider schema；失败不会由本地 adapter 伪装为通过。"
-        _record_event(job, "judging", judging_detail)
+        _record_event(job, "judging", judging_detail, progress=72)
         if valid:
             try:
                 decision = _run_judge(
@@ -462,7 +585,8 @@ def process_factory_job(
                     expected_citation={"chunk_id": chunk.chunk_id, "document_id": chunk.document_id},
                 )
             except ProviderFactoryError as exc:
-                _record_event(job, "failed", f"Provider Judge 未生成可用 schema：{exc}。")
+                _set_lifecycle(job, "failed", stage="failed", error_code="judge_provider_failed", error_message="Provider Judge 未生成可用 schema。")
+                _record_event(job, "failed", f"Provider Judge 未生成可用 schema：{exc}。", progress=72)
                 session.commit()
                 return {"job_id": job_id, "status": "failed", "error": str(exc)}
         else:
@@ -470,9 +594,13 @@ def process_factory_job(
         initial_revision.judge_decision = decision.model_dump()
         if decision.passed:
             initial_revision.status = "ready_for_review"
-            _record_event(job, "ready_for_review", "草稿通过 deterministic gate 与 Judge，等待人工发布。")
-            session.commit(); return {"job_id": job_id, "status": job.status, "revision_id": initial_revision.revision_id}
-        _record_event(job, "repairing", "保留初稿并创建新的 repair revision。")
+            _set_lifecycle(job, "succeeded", stage="ready_for_review")
+            job.result_ref = initial_revision.revision_id
+            _record_event(job, "ready_for_review", "草稿通过 deterministic gate 与 Judge，等待人工发布。", progress=100)
+            session.commit(); return {"job_id": job_id, "status": job.status, "stage": job.stage, "revision_id": initial_revision.revision_id}
+        if _cancel_if_requested(job):
+            session.commit(); return {"job_id": job_id, "status": "cancelled"}
+        _record_event(job, "repairing", "保留初稿并创建新的 repair revision。", progress=84)
         try:
             repaired = _run_generator(
                 GeneratorInput(evidence=chunk.content, source_chunk_id=chunk.chunk_id, source_document_id=chunk.document_id),
@@ -487,7 +615,8 @@ def process_factory_job(
                 expected_citation={"chunk_id": chunk.chunk_id, "document_id": chunk.document_id},
             )
         except ProviderFactoryError as exc:
-            _record_event(job, "failed", f"Provider Repair 未生成可用 schema：{exc}。")
+            _set_lifecycle(job, "failed", stage="failed", error_code="repair_provider_failed", error_message="Provider Repair 未生成可用 schema。")
+            _record_event(job, "failed", f"Provider Repair 未生成可用 schema：{exc}。", progress=84)
             session.commit()
             return {"job_id": job_id, "status": "failed", "error": str(exc)}
         repaired_revision = QuestionRevisionModel(
@@ -497,9 +626,15 @@ def process_factory_job(
             prompt_version=GENERATOR_PROMPT_VERSION, source_chunk_ids=[chunk.chunk_id],
         )
         session.add(repaired_revision)
-        _record_event(job, "ready_for_review" if repaired_decision.passed else "failed", "修订版本已保留完整 lineage，等待人工发布。")
+        if repaired_decision.passed:
+            _set_lifecycle(job, "succeeded", stage="ready_for_review")
+            job.result_ref = repaired_revision.revision_id
+            _record_event(job, "ready_for_review", "修订版本已保留完整 lineage，等待人工发布。", progress=100)
+        else:
+            _set_lifecycle(job, "failed", stage="failed", error_code="repair_rejected", error_message="修订版本未通过 Judge。")
+            _record_event(job, "failed", "修订版本未通过 Judge。", progress=100)
         session.commit()
-        return {"job_id": job_id, "status": job.status, "revision_id": repaired_revision.revision_id}
+        return {"job_id": job_id, "status": job.status, "stage": job.stage, "revision_id": repaired_revision.revision_id}
 
 
 def publish_revision(job_id: str, revision_id: str) -> dict[str, str]:
@@ -532,7 +667,8 @@ def publish_revision(job_id: str, revision_id: str) -> dict[str, str]:
             bank.question_type_counts = {**bank.question_type_counts, "single_choice": int(bank.question_type_counts.get("single_choice", 0)) + 1}
             bank.modality_counts = {**bank.modality_counts, "text": int(bank.modality_counts.get("text", 0)) + 1}
         revision.status = "published"
-        _record_event(job, "published", "人工发布动作已将 revision 写入 canonical question bank。")
+        job.stage = "published"
+        _record_event(job, "published", "人工发布动作已将 revision 写入 canonical question bank。", progress=100)
         session.commit()
         return {"job_id": job_id, "revision_id": revision_id, "question_id": question_id, "status": "published"}
 
@@ -543,4 +679,21 @@ def get_job(job_id: str) -> dict[str, Any]:
         if job is None:
             raise KeyError("job not found")
         revisions = list(session.scalars(select(QuestionRevisionModel).where(QuestionRevisionModel.job_id == job_id).order_by(QuestionRevisionModel.created_at)))
-        return {"job_id": job.job_id, "document_id": job.document_id, "status": job.status, "detail": job.detail, "queue_message_id": job.queue_message_id, "revisions": [{"revision_id": r.revision_id, "parent_revision_id": r.parent_revision_id, "status": r.status, "draft": r.draft_payload, "judge": r.judge_decision, "rewrite_instruction": r.rewrite_instruction, "source_chunk_ids": r.source_chunk_ids} for r in revisions]}
+        return {
+            "job_id": job.job_id,
+            "document_id": job.document_id,
+            "job_type": job.job_type,
+            "status": job.status,
+            "stage": job.stage,
+            "progress": job.progress,
+            "input_summary": job.input_summary,
+            "result_ref": job.result_ref,
+            "error_code": job.error_code,
+            "error_message": job.error_message,
+            "attempt": job.attempt,
+            "idempotency_key": job.idempotency_key,
+            "cancel_requested_at": job.cancel_requested_at,
+            "detail": job.detail,
+            "queue_message_id": job.queue_message_id,
+            "revisions": [{"revision_id": r.revision_id, "parent_revision_id": r.parent_revision_id, "status": r.status, "draft": r.draft_payload, "judge": r.judge_decision, "rewrite_instruction": r.rewrite_instruction, "source_chunk_ids": r.source_chunk_ids} for r in revisions],
+        }

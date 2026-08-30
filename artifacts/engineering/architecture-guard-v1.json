@@ -1,0 +1,5 @@
+{
+  "test": "tests/test_stage6_engineering.py::test_application_modules_do_not_import_framework_or_concrete_adapters",
+  "forbidden": ["FastAPI", "SQLAlchemy", "Qdrant", "Dramatiq", "routers", "adapters"],
+  "result": "pass"
+}
