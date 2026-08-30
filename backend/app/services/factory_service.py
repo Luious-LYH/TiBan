@@ -536,8 +536,8 @@ def process_factory_job(
         with SessionLocal() as session:
             job = session.get(FactoryJobModel, job_id)
             if job is not None:
-                _set_lifecycle(job, "failed", stage="failed", error_code="indexing_failed", error_message="资料整理未完成，请稍后重试。")
-                _record_event(job, "failed", "资料整理未完成，请稍后重试。", progress=30)
+                _set_lifecycle(job, "failed", stage="failed", error_code="indexing_failed", error_message=f"资料整理未完成，请稍后重试（{type(exc).__name__}）。")
+                _record_event(job, "failed", f"资料整理未完成，请稍后重试（{type(exc).__name__}）。", progress=30)
                 session.commit()
         return {"job_id": job_id, "status": "failed", "error": type(exc).__name__}
 
@@ -667,6 +667,7 @@ def publish_revision(job_id: str, revision_id: str) -> dict[str, str]:
             bank.question_type_counts = {**bank.question_type_counts, "single_choice": int(bank.question_type_counts.get("single_choice", 0)) + 1}
             bank.modality_counts = {**bank.modality_counts, "text": int(bank.modality_counts.get("text", 0)) + 1}
         revision.status = "published"
+        job.result_ref = revision_id
         job.stage = "published"
         _record_event(job, "published", "人工发布动作已将 revision 写入 canonical question bank。", progress=100)
         session.commit()

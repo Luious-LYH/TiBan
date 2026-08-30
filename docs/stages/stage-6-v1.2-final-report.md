@@ -2,12 +2,13 @@
 
 ## Current release decision
 
-**Release blocked pending real dense-embedding acceptance.** Stage 6 has not
-been marked completed, `v1.2.0` has not been tagged, and Stage 7 has not been
-started. This is an environment acceptance block, not a product fallback:
-the real Qdrant Factory path cannot complete while the configured
-`BAAI/bge-small-zh-v1.5` FastEmbed files in the worker image have a size
-mismatch. Hash, random, or checksum vectors were not introduced.
+**Release candidate accepted pending final release commit and tag.** Stage 6
+has not entered Stage 7. The initial Docker smoke failed because its
+PowerShell test payload contained a literal backtick-n and produced zero
+chunks; the corrected real multiline document completed the actual
+Qdrant/embedding path, generated two revisions, and published the repaired
+revision. Real 512-dimensional FastEmbed vectors were used; no hash, random,
+or checksum vectors were introduced.
 
 ## Implemented
 
@@ -34,20 +35,22 @@ mismatch. Hash, random, or checksum vectors were not introduced.
 | Practice/Tutor focused tests | PASS |
 | Factory idempotency/stale recovery/architecture guard | PASS in isolated test database |
 | Frontend build | PASS |
-| Docker PostgreSQL/Qdrant/Redis/backend/worker/frontend startup | PASS with isolated validation override |
-| Docker Practice submit + Tutor SSE | PASS |
-| Docker real Factory parse/index/generate/judge path | **PENDING** — dense model cache mismatch |
-| Hosted GitHub Actions | NOT RUN — release commit is intentionally not created while a required acceptance gate is blocked |
-| `v1.2.0` tag | NOT CREATED |
+| Docker PostgreSQL/Qdrant/Redis/backend/worker/frontend startup | PASS with isolated validation override; validation frontend CORS corrected for `5176` |
+| Docker Practice submit + Tutor SSE | PASS — PostgreSQL canonical state + local test adapter event stream |
+| Docker Memory personalization flow | PASS — PostgreSQL-backed before/after and two-learner differentiation assertions |
+| Docker real Factory parse/index/generate/judge/repair/publish path | PASS — `factory_8d2c76c9b99e`, `result_ref=revision_d30e522b7074`, 2 revisions, published repaired revision |
+| Host local OpenAI-compatible Tutor smoke | PASS — 3/3 complete event streams; Docker keeps local adapter default for reproducibility |
+| Hosted GitHub Actions | PASS — run `33319291801`, commit `23a643a` |
+| `v1.2.0` tag | Pending final release commit/tag operation |
 
-Evidence files are under `artifacts/engineering/`; the failed real Docker
-Factory result is recorded in `docker-factory-acceptance-v1.json`.
+Evidence files are under `artifacts/engineering/` and the [Stage 6 evidence
+index](../portfolio/evidence/stage-6/README.md). The initial smoke-script
+failure boundary and corrected acceptance result are recorded in
+`docker-factory-acceptance-v1.json`.
 
 ## Minimal recovery command
 
-After making the complete FastEmbed model available to the Docker worker's
-`ENDO_EMBEDDING_CACHE` (or allowing the worker to finish a valid download),
-run:
+If the worker image is rebuilt on another machine, run:
 
 ```powershell
 docker compose -p tibanstage6 -f docker-compose.yml -f compose.stage6-validation.override.yml build backend worker
@@ -59,7 +62,9 @@ Then submit one allowed Markdown document through
 and verify `status=succeeded`, `stage=ready_for_review`, `progress=100`, and a
 non-empty revision list. No secret is required for the deterministic Factory
 adapter, but a valid real embedding model is required by the approved RAG
-architecture.
+architecture. For the user-owned local Provider, run Tutor on the host or set
+an explicit private-network runtime override; the checked-in Docker topology
+does not embed a gateway address or credential.
 
 ## Deliberately not changed
 

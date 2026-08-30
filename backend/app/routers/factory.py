@@ -63,6 +63,9 @@ class FactoryJobPublic(BaseModel):
     stage: str = "queued"
     progress: int = Field(default=0, ge=0, le=100)
     attempt: int = Field(default=0, ge=0)
+    result_ref: str | None = None
+    input_summary: dict[str, object] = Field(default_factory=dict)
+    idempotency_key: str | None = None
     error_code: str | None = None
     error_message: str | None = None
     detail: FactoryJobDetailPublic

@@ -2,10 +2,11 @@
   "compose_project": "tibanstage6",
   "isolated_ports": {"backend": 8004, "frontend": 5176, "postgres": 55434, "qdrant": 6335, "redis": 56381},
   "core_services": {"postgres": "healthy", "qdrant": "healthy", "redis": "healthy", "backend": "healthy", "worker": "running", "frontend": "running"},
-  "practice_submit": "pass",
-  "tutor_sse": "pass",
-  "factory_job": {"status": "failed", "stage": "failed", "progress": 30, "attempt": 1, "error_code": "indexing_failed"},
-  "failure_boundary": "real bge-small-zh-v1.5 FastEmbed cache file size mismatch inside worker image",
-  "result": "EXTERNAL EMBEDDING ACCEPTANCE PENDING",
+  "practice_submit": {"status": "pass", "database": "postgresql", "attempt_id": "attempt_fcd446a6b9ff"},
+  "tutor_sse": {"status": "pass", "mode": "local_deterministic_test_adapter", "event_sequence_ends_with": "message_end"},
+  "memory_personalization": {"status": "pass", "mode": "local_deterministic_test_adapter", "before_after": true, "two_learner_differentiation": true},
+  "factory_job": {"job_id": "factory_8d2c76c9b99e", "status": "succeeded", "stage": "published", "progress": 100, "attempt": 1, "result_ref": "revision_d30e522b7074", "revision_count": 2, "lineage_intact": true, "published": true},
+  "failure_boundary": "initial smoke script had a literal backtick-n and was corrected; the product path then completed with real 512-dimensional FastEmbed vectors",
+  "result": "pass",
   "no_fake_embedding_used": true
 }

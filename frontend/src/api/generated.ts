@@ -1915,6 +1915,14 @@ export interface components {
              * @default 0
              */
             attempt: number;
+            /** Result Ref */
+            result_ref?: string | null;
+            /** Input Summary */
+            input_summary?: {
+                [key: string]: unknown;
+            };
+            /** Idempotency Key */
+            idempotency_key?: string | null;
             /** Error Code */
             error_code?: string | null;
             /** Error Message */

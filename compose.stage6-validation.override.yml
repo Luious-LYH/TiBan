@@ -9,6 +9,8 @@ services:
     ports: !override
       - "127.0.0.1:56381:6379"
   backend:
+    environment:
+      ENDO_ALLOWED_ORIGINS: http://localhost:5176,http://127.0.0.1:5176
     ports: !override
       - "127.0.0.1:8004:8000"
   frontend:

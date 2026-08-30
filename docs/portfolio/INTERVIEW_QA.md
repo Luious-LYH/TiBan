@@ -126,3 +126,21 @@ production sizing is not claimed.
 ToolReceipt, AgentEvent, request/session/run/job/source identifiers, prompt
 versions, latency and usage are kept where relevant. Langfuse and OpenTelemetry
 are optional/deferred; raw chain-of-thought and secrets are excluded.
+## Stage 6：为什么不是全仓 DDD 或微服务？
+
+因为当前产品仍是一个共享 PostgreSQL 事务、单部署的学习平台。Stage 6
+只在真实风险处建立边界：Practice 用例、Tutor 依赖适配器和 Factory durable
+job；用 architecture guard 与 fake adapter 证明方向，避免把分布式故障引入
+尚无独立扩缩容需求的系统。
+
+## Stage 6：如何证明重构没有破坏学习语义？
+
+保留 characterization/regression tests，并验证提交路径仍按
+`grade → immutable Attempt → mastery → FSRS → memory` 在单一确定性事务中
+完成。LLM 只能读取 Tutor 上下文，不能写入学习事实。
+
+## Stage 6：为什么 Queue 不等于 Job 状态？
+
+Redis/Dramatiq 只负责投递和执行；PostgreSQL `factory_jobs` 保存状态、进度、
+幂等键、attempt、heartbeat、错误和取消请求，因此 worker 崩溃后可以识别
+stale job 并恢复，而不是永久停留在 running。
