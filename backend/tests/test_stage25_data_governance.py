@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import select
 
+from app.db.bootstrap import DEMO_QBANK_EXPECTATIONS, demo_qbank_counts
 from app.db.database import SessionLocal
 from app.db.models import KnowledgeChunkModel, QuestionModel, SourceDocumentModel
 from app.services.data_governance import source_can_enter_tutor
@@ -23,6 +25,13 @@ def test_x1_legacy_rows_are_not_learner_ready() -> None:
 
 
 def test_kvasir_curated_bank_has_lineage_and_legacy_vqa_is_quarantined() -> None:
+    # The full curated set is derived from a locally licensed source and is
+    # deliberately not committed to the public repository.  It is covered by
+    # the Docker/local-data acceptance profile; a clean hosted checkout still
+    # verifies the policy boundary tests in this module.
+    if demo_qbank_counts() != DEMO_QBANK_EXPECTATIONS:
+        pytest.skip("requires the local 3,678-question Demo QBank acceptance database")
+
     with SessionLocal() as session:
         curated = list(
             session.scalars(

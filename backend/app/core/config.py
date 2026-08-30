@@ -17,6 +17,13 @@ PROJECT_DIR = BACKEND_DIR.parent
 UPLOAD_DIR = BACKEND_DIR / "runtime" / "uploads"
 RUNTIME_DATA_DIR = BACKEND_DIR / "runtime" / "data"
 
+# A clean clone deliberately excludes mutable runtime state.  Create the
+# local-only directories before constructing the default SQLite URL so a fresh
+# checkout can run the application and its regression suite without relying on
+# a developer's existing database folder.
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+RUNTIME_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 load_dotenv(PROJECT_DIR / ".env")
 load_dotenv(BACKEND_DIR / ".env")
 

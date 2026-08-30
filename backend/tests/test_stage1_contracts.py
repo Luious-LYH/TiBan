@@ -164,25 +164,28 @@ def test_zero_question_bank_is_not_learner_visible_or_startable() -> None:
 def test_server_session_persists_random_membership_and_navigator_state() -> None:
     initialize_database()
     learner_id = f"session-membership-{uuid4().hex[:8]}"
+    banks = client.get("/api/v3/question-banks").json()["items"]
+    bank = next(item for item in banks if item["question_count"] >= 2)
+    requested_count = 2
     created = client.post("/api/v3/practice/sessions", json={
         "learner_id": learner_id,
-        "bank_id": "bank-cmexam-real",
+        "bank_id": bank["bank_id"],
         "mode": "study",
-        "question_count": 50,
+        "question_count": requested_count,
         "shuffle_seed": 20260828,
     })
     assert created.status_code == 200, created.text
     payload = created.json()
-    assert payload["question_count"] == 50
-    assert len(payload["question_ids"]) == len(set(payload["question_ids"])) == 50
+    assert payload["question_count"] == requested_count
+    assert len(payload["question_ids"]) == len(set(payload["question_ids"])) == requested_count
 
     detail = client.get(f"/api/v3/practice/sessions/{payload['session_id']}")
     assert detail.status_code == 200
-    assert [item["ordinal"] for item in detail.json()["items"]] == list(range(50))
+    assert [item["ordinal"] for item in detail.json()["items"]] == list(range(requested_count))
     assert {item["state"] for item in detail.json()["items"]} == {"unanswered"}
 
     question = client.get(f"/api/v3/practice/questions/{payload['question_ids'][0]}").json()["item"]
-    selected = question["options"][0]["id"] if question["options"] else True
+    selected = question["options"][0]["id"] if question.get("options") else True
     submitted = client.post("/api/v3/practice/submit", json={
         "learner_id": learner_id,
         "session_id": payload["session_id"],
