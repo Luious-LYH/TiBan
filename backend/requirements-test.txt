@@ -1,0 +1,5 @@
+# Test-only dependencies used by the public CI profile.  Keep production
+# container requirements focused on the runnable application.
+-r requirements.txt
+pytest>=8,<9
+httpx>=0.27,<1
