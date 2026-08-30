@@ -70,6 +70,11 @@ def apply_learning_outcome(session: Session, *, attempt: AttemptModel, question:
         card_model.retrievability = retrievability
         card_model.fsrs_state = scheduled.state.name
     _rebuild_mastery(session, attempt.learner_id, question)
+    # Memory is a compact derived fact built only after the immutable attempt,
+    # mastery and FSRS state are already staged in this same transaction.
+    from app.services.learning_memory_service import learning_memory_service
+
+    learning_memory_service.consolidate_attempt(session, attempt=attempt, question=question)
     return card_model
 
 

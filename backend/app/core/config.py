@@ -6,7 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 APP_NAME = "消化内镜研修与模型评测平台"
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.1.0"
 SAFETY_NOTICE = "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
 DEMO_LEARNER_ID = "demo_learner"
 

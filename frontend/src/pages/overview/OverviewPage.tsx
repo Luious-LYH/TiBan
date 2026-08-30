@@ -1,11 +1,17 @@
-import { ArrowRight, CheckCircle2, Clock3, Library, Target } from 'lucide-react'
+import { ArrowRight, BrainCircuit, CheckCircle2, Clock3, Library, Target, Trash2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { getOverview } from '../../api/client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { clearLearningMemory, getLearningMemory, getOverview } from '../../api/client'
 import { EmptyState, ErrorState, LoadingState } from '../../components/shared/AsyncState'
 
 export function OverviewPage() {
   const overview = useQuery({ queryKey: ['overview'], queryFn: () => getOverview() })
+  const learningMemory = useQuery({ queryKey: ['learning-memory'], queryFn: () => getLearningMemory() })
+  const queryClient = useQueryClient()
+  const clearMemory = useMutation({
+    mutationFn: () => clearLearningMemory(),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['learning-memory'] }),
+  })
 
   if (overview.isPending) return <LoadingState />
   if (overview.isError) return <ErrorState message={overview.error.message} onRetry={() => void overview.refetch()} />
@@ -49,6 +55,23 @@ export function OverviewPage() {
           {data.recent_sessions.length === 0 ? <EmptyState title="尚未有练习记录" detail="选择一个题库开始第一道题。" /> : <div className="s1-recent-list">{data.recent_sessions.slice(0, 6).map((item) => <div className="s1-recent-row" key={item.attempt_id}><span className={item.correct ? 's1-dot is-correct' : 's1-dot'} /><span><strong>{item.correct ? '回答正确' : '进入复盘'}</strong><small>{new Date(item.created_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</small></span><b>{item.correct ? `${item.score} 分` : '—'}</b></div>)}</div>}
         </section>
       </div>
+      <section className="s1-card s1-learning-memory-card" aria-labelledby="learning-memory-title" data-testid="learning-memory-panel">
+        <div className="s1-section-heading">
+          <div><span className="s1-kicker">LEARNING PROFILE</span><h2 id="learning-memory-title">最近需要巩固</h2></div>
+          <button className="s1-button s1-button-light s1-memory-clear" type="button" onClick={() => clearMemory.mutate()} disabled={clearMemory.isPending || !learningMemory.data?.items.length}>
+            <Trash2 size={14} />{clearMemory.isPending ? '清除中…' : '清除长期学习记忆'}
+          </button>
+        </div>
+        {learningMemory.isPending ? <p className="s1-memory-status">正在整理你的跨次学习线索…</p> : learningMemory.isError ? <p className="s1-memory-status">学习画像暂不可用；练习和复习记录不受影响。</p> : learningMemory.data?.items.length ? (
+          <div className="s1-memory-list" aria-label="学习画像条目">
+            {learningMemory.data.items.map((item) => <article className="s1-memory-item" key={item.memory_id}>
+              <span className="s1-memory-icon"><BrainCircuit size={17} /></span>
+              <div><strong>{item.summary}</strong><small>{item.topic_keys.slice(0, 3).join(' · ') || '最近练习'}</small></div>
+            </article>)}
+          </div>
+        ) : <p className="s1-memory-status">完成几次同主题练习后，这里会呈现真正影响后续辅导与选题的学习线索。</p>}
+        {clearMemory.isSuccess && <p className="s1-memory-status is-success">已清除长期学习记忆；练习记录与复习安排仍会保留。</p>}
+      </section>
       <p className="s1-safety">{data.safety_notice}</p>
     </div>
   )

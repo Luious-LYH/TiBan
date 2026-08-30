@@ -73,15 +73,25 @@ class LocalPolicyModelGateway:
     def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
         lowered = context.user_message.lower()
         requested = ['get_question_context', 'get_learning_profile']
+        asks_for_answer = context.mode == 'study' and context.phase == 'pre_submit' and any(
+            marker in lowered for marker in ('正确答案', '直接告诉我', '我不会', '答案是什么', '给答案')
+        )
+        needs_memory = context.phase == 'post_submit' or any(
+            marker in lowered for marker in ('提示', '解释', '为什么', '如何', '复习', '薄弱', '错误', '历史', '混淆', '下一轮')
+        )
+        # A post-submit turn must retain its deterministic grading observation
+        # even when retrieval and memory are also relevant to the explanation.
+        if context.phase == 'post_submit' and 'get_grading_result' in available_tools:
+            requested.append('get_grading_result')
         if any(marker in lowered for marker in ('错题', '错误', '薄弱', '近期', '历史表现', '复习记录')):
             requested.append('get_recent_mistakes')
         if any(marker in lowered for marker in ('提示', '解释', '为什么', '依据', '资料', '指南', '反流', '胃炎', '出血', '解剖')):
             requested.insert(1, 'retrieve_knowledge')
-        if context.mode == 'study' and context.phase == 'pre_submit' and any(marker in lowered for marker in ('正确答案', '直接告诉我', '我不会', '答案是什么', '给答案')):
+        if asks_for_answer:
             requested.append('get_answer_explanation')
-        if context.phase == 'post_submit' and 'get_grading_result' in available_tools:
-            requested.append('get_grading_result')
-        return [tool for tool in requested if tool in available_tools]
+        if needs_memory:
+            requested.append('get_learning_memory')
+        return list(dict.fromkeys(tool for tool in requested if tool in available_tools))
 
     def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
         lowered = context.user_message.lower()
@@ -93,6 +103,7 @@ class LocalPolicyModelGateway:
         question = observations.get('get_question_context', {})
         profile = observations.get('get_learning_profile', {})
         mistakes = observations.get('get_recent_mistakes', [])
+        memory = observations.get('get_learning_memory', {})
         retrieval = observations.get('retrieve_knowledge', [])
         history = context.metadata.get('conversation', [])
         continuation = '继续沿用上一步的证据范围。' if history and any(str(item.get('content', '')).strip() for item in history[-2:]) else ''
@@ -103,7 +114,9 @@ class LocalPolicyModelGateway:
             grading = observations.get('get_grading_result', {})
             plan += f" 本次得分为 {grading.get('score', '—')}；请以公开反馈复盘，而不是反向索取答案键。"
         history_note = f" 近期可复盘错题 {len(mistakes)} 条。" if mistakes else ''
-        return f"{prefix}{plan} 当前已记录练习 {profile.get('attempt_count', 0)} 次。{history_note}{SAFETY_NOTICE}"
+        memory_items = memory.get('items', []) if isinstance(memory, dict) else []
+        memory_note = f" 结合你近期的学习情况：{memory_items[0].get('summary', '')}" if memory_items else ''
+        return f"{prefix}{plan} 当前已记录练习 {profile.get('attempt_count', 0)} 次。{memory_note}{history_note}{SAFETY_NOTICE}"
 
 
 class OpenAICompatibleTutorGateway:
@@ -122,6 +135,7 @@ class OpenAICompatibleTutorGateway:
                 "You are a medical education tutor tool planner. Return JSON only: "
                 '{"tools":[...]} . Select only names in the allowed list. '
                 "Never request hidden rubrics, diagnosis, or write actions. "
+                "get_learning_memory is a read-only, current-learner-only compact learning-fact tool; use it only when current topic or query makes it relevant. "
                 "The get_answer_explanation tool is permitted only when mode is study, phase is pre_submit, "
                 "and the learner explicitly asks for the current answer; never select it in exam mode, "
                 "post-submit mode, or for a hint-only request."
@@ -252,10 +266,44 @@ class AgentRunner:
                     # lifecycle marker (not a learner-facing citation).
                     yield AgentEvent('source', {'status': 'none'})
             text = _clean_user_facing_text(self.gateway.compose(context, observations))
+            memory_observation = observations.get('get_learning_memory', {})
+            memory_trace = {
+                'memory_retrieval_triggered': isinstance(memory_observation, dict),
+                'candidate_memory_ids': list(memory_observation.get('candidate_memory_ids', [])) if isinstance(memory_observation, dict) else [],
+                'selected_memory_ids': list(memory_observation.get('selected_memory_ids', [])) if isinstance(memory_observation, dict) else [],
+                'profile_version': str(memory_observation.get('profile_version', 'memory-v0')) if isinstance(memory_observation, dict) else 'memory-v0',
+                'memory_token_count': int(memory_observation.get('memory_token_count', 0)) if isinstance(memory_observation, dict) else 0,
+                'personalization_reason': str(memory_observation.get('personalization_reason', 'not_requested')) if isinstance(memory_observation, dict) else 'not_requested',
+            }
+            # Explicit learner confusion is the sole chat-to-memory route.  The
+            # deterministic extractor stores only a compact validated fact and
+            # a run reference, never the raw message or model reasoning.
+            try:
+                from app.db.database import SessionLocal
+                from app.db.models import QuestionModel
+                from app.services.learning_memory_service import learning_memory_service
+
+                with SessionLocal() as session:
+                    question = session.get(QuestionModel, context.question_id)
+                    if question is not None:
+                        memory_write = learning_memory_service.record_explicit_confusion(
+                            session,
+                            learner_id=context.learner_id,
+                            question=question,
+                            message=context.user_message,
+                            tutor_run_id=run_id,
+                        )
+                        if memory_write is not None:
+                            session.commit()
+                            memory_trace['candidate_memory_id'] = memory_write.memory_id
+            except Exception:
+                # A memory-write failure is non-critical: the Tutor response
+                # and its existing read-only receipts remain valid.
+                memory_trace['memory_write_status'] = 'unavailable'
             yield AgentEvent('reasoning', {'summary': ['识别学习目标', '对照题目与允许的证据', '组织面向学习者的回答'], 'duration_ms': round((perf_counter() - started) * 1000)})
             for token in _tokenize(text):
                 yield AgentEvent('token', {'text': token})
-            yield AgentEvent('message_end', {'run_id': run_id, 'receipt_count': len(receipts), 'provider': self.gateway.name, 'retry_count': retry_count})
+            yield AgentEvent('message_end', {'run_id': run_id, 'receipt_count': len(receipts), 'provider': self.gateway.name, 'retry_count': retry_count, 'trace': memory_trace})
         except Exception as exc:
             yield AgentEvent('error', {'code': 'agent_failure', 'message': f'Tutor 暂不可用：{type(exc).__name__}。请重试。'})
 
@@ -350,6 +398,20 @@ def build_tutor_runtime() -> AgentRunner:
         overview = stage1_service.overview(context.learner_id)
         return {'attempt_count': overview['completed_today'], 'due_review_count': overview['due_review_count'], 'weak_areas': overview['weak_areas']}
 
+    def learning_memory(context: AgentContext) -> dict[str, Any]:
+        """Read only compact, relevant facts from the requesting learner."""
+
+        from app.db.database import SessionLocal
+        from app.services.learning_memory_service import learning_memory_service
+
+        with SessionLocal() as session:
+            return learning_memory_service.retrieve_relevant(
+                session,
+                learner_id=context.learner_id,
+                question_id=context.question_id,
+                user_message=context.user_message,
+            )
+
     def recent_mistakes(context: AgentContext) -> list[dict[str, Any]]:
         """Expose a bounded, answer-free learning-history observation.
 
@@ -411,6 +473,7 @@ def build_tutor_runtime() -> AgentRunner:
     registry.register('get_question_context', {'pre_submit', 'post_submit'}, question_context)
     registry.register('retrieve_knowledge', {'pre_submit', 'post_submit'}, retrieve_knowledge)
     registry.register('get_learning_profile', {'pre_submit', 'post_submit'}, learning_profile)
+    registry.register('get_learning_memory', {'pre_submit', 'post_submit'}, learning_memory)
     registry.register('get_recent_mistakes', {'pre_submit', 'post_submit'}, recent_mistakes)
     registry.register('get_grading_result', {'post_submit'}, grading_result)
     registry.register('get_answer_explanation', {'pre_submit'}, answer_explanation)

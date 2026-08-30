@@ -190,7 +190,7 @@ class PracticeSessionPublic(Stage1Model):
     question_ids: list[str] = Field(default_factory=list)
     # This is a projection of the existing Attempt/Mastery/ReviewCard state at
     # session creation time, not a second persisted learning-state schema.
-    selection_strategy: Literal["due_review", "weak_topic", "coverage"] = "coverage"
+    selection_strategy: Literal["due_review", "learning_memory", "weak_topic", "coverage"] = "coverage"
     selection_reason: str = "本次按题库覆盖安排练习。"
     selection_evidence: list[str] = Field(default_factory=list)
 

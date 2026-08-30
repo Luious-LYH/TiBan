@@ -1,4 +1,4 @@
-# EndoTutor v1.0.1
+# EndoTutor v1.1.0
 
 **Agent-native medical learning and assessment platform** for endoscopy education: real question banks, a continuous Tutor chat, adaptive practice and review, knowledge-grounded explanations, question generation, and model evaluation.
 
@@ -13,6 +13,19 @@
 - Submit an answer, receive feedback, and let the next practice session prioritize review due dates, weak topics, and coverage.
 - Upload an allowed Markdown/PDF teaching document, generate a reviewable question draft, and publish only after review.
 - Temporarily connect a compatible model to compare text or image-question results without storing its API key.
+
+## Memory & Personalization
+
+v1.1 keeps Session Memory, Learning Memory and the derived Learner Profile
+separate. Verified repeated mistakes and explicit, validated concept confusion
+can produce a small evidence-backed learning fact; only the top relevant facts
+are supplied to the Tutor and deterministic next-session selector. Clearing the
+learning-memory view never deletes attempts or FSRS review history.
+
+![Learning profile after repeated evidence](./docs/portfolio/evidence/stage-5-learning-profile.png)
+
+See [the memory architecture](./docs/architecture/memory-personalization.md)
+and the [reproducible acceptance](./docs/evals/memory-personalization-acceptance.md).
 
 | Practice + Tutor | Adaptive learning loop |
 | --- | --- |
@@ -100,6 +113,7 @@ for commit `86fb139` passed backend, frontend, and Playwright Flow A:
 - [90-second demo script](./docs/portfolio/DEMO_SCRIPT.md)
 - [Data attribution and license boundaries](./THIRD_PARTY_DATA.md)
 - [Security notes](./SECURITY_NOTES.md)
+- [Memory & Personalization acceptance](./docs/evals/memory-personalization-acceptance.md)
 
 RAG and Question Judge human review remains deferred from v1.0 and is documented
 only in evidence materials. It is not presented as expert or clinical validation.

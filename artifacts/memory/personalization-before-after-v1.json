@@ -1,0 +1,144 @@
+{
+  "artifact": "personalization-before-after-v1",
+  "generated_at": "2026-08-30T10:44:52.469499Z",
+  "learner_id": "evidence_same_learner",
+  "question_id": "endo_text_esophagus_barrett_multi",
+  "before": {
+    "memory": {
+      "namespace": "learner_memory_structured",
+      "items": [],
+      "candidate_memory_ids": [],
+      "selected_memory_ids": [],
+      "profile_version": "memory-v0",
+      "memory_token_count": 0,
+      "personalization_reason": "no_relevant_memory"
+    },
+    "tutor": {
+      "tool_names": [
+        "get_question_context",
+        "retrieve_knowledge",
+        "get_learning_profile",
+        "get_learning_memory"
+      ],
+      "trace": {
+        "memory_retrieval_triggered": true,
+        "candidate_memory_ids": [],
+        "selected_memory_ids": [],
+        "profile_version": "memory-v0",
+        "memory_token_count": 0,
+        "personalization_reason": "no_relevant_memory"
+      },
+      "response_preview": "先围绕「Barrett 食管记录要点」梳理可见证据：建议先区分部位、形态和不能由单帧推出的结论。根据消化内镜研修常见教学目标整理的演示题。 当前已记录练习 0 次。仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
+    },
+    "next_session": {
+      "session_id": "session_df0f8b3ffc2b",
+      "learner_id": "evidence_same_learner",
+      "bank_id": "bank-esophagus-observation",
+      "mode": "practice",
+      "status": "active",
+      "started_at": "2026-08-30T10:44:52.254204",
+      "question_count": 2,
+      "question_ids": [
+        "endo_text_esophagus_barrett_multi",
+        "endo_text_esophagus_reflux_single"
+      ],
+      "selection_strategy": "coverage",
+      "selection_reason": "本次按未练题与题库覆盖安排练习。",
+      "selection_evidence": [
+        "当前没有到期复习或显著薄弱项，优先安排 2 道未练题。"
+      ]
+    }
+  },
+  "after": {
+    "memory": {
+      "namespace": "learner_memory_structured",
+      "items": [
+        {
+          "memory_id": "memory_8f70633cbaa9",
+          "kind": "repeated_mistake",
+          "summary": "「食管」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。",
+          "status": "active",
+          "topic_keys": [
+            "食管"
+          ],
+          "concept_keys": [],
+          "first_seen_at": "2026-08-30T10:44:52.285205",
+          "last_seen_at": "2026-08-30T10:44:52.396754",
+          "evidence_count": 3
+        },
+        {
+          "memory_id": "memory_9fc8cae331b8",
+          "kind": "repeated_mistake",
+          "summary": "「Barrett」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。",
+          "status": "active",
+          "topic_keys": [
+            "Barrett"
+          ],
+          "concept_keys": [],
+          "first_seen_at": "2026-08-30T10:44:52.285205",
+          "last_seen_at": "2026-08-30T10:44:52.396754",
+          "evidence_count": 3
+        }
+      ],
+      "candidate_memory_ids": [
+        "memory_8f70633cbaa9",
+        "memory_9fc8cae331b8"
+      ],
+      "selected_memory_ids": [
+        "memory_8f70633cbaa9",
+        "memory_9fc8cae331b8"
+      ],
+      "profile_version": "memory-v1",
+      "memory_token_count": 17,
+      "personalization_reason": "current_topic_match"
+    },
+    "tutor": {
+      "tool_names": [
+        "get_question_context",
+        "retrieve_knowledge",
+        "get_learning_profile",
+        "get_learning_memory"
+      ],
+      "trace": {
+        "memory_retrieval_triggered": true,
+        "candidate_memory_ids": [
+          "memory_8f70633cbaa9",
+          "memory_9fc8cae331b8"
+        ],
+        "selected_memory_ids": [
+          "memory_8f70633cbaa9",
+          "memory_9fc8cae331b8"
+        ],
+        "profile_version": "memory-v1",
+        "memory_token_count": 17,
+        "personalization_reason": "current_topic_match"
+      },
+      "response_preview": "先围绕「Barrett 食管记录要点」梳理可见证据：建议先区分部位、形态和不能由单帧推出的结论。根据消化内镜研修常见教学目标整理的演示题。 当前已记录练习 3 次。 结合你近期的学习情况：「食管」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
+    },
+    "next_session": {
+      "session_id": "session_371af1ca0eaa",
+      "learner_id": "evidence_same_learner",
+      "bank_id": "bank-esophagus-observation",
+      "mode": "practice",
+      "status": "active",
+      "started_at": "2026-08-30T10:44:52.463496",
+      "question_count": 2,
+      "question_ids": [
+        "endo_text_esophagus_barrett_multi",
+        "endo_text_esophagus_reflux_single"
+      ],
+      "selection_strategy": "learning_memory",
+      "selection_reason": "本次优先巩固近期需要加强的概念，再维持题库覆盖。",
+      "selection_evidence": [
+        "结合已记录的学习事实：「食管」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。",
+        "同时保留 1 道未练题，避免只重复单一知识点。"
+      ]
+    }
+  },
+  "assertions": {
+    "memory_changed": true,
+    "tutor_context_changed": true,
+    "session_selection_changed": true
+  },
+  "raw_chain_of_thought_stored": false
+}

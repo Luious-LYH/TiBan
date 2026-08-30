@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .database import Base
@@ -202,6 +202,39 @@ class LearnerMasteryModel(Base):
     common_errors: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     mastery_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class LearningMemoryItemModel(Base):
+    """Evidence-backed, cross-session learning facts.
+
+    This model intentionally complements, rather than replaces, immutable
+    attempts, derived mastery, and FSRS review state.  It contains compact
+    learning facts only: never raw chat, provider prompts, answer keys, or
+    model reasoning.
+    """
+
+    __tablename__ = "learning_memory_items"
+    __table_args__ = (
+        UniqueConstraint("learner_id", "dedupe_key", name="uq_learning_memory_learner_dedupe"),
+        Index("ix_learning_memory_learner_status", "learner_id", "status"),
+    )
+
+    memory_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    topic_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    concept_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="active", index=True)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    evidence_refs: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    source_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    dedupe_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
 

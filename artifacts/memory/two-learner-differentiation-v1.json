@@ -1,0 +1,152 @@
+{
+  "artifact": "two-learner-differentiation-v1",
+  "generated_at": "2026-08-30T10:44:52.731181Z",
+  "request": "安排下一轮 20 题（实际受 compact seed 可用题量限制）",
+  "learner_a": {
+    "focus_question_id": "endo_text_esophagus_barrett_multi",
+    "memory": {
+      "namespace": "learner_memory_structured",
+      "items": [
+        {
+          "memory_id": "memory_c18a00ea11d0",
+          "kind": "repeated_mistake",
+          "summary": "「食管」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。",
+          "status": "active",
+          "topic_keys": [
+            "食管"
+          ],
+          "concept_keys": [],
+          "first_seen_at": "2026-08-30T10:44:52.489499",
+          "last_seen_at": "2026-08-30T10:44:52.615810",
+          "evidence_count": 3
+        },
+        {
+          "memory_id": "memory_255da23b41ad",
+          "kind": "repeated_mistake",
+          "summary": "「Barrett」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。",
+          "status": "active",
+          "topic_keys": [
+            "Barrett"
+          ],
+          "concept_keys": [],
+          "first_seen_at": "2026-08-30T10:44:52.489499",
+          "last_seen_at": "2026-08-30T10:44:52.615810",
+          "evidence_count": 3
+        }
+      ],
+      "candidate_memory_ids": [
+        "memory_c18a00ea11d0",
+        "memory_255da23b41ad"
+      ],
+      "selected_memory_ids": [
+        "memory_c18a00ea11d0",
+        "memory_255da23b41ad"
+      ],
+      "profile_version": "memory-v1",
+      "memory_token_count": 17,
+      "personalization_reason": "current_topic_match"
+    },
+    "next_session": {
+      "session_id": "session_2a1e101c174f",
+      "learner_id": "evidence_learner_a",
+      "bank_id": "bank-esophagus-observation",
+      "mode": "practice",
+      "status": "active",
+      "started_at": "2026-08-30T10:44:52.691513",
+      "question_count": 2,
+      "question_ids": [
+        "endo_text_esophagus_barrett_multi",
+        "endo_text_esophagus_reflux_single"
+      ],
+      "selection_strategy": "learning_memory",
+      "selection_reason": "本次优先巩固近期需要加强的概念，再维持题库覆盖。",
+      "selection_evidence": [
+        "结合已记录的学习事实：「食管」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。",
+        "同时保留 1 道未练题，避免只重复单一知识点。"
+      ]
+    }
+  },
+  "learner_b": {
+    "focus_question_id": "endo_text_import_template_single",
+    "memory": {
+      "namespace": "learner_memory_structured",
+      "items": [
+        {
+          "memory_id": "memory_456d05b3e686",
+          "kind": "repeated_mistake",
+          "summary": "「题库导入」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。",
+          "status": "active",
+          "topic_keys": [
+            "题库导入"
+          ],
+          "concept_keys": [],
+          "first_seen_at": "2026-08-30T10:44:52.520141",
+          "last_seen_at": "2026-08-30T10:44:52.650486",
+          "evidence_count": 3
+        },
+        {
+          "memory_id": "memory_7ccfd1eb14ad",
+          "kind": "repeated_mistake",
+          "summary": "「制卡」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。",
+          "status": "active",
+          "topic_keys": [
+            "制卡"
+          ],
+          "concept_keys": [],
+          "first_seen_at": "2026-08-30T10:44:52.520141",
+          "last_seen_at": "2026-08-30T10:44:52.650486",
+          "evidence_count": 3
+        },
+        {
+          "memory_id": "memory_7558f6024bbe",
+          "kind": "repeated_mistake",
+          "summary": "「个人题库」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。",
+          "status": "active",
+          "topic_keys": [
+            "个人题库"
+          ],
+          "concept_keys": [],
+          "first_seen_at": "2026-08-30T10:44:52.520141",
+          "last_seen_at": "2026-08-30T10:44:52.650486",
+          "evidence_count": 3
+        }
+      ],
+      "candidate_memory_ids": [
+        "memory_456d05b3e686",
+        "memory_7ccfd1eb14ad",
+        "memory_7558f6024bbe",
+        "memory_fa22f7dda6b6"
+      ],
+      "selected_memory_ids": [
+        "memory_456d05b3e686",
+        "memory_7ccfd1eb14ad",
+        "memory_7558f6024bbe"
+      ],
+      "profile_version": "memory-v1",
+      "memory_token_count": 24,
+      "personalization_reason": "current_topic_match"
+    },
+    "next_session": {
+      "session_id": "session_ca4d5154963f",
+      "learner_id": "evidence_learner_b",
+      "bank_id": "bank-general-endoscopy",
+      "mode": "practice",
+      "status": "active",
+      "started_at": "2026-08-30T10:44:52.715515",
+      "question_count": 1,
+      "question_ids": [
+        "endo_text_import_template_single"
+      ],
+      "selection_strategy": "learning_memory",
+      "selection_reason": "本次优先巩固近期需要加强的概念，再维持题库覆盖。",
+      "selection_evidence": [
+        "结合已记录的学习事实：「题库导入」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。"
+      ]
+    }
+  },
+  "assertions": {
+    "learner_isolation": true,
+    "different_memory_focus": true,
+    "different_selection_reason": true
+  }
+}

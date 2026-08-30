@@ -276,6 +276,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/learning/memory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Learning Memory */
+        get: operations["get_learning_memory_api_v3_learning_memory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/learning/memory/clear": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clear Learning Memory */
+        post: operations["clear_learning_memory_api_v3_learning_memory_clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/factory/documents": {
         parameters: {
             query?: never;
@@ -1528,6 +1562,33 @@ export interface components {
              */
             learner_id: string;
         };
+        /** ClearLearningMemoryRequest */
+        ClearLearningMemoryRequest: {
+            /**
+             * Learner Id
+             * @default demo_learner
+             */
+            learner_id: string;
+        };
+        /** ClearLearningMemoryResponse */
+        ClearLearningMemoryResponse: {
+            /** Learner Id */
+            learner_id: string;
+            /** Superseded Count */
+            superseded_count: number;
+            /**
+             * Preserved Attempt History
+             * @default true
+             */
+            preserved_attempt_history: boolean;
+            /**
+             * Preserved Review History
+             * @default true
+             */
+            preserved_review_history: boolean;
+            /** Api Source */
+            api_source: string;
+        };
         /** DocumentUploadRequest */
         DocumentUploadRequest: {
             /** Filename */
@@ -1917,6 +1978,36 @@ export interface components {
             /** Document Id */
             document_id: string;
         };
+        /** LearningMemoryPublic */
+        LearningMemoryPublic: {
+            /** Memory Id */
+            memory_id: string;
+            /** Kind */
+            kind: string;
+            /** Summary */
+            summary: string;
+            /** Status */
+            status: string;
+            /** Topic Keys */
+            topic_keys: string[];
+            /** Concept Keys */
+            concept_keys: string[];
+            /** First Seen At */
+            first_seen_at: string;
+            /** Last Seen At */
+            last_seen_at: string;
+            /** Evidence Count */
+            evidence_count: number;
+        };
+        /** LearningMemoryResponse */
+        LearningMemoryResponse: {
+            /** Learner Id */
+            learner_id: string;
+            /** Items */
+            items: components["schemas"]["LearningMemoryPublic"][];
+            /** Api Source */
+            api_source: string;
+        };
         /** MentorPlanPublic */
         MentorPlanPublic: {
             /** Learner Id */
@@ -2206,7 +2297,7 @@ export interface components {
              * @default coverage
              * @enum {string}
              */
-            selection_strategy: "due_review" | "weak_topic" | "coverage";
+            selection_strategy: "due_review" | "learning_memory" | "weak_topic" | "coverage";
             /**
              * Selection Reason
              * @default 本次按题库覆盖安排练习。
@@ -2249,7 +2340,7 @@ export interface components {
              * @default coverage
              * @enum {string}
              */
-            selection_strategy: "due_review" | "weak_topic" | "coverage";
+            selection_strategy: "due_review" | "learning_memory" | "weak_topic" | "coverage";
             /**
              * Selection Reason
              * @default 本次按题库覆盖安排练习。
@@ -3481,6 +3572,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MentorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_learning_memory_api_v3_learning_memory_get: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LearningMemoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_learning_memory_api_v3_learning_memory_clear_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClearLearningMemoryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClearLearningMemoryResponse"];
                 };
             };
             /** @description Validation Error */

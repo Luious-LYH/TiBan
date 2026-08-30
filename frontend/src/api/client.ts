@@ -43,6 +43,9 @@ export type FactoryRevision = components['schemas']['FactoryRevisionPublic']
 export type FactoryJob = components['schemas']['FactoryJobPublic']
 export type MentorPlan = components['schemas']['MentorPlanPublic']
 export type ReviewCard = components['schemas']['ReviewCardPublic']
+export type LearningMemoryItem = components['schemas']['LearningMemoryPublic']
+export type LearningMemoryResponse = components['schemas']['LearningMemoryResponse']
+export type ClearLearningMemoryResponse = components['schemas']['ClearLearningMemoryResponse']
 
 export class ApiError extends Error {
   readonly status: number
@@ -167,6 +170,14 @@ export async function publishFactoryRevision(jobId: string, revisionId: string):
 export async function getMentorPlan(): Promise<MentorPlan> {
   const response = await unwrap(api.GET('/api/v3/learning/mentor', { params: { query: { learner_id: 'demo_learner' } } }))
   return response.plan
+}
+
+export async function getLearningMemory(learnerId = 'demo_learner'): Promise<LearningMemoryResponse> {
+  return unwrap(api.GET('/api/v3/learning/memory', { params: { query: { learner_id: learnerId, limit: 5 } } }))
+}
+
+export function clearLearningMemory(learnerId = 'demo_learner'): Promise<ClearLearningMemoryResponse> {
+  return unwrap(api.POST('/api/v3/learning/memory/clear', { body: { learner_id: learnerId } }))
 }
 
 export async function submitFsrsReview(questionId: string, rating: 'Again' | 'Hard' | 'Good' | 'Easy'): Promise<ReviewCard> {

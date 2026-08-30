@@ -13,6 +13,7 @@ from app.core.config import SAFETY_NOTICE
 
 from .models import (
     AttemptModel,
+    LearningMemoryItemModel,
     LearnerMasteryModel,
     PracticeSessionItemModel,
     PracticeSessionModel,
@@ -269,6 +270,14 @@ class Stage1Repository:
             )
             if row.due_at <= now
         }
+        active_memory = list(
+            self.session.scalars(
+                select(LearningMemoryItemModel).where(
+                    LearningMemoryItemModel.learner_id == learner_id,
+                    LearningMemoryItemModel.status == "active",
+                )
+            )
+        )
 
         # A supplied seed preserves reproducibility for scale/acceptance runs.
         # Normal sessions may rotate otherwise-equivalent coverage questions,
@@ -283,25 +292,40 @@ class Stage1Repository:
                 if point in mastery_by_point and mastery_by_point[point].mastery_score < 80
             ]
 
+        def memory_records(question: QuestionModel) -> list[LearningMemoryItemModel]:
+            question_keys = self._question_points(question)
+            if question.topic:
+                question_keys.add(question.topic)
+            return [
+                item
+                for item in active_memory
+                if question_keys & {str(key) for key in (item.topic_keys or [])}
+            ]
+
         def rank(question: QuestionModel) -> tuple[int, float, int, float]:
             due = due_by_question.get(question.question_id)
             if due is not None:
                 return (0, due.due_at.timestamp(), 0, tie_breakers[question.question_id])
+            memories = memory_records(question)
+            if memories:
+                latest = max(memories, key=lambda row: row.last_seen_at)
+                return (1, -latest.last_seen_at.timestamp(), -len(memories), tie_breakers[question.question_id])
             weak = weak_records(question)
             if weak:
                 weakest = min(weak, key=lambda row: row.mastery_score)
                 return (
-                    1,
+                    2,
                     weakest.mastery_score,
                     -max(error_count_by_point.get(point, 0) for point in self._question_points(question)),
                     tie_breakers[question.question_id],
                 )
             if question.question_id not in attempted_ids:
-                return (2, 0, 0, tie_breakers[question.question_id])
-            return (3, 0, 0, tie_breakers[question.question_id])
+                return (3, 0, 0, tie_breakers[question.question_id])
+            return (4, 0, 0, tie_breakers[question.question_id])
 
         selected = sorted(questions, key=rank)[:selection_size]
         selected_due = [question for question in selected if question.question_id in due_by_question]
+        selected_memory = [question for question in selected if memory_records(question)]
         selected_weak = [question for question in selected if weak_records(question)]
         selected_unseen = [question for question in selected if question.question_id not in attempted_ids]
 
@@ -311,6 +335,13 @@ class Stage1Repository:
             if selected_unseen:
                 evidence.append(f"其余题目中补入 {len(selected_unseen)} 道未练题，保持题库覆盖。")
             reason = "本次先安排到期复习，再补齐尚未覆盖的练习。"
+        elif selected_memory:
+            selected_item = memory_records(selected_memory[0])[0]
+            strategy = "learning_memory"
+            evidence = [f"结合已记录的学习事实：{selected_item.summary}"]
+            if selected_unseen:
+                evidence.append(f"同时保留 {len(selected_unseen)} 道未练题，避免只重复单一知识点。")
+            reason = "本次优先巩固近期需要加强的概念，再维持题库覆盖。"
         elif selected_weak:
             strategy = "weak_topic"
             focus = min(

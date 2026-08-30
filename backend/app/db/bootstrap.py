@@ -17,6 +17,7 @@ from .models import (  # noqa: F401
     DocumentVersionModel,
     KnowledgeChunkModel,
     LearnerMasteryModel,
+    LearningMemoryItemModel,
     FactoryJobModel,
     QuestionRevisionModel,
     EvalDatasetModel,

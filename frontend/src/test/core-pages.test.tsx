@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEvaluationRun, createPracticeSession, getEvaluationDatasets, getEvaluationRun, getLatestEvaluation, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection } from '../api/client'
+import { clearLearningMemory, createEvaluationRun, createPracticeSession, getEvaluationDatasets, getEvaluationRun, getLatestEvaluation, getLearningMemory, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection } from '../api/client'
 import type { EvaluationRun, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -13,10 +13,12 @@ import { EvaluationPage } from '../pages/evaluation/EvaluationPage'
 
 vi.mock('../api/client', () => ({
   createPracticeSession: vi.fn(),
+  clearLearningMemory: vi.fn(),
   createEvaluationRun: vi.fn(),
   getEvaluationDatasets: vi.fn(),
   getEvaluationRun: vi.fn(),
   getLatestEvaluation: vi.fn(),
+  getLearningMemory: vi.fn(),
   getOverview: vi.fn(),
   getQuestionBanks: vi.fn(),
   getQuestions: vi.fn(),
@@ -28,6 +30,8 @@ vi.mock('../api/client', () => ({
 }))
 
 const mockedGetOverview = vi.mocked(getOverview)
+const mockedGetLearningMemory = vi.mocked(getLearningMemory)
+const mockedClearLearningMemory = vi.mocked(clearLearningMemory)
 const mockedCreateSession = vi.mocked(createPracticeSession)
 const mockedGetQuestionBanks = vi.mocked(getQuestionBanks)
 const mockedGetQuestions = vi.mocked(getQuestions)
@@ -77,6 +81,8 @@ function renderStrictPage(ui: React.ReactNode, initialEntries = ['/']) {
 beforeEach(() => {
   vi.clearAllMocks()
   mockedGetOverview.mockResolvedValue(overview)
+  mockedGetLearningMemory.mockResolvedValue({ learner_id: 'demo_learner', items: [], api_source: 'backend' })
+  mockedClearLearningMemory.mockResolvedValue({ learner_id: 'demo_learner', superseded_count: 0, preserved_attempt_history: true, preserved_review_history: true, api_source: 'backend' })
   mockedGetQuestionBanks.mockResolvedValue(banks)
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
   mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'] })
@@ -118,6 +124,19 @@ describe('Stage 1 page contracts', () => {
     expect(await screen.findByText('进入复盘')).toBeInTheDocument()
     expect(screen.getByText('—')).toBeInTheDocument()
     expect(screen.queryByText('0 分')).not.toBeInTheDocument()
+  })
+
+  it('shows evidence-backed learning memory and clears only that derived view', async () => {
+    const user = userEvent.setup()
+    mockedGetLearningMemory.mockResolvedValueOnce({
+      learner_id: 'demo_learner',
+      api_source: 'backend',
+      items: [{ memory_id: 'memory-1', kind: 'repeated_mistake', summary: '「食管」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。', status: 'active', topic_keys: ['食管'], concept_keys: [], first_seen_at: '2026-08-28T00:00:00Z', last_seen_at: '2026-08-29T00:00:00Z', evidence_count: 3 }],
+    })
+    renderPage(<OverviewPage />)
+    expect(await screen.findByTestId('learning-memory-panel')).toHaveTextContent('食管')
+    await user.click(screen.getByRole('button', { name: '清除长期学习记忆' }))
+    expect(mockedClearLearningMemory).toHaveBeenCalledTimes(1)
   })
 
   it('renders bank search and routes to a selected bank', async () => {
