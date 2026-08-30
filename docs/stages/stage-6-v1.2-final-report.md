@@ -2,8 +2,8 @@
 
 ## Current release decision
 
-**Release candidate accepted pending final release commit and tag.** Stage 6
-has not entered Stage 7. The initial Docker smoke failed because its
+**Stage 6 Release Gate passed; v1.2.0 is released.** Stage 6 has not entered
+Stage 7. The initial Docker smoke failed because its
 PowerShell test payload contained a literal backtick-n and produced zero
 chunks; the corrected real multiline document completed the actual
 Qdrant/embedding path, generated two revisions, and published the repaired
@@ -40,8 +40,8 @@ or checksum vectors were introduced.
 | Docker Memory personalization flow | PASS — PostgreSQL-backed before/after and two-learner differentiation assertions |
 | Docker real Factory parse/index/generate/judge/repair/publish path | PASS — `factory_8d2c76c9b99e`, `result_ref=revision_d30e522b7074`, 2 revisions, published repaired revision |
 | Host local OpenAI-compatible Tutor smoke | PASS — 3/3 complete event streams; Docker keeps local adapter default for reproducibility |
-| Hosted GitHub Actions | PASS — run `33319291801`, commit `23a643a` |
-| `v1.2.0` tag | Pending final release commit/tag operation |
+| Hosted GitHub Actions | PASS — [run `33322744745`](https://github.com/Luious-LYH/TiBan/actions/runs/33322744745), commit `8014374` |
+| `v1.2.0` tag | PASS — annotated tag pushed, points to `8014374` |
 
 Evidence files are under `artifacts/engineering/` and the [Stage 6 evidence
 index](../portfolio/evidence/stage-6/README.md). The initial smoke-script
@@ -71,3 +71,22 @@ does not embed a gateway address or credential.
 No Stage 5 learning thresholds, adaptive-selection semantics, Tutor permission
 boundary, raw QBank source files, UI redesign, second queue, microservices,
 generic agent framework, or Stage 7 capability was introduced.
+
+## Release record
+
+- Release commit: `8014374855ae90fe336e0147b20656a14d45acd5`
+- Annotated tag: `v1.2.0` (points to the release commit above)
+- Hosted Actions: [run `33322744745`](https://github.com/Luious-LYH/TiBan/actions/runs/33322744745), completed `success`
+- Previous Stage 6 implementation commit: `23a643a`
+- Stage 7: not started
+
+## Known architectural debt
+
+- Existing `datetime.utcnow` and FastAPI startup-event deprecation warnings
+  remain outside the Stage 6 critical path.
+- The Docker validation override uses an isolated `5176` frontend and local
+  deterministic Tutor adapter for reproducibility; the user-owned private
+  OpenAI-compatible Provider was separately smoke-tested on the host and is
+  not embedded in the repository or Docker defaults.
+- The repository retains pre-existing unrelated working-tree artifacts; the
+  release commit intentionally did not clean or overwrite them.

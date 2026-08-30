@@ -20,6 +20,6 @@
 
 项目边界：仅供教学研修或医生复核前辅助，不作为独立诊断依据；以上数字不代表临床有效性。
 
-## Stage 6 / v1.2 工程演进（发布前草稿）
+## Stage 6 / v1.2 工程演进（已发布）
 
-在业务闭环稳定后，增量形成 Pragmatic Modular Monolith：Practice 通过 Use Case + adapter 保留原子学习事务，Tutor 通过最小依赖端口隔离存储、检索与模型 Provider，Question Factory 使用 PostgreSQL durable job state 实现幂等、取消、心跳与 crash/stale recovery；以 architecture guard 和 fake adapter 验证核心逻辑。该段仅在 Stage 6 Release Gate 全部通过后作为正式简历证据。
+在业务闭环稳定后，增量形成 Pragmatic Modular Monolith：Practice 通过 Use Case + adapter 保留原子学习事务，Tutor 通过最小依赖端口隔离存储、检索与模型 Provider，Question Factory 使用 PostgreSQL durable job state 实现幂等、取消、心跳与 crash/stale recovery；以 architecture guard 和 fake adapter 验证核心逻辑。对应证据：`v1.2.0` annotated tag、Hosted Actions run `33322744745`、`docs/architecture/*v1.2.md`、`artifacts/engineering/` 与 Stage 6 回归测试。
