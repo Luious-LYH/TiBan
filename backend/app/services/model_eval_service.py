@@ -21,6 +21,7 @@ from uuid import uuid4
 from sqlalchemy import select
 
 from app.core.config import LOCAL_VQA_ROOT, SAFETY_NOTICE
+from app.domains import get_domain
 from app.db.database import SessionLocal
 from app.db.models import EvalArtifactModel, EvalCaseModel, EvalDatasetModel, EvalDatasetVersionModel, EvalRunModel
 from app.services.data_governance import resolve_local_asset
@@ -30,8 +31,10 @@ from app.services.qbank_import_service import CMEXAM_ROOT, _answer_letters, _opt
 
 TEXT_DATASET_ID = "cmexam-text-eval-v1"
 VLM_DATASET_ID = "endobench-vlm-eval-v1"
+GENERAL_DATASET_ID = "general-science-text-eval-v1"
 TEXT_VERSION = "cmexam-text-eval-v1"
 VLM_VERSION = "endobench-vlm-eval-v1"
+GENERAL_VERSION = "general-science-text-eval-v1"
 TEXT_LIMIT = 100
 VLM_LIMIT = 100
 PROMPT_VERSION = "model-eval-answer-json-v1"
@@ -93,6 +96,10 @@ def _vlm_pack_path() -> Path:
     return RUNTIME_PACK_DIR / f"{VLM_DATASET_ID}.json"
 
 
+def _general_pack_path() -> Path:
+    return RUNTIME_PACK_DIR / f"{GENERAL_DATASET_ID}.json"
+
+
 def _build_text_pack() -> dict[str, Any]:
     path = CMEXAM_ROOT / "data" / "test_with_annotations.csv"
     if not path.is_file():
@@ -148,10 +155,29 @@ def _build_vlm_pack() -> dict[str, Any]:
     return _pack_payload(VLM_DATASET_ID, VLM_VERSION, "EndoBench", "image", True, cases)
 
 
+def _build_general_pack() -> dict[str, Any]:
+    path = Path(__file__).resolve().parents[1] / "data" / "general_science_fixture.json"
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    cases = [
+        {
+            "case_id": f"general-science-eval-{item['id']}",
+            "source_item_id": item["id"],
+            "question": item["stem"],
+            "options": [{"id": option_id, "text": option_text} for option_id, option_text in item["options"]],
+            "gold_answer": item["answer"],
+            "task": "text_single_choice",
+            "topic": item["topic"],
+        }
+        for item in raw
+    ]
+    return _pack_payload(GENERAL_DATASET_ID, GENERAL_VERSION, "TiBan General Science fixture", "text", False, cases)
+
+
 def _pack_payload(dataset_id: str, version: str, source_dataset: str, modality: str, supports_vision: bool, cases: list[dict[str, Any]]) -> dict[str, Any]:
     canonical = json.dumps(cases, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return {
         "dataset_id": dataset_id,
+        "domain_id": "general_science" if dataset_id == GENERAL_DATASET_ID else "endoscopy",
         "version": version,
         "source_dataset": source_dataset,
         "modality": modality,
@@ -163,14 +189,31 @@ def _pack_payload(dataset_id: str, version: str, source_dataset: str, modality: 
     }
 
 
+def _pack_domain_id(pack: dict[str, Any]) -> str:
+    """Normalize pre-Stage-7 cached/test packs at the evaluation boundary.
+
+    Runtime packs generated before domain scoping, and small unit-test fixtures,
+    may not contain ``domain_id``.  The dataset id remains the canonical
+    compatibility discriminator; production packs always carry the explicit
+    field and are validated by the public response schema.
+    """
+
+    return str(pack.get("domain_id") or ("general_science" if pack.get("dataset_id") == GENERAL_DATASET_ID else "endoscopy"))
+
+
 def _load_pack(dataset_id: str) -> dict[str, Any]:
     RUNTIME_PACK_DIR.mkdir(parents=True, exist_ok=True)
-    path = _text_pack_path() if dataset_id == TEXT_DATASET_ID else _vlm_pack_path() if dataset_id == VLM_DATASET_ID else None
-    builder = _build_text_pack if dataset_id == TEXT_DATASET_ID else _build_vlm_pack if dataset_id == VLM_DATASET_ID else None
+    path = _text_pack_path() if dataset_id == TEXT_DATASET_ID else _vlm_pack_path() if dataset_id == VLM_DATASET_ID else _general_pack_path() if dataset_id == GENERAL_DATASET_ID else None
+    builder = _build_text_pack if dataset_id == TEXT_DATASET_ID else _build_vlm_pack if dataset_id == VLM_DATASET_ID else _build_general_pack if dataset_id == GENERAL_DATASET_ID else None
     if path is None or builder is None:
         raise KeyError(dataset_id)
     if path.is_file():
-        return json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        # Runtime packs are intentionally ignored/generated.  Older local
+        # caches predate Stage 7's domain field; normalize them in memory so a
+        # stale cache cannot break the public dataset contract.
+        payload.setdefault("domain_id", "general_science" if dataset_id == GENERAL_DATASET_ID else "endoscopy")
+        return payload
     payload = builder()
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return payload
@@ -180,10 +223,12 @@ def _dataset_public(pack: dict[str, Any]) -> dict[str, Any]:
     descriptions = {
         TEXT_DATASET_ID: "冻结的 100 条 CMExam 单选文本评测；答案留在评测域，不进入 Tutor RAG。",
         VLM_DATASET_ID: "冻结的 100 条 EndoBench 内镜视觉评测；Evaluation-only，不进入 Tutor、Factory 或 learner QBank。",
+        GENERAL_DATASET_ID: "冻结的 TiBan 自建通用科学文本评测；与医疗评测、QBank 和知识库隔离。",
     }
     return {
         "dataset_id": pack["dataset_id"],
-        "name": "CMExam 文本评测" if pack["dataset_id"] == TEXT_DATASET_ID else "EndoBench VLM 评测",
+        "domain_id": pack["domain_id"],
+        "name": "CMExam 文本评测" if pack["dataset_id"] == TEXT_DATASET_ID else "EndoBench VLM 评测" if pack["dataset_id"] == VLM_DATASET_ID else "通用科学文本评测",
         "description": descriptions[pack["dataset_id"]],
         "source_dataset": pack["source_dataset"],
         "modality": pack["modality"],
@@ -196,18 +241,28 @@ def _dataset_public(pack: dict[str, Any]) -> dict[str, Any]:
 
 
 def ensure_datasets() -> list[dict[str, Any]]:
-    packs = [_load_pack(TEXT_DATASET_ID), _load_pack(VLM_DATASET_ID)]
+    # Medical evaluation packs remain available whenever their governed local
+    # source fixtures are mounted.  A clean checkout must still expose the
+    # project-authored General pack rather than making all Evaluation depend on
+    # non-redistributed medical data.
+    packs: list[dict[str, Any]] = []
+    for dataset_id in (TEXT_DATASET_ID, VLM_DATASET_ID, GENERAL_DATASET_ID):
+        try:
+            packs.append(_load_pack(dataset_id))
+        except FileNotFoundError:
+            if dataset_id == GENERAL_DATASET_ID:
+                raise
     with SessionLocal() as session:
         for pack in packs:
             existing = session.get(EvalDatasetModel, pack["dataset_id"])
             if existing is None:
-                session.add(EvalDatasetModel(**{key: pack[key] for key in ("dataset_id", "source_dataset", "modality", "version", "dataset_hash", "sample_count", "supports_vision", "tutor_indexed")}, name=_dataset_public(pack)["name"], description=_dataset_public(pack)["description"]))
+                session.add(EvalDatasetModel(**{key: pack[key] for key in ("dataset_id", "domain_id", "source_dataset", "modality", "version", "dataset_hash", "sample_count", "supports_vision", "tutor_indexed")}, name=_dataset_public(pack)["name"], description=_dataset_public(pack)["description"]))
             else:
-                for key in ("version", "dataset_hash", "sample_count", "supports_vision", "tutor_indexed"):
+                for key in ("domain_id", "version", "dataset_hash", "sample_count", "supports_vision", "tutor_indexed"):
                     setattr(existing, key, pack[key])
             version_id = f"{pack['dataset_id']}-{pack['dataset_hash'][:12]}"
             if session.get(EvalDatasetVersionModel, version_id) is None:
-                session.add(EvalDatasetVersionModel(dataset_version_id=version_id, dataset_id=pack["dataset_id"], version=pack["version"], dataset_hash=pack["dataset_hash"], manifest={"sample_count": pack["sample_count"], "source_dataset": pack["source_dataset"], "tutor_indexed": False}))
+                session.add(EvalDatasetVersionModel(dataset_version_id=version_id, dataset_id=pack["dataset_id"], version=pack["version"], dataset_hash=pack["dataset_hash"], manifest={"domain_id": pack["domain_id"], "sample_count": pack["sample_count"], "source_dataset": pack["source_dataset"], "tutor_indexed": False}))
         session.commit()
     return [_dataset_public(pack) for pack in packs]
 
@@ -254,7 +309,7 @@ def run_evaluation(*, dataset_id: str, base_url: str, api_key: str, model: str, 
     for case in samples:
         image_path = f"eval://endobench/{case['image_rel_path']}" if pack["modality"] == "image" else None
         result = llm_provider.chat(
-            system_prompt="You are a medical-education benchmark respondent. Answer the multiple-choice question, but output only the requested JSON letter. This is evaluation data, not clinical advice.",
+            system_prompt=("You are a medical-education benchmark respondent. Answer the multiple-choice question, but output only the requested JSON letter. This is evaluation data, not clinical advice." if _pack_domain_id(pack) == "endoscopy" else "You are a general-science benchmark respondent. Answer the multiple-choice question and output only the requested JSON letter."),
             user_prompt=_prompt(case, pack["modality"]),
             image_path=image_path,
             base_url=base_url,
@@ -322,7 +377,7 @@ def run_evaluation(*, dataset_id: str, base_url: str, api_key: str, model: str, 
         "dataset_id": pack["dataset_id"],
         "dataset_version": pack["version"],
         "dataset_hash": pack["dataset_hash"],
-        "dataset": {key: pack[key] for key in ("dataset_id", "version", "dataset_hash", "source_dataset", "modality", "sample_count")},
+        "dataset": {"dataset_id": pack["dataset_id"], "domain_id": _pack_domain_id(pack), **{key: pack[key] for key in ("version", "dataset_hash", "source_dataset", "modality", "sample_count")}},
         "prompt_version": PROMPT_VERSION,
         "status": status,
         "sample_count": count,
@@ -332,7 +387,7 @@ def run_evaluation(*, dataset_id: str, base_url: str, api_key: str, model: str, 
         "errors": errors,
         "cases": case_outputs,
         "artifact_path": artifact_path,
-        "safety_notice": SAFETY_NOTICE,
+        "safety_notice": get_domain(_pack_domain_id(pack)).learner_notice,
         "secret_policy": "api_key request-scoped; not persisted, logged, traced or artifacted",
     }
     artifact_bytes = json.dumps(artifact, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -374,7 +429,7 @@ def run_evaluation(*, dataset_id: str, base_url: str, api_key: str, model: str, 
         "cases": public_cases,
         "gold_revealed": False,
         "fallback": False,
-        "safety_notice": SAFETY_NOTICE,
+            "safety_notice": get_domain(_pack_domain_id(pack)).learner_notice,
     }
 
 

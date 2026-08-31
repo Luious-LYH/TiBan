@@ -78,6 +78,7 @@ class PracticeSessionModel(Base):
     session_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     bank_id: Mapped[str] = mapped_column(ForeignKey("question_banks.bank_id"), nullable=False, index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
     mode: Mapped[str] = mapped_column(String(30), nullable=False, default="practice")
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
@@ -123,6 +124,7 @@ class ReviewCardModel(Base):
     review_card_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     question_id: Mapped[str] = mapped_column(ForeignKey("questions.question_id"), nullable=False, index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
     due_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     interval_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     review_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -191,10 +193,11 @@ class KnowledgeChunkModel(Base):
 
 class LearnerMasteryModel(Base):
     __tablename__ = "learner_mastery"
-    __table_args__ = (UniqueConstraint("learner_id", "knowledge_point", name="uq_mastery_learner_point"),)
+    __table_args__ = (UniqueConstraint("learner_id", "domain_id", "knowledge_point", name="uq_mastery_learner_domain_point"),)
 
     mastery_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
     knowledge_point: Mapped[str] = mapped_column(String(160), nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     accuracy: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
@@ -216,12 +219,13 @@ class LearningMemoryItemModel(Base):
 
     __tablename__ = "learning_memory_items"
     __table_args__ = (
-        UniqueConstraint("learner_id", "dedupe_key", name="uq_learning_memory_learner_dedupe"),
-        Index("ix_learning_memory_learner_status", "learner_id", "status"),
+        UniqueConstraint("learner_id", "domain_id", "dedupe_key", name="uq_learning_memory_learner_domain_dedupe"),
+        Index("ix_learning_memory_learner_domain_status", "learner_id", "domain_id", "status"),
     )
 
     memory_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
     kind: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
     topic_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     concept_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
@@ -282,6 +286,7 @@ class EvalDatasetModel(Base):
     __tablename__ = "eval_datasets"
 
     dataset_id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
     name: Mapped[str] = mapped_column(String(240), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     source_dataset: Mapped[str] = mapped_column(String(120), nullable=False)

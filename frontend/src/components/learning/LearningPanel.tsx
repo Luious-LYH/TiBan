@@ -5,7 +5,7 @@ import { getMentorPlan, submitFsrsReview } from '../../api/client'
 import type { ReviewCard } from '../../api/client'
 
 export function LearningPanel({ questionId }: { questionId: string }) {
-  const mentor = useQuery({ queryKey: ['mentor-plan'], queryFn: getMentorPlan })
+  const mentor = useQuery({ queryKey: ['mentor-plan'], queryFn: () => getMentorPlan() })
   const review = useMutation({ mutationFn: (rating: 'Again' | 'Hard' | 'Good' | 'Easy') => submitFsrsReview(questionId, rating) })
   const card = review.data as ReviewCard | undefined
   return <section className="s1-learning-panel" data-testid="learning-panel">

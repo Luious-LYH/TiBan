@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import re
+import json
 from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import SAFETY_NOTICE
+from app.domains import GENERAL_LEARNING_NOTICE
 from app.schemas import Question
 from app.services.question_service import QuestionService
 
@@ -139,20 +142,82 @@ def legacy_question_to_record(question: Question) -> dict[str, Any]:
 
 def build_seed_records() -> list[dict[str, Any]]:
     questions = QuestionService().list_questions()
-    return [legacy_question_to_record(question) for question in questions]
+    return [legacy_question_to_record(question) for question in questions] + build_general_science_seed_records()
+
+
+def build_general_science_seed_records() -> list[dict[str, Any]]:
+    """Small project-authored fixture so General works on a clean checkout.
+
+    The 300+ ARC Easy import remains local and ignored; this fixture is not a
+    redistributed subset of that source and makes Docker/CI domain acceptance
+    independent from a large third-party download.
+    """
+
+    path = Path(__file__).resolve().parents[1] / "data" / "general_science_fixture.json"
+    rows = json.loads(path.read_text(encoding="utf-8"))
+    records: list[dict[str, Any]] = []
+    for row in rows:
+        options = [{"id": option_id, "text": option_text} for option_id, option_text in row["options"]]
+        records.append({
+            "bank_id": "bank-general-science-foundations",
+            "bank_name": "通用科学基础题库",
+            "bank_description": "物理、化学、生命科学与地球科学的基础概念和证据推理练习。",
+            "domain_id": "general_science",
+            "question_id": row["id"],
+            "question_type": "single_choice",
+            "modality": "text",
+            "title": row["title"],
+            "stem": row["stem"],
+            "case_summary": "TiBan 自建通用科学教学样例，用于平台跨域流程验证。",
+            "image_url": None,
+            "image_alt": None,
+            "difficulty": "easy",
+            "complexity": 1,
+            "question_class": "概念理解",
+            "task": "概念判断",
+            "body_part": "科学基础",
+            "source_type": "project_authored_fixture",
+            "source_dataset": "TiBan General Science fixture",
+            "citation_note": "TiBan 自建通用科学教学样例 v1。",
+            "options": options,
+            "grading_payload": {"question_type": "single_choice", "correct_option_id": row["answer"]},
+            "explanation": "请依据题干中的科学概念和选项差异完成判断，再用课程资料复核。",
+            "teaching_tags": [row["subject"], row["topic"]],
+            "expected_keywords": [],
+            "false_premise": False,
+            "doctor_review_required": False,
+            "safety_notice": GENERAL_LEARNING_NOTICE,
+            "business_usage": "user_ready",
+            "answer_source": "human_verified",
+            "explanation_source": "human_curated",
+            "license_gate_status": "allow",
+            "official_explanation_available": True,
+            "source_uri": "project://tiban/general-science-fixture-v1",
+            "subject": row["subject"],
+            "topic": row["topic"],
+        })
+    return records
 
 
 def seed_database(session: Session) -> int:
-    existing = session.scalar(select(QuestionModel.question_id).limit(1))
-    if existing:
-        return 0
-
     records = build_seed_records()
+    existing_ids = set(session.scalars(select(QuestionModel.question_id)))
+    new_records = [record for record in records if record["question_id"] not in existing_ids]
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in records:
         grouped[record["bank_id"]].append(record)
 
     for bank_id, items in grouped.items():
+        existing_bank = session.get(QuestionBankModel, bank_id)
+        domains = {str(item["domain_id"]) for item in items}
+        if existing_bank is not None:
+            # Existing local databases may predate the General Domain pack and
+            # therefore carry the old default on the bank row even though the
+            # questions now have an explicit domain.  Reconcile that metadata
+            # idempotently; do not recreate the bank or touch its questions.
+            if len(domains) == 1 and existing_bank.domain_id != next(iter(domains)):
+                existing_bank.domain_id = next(iter(domains))
+            continue
         # Only product-ready rows become learner-facing bank inventory.  Keep
         # generation_source rows in the database for lineage/import audits,
         # but never let a fresh database seed expose them as playable counts.
@@ -164,7 +229,7 @@ def seed_database(session: Session) -> int:
         session.add(
             QuestionBankModel(
                 bank_id=bank_id,
-                domain_id="endoscopy",
+                domain_id=str(first["domain_id"]),
                 name=first["bank_name"],
                 description=first["bank_description"],
                 version="seed-v1",
@@ -176,7 +241,7 @@ def seed_database(session: Session) -> int:
             )
         )
 
-    for record in records:
+    for record in new_records:
         record.pop("bank_name", None)
         record.pop("bank_description", None)
         session.add(
@@ -186,8 +251,8 @@ def seed_database(session: Session) -> int:
             )
         )
 
-    session.add(
-        SourceDocumentModel(
+    if session.get(SourceDocumentModel, "source-seed-endoscopy-v1") is None:
+        session.add(SourceDocumentModel(
             document_id="source-seed-endoscopy-v1",
             domain_id="endoscopy",
             bank_id=None,
@@ -195,7 +260,13 @@ def seed_database(session: Session) -> int:
             media_type="application/json",
             content_hash="seed-catalog-v1",
             status="seed",
-        )
-    )
+        ))
+    if session.get(SourceDocumentModel, "source-seed-general-science-v1") is None:
+        session.add(SourceDocumentModel(
+            document_id="source-seed-general-science-v1", domain_id="general_science", bank_id="bank-general-science-foundations",
+            name="TiBan General Science fixture", media_type="application/json", content_hash="general-science-fixture-v1",
+            status="seed", business_usage="knowledge_base", license_gate_status="allow", ai_ingestion_allowed=True,
+            namespace="general_science", source_uri="project://tiban/general-science-fixture-v1",
+        ))
     session.commit()
-    return len(records)
+    return len(new_records)

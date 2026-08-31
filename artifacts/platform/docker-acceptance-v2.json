@@ -1,0 +1,280 @@
+{
+  "artifact": "stage7-docker-acceptance-v2",
+  "created_at": "2026-08-31T05:51:16.345230+00:00",
+  "base_url": "http://127.0.0.1:8005",
+  "health": {
+    "status": "ok",
+    "service": "TiBan 学习与模型评测平台",
+    "version": "2.0.0",
+    "capabilities": [
+      "v3_session",
+      "model_evaluation",
+      "custom_model_evaluation",
+      "practice_facade",
+      "report_facade",
+      "delivery_report",
+      "report_upload_receipt",
+      "profile_growth",
+      "runtime_state_isolation",
+      "observable_agent_runtime",
+      "offline_agent_evaluation",
+      "sparse_evidence_retrieval",
+      "bounded_tool_recovery",
+      "session_checkpoint_replay",
+      "ndjson_agent_event_stream",
+      "adaptive_study_state",
+      "wrong_case_and_spaced_review",
+      "qbank_first_study_workspace",
+      "curated_text_question_bank",
+      "multiform_practice_grading",
+      "pre_submit_tutor_sidecar",
+      "qbank_import_validation"
+    ]
+  },
+  "domains": [
+    {
+      "domain_id": "endoscopy",
+      "supported_question_types": [
+        "single_choice",
+        "multiple_choice",
+        "true_false",
+        "short_answer"
+      ]
+    },
+    {
+      "domain_id": "general_science",
+      "supported_question_types": [
+        "single_choice",
+        "multiple_choice",
+        "true_false"
+      ]
+    }
+  ],
+  "bank_inventory": {
+    "endoscopy": [
+      {
+        "bank_id": "factory-generated-endoscopy-v1",
+        "question_count": 3
+      },
+      {
+        "bank_id": "bank-small-bowel-observation",
+        "question_count": 2
+      },
+      {
+        "bank_id": "bank-stomach-observation",
+        "question_count": 3
+      },
+      {
+        "bank_id": "bank-general-endoscopy",
+        "question_count": 1
+      },
+      {
+        "bank_id": "bank-esophagus-observation",
+        "question_count": 2
+      }
+    ],
+    "general_science": [
+      {
+        "bank_id": "bank-general-science-foundations",
+        "question_count": 8
+      }
+    ]
+  },
+  "practice_flows": [
+    {
+      "domain_id": "endoscopy",
+      "bank_id": "factory-generated-endoscopy-v1",
+      "session_id": "session_c0173ebf823d",
+      "question_id": "factory_question_a665c7c09471",
+      "question_type": "single_choice",
+      "tutor_pre_submit": {
+        "event_types": [
+          "message_start",
+          "tool_start",
+          "tool_end",
+          "tool_start",
+          "tool_end",
+          "source",
+          "tool_start",
+          "tool_end",
+          "reasoning",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "message_end"
+        ],
+        "has_message_start": true,
+        "has_message_end": true,
+        "has_source": true,
+        "has_error": false,
+        "frame_count": 17,
+        "provider_real": false
+      },
+      "attempt_id": "attempt_a10f05bea122",
+      "profile_updated": true,
+      "tutor_post_submit": {
+        "event_types": [
+          "message_start",
+          "tool_start",
+          "tool_end",
+          "tool_start",
+          "tool_end",
+          "tool_start",
+          "tool_end",
+          "tool_start",
+          "tool_end",
+          "source",
+          "reasoning",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "message_end"
+        ],
+        "has_message_start": true,
+        "has_message_end": true,
+        "has_source": true,
+        "has_error": false,
+        "frame_count": 19,
+        "provider_real": false
+      },
+      "review_card": {
+        "question_id": "factory_question_a665c7c09471",
+        "domain_id": "endoscopy",
+        "state": "Review",
+        "review_count": 2,
+        "has_fsrs_difficulty": true,
+        "has_fsrs_stability": true,
+        "has_fsrs_retrievability": true,
+        "due_at": "2026-09-02T05:50:45.886010"
+      },
+      "memory_item_count": 0,
+      "mentor_step_count": 3
+    },
+    {
+      "domain_id": "general_science",
+      "bank_id": "bank-general-science-foundations",
+      "session_id": "session_7529fc8310c1",
+      "question_id": "general_science_fixture_002",
+      "question_type": "single_choice",
+      "tutor_pre_submit": {
+        "event_types": [
+          "message_start",
+          "tool_start",
+          "tool_end",
+          "tool_start",
+          "tool_end",
+          "source",
+          "tool_start",
+          "tool_end",
+          "reasoning",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "message_end"
+        ],
+        "has_message_start": true,
+        "has_message_end": true,
+        "has_source": true,
+        "has_error": false,
+        "frame_count": 17,
+        "provider_real": false
+      },
+      "attempt_id": "attempt_6565abb2e8a6",
+      "profile_updated": true,
+      "tutor_post_submit": {
+        "event_types": [
+          "message_start",
+          "tool_start",
+          "tool_end",
+          "tool_start",
+          "tool_end",
+          "tool_start",
+          "tool_end",
+          "tool_start",
+          "tool_end",
+          "source",
+          "reasoning",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "token",
+          "message_end"
+        ],
+        "has_message_start": true,
+        "has_message_end": true,
+        "has_source": true,
+        "has_error": false,
+        "frame_count": 22,
+        "provider_real": false
+      },
+      "review_card": {
+        "question_id": "general_science_fixture_002",
+        "domain_id": "general_science",
+        "state": "Learning",
+        "review_count": 6,
+        "has_fsrs_difficulty": true,
+        "has_fsrs_stability": true,
+        "has_fsrs_retrievability": true,
+        "due_at": "2026-08-31T06:00:46.605441"
+      },
+      "memory_item_count": 3,
+      "mentor_step_count": 3
+    }
+  ],
+  "factory_flow": {
+    "document_id": "doc_454286de0402",
+    "job_id": "factory_e53947182dbf",
+    "terminal_status": "succeeded",
+    "terminal_stage": "published",
+    "attempt": 1,
+    "event_statuses": [
+      "queued",
+      "parsing",
+      "indexing",
+      "generating",
+      "judging",
+      "repairing",
+      "ready_for_review",
+      "published"
+    ],
+    "revision_count": 2,
+    "published": true,
+    "published_question_id": "factory_question_750c7c028020"
+  },
+  "evaluation_catalog": [
+    {
+      "dataset_id": "cmexam-text-eval-v1",
+      "domain_id": "endoscopy",
+      "tutor_indexed": false
+    },
+    {
+      "dataset_id": "general-science-text-eval-v1",
+      "domain_id": "general_science",
+      "tutor_indexed": false
+    }
+  ],
+  "acceptance": {
+    "medical_flow": true,
+    "general_flow": true,
+    "factory_flow": true,
+    "evaluation_catalog": true
+  }
+}

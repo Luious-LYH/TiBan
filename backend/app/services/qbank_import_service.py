@@ -59,7 +59,7 @@ def _source_document(session: Any, *, document_id: str, source_id: str, name: st
     document = session.get(SourceDocumentModel, document_id)
     if document is None:
         document = SourceDocumentModel(
-            document_id=document_id, domain_id="medical-education", bank_id=None, name=name,
+            document_id=document_id, domain_id="endoscopy", bank_id=None, name=name,
             media_type="text/json", content_hash=f"registry:{source_id}", status="registered",
             source_id=source_id, business_usage=usage, license_gate_status="allow_noncommercial",
             ai_ingestion_allowed=False, source_uri=uri, namespace=namespace,
@@ -72,7 +72,7 @@ def _source_document(session: Any, *, document_id: str, source_id: str, name: st
 def _bank(session: Any, *, bank_id: str, name: str, description: str, items: list[dict[str, Any]]) -> None:
     bank = session.get(QuestionBankModel, bank_id)
     if bank is None:
-        bank = QuestionBankModel(bank_id=bank_id, domain_id="medical-education", name=name, description=description, version="stage2.5-curated-v1", status="published", question_count=0, question_type_counts={}, modality_counts={}, body_parts=[])
+        bank = QuestionBankModel(bank_id=bank_id, domain_id="endoscopy", name=name, description=description, version="stage2.5-curated-v1", status="published", question_count=0, question_type_counts={}, modality_counts={}, body_parts=[])
         session.add(bank)
     for item in items:
         if session.get(QuestionModel, item["question_id"]) is None:
@@ -88,7 +88,7 @@ def _bank(session: Any, *, bank_id: str, name: str, description: str, items: lis
 def _base(*, question_id: str, stem: str, title: str, source_dataset: str, source_item_id: str, source_document_id: str, source_uri: str, explanation: str, explanation_available: bool, options: list[dict[str, str]], grading_payload: dict[str, Any], difficulty: str = "medium", subject: str | None = None, topic: str | None = None, image_url: str | None = None, image_alt: str | None = None, business_usage: str = "user_ready") -> dict[str, Any]:
     question_type = str(grading_payload["question_type"])
     return {
-        "question_id": question_id, "bank_id": "", "domain_id": "medical-education", "question_type": question_type,
+        "question_id": question_id, "bank_id": "", "domain_id": "endoscopy", "question_type": question_type,
         "modality": "image" if image_url else "text", "title": title[:300], "stem": stem.strip(),
         "case_summary": f"来自 {source_dataset} 的真实题目；用于教学研修，保留上游来源与授权边界。",
         "image_url": image_url, "image_alt": image_alt or "题目未提供图像", "difficulty": difficulty,
@@ -178,7 +178,7 @@ def import_cmexam_scale(*, limit: int | None = None, batch_size: int = 1000) -> 
         )
         bank = QuestionBankModel(
             bank_id=bank_id,
-            domain_id="medical-education",
+            domain_id="endoscopy",
             name="CMExam scale-acceptance corpus",
             description="Isolated non-demo corpus used only for Stage 3 performance acceptance.",
             version="stage3-scale-v1",

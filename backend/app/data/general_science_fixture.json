@@ -1,0 +1,10 @@
+[
+  {"id":"general_science_fixture_001","title":"物理 · 力与运动","stem":"一个静止的物体在没有受到合外力时，最可能保持什么状态？","options":[["A","保持静止"],["B","立即加速"],["C","立即减速"],["D","改变质量"]],"answer":"A","subject":"物理","topic":"力与运动"},
+  {"id":"general_science_fixture_002","title":"化学 · 物态变化","stem":"冰融化成液态水时，物质本身的化学组成是否改变？","options":[["A","改变，生成新物质"],["B","不改变，只是物态变化"],["C","改变，氧元素消失"],["D","无法判断"]],"answer":"B","subject":"化学","topic":"物态变化"},
+  {"id":"general_science_fixture_003","title":"生命科学 · 光合作用","stem":"植物进行光合作用时，哪一项是主要产物之一？","options":[["A","氧气"],["B","氮气"],["C","盐酸"],["D","金属"]],"answer":"A","subject":"生命科学","topic":"光合作用"},
+  {"id":"general_science_fixture_004","title":"地球科学 · 岩石循环","stem":"沉积岩形成通常需要经历沉积、压实和什么过程？","options":[["A","蒸发"],["B","胶结"],["C","熔融"],["D","核聚变"]],"answer":"B","subject":"地球与空间科学","topic":"岩石循环"},
+  {"id":"general_science_fixture_005","title":"物理 · 电路","stem":"在一个闭合简单电路中，电池的主要作用是什么？","options":[["A","提供电势差"],["B","消耗所有电荷"],["C","制造金属导线"],["D","降低电阻为零"]],"answer":"A","subject":"物理","topic":"电路"},
+  {"id":"general_science_fixture_006","title":"化学 · 酸碱","stem":"石蕊试纸遇到酸性溶液时通常呈现什么颜色？","options":[["A","蓝色"],["B","红色"],["C","绿色"],["D","无色"]],"answer":"B","subject":"化学","topic":"酸碱"},
+  {"id":"general_science_fixture_007","title":"生命科学 · 遗传","stem":"遗传信息在大多数生物细胞中主要储存在哪种分子中？","options":[["A","DNA"],["B","水"],["C","葡萄糖"],["D","氧气"]],"answer":"A","subject":"生命科学","topic":"遗传信息"},
+  {"id":"general_science_fixture_008","title":"地球科学 · 季节","stem":"地球季节变化的主要原因是什么？","options":[["A","地球公转且地轴倾斜"],["B","月球每天改变大小"],["C","太阳每天变近"],["D","海水停止流动"]],"answer":"A","subject":"地球与空间科学","topic":"地球运动"}
+]

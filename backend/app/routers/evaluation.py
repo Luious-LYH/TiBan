@@ -51,6 +51,7 @@ def latest_evaluation() -> dict[str, Any]:
 
 class EvaluationDatasetPublic(BaseModel):
     dataset_id: str
+    domain_id: str
     name: str
     description: str
     source_dataset: str
@@ -112,7 +113,19 @@ class EvaluationRunResponse(BaseModel):
 
 @router.get("/datasets", response_model=EvaluationDatasetListResponse)
 def evaluation_datasets() -> dict[str, Any]:
-    return {"items": list_datasets(), "api_source": "backend"}
+    # Keep the public contract stable for pre-Stage-7 local cache/test
+    # providers that predate domain scoping.  The canonical dataset registry
+    # already emits this field; this boundary normalization prevents a stale
+    # cache from breaking the whole evaluation catalog response.
+    items = []
+    for item in list_datasets():
+        normalized = dict(item)
+        normalized.setdefault(
+            "domain_id",
+            "general_science" if normalized.get("dataset_id") == "general-science-text-eval-v1" else "endoscopy",
+        )
+        items.append(normalized)
+    return {"items": items, "api_source": "backend"}
 
 
 @router.post("/connection-test", response_model=EvaluationConnectionResponse)

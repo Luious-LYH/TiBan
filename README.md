@@ -1,6 +1,9 @@
-# TiBan v1.2.0
+# TiBan v2.0.0
 
-**Agent-native medical learning and assessment platform** for endoscopy education: real question banks, a continuous Tutor chat, adaptive practice and review, knowledge-grounded explanations, question generation, and model evaluation.
+**Agent-native Adaptive QBank & Learning Platform** with a reusable learning
+core and governed domain packs. The first packs are Medical / Endoscopy and
+General Science; both use the same QBank, Practice, Tutor, Memory, FSRS,
+Question Factory and Evaluation paths.
 
 > 教学研修与医生复核前辅助，不作为独立诊断依据。
 
@@ -13,6 +16,21 @@
 - Submit an answer, receive feedback, and let the next practice session prioritize review due dates, weak topics, and coverage.
 - Upload an allowed Markdown/PDF teaching document, generate a reviewable question draft, and publish only after review.
 - Temporarily connect a compatible model to compare text or image-question results without storing its API key.
+
+## Domain packs
+
+- **Medical / Endoscopy** retains the governed CMExam, CMB-Exam and curated
+  Kvasir-VQA local acceptance data, medical knowledge namespaces and the
+  teaching/doctor-review boundary. EndoBench is Evaluation-only.
+- **General Science** is proven by an eight-question TiBan-authored fixture on
+  a clean checkout. ARC Easy can be imported locally for validation, but its
+  raw data is not committed or indexed into Tutor RAG/Question Factory.
+
+`domain_id` scopes catalog, sessions, mastery, FSRS cards, learning memory,
+retrieval metadata and evaluation datasets. Adding the General pack did not
+fork the Practice flow, Tutor runtime, FSRS scheduler or Evaluation engine.
+See [Domain Packs](./docs/architecture/domain-packs-v2.md) and the
+[compatibility matrix](./docs/evals/domain-compatibility-v2.md).
 
 ## Memory & Personalization
 
@@ -54,7 +72,8 @@ The Tutor has read-only tools. Successful submission deterministically executes
 The Factory's backend and worker share a durable upload volume so a queued job can
 read the exact document recorded by the API.
 
-v1.2 evolves this incrementally into a pragmatic modular monolith: Practice
+v2.0 keeps the pragmatic modular monolith and adds only the validated domain
+boundary. Practice
 uses a transport-free use-case boundary, Tutor runtime dependencies are supplied
 by owned adapters, and PostgreSQL Factory jobs have idempotency, cancellation,
 heartbeat recovery, and durable error state. See the [architecture notes](./docs/architecture/modular-monolith-v1.2.md).
@@ -119,6 +138,10 @@ for commit `86fb139` passed backend, frontend, and Playwright Flow A:
 - [Data attribution and license boundaries](./THIRD_PARTY_DATA.md)
 - [Security notes](./SECURITY_NOTES.md)
 - [Memory & Personalization acceptance](./docs/evals/memory-personalization-acceptance.md)
+- [v2.0 platform core](./docs/architecture/platform-core-v2.md)
+- [Agent engineering evaluation](./docs/evals/agent-evaluation-v2.md)
+- [Personalization engineering evaluation](./docs/evals/personalization-evaluation-v2.md)
+- [Stage 7 final report](./docs/stages/stage-7-v2.0-final-report.md)
 
 RAG and Question Judge human review remains deferred from v1.0 and is documented
 only in evidence materials. It is not presented as expert or clinical validation.

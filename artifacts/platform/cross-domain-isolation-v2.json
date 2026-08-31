@@ -1,0 +1,21 @@
+{
+  "evaluation_type": "domain_policy_boundary",
+  "general_namespaces": [
+    "general_science"
+  ],
+  "integration_tests": [
+    "test_cross_domain_rag_retrieval_isolated",
+    "test_cross_domain_memory_retrieval_never_leaks",
+    "test_general_tutor_never_emits_medical_policy_copy"
+  ],
+  "medical_namespaces": [
+    "medical_general",
+    "gastroenterology",
+    "endoscopy",
+    "qbank_explanations",
+    "user_uploaded",
+    "factory_sources"
+  ],
+  "namespace_overlap": [],
+  "result": "pass"
+}

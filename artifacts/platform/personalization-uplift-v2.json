@@ -1,0 +1,26 @@
+{
+  "baseline": {
+    "matching_topic_ratio": 0.25,
+    "topics": [
+      "地球运动",
+      "能量与物质变化",
+      "科学推理",
+      "生命系统"
+    ]
+  },
+  "definition": "After explicit weak-topic evidence, the ratio of next-session items matching that topic.",
+  "evaluation_type": "scheduling_behavior_uplift",
+  "evidence_aware": {
+    "matching_topic_ratio": 0.75,
+    "topics": [
+      "能量与物质变化",
+      "能量与物质变化",
+      "科学推理",
+      "能量与物质变化"
+    ]
+  },
+  "evidence_topic": "能量与物质变化",
+  "integration_test": "tests/test_stage7_platform.py::test_personalization_uplift_is_defined_as_scheduling_behavior",
+  "not_a_claim": "This is not a learning-score, retention, or clinical-effectiveness outcome.",
+  "uplift": 0.5
+}

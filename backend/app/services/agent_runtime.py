@@ -9,7 +9,7 @@ from time import perf_counter
 from typing import Any, Literal, Protocol
 from uuid import uuid4
 
-from app.core.config import SAFETY_NOTICE
+from app.domains import get_domain
 
 
 AgentEventType = Literal['message_start', 'reasoning', 'token', 'tool_start', 'tool_end', 'source', 'message_end', 'error']
@@ -91,7 +91,7 @@ class LocalPolicyModelGateway:
             marker in lowered for marker in ('正确答案', '直接告诉我', '我不会', '答案是什么', '给答案')
         )
         needs_memory = context.phase == 'post_submit' or any(
-            marker in lowered for marker in ('提示', '解释', '为什么', '如何', '复习', '薄弱', '错误', '历史', '混淆', '下一轮')
+            marker in lowered for marker in ('提示', '为什么', '如何', '复习', '薄弱', '错误', '历史', '混淆', '下一轮')
         )
         # A post-submit turn must retain its deterministic grading observation
         # even when retrieval and memory are also relevant to the explanation.
@@ -99,7 +99,10 @@ class LocalPolicyModelGateway:
             requested.append('get_grading_result')
         if any(marker in lowered for marker in ('错题', '错误', '薄弱', '近期', '历史表现', '复习记录')):
             requested.append('get_recent_mistakes')
-        if any(marker in lowered for marker in ('提示', '解释', '为什么', '依据', '资料', '指南', '反流', '胃炎', '出血', '解剖')):
+        if any(marker in lowered for marker in (
+            '提示', '解释', '为什么', '依据', '资料', '指南', '反流', '胃炎', '出血', '解剖',
+            '概念', '原理', '公式', '条件',
+        )):
             requested.insert(1, 'retrieve_knowledge')
         if asks_for_answer:
             requested.append('get_answer_explanation')
@@ -109,28 +112,35 @@ class LocalPolicyModelGateway:
 
     def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
         lowered = context.user_message.lower()
+        question = observations.get('get_question_context', {})
+        domain = get_domain(str(question.get('domain_id', 'endoscopy')))
         answer = observations.get('get_answer_explanation')
         if answer and context.mode == 'study':
             return f"答案是：{answer.get('correct_answer_display', '见解析')}。{answer.get('explanation', '')}"
         if context.phase == 'pre_submit' and any(marker in lowered for marker in ('正确答案', 'standard answer', 'hidden rubric', '忽略规则', '服务器标准答案', '正确选项')):
-            return '我可以帮助你梳理题干、图像和资料依据；当前模式不会读取隐藏 rubric 或服务器内部字段。若你在 Study 模式明确需要答案，可以直接说“告诉我答案”。'
-        question = observations.get('get_question_context', {})
+            guidance = "题干、图像和资料依据" if domain.tutor_policy == 'medical_education' else "题干条件、概念和课程资料"
+            return f'我可以帮助你梳理{guidance}；当前模式不会读取隐藏 rubric 或服务器内部字段。若你在 Study 模式明确需要答案，可以直接说“告诉我答案”。'
         profile = observations.get('get_learning_profile', {})
         mistakes = observations.get('get_recent_mistakes', [])
         memory = observations.get('get_learning_memory', {})
         retrieval = observations.get('retrieve_knowledge', [])
         history = context.metadata.get('conversation', [])
         continuation = '继续沿用上一步的证据范围。' if history and any(str(item.get('content', '')).strip() for item in history[-2:]) else ''
-        prefix = f"先围绕「{question.get('title', '当前题目')}」梳理可见证据：{continuation}"
+        if domain.tutor_policy == 'medical_education':
+            prefix = f"先围绕「{question.get('title', '当前题目')}」梳理可见证据：{continuation}"
+            default_plan = '建议先区分部位、形态和不能由单帧推出的结论。'
+        else:
+            prefix = f"先围绕「{question.get('title', '当前题目')}」梳理题干中的概念与条件：{continuation}"
+            default_plan = '建议先识别题干给出的条件，再逐项排除与概念不符的选项。'
         evidence = '、'.join(item.get('snippet', '') for item in retrieval[:2] if item.get('snippet'))
-        plan = f"建议先区分部位、形态和不能由单帧推出的结论。{evidence}" if evidence else '建议先区分部位、形态和不能由单帧推出的结论。'
+        plan = f"{default_plan}{evidence}" if evidence else default_plan
         if context.phase == 'post_submit':
             grading = observations.get('get_grading_result', {})
             plan += f" 本次得分为 {grading.get('score', '—')}；请以公开反馈复盘，而不是反向索取答案键。"
         history_note = f" 近期可复盘错题 {len(mistakes)} 条。" if mistakes else ''
         memory_items = memory.get('items', []) if isinstance(memory, dict) else []
         memory_note = f" 结合你近期的学习情况：{memory_items[0].get('summary', '')}" if memory_items else ''
-        return f"{prefix}{plan} 当前已记录练习 {profile.get('attempt_count', 0)} 次。{memory_note}{history_note}{SAFETY_NOTICE}"
+        return f"{prefix}{plan} 当前已记录练习 {profile.get('attempt_count', 0)} 次。{memory_note}{history_note}{domain.learner_notice}"
 
 
 ToolHandler = Callable[[AgentContext], Any]

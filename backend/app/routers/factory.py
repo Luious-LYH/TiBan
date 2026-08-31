@@ -16,6 +16,7 @@ class DocumentUploadRequest(BaseModel):
     filename: str = Field(min_length=3, max_length=255)
     content_base64: str = Field(min_length=1)
     content_type: str | None = None
+    domain_id: str = "endoscopy"
 
 
 class FactoryDocumentPublic(BaseModel):
@@ -109,7 +110,7 @@ class FactoryPublishResponse(BaseModel):
 @router.post("/documents", response_model=FactoryDocumentResponse)
 def upload_document(request: DocumentUploadRequest) -> FactoryDocumentResponse:
     try:
-        document = import_allowed_document(request.filename, base64.b64decode(request.content_base64, validate=True), request.content_type)
+        document = import_allowed_document(request.filename, base64.b64decode(request.content_base64, validate=True), request.content_type, domain_id=request.domain_id)
         return FactoryDocumentResponse(document=FactoryDocumentPublic.model_validate(document), api_source="backend")
     except (ValueError, base64.binascii.Error) as exc:
         raise HTTPException(422, str(exc)) from exc

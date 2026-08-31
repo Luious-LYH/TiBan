@@ -1,0 +1,18 @@
+{
+  "domain_id": "general_science",
+  "fixture_bank": "bank-general-science-foundations",
+  "flows": [
+    "Study",
+    "Exam",
+    "Review",
+    "Tutor",
+    "Attempt",
+    "Mastery",
+    "FSRS",
+    "Memory",
+    "Evaluation"
+  ],
+  "integration_test": "tests/test_stage7_platform.py::test_general_domain_reuses_study_exam_review_tutor_and_fsrs",
+  "result": "pass",
+  "validation": "backend/tests/test_stage7_platform.py::test_general_domain_reuses_study_exam_review_tutor_and_fsrs"
+}

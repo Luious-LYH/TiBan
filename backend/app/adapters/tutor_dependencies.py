@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy import select
 
 from app.core import config
+from app.domains import get_domain
 from app.db.database import SessionLocal
 from app.db.models import AttemptModel, QuestionModel
 from app.db.repositories import Stage1Repository
@@ -55,7 +56,8 @@ def _retrieve_knowledge(context: AgentContext) -> list[dict[str, str]]:
         try:
             from app.services.rag_service import rag_service
 
-            citations = rag_service.retrieve(query, mode="dense", limit=3, namespace="endoscopy")
+            manifest = get_domain(str(question["domain_id"]))
+            citations = rag_service.retrieve(query, mode="dense", limit=3, domain_id=manifest.domain_id, namespaces=list(manifest.knowledge_namespaces))
         except Exception:
             # No local fake source is presented as RAG evidence. Public question
             # provenance below remains a truthful fallback when index is absent.

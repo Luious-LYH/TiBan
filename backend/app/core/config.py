@@ -5,8 +5,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-APP_NAME = "消化内镜研修与模型评测平台"
-APP_VERSION = "1.2.0"
+APP_NAME = "TiBan 学习与模型评测平台"
+APP_VERSION = "2.0.0"
 SAFETY_NOTICE = "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
 DEMO_LEARNER_ID = "demo_learner"
 
@@ -36,6 +36,7 @@ def _env_first(*names: str, default: str = "") -> str:
 
 
 LOCAL_VQA_ROOT = Path(_env_first("ENDO_LOCAL_VQA_ROOT", default=str(PROJECT_DIR / "data" / "vqa")))
+ARC_EASY_ROOT = Path(_env_first("TIBAN_ARC_EASY_ROOT", default=str(PROJECT_DIR / "data" / "external" / "arc_easy")))
 LOCAL_PROJECT_DATA_ROOT = Path(
     _env_first("ENDO_PROJECT_DATA_ROOT", default=str(PROJECT_DIR / "data"))
 )

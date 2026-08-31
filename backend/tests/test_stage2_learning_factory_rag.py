@@ -65,7 +65,11 @@ def test_submit_rebuilds_mastery_and_real_fsrs_card() -> None:
 def test_mentor_plan_changes_with_actual_learner_history() -> None:
     client = TestClient(app)
     first, second = f"mentor-a-{uuid4().hex[:6]}", f"mentor-b-{uuid4().hex[:6]}"
-    questions = client.get("/api/v3/practice/questions", params={"limit": 3}).json()["items"]
+    # Stage 7 exposes multiple domains through the canonical catalog.  Keep
+    # this Stage 2 learning regression focused on one endoscopy learner so a
+    # general-science row cannot be submitted and then omitted by the
+    # endoscopy-scoped Mentor projection.
+    questions = client.get("/api/v3/practice/questions", params={"limit": 3, "domain_id": "endoscopy"}).json()["items"]
     for question in questions[:2]:
         client.post("/api/v3/practice/submit", json={"learner_id": first, "question_id": question["id"], "selected_answer": question.get("options", [{"id": ""}])[0]["id"]})
     client.post("/api/v3/practice/submit", json={"learner_id": second, "question_id": questions[-1]["id"], "selected_answer": "错误且缺少观察依据"})

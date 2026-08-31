@@ -44,8 +44,23 @@ def _hash(value: str) -> str:
 
 
 def _terms(value: str) -> Counter[str]:
-    cleaned = re.sub(r'\s+', '', value.lower())
-    return Counter(cleaned[index:index + 2] for index in range(max(len(cleaned) - 1, 0)))
+    """Tokenize Latin identifiers and CJK text without cross-token noise.
+
+    The previous all-character bigram tokenizer made an identifier such as a
+    unique evaluation marker partially match every older document containing
+    a generic suffix (for example ``general``).  That is especially harmful to
+    namespace isolation tests and to explainable sparse retrieval.  Preserve
+    CJK bigrams for Chinese retrieval, while treating ASCII identifiers/words
+    as whole tokens.
+    """
+
+    terms: list[str] = []
+    for token in re.findall(r"[a-z0-9_]+|[\u4e00-\u9fff]+", value.lower()):
+        if re.fullmatch(r"[a-z0-9_]+", token):
+            terms.append(token)
+        else:
+            terms.extend(token[index:index + 2] for index in range(max(len(token) - 1, 0)))
+    return Counter(terms)
 
 
 def _sparse_score(query: str, content: str) -> float:
@@ -69,7 +84,12 @@ class RagService:
 
     @property
     def qdrant(self) -> QdrantClient:
-        return QdrantClient(url=os.getenv('QDRANT_URL', 'http://127.0.0.1:6333'))
+        # A fresh local Qdrant volume can take several seconds to create its
+        # first collection.  The client default is shorter than that on some
+        # Docker Desktop machines, which turns a healthy clean-start into a
+        # false Factory indexing failure.
+        timeout = float(os.getenv('QDRANT_TIMEOUT_SECONDS', '30'))
+        return QdrantClient(url=os.getenv('QDRANT_URL', 'http://127.0.0.1:6333'), timeout=timeout)
 
     @property
     def reranker(self) -> CrossEncoder:
@@ -84,6 +104,7 @@ class RagService:
         path: Path,
         *,
         document_id: str = 'source-stage2-endoscopy-v1',
+        domain_id: str = 'endoscopy',
         child_size: int = 180,
         namespace: str = 'medical_general',
         source_id: str | None = None,
@@ -110,10 +131,11 @@ class RagService:
         with SessionLocal() as session:
             document = session.get(SourceDocumentModel, document_id)
             if not document:
-                session.add(SourceDocumentModel(document_id=document_id, domain_id='endoscopy', bank_id=None, name=document_name, media_type='text/markdown', content_hash=source_hash, status='indexed', source_id=source_id, business_usage=business_usage, license_gate_status=license_gate_status, ai_ingestion_allowed=ai_ingestion_allowed, source_uri=source_uri or str(path.resolve()), namespace=namespace))
+                session.add(SourceDocumentModel(document_id=document_id, domain_id=domain_id, bank_id=None, name=document_name, media_type='text/markdown', content_hash=source_hash, status='indexed', source_id=source_id, business_usage=business_usage, license_gate_status=license_gate_status, ai_ingestion_allowed=ai_ingestion_allowed, source_uri=source_uri or str(path.resolve()), namespace=namespace))
                 session.flush()
             else:
                 document.namespace = namespace
+                document.domain_id = domain_id
                 document.source_id = source_id or document.source_id
                 document.source_uri = source_uri or document.source_uri or str(path.resolve())
                 document.business_usage = business_usage
@@ -150,7 +172,7 @@ class RagService:
             client = self.qdrant
             if not client.collection_exists(COLLECTION):
                 client.create_collection(COLLECTION, vectors_config=models.VectorParams(size=len(vectors[0]), distance=models.Distance.COSINE))
-            client.upsert(COLLECTION, points=[models.PointStruct(id=_point_id(row.chunk_id), vector=vector.tolist(), payload={'chunk_id': row.chunk_id, 'document_id': row.document_id, 'version_id': row.version_id, 'namespace': row.namespace, 'document_name': document.name, 'page': row.page, 'section': row.parent_section, 'source_uri': row.source_uri, 'content': row.content}) for row, vector in zip(rows, vectors)])
+            client.upsert(COLLECTION, points=[models.PointStruct(id=_point_id(row.chunk_id), vector=vector.tolist(), payload={'chunk_id': row.chunk_id, 'document_id': row.document_id, 'version_id': row.version_id, 'domain_id': domain_id, 'namespace': row.namespace, 'document_name': document.name, 'page': row.page, 'section': row.parent_section, 'source_uri': row.source_uri, 'content': row.content}) for row, vector in zip(rows, vectors)])
             return [row.chunk_id for row in rows]
 
     def retrieve(
@@ -162,6 +184,7 @@ class RagService:
         version_id: str | None = None,
         version_ids: list[str] | None = None,
         document_ids: list[str] | None = None,
+        domain_id: str | None = None,
         namespace: str | None = None,
         namespaces: list[str] | None = None,
     ) -> list[Citation]:
@@ -201,6 +224,8 @@ class RagService:
                 SourceDocumentModel.ai_ingestion_allowed.is_(True),
                 SourceDocumentModel.license_gate_status.in_(['allow', 'allow_noncommercial']),
             )
+            if domain_id:
+                statement = statement.where(SourceDocumentModel.domain_id == domain_id)
             rows = list(session.scalars(statement))
             docs = {doc.document_id: doc for doc in session.scalars(select(SourceDocumentModel).where(SourceDocumentModel.document_id.in_({row.document_id for row in rows})))}
         if not rows:
@@ -216,6 +241,8 @@ class RagService:
                 conditions.append(models.FieldCondition(key='version_id', match=models.MatchAny(any=version_ids)))
             if document_ids:
                 conditions.append(models.FieldCondition(key='document_id', match=models.MatchAny(any=document_ids)))
+            if domain_id:
+                conditions.append(models.FieldCondition(key='domain_id', match=models.MatchValue(value=domain_id)))
             if namespace:
                 conditions.append(models.FieldCondition(key='namespace', match=models.MatchValue(value=namespace)))
             elif namespaces:

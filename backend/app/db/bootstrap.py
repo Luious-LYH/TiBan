@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select, text
 
 from app.core.config import DEMO_QBANK_BOOTSTRAP
 
@@ -129,9 +129,142 @@ def initialize_database() -> int:
     """
 
     Base.metadata.create_all(engine)
+    _upgrade_local_sqlite_domain_scope()
     with SessionLocal() as session:
         seeded = seed_database(session)
     if DEMO_QBANK_BOOTSTRAP:
         result = bootstrap_demo_qbank()
         return seeded + int(result["imported"])
     return seeded
+
+
+def _upgrade_local_sqlite_domain_scope() -> None:
+    """Keep the opt-in SQLite developer fallback compatible with Stage 7.
+
+    Production and Docker use the Alembic/PostgreSQL migration.  ``create_all``
+    cannot alter an already-created SQLite table, though, which used to make a
+    developer's harmless existing local database fail at startup as soon as a
+    domain-scoped query touched it.  This narrowly scoped compatibility upgrade
+    preserves all existing rows, assigns their established medical domain, and
+    replaces only the two legacy unique keys that must now include ``domain``.
+    It deliberately never drops user data.
+    """
+
+    if engine.dialect.name != "sqlite":
+        return
+
+    domain_tables = (
+        "practice_sessions",
+        "review_cards",
+        "learner_mastery",
+        "learning_memory_items",
+        "eval_datasets",
+    )
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        _upgrade_local_sqlite_factory_jobs(connection, inspector)
+        for table_name in domain_tables:
+            columns = {column["name"] for column in inspector.get_columns(table_name)}
+            if "domain_id" not in columns:
+                connection.execute(
+                    text(
+                        f"ALTER TABLE {table_name} "
+                        "ADD COLUMN domain_id VARCHAR(100) NOT NULL DEFAULT 'endoscopy'"
+                    )
+                )
+
+        _rebuild_sqlite_unique_scope(
+            connection,
+            "learner_mastery",
+            "uq_mastery_learner_domain_point",
+        )
+        _rebuild_sqlite_unique_scope(
+            connection,
+            "learning_memory_items",
+            "uq_learning_memory_learner_domain_dedupe",
+        )
+        # Stage 2.5 used ``medical-education`` as an internal catalog label.
+        # Stage 7 promotes the stable public manifest id to ``endoscopy``.
+        # This is a value migration only: bank/question/source identities and
+        # all learner history remain untouched.
+        for table_name in ("question_banks", "questions", "source_documents"):
+            connection.execute(
+                text(f"UPDATE {table_name} SET domain_id = 'endoscopy' WHERE domain_id = 'medical-education'")
+            )
+
+
+def _upgrade_local_sqlite_factory_jobs(connection: object, inspector: object) -> None:
+    """Apply the non-destructive Stage 6 job columns to an old SQLite checkout.
+
+    ``create_all`` cannot evolve an existing local database.  Some developers
+    still have a Stage 2 database whose ``factory_jobs`` table predates durable
+    job fields, so ORM reads fail before the app can serve anything.  PostgreSQL
+    uses Alembic; this is only the equivalent local fallback and preserves all
+    existing rows.
+    """
+
+    columns = {column["name"] for column in inspector.get_columns("factory_jobs")}
+    definitions = {
+        "job_type": "VARCHAR(48) NOT NULL DEFAULT 'question_factory'",
+        "stage": "VARCHAR(40) NOT NULL DEFAULT 'queued'",
+        "progress": "INTEGER NOT NULL DEFAULT 0",
+        "input_summary": "JSON NOT NULL DEFAULT '{}'",
+        "result_ref": "VARCHAR(160)",
+        "error_code": "VARCHAR(80)",
+        "error_message": "TEXT",
+        "attempt": "INTEGER NOT NULL DEFAULT 0",
+        "idempotency_key": "VARCHAR(160)",
+        "started_at": "DATETIME",
+        "heartbeat_at": "DATETIME",
+        "completed_at": "DATETIME",
+        "cancel_requested_at": "DATETIME",
+        "queue_message_id": "VARCHAR(160)",
+    }
+    for name, definition in definitions.items():
+        if name not in columns:
+            connection.execute(text(f"ALTER TABLE factory_jobs ADD COLUMN {name} {definition}"))
+    # The column is nullable only during this compatibility transition.  Fill
+    # both newly-added and partially-upgraded local tables before the unique
+    # index is created, preserving the existing job identity for every row.
+    connection.execute(text("UPDATE factory_jobs SET idempotency_key = job_id WHERE idempotency_key IS NULL"))
+    indexes = {item["name"] for item in inspector.get_indexes("factory_jobs") if item.get("name")}
+    if "ix_factory_jobs_idempotency_key" not in indexes:
+        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_factory_jobs_idempotency_key ON factory_jobs (idempotency_key)"))
+
+
+def _rebuild_sqlite_unique_scope(connection: object, table_name: str, expected_constraint: str) -> None:
+    """Replace a legacy SQLite unique constraint without losing local rows."""
+
+    inspector = inspect(connection)
+    unique_names = {item.get("name") for item in inspector.get_unique_constraints(table_name)}
+    if expected_constraint in unique_names:
+        return
+
+    table = Base.metadata.tables[table_name]
+    legacy_name = f"{table_name}_stage6_legacy"
+    legacy_columns = {column["name"] for column in inspector.get_columns(table_name)}
+    index_names = [
+        item["name"]
+        for item in inspector.get_indexes(table_name)
+        if item.get("name")
+    ]
+    quoted_columns = ", ".join(column.name for column in table.columns)
+    select_columns = ", ".join(
+        column.name if column.name in legacy_columns else "'endoscopy'"
+        for column in table.columns
+    )
+
+    connection.execute(text(f"ALTER TABLE {table_name} RENAME TO {legacy_name}"))
+    # SQLite keeps index names globally unique when a table is renamed.  Drop
+    # only this table's recreatable named indexes before SQLAlchemy creates the
+    # replacement table and its Stage 7 indexes.
+    for index_name in index_names:
+        connection.execute(text(f"DROP INDEX IF EXISTS {index_name}"))
+    table.create(connection)
+    connection.execute(
+        text(
+            f"INSERT INTO {table_name} ({quoted_columns}) "
+            f"SELECT {select_columns} FROM {legacy_name}"
+        )
+    )
+    connection.execute(text(f"DROP TABLE {legacy_name}"))

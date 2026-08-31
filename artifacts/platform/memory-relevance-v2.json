@@ -1,0 +1,67 @@
+{
+  "case_count": 3,
+  "cases": [
+    {
+      "case_id": "medical-current-topic",
+      "domain_id": "endoscopy",
+      "excluded": [
+        {
+          "domain_id": "general_science",
+          "memory_id": "memory-general-same-label",
+          "relevant": false,
+          "token_count": 17
+        }
+      ],
+      "selected": [
+        {
+          "domain_id": "endoscopy",
+          "memory_id": "memory-med-topic",
+          "relevant": true,
+          "token_count": 18
+        }
+      ]
+    },
+    {
+      "case_id": "general-current-topic",
+      "domain_id": "general_science",
+      "excluded": [
+        {
+          "domain_id": "endoscopy",
+          "memory_id": "memory-med-same-label",
+          "relevant": false,
+          "token_count": 18
+        }
+      ],
+      "selected": [
+        {
+          "domain_id": "general_science",
+          "memory_id": "memory-general-topic",
+          "relevant": true,
+          "token_count": 16
+        }
+      ]
+    },
+    {
+      "case_id": "no-relevant-memory",
+      "domain_id": "general_science",
+      "excluded": [
+        {
+          "domain_id": "endoscopy",
+          "memory_id": "memory-med-only",
+          "relevant": false,
+          "token_count": 18
+        }
+      ],
+      "selected": []
+    }
+  ],
+  "evaluation_type": "controlled_memory_relevance_fixture",
+  "integration_test": "tests/test_stage7_platform.py::test_cross_domain_memory_retrieval_never_leaks",
+  "metrics": {
+    "cross_domain_memory_leakage_count": 0,
+    "irrelevant_memory_injection_rate": 0.0,
+    "max_memory_token_count": 18,
+    "max_selected_memory_count": 1,
+    "relevant_selected_memory_rate": 1.0
+  }
+}

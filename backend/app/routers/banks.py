@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 
 from app.schemas import OverviewResponse, QuestionBankListResponse, QuestionBankPublic
+from app.domains import PLATFORM_NOTICE
 from app.services.stage1_service import stage1_service
 
 
@@ -10,8 +11,11 @@ router = APIRouter(prefix="/api/v3", tags=["stage1-banks"])
 
 
 @router.get("/question-banks", response_model=QuestionBankListResponse)
-def list_question_banks(learner_id: str = Query(default="demo_learner")) -> dict[str, object]:
-    items = stage1_service.list_banks(learner_id)
+def list_question_banks(
+    learner_id: str = Query(default="demo_learner"),
+    domain_id: str | None = Query(default=None),
+) -> dict[str, object]:
+    items = stage1_service.list_banks(learner_id, domain_id)
     fields = {
         "bank_id",
         "domain_id",
@@ -26,7 +30,11 @@ def list_question_banks(learner_id: str = Query(default="demo_learner")) -> dict
         "completed_count",
         "progress",
     }
-    return {"items": [{key: item[key] for key in fields} for item in items], "total": len(items)}
+    return {
+        "items": [{key: item[key] for key in fields} for item in items],
+        "total": len(items),
+        "safety_notice": PLATFORM_NOTICE,
+    }
 
 
 @router.get("/question-banks/{bank_id}", response_model=QuestionBankPublic)

@@ -11,6 +11,11 @@ import os
 # tests use question provenance and must not require an optional Qdrant service
 # or model-cache download just to exercise permissions and SSE ordering.
 os.environ.setdefault("TUTOR_RETRIEVAL_ENABLED", "false")
+# Tests that exercise the bounded runtime use the deterministic local gateway;
+# external-provider acceptance remains an explicit, separately invoked smoke.
+# This prevents a developer's private backend/.env from making regression
+# tests wait on a LAN gateway or accidentally consume provider quota.
+os.environ.setdefault("TUTOR_PROVIDER_ENABLED", "false")
 
 from app.db.bootstrap import initialize_database
 

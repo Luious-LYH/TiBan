@@ -27,7 +27,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <header className="v21-app-header">
         <Link className="v21-brand" to="/">
           <span><ActivitySquare size={20} /></span>
-          <div><strong>EndoTutor</strong><small>内镜刷题 Agent</small></div>
+          <div><strong>TiBan</strong><small>自适应学习平台</small></div>
         </Link>
         <nav className="v21-main-nav" aria-label="主导航">
           {navItems.map(({ path, label, icon: Icon, exact }) => {
@@ -38,7 +38,7 @@ export function Layout({ children }: { children: ReactNode }) {
           })}
         </nav>
         <span className="v21-header-proof">
-          {isDevPage ? 'v2.2 过渡页 · 开发中' : 'v2.2.1 · 四模块架构'}
+          {isDevPage ? 'v2.0 过渡页 · 开发中' : 'v2.0 · 四模块架构'}
         </span>
       </header>
       <main className="v21-app-main">{children}</main>

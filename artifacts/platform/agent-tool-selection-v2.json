@@ -1,0 +1,144 @@
+{
+  "case_count": 6,
+  "cases": [
+    {
+      "case_id": "knowledge-needed",
+      "expected_absent": [
+        "get_answer_explanation",
+        "get_grading_result",
+        "get_learning_memory"
+      ],
+      "expected_selected": [
+        "get_question_context",
+        "retrieve_knowledge"
+      ],
+      "intent": "should retrieve knowledge",
+      "missing_tools": [],
+      "mode": "study",
+      "passed": true,
+      "phase": "pre_submit",
+      "selected_tools": [
+        "get_question_context",
+        "retrieve_knowledge"
+      ],
+      "unnecessary_tools": []
+    },
+    {
+      "case_id": "question-only",
+      "expected_absent": [
+        "get_answer_explanation",
+        "get_grading_result",
+        "get_learning_memory",
+        "retrieve_knowledge"
+      ],
+      "expected_selected": [
+        "get_question_context"
+      ],
+      "intent": "should not retrieve or read memory",
+      "missing_tools": [],
+      "mode": "study",
+      "passed": true,
+      "phase": "pre_submit",
+      "selected_tools": [
+        "get_question_context"
+      ],
+      "unnecessary_tools": []
+    },
+    {
+      "case_id": "memory-needed",
+      "expected_absent": [
+        "get_answer_explanation",
+        "get_grading_result",
+        "retrieve_knowledge"
+      ],
+      "expected_selected": [
+        "get_learning_memory",
+        "get_question_context"
+      ],
+      "intent": "should read learning memory",
+      "missing_tools": [],
+      "mode": "study",
+      "passed": true,
+      "phase": "pre_submit",
+      "selected_tools": [
+        "get_learning_memory",
+        "get_question_context"
+      ],
+      "unnecessary_tools": []
+    },
+    {
+      "case_id": "post-submit-grading",
+      "expected_absent": [
+        "get_answer_explanation",
+        "retrieve_knowledge"
+      ],
+      "expected_selected": [
+        "get_grading_result",
+        "get_learning_memory",
+        "get_question_context"
+      ],
+      "intent": "post-submit needs deterministic grading observation",
+      "missing_tools": [],
+      "mode": "study",
+      "passed": true,
+      "phase": "post_submit",
+      "selected_tools": [
+        "get_grading_result",
+        "get_learning_memory",
+        "get_question_context"
+      ],
+      "unnecessary_tools": []
+    },
+    {
+      "case_id": "study-answer-permitted",
+      "expected_absent": [
+        "get_grading_result",
+        "get_learning_memory",
+        "retrieve_knowledge"
+      ],
+      "expected_selected": [
+        "get_answer_explanation",
+        "get_question_context"
+      ],
+      "intent": "study-mode direct answer is permitted by product policy",
+      "missing_tools": [],
+      "mode": "study",
+      "passed": true,
+      "phase": "pre_submit",
+      "selected_tools": [
+        "get_answer_explanation",
+        "get_question_context"
+      ],
+      "unnecessary_tools": []
+    },
+    {
+      "case_id": "exam-answer-denied",
+      "expected_absent": [
+        "get_answer_explanation",
+        "get_grading_result",
+        "get_learning_memory",
+        "retrieve_knowledge"
+      ],
+      "expected_selected": [
+        "get_question_context"
+      ],
+      "intent": "exam-mode direct answer remains unavailable",
+      "missing_tools": [],
+      "mode": "exam",
+      "passed": true,
+      "phase": "pre_submit",
+      "selected_tools": [
+        "get_question_context"
+      ],
+      "unnecessary_tools": []
+    }
+  ],
+  "evaluation_type": "deterministic_tool_selection_regression",
+  "metrics": {
+    "missing_tool_rate": 0.0,
+    "tool_selection_accuracy": 1.0,
+    "unnecessary_tool_rate": 0.0
+  },
+  "provider": "local-policy-adapter",
+  "provider_usage": "not available"
+}

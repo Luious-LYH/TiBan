@@ -412,6 +412,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Domains */
+        get: operations["list_domains_api_v3_domains_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/evaluation/latest": {
         parameters: {
             query?: never;
@@ -1586,6 +1603,8 @@ export interface components {
              * @default demo_learner
              */
             learner_id: string;
+            /** Domain Id */
+            domain_id?: string | null;
         };
         /** ClearLearningMemoryResponse */
         ClearLearningMemoryResponse: {
@@ -1614,6 +1633,34 @@ export interface components {
             content_base64: string;
             /** Content Type */
             content_type?: string | null;
+            /**
+             * Domain Id
+             * @default endoscopy
+             */
+            domain_id: string;
+        };
+        /** DomainListResponse */
+        DomainListResponse: {
+            /** Items */
+            items: components["schemas"]["DomainPublic"][];
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** DomainPublic */
+        DomainPublic: {
+            /** Domain Id */
+            domain_id: string;
+            /** Display Name */
+            display_name: string;
+            /** Description */
+            description: string;
+            /** Subjects */
+            subjects: string[];
+            /** Supported Question Types */
+            supported_question_types: string[];
         };
         /** EvaluationArtifactResponse */
         EvaluationArtifactResponse: {
@@ -1694,6 +1741,8 @@ export interface components {
         EvaluationDatasetPublic: {
             /** Dataset Id */
             dataset_id: string;
+            /** Domain Id */
+            domain_id: string;
             /** Name */
             name: string;
             /** Description */
@@ -2028,6 +2077,8 @@ export interface components {
         LearningMemoryPublic: {
             /** Memory Id */
             memory_id: string;
+            /** Domain Id */
+            domain_id: string;
             /** Kind */
             kind: string;
             /** Summary */
@@ -2058,6 +2109,8 @@ export interface components {
         MentorPlanPublic: {
             /** Learner Id */
             learner_id: string;
+            /** Domain Id */
+            domain_id: string;
             /** Study Goal */
             study_goal: string;
             /** Due Review Count */
@@ -2319,6 +2372,8 @@ export interface components {
             learner_id: string;
             /** Bank Id */
             bank_id: string;
+            /** Domain Id */
+            domain_id: string;
             /**
              * Mode
              * @enum {string}
@@ -2362,6 +2417,8 @@ export interface components {
             learner_id: string;
             /** Bank Id */
             bank_id: string;
+            /** Domain Id */
+            domain_id: string;
             /**
              * Mode
              * @enum {string}
@@ -2692,6 +2749,8 @@ export interface components {
             review_card_id: string;
             /** Question Id */
             question_id: string;
+            /** Domain Id */
+            domain_id: string;
             /** Due At */
             due_at: string;
             /** Interval Days */
@@ -3095,6 +3154,7 @@ export interface operations {
         parameters: {
             query?: {
                 learner_id?: string;
+                domain_id?: string | null;
             };
             header?: never;
             path?: never;
@@ -3190,6 +3250,7 @@ export interface operations {
         parameters: {
             query?: {
                 bank_id?: string | null;
+                domain_id?: string | null;
                 question_type?: string | null;
                 body_part?: string | null;
                 subject?: string | null;
@@ -3603,6 +3664,7 @@ export interface operations {
         parameters: {
             query?: {
                 learner_id?: string;
+                domain_id?: string;
                 study_goal?: string;
             };
             header?: never;
@@ -3635,6 +3697,7 @@ export interface operations {
         parameters: {
             query?: {
                 learner_id?: string;
+                domain_id?: string | null;
                 limit?: number;
             };
             header?: never;
@@ -3887,6 +3950,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_domains_api_v3_domains_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainListResponse"];
                 };
             };
         };

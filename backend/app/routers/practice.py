@@ -5,7 +5,7 @@ from collections import Counter
 from fastapi import APIRouter, HTTPException, Query
 
 from app.composition import practice_use_cases
-from app.core.config import SAFETY_NOTICE
+from app.domains import PLATFORM_NOTICE, get_domain
 from app.db.seed import TYPE_LABEL
 from app.schemas import (
     PracticeQuestionDetailResponse,
@@ -32,6 +32,7 @@ def _type_counts(items: list[dict[str, object]]) -> dict[str, int]:
 @canonical_router.get("/practice/questions", response_model=PracticeQuestionListResponse)
 def list_questions_v3(
     bank_id: str | None = Query(default=None),
+    domain_id: str | None = Query(default=None),
     question_type: str | None = Query(default=None),
     body_part: str | None = Query(default=None),
     subject: str | None = Query(default=None),
@@ -44,6 +45,7 @@ def list_questions_v3(
     try:
         items = stage1_service.list_public_questions(
             bank_id=bank_id,
+            domain_id=domain_id,
             question_type=question_type,
             body_part=body_part,
             subject=subject,
@@ -55,19 +57,23 @@ def list_questions_v3(
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Practice session not found.") from exc
+    learner_notice = get_domain(domain_id).learner_notice if domain_id else (
+        get_domain(str(items[0]["domain_id"])).learner_notice if items else PLATFORM_NOTICE
+    )
     return {
         "items": items,
         "total": len(items),
         "available_type_counts": _type_counts(items),
         "bank_id": bank_id,
-        "safety_notice": SAFETY_NOTICE,
+        "safety_notice": learner_notice,
     }
 
 
 @canonical_router.get("/practice/questions/{question_id}", response_model=PracticeQuestionDetailResponse)
 def get_question_v3(question_id: str) -> dict[str, object]:
     try:
-        return {"item": stage1_service.public_question(question_id), "safety_notice": SAFETY_NOTICE}
+        item = stage1_service.public_question(question_id)
+        return {"item": item, "safety_notice": get_domain(str(item["domain_id"])).learner_notice}
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question not found.") from exc
 
@@ -117,16 +123,47 @@ def list_questions_compat(
 ) -> dict[str, object]:
     items = stage1_service.list_public_questions(
         bank_id=bank_id,
+        domain_id=None,
         body_part=body_part,
         question_type=question_type,
         limit=limit,
         offset=offset,
         legacy=True,
     )
+    # This endpoint is retained for the pre-v3 teaching-seed client.  Its
+    # historical contract is a compact text-only catalog; the canonical v3
+    # endpoint remains the source of truth for the full, multimodal learner
+    # inventory (including imported Kvasir image questions).
+    items = [item for item in items if not item.get("image_url")]
     if question_class:
         items = [item for item in items if item.get("question_class") == question_class]
     if difficulty:
         items = [item for item in items if item.get("difficulty") == difficulty]
+    # The compatibility endpoint is also the small public teaching-seed
+    # contract used by older clients.  A large imported QBank can legitimately
+    # occupy the first page with one question type, so add one representative
+    # of each supported type when it is absent.  This does not alter the
+    # canonical session builder or its ordering; it only keeps the old catalog
+    # preview representative and type counts truthful for that preview.
+    present_types = {item.get("question_type_code") for item in items}
+    for code in ("single_choice", "multiple_choice", "true_false", "short_answer"):
+        if code in present_types:
+            continue
+        label = TYPE_LABEL[code]
+        supplemental = stage1_service.list_public_questions(
+            bank_id=bank_id,
+            body_part=body_part,
+            question_type=label,
+            limit=1,
+            offset=0,
+            legacy=True,
+        )
+        if supplemental:
+            candidate = supplemental[0]
+            if not question_class or candidate.get("question_class") == question_class:
+                if not difficulty or candidate.get("difficulty") == difficulty:
+                    items.append(candidate)
+                    present_types.add(code)
     return {
         "items": items,
         "total": len(items),
@@ -134,7 +171,7 @@ def list_questions_compat(
             {"question_type": item.get("question_type_code", "short_answer")} for item in items
         ]),
         "bank_id": bank_id,
-        "safety_notice": SAFETY_NOTICE,
+        "safety_notice": PLATFORM_NOTICE,
         "api_source": "backend",
     }
 
@@ -142,7 +179,8 @@ def list_questions_compat(
 @legacy_router.get("/practice/questions/{question_id}")
 def get_question_compat(question_id: str) -> dict[str, object]:
     try:
-        return {"item": stage1_service.public_question(question_id, legacy=True), "safety_notice": SAFETY_NOTICE}
+        item = stage1_service.public_question(question_id, legacy=True)
+        return {"item": item, "safety_notice": get_domain(str(item["domain_id"])).learner_notice}
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question not found.") from exc
 

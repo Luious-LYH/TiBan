@@ -47,6 +47,7 @@ function learnerDatasetDescription(datasetId: string, fallback: string): string 
   const summaries: Record<string, string> = {
     'cmexam-text-eval-v1': '用于比较模型对医学文本题的回答表现。',
     'endobench-vlm-eval-v1': '用于比较模型对内镜图像题的回答表现。',
+    'general-science-text-eval-v1': '用于比较模型对通用科学文本题的回答表现。',
   }
   return summaries[datasetId] ?? fallback
 }
@@ -175,17 +176,16 @@ export function EvaluationPage() {
           {connectionResult && <ConnectionReceipt result={connectionResult} />}
           {connection.isError && <div className="eval-inline-error" role="alert"><AlertCircle size={15} />{errorMessage(connection.error)}</div>}
           {evaluation.isError && <div className="eval-inline-error" role="alert"><AlertCircle size={15} />{errorMessage(evaluation.error)}<button type="button" onClick={() => evaluation.reset()}>清除</button></div>}
-          <p className="s1-safety">{selectedDataset?.source_dataset === 'EndoBench' ? '内镜图像题仅用于模型评测。' : '评测结果用于模型比较，不代表临床性能或独立诊断能力。'}</p>
+          <p className="s1-safety">{selectedDataset?.domain_id === 'general_science' ? '评测结果用于通用科学模型比较，不代表课程成绩或学习效果。' : selectedDataset?.source_dataset === 'EndoBench' ? '内镜图像题仅用于模型评测。' : '评测结果用于模型比较，不代表临床性能或独立诊断能力。'}</p>
         </section>
 
         <aside className="s1-card eval-boundary-card">
           <div className="s1-section-heading"><div><span className="s1-kicker">EVALUATION SCOPE</span><h2>评测内容</h2></div><BarChart3 size={18} color="var(--teal)" /></div>
           <div className="eval-boundary-list">
-            <div><span className="eval-boundary-dot is-blue" /><div><strong>医学文本题</strong><small>CMExam · 单选题</small></div></div>
-            <div><span className="eval-boundary-dot is-amber" /><div><strong>内镜图像题</strong><small>EndoBench · 图像问答</small></div></div>
+            {selectedDataset?.domain_id === 'general_science' ? <div><span className="eval-boundary-dot is-blue" /><div><strong>通用科学文本题</strong><small>TiBan 自建样例 · 单选题</small></div></div> : <><div><span className="eval-boundary-dot is-blue" /><div><strong>医学文本题</strong><small>CMExam · 单选题</small></div></div><div><span className="eval-boundary-dot is-amber" /><div><strong>内镜图像题</strong><small>EndoBench · 图像问答</small></div></div></>}
             <div><span className="eval-boundary-dot is-teal" /><div><strong>对照答案</strong><small>需要时可手动查看</small></div></div>
           </div>
-          <div className="eval-boundary-note"><LockKeyhole size={14} /><span>图像评测需要模型支持图像输入；不支持时会提示评测失败。</span></div>
+          <div className="eval-boundary-note"><LockKeyhole size={14} /><span>{selectedDataset?.domain_id === 'general_science' ? '通用科学评测使用文本输入，答案在显式操作后才展示。' : '图像评测需要模型支持图像输入；不支持时会提示评测失败。'}</span></div>
         </aside>
       </div>
 
@@ -211,7 +211,7 @@ export function EvaluationPage() {
         </div>
       </section>}
 
-      <p className="s1-safety">仅供教学研修或医生复核前辅助，不作为独立诊断依据。</p>
+      <p className="s1-safety">{selectedDataset?.domain_id === 'general_science' ? '通用科学评测用于学习训练与模型比较，请结合课程资料和教师指导。' : '仅供教学研修或医生复核前辅助，不作为独立诊断依据。'}</p>
     </div>
   )
 }

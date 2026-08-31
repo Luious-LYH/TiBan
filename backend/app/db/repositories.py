@@ -88,15 +88,12 @@ class Stage1Repository:
             # expose benchmark rows or stale zero-question counts.
             self.session.commit()
 
-    def list_banks(self, learner_id: str = "demo_learner") -> list[QuestionBankModel]:
+    def list_banks(self, learner_id: str = "demo_learner", domain_id: str | None = None) -> list[QuestionBankModel]:
         self.ensure_seeded()
-        banks = list(
-            self.session.scalars(
-                select(QuestionBankModel)
-                .where(QuestionBankModel.question_count > 0)
-                .order_by(QuestionBankModel.name)
-            )
-        )
+        statement = select(QuestionBankModel).where(QuestionBankModel.question_count > 0)
+        if domain_id:
+            statement = statement.where(QuestionBankModel.domain_id == domain_id)
+        banks = list(self.session.scalars(statement.order_by(QuestionBankModel.name)))
         for bank in banks:
             completed = self.session.scalar(
                 select(func.count(func.distinct(AttemptModel.question_id)))
@@ -121,6 +118,7 @@ class Stage1Repository:
         self,
         *,
         bank_id: str | None = None,
+        domain_id: str | None = None,
         question_type: str | None = None,
         body_part: str | None = None,
         subject: str | None = None,
@@ -134,6 +132,12 @@ class Stage1Repository:
             # Keep the legacy compatibility endpoint representative while
             # bank-scoped Stage 2.5 sessions still filter deterministically.
             case(
+                # Persistent local regression runs may leave their explicitly
+                # marked test rows in the developer SQLite database.  They
+                # remain addressable by their test bank, but must not crowd
+                # the canonical learner catalog or hide the four typed seed
+                # variants on the first page.
+                (QuestionModel.source_dataset == "test", 3),
                 (QuestionModel.source_dataset.not_in(["CMExam", "CMB-Exam", "Kvasir-VQA"]), 0),
                 (QuestionModel.modality == "image", 1),
                 else_=2,
@@ -142,6 +146,8 @@ class Stage1Repository:
         )
         if bank_id:
             statement = statement.where(QuestionModel.bank_id == bank_id)
+        if domain_id:
+            statement = statement.where(QuestionModel.domain_id == domain_id)
         if question_type:
             code = TYPE_CODE.get(question_type, question_type if question_type in TYPE_LABEL else None)
             if code:
@@ -174,7 +180,7 @@ class Stage1Repository:
         question_count: int = 20,
         shuffle_seed: int | None = None,
     ) -> tuple[PracticeSessionModel, dict[str, Any]]:
-        self.get_bank(bank_id)
+        bank = self.get_bank(bank_id)
         questions = list(
             self.session.scalars(
                 select(QuestionModel)
@@ -196,6 +202,7 @@ class Stage1Repository:
             session_id=f"session_{uuid4().hex[:12]}",
             learner_id=learner_id,
             bank_id=bank_id,
+            domain_id=bank.domain_id,
             mode=mode,
             status="active",
         )
@@ -256,7 +263,10 @@ class Stage1Repository:
         mastery_by_point = {
             row.knowledge_point: row
             for row in self.session.scalars(
-                select(LearnerMasteryModel).where(LearnerMasteryModel.learner_id == learner_id)
+                select(LearnerMasteryModel).where(
+                    LearnerMasteryModel.learner_id == learner_id,
+                    LearnerMasteryModel.domain_id == questions[0].domain_id,
+                )
             )
             if row.attempt_count > 0
         }
@@ -265,6 +275,7 @@ class Stage1Repository:
             for row in self.session.scalars(
                 select(ReviewCardModel).where(
                     ReviewCardModel.learner_id == learner_id,
+                    ReviewCardModel.domain_id == questions[0].domain_id,
                     ReviewCardModel.question_id.in_(question_ids),
                 )
             )
@@ -274,6 +285,7 @@ class Stage1Repository:
             self.session.scalars(
                 select(LearningMemoryItemModel).where(
                     LearningMemoryItemModel.learner_id == learner_id,
+                    LearningMemoryItemModel.domain_id == questions[0].domain_id,
                     LearningMemoryItemModel.status == "active",
                 )
             )

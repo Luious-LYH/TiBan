@@ -4,11 +4,11 @@ import re
 from datetime import datetime
 from typing import Any
 
-from app.core.config import SAFETY_NOTICE
 from app.db.database import SessionLocal
 from app.db.models import PracticeSessionModel
 from app.db.repositories import Stage1Repository
 from app.db.serializers import grading_question_payload, public_bank_payload, public_question_payload
+from app.domains import get_domain
 from app.schemas import FactFeedbackPublic, PracticeSubmitRequest, PracticeSubmitResponse
 
 
@@ -19,12 +19,12 @@ class Stage1Service:
         repository.ensure_seeded()
         return session, repository
 
-    def list_banks(self, learner_id: str = "demo_learner") -> list[dict[str, Any]]:
+    def list_banks(self, learner_id: str = "demo_learner", domain_id: str | None = None) -> list[dict[str, Any]]:
         session, repository = self._repository()
         try:
             return [
                 public_bank_payload(bank, getattr(bank, "_stage1_completed_count", 0))
-                for bank in repository.list_banks(learner_id)
+                for bank in repository.list_banks(learner_id, domain_id)
             ]
         finally:
             session.close()
@@ -33,6 +33,7 @@ class Stage1Service:
         self,
         *,
         bank_id: str | None = None,
+        domain_id: str | None = None,
         question_type: str | None = None,
         body_part: str | None = None,
         subject: str | None = None,
@@ -56,6 +57,7 @@ class Stage1Service:
                     for question in repository.session_questions(session_id)
                     if self._matches_question_filters(
                         question,
+                        domain_id=domain_id,
                         question_type=question_type,
                         body_part=body_part,
                         subject=subject,
@@ -67,6 +69,7 @@ class Stage1Service:
             else:
                 questions = repository.list_questions(
                     bank_id=bank_id,
+                    domain_id=domain_id,
                     question_type=question_type,
                     body_part=body_part,
                     subject=subject,
@@ -111,6 +114,7 @@ class Stage1Service:
                 "session_id": created.session_id,
                 "learner_id": created.learner_id,
                 "bank_id": created.bank_id,
+                "domain_id": created.domain_id,
                 "mode": created.mode,
                 "status": created.status,
                 "started_at": created.started_at,
@@ -134,6 +138,7 @@ class Stage1Service:
                 "session_id": created.session_id,
                 "learner_id": created.learner_id,
                 "bank_id": created.bank_id,
+                "domain_id": created.domain_id,
                 "mode": created.mode,
                 "status": created.status,
                 "started_at": created.started_at,
@@ -178,7 +183,7 @@ class Stage1Service:
                 for index, fact in enumerate(facts)
             ]
             exam_locked = request.mode == "exam"
-            explanation = "考试进行中；提交本题后暂不显示正确答案和解析，结束后统一复盘。" if exam_locked else self._explanation(question.question_type, correct, score, error_tags)
+            explanation = "考试进行中；提交本题后暂不显示正确答案和解析，结束后统一复盘。" if exam_locked else self._explanation(question, correct, score, error_tags)
             selected_display, correct_display = self._answer_displays(grading, normalized)
             return PracticeSubmitResponse(
                 attempt_id=attempt.attempt_id,
@@ -190,10 +195,14 @@ class Stage1Service:
                 error_tags=error_tags,
                 fact_feedback=feedback,
                 explanation=explanation,
-                next_recommendation="可继续下一题；错题已进入复盘队列。" if not correct else "可以继续下一题，系统已记录本次练习。",
+                next_recommendation=(
+                    "可继续下一题；错题已进入复盘队列。"
+                    if not correct
+                    else "可以继续下一题，系统已记录本次练习。"
+                ),
                 profile_updated=True,
-                doctor_review_required=True,
-                safety_notice=SAFETY_NOTICE,
+                doctor_review_required=question.doctor_review_required,
+                safety_notice=question.safety_notice or get_domain(question.domain_id).learner_notice,
                 created_at=attempt.created_at,
                 selected_answer=normalized,
                 selected_answer_display=selected_display,
@@ -237,12 +246,15 @@ class Stage1Service:
     def _matches_question_filters(
         question: Any,
         *,
+        domain_id: str | None,
         question_type: str | None,
         body_part: str | None,
         subject: str | None,
         topic: str | None,
         search: str | None,
     ) -> bool:
+        if domain_id and question.domain_id != domain_id:
+            return False
         if question_type and question.question_type != question_type:
             return False
         if body_part and question.body_part != body_part:
@@ -285,9 +297,13 @@ class Stage1Service:
             return score, correct, [] if correct else ["观察依据不足"]
         return (100 if correct else 0), correct, [] if correct else ["答案与当前评分规则不一致"]
 
-    def _explanation(self, question_type: str, correct: bool, score: int, error_tags: list[str]) -> str:
+    def _explanation(self, question: Any, correct: bool, score: int, error_tags: list[str]) -> str:
+        manifest = get_domain(question.domain_id)
+        question_type = question.question_type
         if correct:
             return f"本次 {question_type} 提交已通过当前确定性评分规则（{score} 分）。结果仅用于教学训练和复盘。"
+        if manifest.tutor_policy == "general_learning":
+            return f"本次提交得分 {score}。请回到题干条件与概念定义，逐项检查选项判断；记录的复盘标签：{'、'.join(error_tags)}。"
         return f"本次提交得分 {score}。请回到题干与图像证据，检查选项判断和观察边界；记录的复盘标签：{'、'.join(error_tags)}。"
 
     def _answer_displays(self, grading: dict[str, Any], selected: Any) -> tuple[str, str]:

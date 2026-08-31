@@ -17,6 +17,7 @@ export type SubmitResult = components['schemas']['PracticeSubmitResponse']
 // These are presentation view models; their fields are projected from the
 // generated API components, not hand-maintained response contracts.
 export type QuestionBank = Required<components['schemas']['QuestionBankPublic']>
+export type Domain = components['schemas']['DomainPublic']
 export type QuestionsResponse = components['schemas']['PracticeQuestionListResponse']
 export type SessionResponse = components['schemas']['PracticeSessionPublic']
 export type TutorHint = components['schemas']['TutorHintResponseV3']
@@ -69,13 +70,19 @@ export async function getOverview(learnerId = 'demo_learner'): Promise<Overview>
   return { ...response, banks: (response.banks ?? []) as QuestionBank[], recent_sessions: (response.recent_sessions ?? []) as Overview['recent_sessions'] } as Overview
 }
 
-export async function getQuestionBanks(learnerId = 'demo_learner'): Promise<QuestionBank[]> {
-  const response = await unwrap(api.GET('/api/v3/question-banks', { params: { query: { learner_id: learnerId } } }))
+export async function getQuestionBanks(learnerId = 'demo_learner', domainId?: string): Promise<QuestionBank[]> {
+  const response = await unwrap(api.GET('/api/v3/question-banks', { params: { query: { learner_id: learnerId, domain_id: domainId } } }))
   return response.items.map((item) => item as QuestionBank)
+}
+
+export async function getDomains(): Promise<Domain[]> {
+  const response = await unwrap(api.GET('/api/v3/domains'))
+  return response.items
 }
 
 export interface QuestionQuery {
   bankId?: string
+  domainId?: string
   questionType?: string
   search?: string
   sessionId?: string
@@ -83,7 +90,7 @@ export interface QuestionQuery {
 
 export function getQuestions(query: QuestionQuery = {}): Promise<QuestionsResponse> {
   return unwrap(api.GET('/api/v3/practice/questions', {
-    params: { query: { bank_id: query.bankId, question_type: query.questionType, search: query.search, session_id: query.sessionId, limit: 100 } },
+    params: { query: { bank_id: query.bankId, domain_id: query.domainId, question_type: query.questionType, search: query.search, session_id: query.sessionId, limit: 100 } },
   }))
 }
 
@@ -147,8 +154,8 @@ export function getEvaluationRun(evalRunId: string, revealGold = false): Promise
   }))
 }
 
-export async function uploadFactoryDocument(filename: string, contentBase64: string, contentType?: string): Promise<FactoryDocument> {
-  const response = await unwrap(api.POST('/api/v3/factory/documents', { body: { filename, content_base64: contentBase64, content_type: contentType } }))
+export async function uploadFactoryDocument(filename: string, contentBase64: string, contentType?: string, domainId = 'endoscopy'): Promise<FactoryDocument> {
+  const response = await unwrap(api.POST('/api/v3/factory/documents', { body: { filename, content_base64: contentBase64, content_type: contentType, domain_id: domainId } }))
   return response.document
 }
 
@@ -167,20 +174,20 @@ export async function publishFactoryRevision(jobId: string, revisionId: string):
   return response.item
 }
 
-export async function getMentorPlan(): Promise<MentorPlan> {
-  const response = await unwrap(api.GET('/api/v3/learning/mentor', { params: { query: { learner_id: 'demo_learner' } } }))
+export async function getMentorPlan(domainId = 'endoscopy'): Promise<MentorPlan> {
+  const response = await unwrap(api.GET('/api/v3/learning/mentor', { params: { query: { learner_id: 'demo_learner', domain_id: domainId } } }))
   return response.plan
 }
 
-export async function getLearningMemory(learnerId = 'demo_learner'): Promise<LearningMemoryResponse> {
-  return unwrap(api.GET('/api/v3/learning/memory', { params: { query: { learner_id: learnerId, limit: 5 } } }))
+export async function getLearningMemory(learnerId = 'demo_learner', domainId?: string): Promise<LearningMemoryResponse> {
+  return unwrap(api.GET('/api/v3/learning/memory', { params: { query: { learner_id: learnerId, domain_id: domainId, limit: 5 } } }))
 }
 
-export function clearLearningMemory(learnerId = 'demo_learner'): Promise<ClearLearningMemoryResponse> {
-  return unwrap(api.POST('/api/v3/learning/memory/clear', { body: { learner_id: learnerId } }))
+export function clearLearningMemory(learnerId = 'demo_learner', domainId?: string): Promise<ClearLearningMemoryResponse> {
+  return unwrap(api.POST('/api/v3/learning/memory/clear', { body: { learner_id: learnerId, domain_id: domainId } }))
 }
 
-export async function submitFsrsReview(questionId: string, rating: 'Again' | 'Hard' | 'Good' | 'Easy'): Promise<ReviewCard> {
-  const response = await unwrap(api.POST('/api/v3/learning/review', { body: { learner_id: 'demo_learner', question_id: questionId, rating } }))
+export async function submitFsrsReview(questionId: string, rating: 'Again' | 'Hard' | 'Good' | 'Easy', learnerId = 'demo_learner'): Promise<ReviewCard> {
+  const response = await unwrap(api.POST('/api/v3/learning/review', { body: { learner_id: learnerId, question_id: questionId, rating } }))
   return response.item
 }

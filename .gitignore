@@ -16,3 +16,9 @@ data/normalized/
 data/fixtures/generated/
 knowledge/external/
 runtime/fastembed/
+backend/stage*.log
+frontend/*.exit
+frontend/npm-audit*.json
+frontend/docs/
+frontend/playwright-report/
+frontend/test-results/

@@ -22,6 +22,7 @@ from sqlalchemy import select
 
 from app.application.factory.jobs import ACTIVE_JOB_STATUSES, JobTransitionError, TERMINAL_JOB_STATUSES, ensure_transition
 from app.core.config import FACTORY_PROVIDER_ENABLED, SAFETY_NOTICE, UPLOAD_DIR
+from app.domains import get_domain
 from app.db.database import SessionLocal
 from app.db.models import (
     DocumentVersionModel, FactoryJobModel, KnowledgeChunkModel, QuestionBankModel,
@@ -133,7 +134,9 @@ def import_allowed_document(
     business_usage: str = "factory_source",
     license_gate_status: str = "needs_review",
     ai_ingestion_allowed: bool = False,
+    domain_id: str = "endoscopy",
 ) -> dict[str, str]:
+    manifest = get_domain(domain_id)
     suffix = Path(filename).suffix.lower()
     if suffix not in ALLOWED_SUFFIXES:
         raise ValueError("only .md and .pdf teaching documents are allowed")
@@ -148,11 +151,11 @@ def import_allowed_document(
     destination.write_bytes(content)
     with SessionLocal() as session:
         session.add(SourceDocumentModel(
-            document_id=document_id, domain_id="endoscopy", bank_id=None, name=Path(filename).name,
+            document_id=document_id, domain_id=manifest.domain_id, bank_id=None, name=Path(filename).name,
             media_type=ALLOWED_SUFFIXES[suffix], content_hash=_sha(content), status="uploaded",
             source_id=source_id, business_usage=business_usage,
             license_gate_status=license_gate_status, ai_ingestion_allowed=ai_ingestion_allowed,
-            source_uri=source_uri, namespace="factory_sources",
+            source_uri=source_uri, namespace=manifest.knowledge_namespaces[-1],
         ))
         # The models intentionally have no ORM relationship; flush establishes
         # the canonical source row before its version FK is inserted.
@@ -524,6 +527,7 @@ def process_factory_job(
         rag_service.index_markdown(
             markdown,
             document_id=document.document_id,
+            domain_id=document.domain_id,
             child_size=180,
             namespace="factory_sources",
             source_id=document.source_id,
@@ -646,22 +650,26 @@ def publish_revision(job_id: str, revision_id: str) -> dict[str, str]:
         if revision.status != "ready_for_review" or not revision.judge_decision.get("passed"):
             raise ValueError("only a passed review revision may be published")
         payload = revision.draft_payload
-        bank_id = "factory-generated-v1"
+        document = session.get(SourceDocumentModel, job.document_id)
+        if document is None:
+            raise KeyError("source document not found")
+        manifest = get_domain(document.domain_id)
+        bank_id = f"factory-generated-{manifest.domain_id}-v1"
         bank = session.get(QuestionBankModel, bank_id)
         if bank is None:
-            bank = QuestionBankModel(bank_id=bank_id, domain_id="endoscopy", name="Factory 生成题草稿库", description="基于允许使用资料、需人工审核后发布的题目。", version="factory-v1", status="published", question_count=0, question_type_counts={}, modality_counts={}, body_parts=["资料证据"])
+            bank = QuestionBankModel(bank_id=bank_id, domain_id=manifest.domain_id, name=f"{manifest.display_name} · Factory 生成题草稿库", description="基于允许使用资料、需人工审核后发布的题目。", version="factory-v1", status="published", question_count=0, question_type_counts={}, modality_counts={}, body_parts=["资料证据"])
             session.add(bank)
         question_id = f"factory_question_{revision_id[-12:]}"
         if session.get(QuestionModel, question_id) is None:
             session.add(QuestionModel(
-                question_id=question_id, bank_id=bank_id, domain_id="endoscopy", question_type="single_choice", modality="text",
+                question_id=question_id, bank_id=bank_id, domain_id=manifest.domain_id, question_type="single_choice", modality="text",
                 title=payload["title"], stem=payload["stem"], case_summary="由允许使用的教学资料生成，已保留 citation lineage。",
                 image_url=None, image_alt=None, difficulty="medium", complexity=1, question_class="资料溯源", task="证据阅读",
                 body_part="资料证据", source_type="factory", source_dataset="Factory / allowed document",
                 citation_note=f"chunk={payload['citation']['chunk_id']}", options=payload["options"],
                 grading_payload={"question_type": "single_choice", "correct_option_id": payload["correct_option_id"]},
                 explanation=payload["explanation"], teaching_tags=payload["teaching_tags"], expected_keywords=[], false_premise=False,
-                doctor_review_required=True, safety_notice=SAFETY_NOTICE, source_document_id=job.document_id,
+                doctor_review_required=manifest.doctor_review_required, safety_notice=manifest.learner_notice, source_document_id=job.document_id,
             ))
             bank.question_count += 1
             bank.question_type_counts = {**bank.question_type_counts, "single_choice": int(bank.question_type_counts.get("single_choice", 0)) + 1}

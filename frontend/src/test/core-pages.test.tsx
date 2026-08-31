@@ -4,7 +4,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearLearningMemory, createEvaluationRun, createPracticeSession, getEvaluationDatasets, getEvaluationRun, getLatestEvaluation, getLearningMemory, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection } from '../api/client'
+import { clearLearningMemory, createEvaluationRun, createPracticeSession, getDomains, getEvaluationDatasets, getEvaluationRun, getLatestEvaluation, getLearningMemory, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection } from '../api/client'
 import type { EvaluationRun, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -13,6 +13,7 @@ import { EvaluationPage } from '../pages/evaluation/EvaluationPage'
 
 vi.mock('../api/client', () => ({
   createPracticeSession: vi.fn(),
+  getDomains: vi.fn(),
   clearLearningMemory: vi.fn(),
   createEvaluationRun: vi.fn(),
   getEvaluationDatasets: vi.fn(),
@@ -81,14 +82,18 @@ function renderStrictPage(ui: React.ReactNode, initialEntries = ['/']) {
 beforeEach(() => {
   vi.clearAllMocks()
   mockedGetOverview.mockResolvedValue(overview)
+  vi.mocked(getDomains).mockResolvedValue([
+    { domain_id: 'endoscopy', display_name: '医疗 / 消化内镜', description: 'medical', subjects: ['内镜图像观察'], supported_question_types: ['single_choice', 'multiple_choice', 'true_false', 'short_answer'] },
+    { domain_id: 'general_science', display_name: '通用科学', description: 'science', subjects: ['物理'], supported_question_types: ['single_choice', 'multiple_choice', 'true_false'] },
+  ])
   mockedGetLearningMemory.mockResolvedValue({ learner_id: 'demo_learner', items: [], api_source: 'backend' })
   mockedClearLearningMemory.mockResolvedValue({ learner_id: 'demo_learner', superseded_count: 0, preserved_attempt_history: true, preserved_review_history: true, api_source: 'backend' })
   mockedGetQuestionBanks.mockResolvedValue(banks)
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
-  mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'] })
+  mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'] })
   mockedSubmit.mockResolvedValue(submitResult('single'))
-  mockedMentor.mockResolvedValue({ learner_id: 'demo_learner', study_goal: '复盘', due_review_count: 1, focus: '胃', weak_areas: ['胃'], recent_errors: [], steps: [{ kind: 'review', title: '完成复习', question_ids: [] }] })
-  mockedReview.mockResolvedValue({ review_card_id: 'review-test', question_id: 'single', due_at: '2026-08-29T00:00:00Z', interval_days: 1, difficulty: 2, stability: 1, retrievability: .9, state: 'Learning', review_count: 1 })
+  mockedMentor.mockResolvedValue({ learner_id: 'demo_learner', domain_id: 'endoscopy', study_goal: '复盘', due_review_count: 1, focus: '胃', weak_areas: ['胃'], recent_errors: [], steps: [{ kind: 'review', title: '完成复习', question_ids: [] }] })
+  mockedReview.mockResolvedValue({ review_card_id: 'review-test', question_id: 'single', domain_id: 'endoscopy', due_at: '2026-08-29T00:00:00Z', interval_days: 1, difficulty: 2, stability: 1, retrievability: .9, state: 'Learning', review_count: 1 })
   mockedStreamTutor.mockImplementation(async (_request, onEvent) => {
     onEvent({ event: 'message_start', data: { run_id: 'run-test', provider_real: true } })
     onEvent({ event: 'tool_start', data: { tool_name: 'get_question_context' } })
@@ -99,7 +104,7 @@ beforeEach(() => {
     onEvent({ event: 'message_end', data: { run_id: 'run-test' } })
   })
   mockedEvaluation.mockResolvedValue({ artifact_available: false, artifact_path: null, mode: 'not_run', sample_count: 0, metrics: {}, cases: [], notice: '尚未运行', safety_notice: safety })
-  mockedEvaluationDatasets.mockResolvedValue([{ dataset_id: 'cmexam-text-eval-v1', name: 'CMExam 文本评测', description: '冻结评测集', source_dataset: 'CMExam', modality: 'text', version: 'cmexam-text-eval-v1', dataset_hash: 'hash', sample_count: 5, supports_vision: false, tutor_indexed: false }])
+  mockedEvaluationDatasets.mockResolvedValue([{ dataset_id: 'cmexam-text-eval-v1', domain_id: 'endoscopy', name: 'CMExam 文本评测', description: '冻结评测集', source_dataset: 'CMExam', modality: 'text', version: 'cmexam-text-eval-v1', dataset_hash: 'hash', sample_count: 5, supports_vision: false, tutor_indexed: false }])
   mockedTestEvaluationConnection.mockResolvedValue({ ok: true, provider: 'byok_openai_compatible', model: 'candidate-model', latency_ms: 12, error: null, fallback: false, key_persisted: false })
   const evaluationRun: EvaluationRun = { eval_run_id: 'evalrun-test', dataset_id: 'cmexam-text-eval-v1', dataset_version: 'cmexam-text-eval-v1', dataset_hash: 'hash', provider: 'byok_openai_compatible', model: 'candidate-model', prompt_version: 'model-eval-answer-json-v1', status: 'completed', sample_count: 1, aggregate: { accuracy: 1, valid_parse_rate: 1, latency_p50_ms: 12, latency_p95_ms: 12 }, usage: { total_tokens: 12 }, errors: [], created_at: '2026-08-28T00:00:00Z', completed_at: '2026-08-28T00:00:12Z', artifact_path: 'artifacts/eval/model-runs/evalrun-test.json', cases: [{ eval_case_id: 'case-1', question: 'Which option is correct?', candidate_output: '{"answer":"B"}', parsed_answer: 'B', gold_answer: null, correct: null, valid_parse: true, latency_ms: 12, error_category: null, task: 'text_single_choice', topic: 'fixture' }], gold_revealed: false, fallback: false, safety_notice: safety }
   mockedCreateEvaluationRun.mockResolvedValue(evaluationRun)
@@ -131,7 +136,7 @@ describe('Stage 1 page contracts', () => {
     mockedGetLearningMemory.mockResolvedValueOnce({
       learner_id: 'demo_learner',
       api_source: 'backend',
-      items: [{ memory_id: 'memory-1', kind: 'repeated_mistake', summary: '「食管」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。', status: 'active', topic_keys: ['食管'], concept_keys: [], first_seen_at: '2026-08-28T00:00:00Z', last_seen_at: '2026-08-29T00:00:00Z', evidence_count: 3 }],
+      items: [{ memory_id: 'memory-1', domain_id: 'endoscopy', kind: 'repeated_mistake', summary: '「食管」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。', status: 'active', topic_keys: ['食管'], concept_keys: [], first_seen_at: '2026-08-28T00:00:00Z', last_seen_at: '2026-08-29T00:00:00Z', evidence_count: 3 }],
     })
     renderPage(<OverviewPage />)
     expect(await screen.findByTestId('learning-memory-panel')).toHaveTextContent('食管')
@@ -194,6 +199,7 @@ describe('Stage 1 page contracts', () => {
     mockedCreateSession.mockResolvedValueOnce({
       session_id: 'session-adaptive',
       bank_id: 'bank-a',
+      domain_id: 'endoscopy',
       learner_id: 'demo_learner',
       mode: 'study',
       status: 'active',

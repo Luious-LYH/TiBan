@@ -1,0 +1,39 @@
+{
+  "domain_pack_differences": {
+    "endoscopy": {
+      "knowledge_namespaces": [
+        "medical_general",
+        "gastroenterology",
+        "endoscopy",
+        "qbank_explanations",
+        "user_uploaded",
+        "factory_sources"
+      ],
+      "tutor_policy": "medical_education"
+    },
+    "general_science": {
+      "knowledge_namespaces": [
+        "general_science"
+      ],
+      "tutor_policy": "general_learning"
+    }
+  },
+  "domains": [
+    "endoscopy",
+    "general_science"
+  ],
+  "duplicated_core_engines": [],
+  "evaluation_type": "domain_manifest_core_reuse_audit",
+  "result": "pass",
+  "shared_core": [
+    "Question schema",
+    "Question Bank catalog",
+    "Session Builder",
+    "Attempt",
+    "Mastery",
+    "FSRS",
+    "Learning Memory",
+    "Tutor runtime",
+    "Evaluation engine"
+  ]
+}

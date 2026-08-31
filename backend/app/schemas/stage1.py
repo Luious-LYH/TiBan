@@ -146,6 +146,14 @@ class QuestionBankPublic(Stage1Model):
     progress: float = Field(default=0, ge=0, le=1)
 
 
+class DomainPublic(Stage1Model):
+    domain_id: str
+    display_name: str
+    description: str
+    subjects: list[str] = Field(default_factory=list)
+    supported_question_types: list[QuestionTypeCode] = Field(default_factory=list)
+
+
 class QuestionBankListResponse(Stage1Model):
     items: list[QuestionBankPublic]
     total: int = Field(ge=0)
@@ -183,6 +191,7 @@ class PracticeSessionPublic(Stage1Model):
     session_id: str
     learner_id: str
     bank_id: str
+    domain_id: str
     mode: Literal["study", "exam", "review", "practice"]
     status: Literal["active", "completed"]
     started_at: datetime

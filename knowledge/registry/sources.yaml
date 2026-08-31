@@ -1,6 +1,32 @@
 version: stage2.5-knowledge-registry-v1
 license_gate_statuses: [allow, allow_noncommercial, metadata_only, do_not_ingest, needs_review]
 sources:
+  - source_id: tiban-general-science-core-v1
+    title: TiBan General Science Core Concepts v1
+    publisher: TiBan project
+    source_url: project://tiban/general-science-core-v1
+    license: project-authored content; repository-distributable
+    license_url: project://tiban/license-policy
+    allowed_use: Tutor RAG and Question Factory evidence for general learning.
+    ai_ingestion_allowed: true
+    language: zh-CN
+    domain: general_science
+    authority_tier: project-authored-teaching-note
+    status: allow
+    attribution: TiBan 项目自建通用科学教学笔记 v1。
+  - source_id: allenai-arc-easy
+    title: AI2 Reasoning Challenge (ARC), Easy subset
+    publisher: Allen Institute for AI
+    source_url: https://huggingface.co/datasets/allenai/ai2_arc
+    license: CC BY-SA 4.0
+    license_url: https://huggingface.co/datasets/allenai/ai2_arc
+    allowed_use: local-only import validation for the General Domain QBank; raw data is never committed, indexed into Tutor RAG, or used by Question Factory.
+    ai_ingestion_allowed: false
+    language: en
+    domain: general_science
+    authority_tier: upstream-dataset
+    status: allow_noncommercial
+    attribution: Allen Institute for AI, AI2 Reasoning Challenge (ARC), CC BY-SA 4.0; retain upstream attribution for locally imported material.
   - source_id: niddk-public-health-corpus-v1
     title: NIDDK public-health teaching corpus v1
     publisher: National Institute of Diabetes and Digestive and Kidney Diseases

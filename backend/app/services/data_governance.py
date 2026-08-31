@@ -11,11 +11,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.config import LOCAL_VQA_ROOT
+from app.domains import DOMAIN_MANIFESTS
 
 
 BUSINESS_USAGES = {"user_ready", "needs_explanation", "generation_source", "benchmark_only", "excluded"}
 LICENSE_GATE_STATUSES = {"allow", "allow_noncommercial", "metadata_only", "do_not_ingest", "needs_review"}
-TUTOR_NAMESPACES = {"medical_general", "gastroenterology", "endoscopy", "qbank_explanations", "user_uploaded", "factory_sources"}
+TUTOR_NAMESPACES = {namespace for manifest in DOMAIN_MANIFESTS.values() for namespace in manifest.knowledge_namespaces}
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,11 @@ DATASET_POLICIES: dict[str, DatasetPolicy] = {
     "endobench": DatasetPolicy(
         "endobench", "EndoBench", "CC BY-SA 3.0", "https://creativecommons.org/licenses/by-sa/3.0/",
         "https://github.com/medAI-NEU/EndoBench", "benchmark_only", False, False, "Evaluation-only; never use as Tutor/RAG/Factory input.",
+    ),
+    "arc-easy": DatasetPolicy(
+        "arc-easy", "AI2 ARC Easy", "CC BY-SA 4.0", "https://creativecommons.org/licenses/by-sa/4.0/",
+        "https://allenai.org/data/arc", "user_ready", False, False,
+        "AI2 ARC Easy; retain CC BY-SA 4.0 attribution and share-alike obligations.",
     ),
 }
 

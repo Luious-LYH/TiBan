@@ -1,6 +1,9 @@
-# EndoTutor 项目经历（中文）
+# TiBan 项目经历（中文）
 
-**v1.0 / Stage 4 冻结版本：** 面向消化内镜教学的 Agent-native 学习与模型评测平台；下列能力均对应当前代码、测试与 artifact，不将延期的人审包装为专家或临床结论。
+**v2.0 / Stage 7 Interview Ready：** TiBan 是一个 Agent-native Adaptive
+QBank & Learning Platform；以 Medical / Endoscopy 和 General Science 两套
+Domain Pack 证明同一 Practice、Tutor、Memory、FSRS 与 Evaluation 核心可以
+跨领域复用。下列能力均对应当前代码、测试与 artifact，不将延期的人审包装为专家或临床结论。
 
 ## Agent / LLM 应用工程方向
 
@@ -23,3 +26,13 @@
 ## Stage 6 / v1.2 工程演进（已发布）
 
 在业务闭环稳定后，增量形成 Pragmatic Modular Monolith：Practice 通过 Use Case + adapter 保留原子学习事务，Tutor 通过最小依赖端口隔离存储、检索与模型 Provider，Question Factory 使用 PostgreSQL durable job state 实现幂等、取消、心跳与 crash/stale recovery；以 architecture guard 和 fake adapter 验证核心逻辑。对应证据：`v1.2.0` annotated tag、Hosted Actions run `33322744745`、`docs/architecture/*v1.2.md`、`artifacts/engineering/` 与 Stage 6 回归测试。
+
+## Stage 7 / v2.0 学习平台演进（已发布）
+
+在不复制 Practice/Tutor/FSRS/Memory/Evaluation 引擎的前提下，引入最小
+`DomainManifest` 边界，将医疗内镜作为既有 pack、General Science 作为独立
+证明 pack；通过 `domain_id` 与 RAG namespace 隔离题库、会话、掌握度、记忆和
+来源。Advanced Evaluation 以固定工程案例评估 Tutor tool selection、无关
+记忆注入、跨域泄漏和“弱点证据后下一 session 题目匹配率”调度行为；这些结果
+不是教育成效或临床有效性结论。证据见 `docs/architecture/*v2.md`、
+`docs/evals/*v2.md`、`artifacts/platform/`、Stage 7 兼容性测试与最终报告。

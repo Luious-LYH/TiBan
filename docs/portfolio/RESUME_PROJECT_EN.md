@@ -1,8 +1,10 @@
-# EndoTutor project experience
+# TiBan project experience
 
-**v1.0 / Stage 4 frozen release:** an agent-native learning and model-evaluation
-platform for endoscopy education. Each claim below maps to current code, tests,
-and an artifact; deferred human review is not presented as expert or clinical validation.
+**v2.0 / Stage 7 Interview Ready:** TiBan is an Agent-native Adaptive QBank &
+Learning Platform. Medical / Endoscopy and General Science packs use the same
+Practice, Tutor, Memory, FSRS and Evaluation core. Each claim below maps to
+current code, tests, and an artifact; deferred human review is not presented as
+expert or clinical validation.
 
 ## Agent / LLM application engineering
 
@@ -25,3 +27,16 @@ Safety boundary: for teaching and physician-review-before-use assistance only; n
 ## Stage 6 / v1.2 engineering evolution (released)
 
 Incrementally evolved the stable product into a pragmatic modular monolith: a Practice use-case boundary preserved the atomic learning transaction, Tutor-owned minimal dependency ports isolated storage/retrieval/model providers, and PostgreSQL durable Question Factory jobs added idempotency, cancellation, heartbeat and stale-worker recovery. Evidence: annotated tag `v1.2.0`, Hosted Actions run `33322744745`, `docs/architecture/*v1.2.md`, `artifacts/engineering/`, and the Stage 6 regression suite.
+
+## Stage 7 / v2.0 learning platform evolution (released)
+
+Added a minimal validated `DomainManifest` boundary without duplicating the
+Practice, Tutor, FSRS, Memory or Evaluation engines. The Medical / Endoscopy
+pack remains the product regression path; a small project-authored General
+Science pack proves Study/Exam/Review/Tutor/Attempt/Mastery/FSRS/Memory and
+Evaluation reuse. Domain-scoped PostgreSQL state and RAG namespace filters
+prevent same-label memory or source leakage. Advanced engineering evaluation
+records fixed-case tool-selection metrics and scheduling-behavior uplift; these
+are not educational-effectiveness or clinical-validity results. Evidence:
+`docs/architecture/*v2.md`, `docs/evals/*v2.md`, `artifacts/platform/`, and the
+Stage 7 final report.

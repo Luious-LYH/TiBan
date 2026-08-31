@@ -49,8 +49,8 @@ def topic_keys_for_question(question: QuestionModel) -> list[str]:
     return (meaningful or keys)[:4]
 
 
-def _dedupe_key(kind: str, learner_id: str, keys: Iterable[str]) -> str:
-    material = "|".join([kind, learner_id, *sorted(item.casefold() for item in _clean_keys(keys))])
+def _dedupe_key(kind: str, learner_id: str, domain_id: str, keys: Iterable[str]) -> str:
+    material = "|".join([kind, learner_id, domain_id, *sorted(item.casefold() for item in _clean_keys(keys))])
     return f"{kind}:{hashlib.sha256(material.encode('utf-8')).hexdigest()[:24]}"
 
 
@@ -129,11 +129,11 @@ class LearningMemoryService:
 
         affected: list[LearningMemoryItemModel] = []
         for topic_key in topic_keys_for_question(question):
-            history = self._topic_attempt_history(session, attempt.learner_id, topic_key)
+            history = self._topic_attempt_history(session, attempt.learner_id, question.domain_id, topic_key)
             incorrect = [(row_attempt, row_question) for row_attempt, row_question in history if not row_attempt.correct]
             if len(incorrect) < REPEATED_MISTAKE_THRESHOLD:
                 continue
-            record = self._memory_by_key(session, attempt.learner_id, "repeated_mistake", [topic_key])
+            record = self._memory_by_key(session, attempt.learner_id, question.domain_id, "repeated_mistake", [topic_key])
             latest_incorrect_at = max(row_attempt.created_at for row_attempt, _ in incorrect)
             correct_after_error = [
                 row_attempt
@@ -145,6 +145,7 @@ class LearningMemoryService:
                 record = LearningMemoryItemModel(
                     memory_id=f"memory_{uuid4().hex[:12]}",
                     learner_id=attempt.learner_id,
+                    domain_id=question.domain_id,
                     kind="repeated_mistake",
                     topic_keys=[topic_key],
                     concept_keys=[],
@@ -153,7 +154,7 @@ class LearningMemoryService:
                     confidence=min(0.95, 0.55 + len(incorrect) * 0.1),
                     evidence_refs=_merge_evidence([], refs),
                     source_type="graded_attempt",
-                    dedupe_key=_dedupe_key("repeated_mistake", attempt.learner_id, [topic_key]),
+                    dedupe_key=_dedupe_key("repeated_mistake", attempt.learner_id, question.domain_id, [topic_key]),
                     version=1,
                     first_seen_at=incorrect[0][0].created_at,
                     last_seen_at=attempt.created_at,
@@ -191,7 +192,7 @@ class LearningMemoryService:
         if concepts is None:
             return None
         now = captured_at or datetime.utcnow()
-        record = self._memory_by_key(session, learner_id, "confusing_concepts", concepts)
+        record = self._memory_by_key(session, learner_id, question.domain_id, "confusing_concepts", concepts)
         evidence = {
             "source_type": "explicit_chat",
             "tutor_run_id": tutor_run_id,
@@ -203,6 +204,7 @@ class LearningMemoryService:
             record = LearningMemoryItemModel(
                 memory_id=f"memory_{uuid4().hex[:12]}",
                 learner_id=learner_id,
+                domain_id=question.domain_id,
                 kind="confusing_concepts",
                 topic_keys=topic_keys_for_question(question),
                 concept_keys=list(concepts),
@@ -211,7 +213,7 @@ class LearningMemoryService:
                 confidence=0.65,
                 evidence_refs=[evidence],
                 source_type="explicit_chat",
-                dedupe_key=_dedupe_key("confusing_concepts", learner_id, concepts),
+                dedupe_key=_dedupe_key("confusing_concepts", learner_id, question.domain_id, concepts),
                 version=1,
                 first_seen_at=now,
                 last_seen_at=now,
@@ -245,6 +247,7 @@ class LearningMemoryService:
                 select(LearningMemoryItemModel)
                 .where(
                     LearningMemoryItemModel.learner_id == learner_id,
+                    LearningMemoryItemModel.domain_id == question.domain_id,
                     LearningMemoryItemModel.status == "active",
                 )
                 .order_by(LearningMemoryItemModel.last_seen_at.desc())
@@ -273,31 +276,27 @@ class LearningMemoryService:
             "personalization_reason": selected[0][2] if selected else "no_relevant_memory",
         }
 
-    def list_for_learner(self, session: Session, *, learner_id: str, limit: int = 5) -> list[dict[str, Any]]:
+    def list_for_learner(self, session: Session, *, learner_id: str, domain_id: str | None = None, limit: int = 5) -> list[dict[str, Any]]:
+        filters = [LearningMemoryItemModel.learner_id == learner_id, LearningMemoryItemModel.status == "active"]
+        if domain_id:
+            filters.append(LearningMemoryItemModel.domain_id == domain_id)
         rows = list(
             session.scalars(
                 select(LearningMemoryItemModel)
-                .where(
-                    LearningMemoryItemModel.learner_id == learner_id,
-                    LearningMemoryItemModel.status == "active",
-                )
+                .where(*filters)
                 .order_by(LearningMemoryItemModel.last_seen_at.desc())
                 .limit(max(1, min(limit, 10)))
             )
         )
         return [self.public_item(item) for item in rows]
 
-    def clear_for_learner(self, session: Session, *, learner_id: str) -> int:
+    def clear_for_learner(self, session: Session, *, learner_id: str, domain_id: str | None = None) -> int:
         """Supersede active memory only; attempts and review history remain intact."""
 
-        rows = list(
-            session.scalars(
-                select(LearningMemoryItemModel).where(
-                    LearningMemoryItemModel.learner_id == learner_id,
-                    LearningMemoryItemModel.status == "active",
-                )
-            )
-        )
+        filters = [LearningMemoryItemModel.learner_id == learner_id, LearningMemoryItemModel.status == "active"]
+        if domain_id:
+            filters.append(LearningMemoryItemModel.domain_id == domain_id)
+        rows = list(session.scalars(select(LearningMemoryItemModel).where(*filters)))
         for item in rows:
             item.status = "superseded"
             item.version += 1
@@ -307,6 +306,7 @@ class LearningMemoryService:
     def public_item(item: LearningMemoryItemModel) -> dict[str, Any]:
         return {
             "memory_id": item.memory_id,
+            "domain_id": item.domain_id,
             "kind": item.kind,
             "summary": item.summary,
             "status": item.status,
@@ -318,12 +318,12 @@ class LearningMemoryService:
         }
 
     @staticmethod
-    def _topic_attempt_history(session: Session, learner_id: str, topic_key: str) -> list[tuple[AttemptModel, QuestionModel]]:
+    def _topic_attempt_history(session: Session, learner_id: str, domain_id: str, topic_key: str) -> list[tuple[AttemptModel, QuestionModel]]:
         rows = list(
             session.execute(
                 select(AttemptModel, QuestionModel)
                 .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
-                .where(AttemptModel.learner_id == learner_id)
+                .where(AttemptModel.learner_id == learner_id, QuestionModel.domain_id == domain_id)
                 .order_by(AttemptModel.created_at)
             ).all()
         )
@@ -334,11 +334,12 @@ class LearningMemoryService:
         ]
 
     @staticmethod
-    def _memory_by_key(session: Session, learner_id: str, kind: str, keys: Iterable[str]) -> LearningMemoryItemModel | None:
+    def _memory_by_key(session: Session, learner_id: str, domain_id: str, kind: str, keys: Iterable[str]) -> LearningMemoryItemModel | None:
         return session.scalar(
             select(LearningMemoryItemModel).where(
                 LearningMemoryItemModel.learner_id == learner_id,
-                LearningMemoryItemModel.dedupe_key == _dedupe_key(kind, learner_id, keys),
+                LearningMemoryItemModel.domain_id == domain_id,
+                LearningMemoryItemModel.dedupe_key == _dedupe_key(kind, learner_id, domain_id, keys),
             )
         )
 

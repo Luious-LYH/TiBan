@@ -1,7 +1,17 @@
-# Final evidence matrix — Stage 6 / v1.2
+# Final evidence matrix — Stage 7 / v2.0
 
 Only claims tied to a current code path, repeatable check, and artifact are
 resume-eligible. Portfolio metrics are not clinical-effectiveness claims.
+
+## Stage 7 / v2.0 platform extension
+
+| Capability | Current implementation and verification | Artifact / scope | Resume status |
+|---|---|---|---|
+| Domain-extensible core | Validated `DomainManifest` registry serves Medical / Endoscopy and General Science through one catalog, Practice, Tutor, Memory, FSRS and Evaluation core. | `docs/architecture/domain-packs-v2.md`, `artifacts/platform/domain-core-reuse-v2.json`, `tests/test_stage7_platform.py` | PASS — engineering reuse claim only. |
+| Cross-domain isolation | `domain_id` scopes sessions, mastery, memory, retrieval metadata and evaluation packs; hard isolation tests pass. | `artifacts/platform/cross-domain-isolation-v2.json`, `docs/evals/domain-compatibility-v2.md` | PASS. |
+| General Domain proof | Eight-row project-authored fixture supports Study/Exam/Review/Tutor/Attempt/Mastery/FSRS/Memory/Evaluation; ARC Easy remains local-only. | `backend/app/data/general_science_fixture.json`, `artifacts/platform/general-domain-flow-v2.json` | PASS — small proof pack. |
+| Advanced Agent Evaluation | Fixed six-case tool-selection regression records 1.0 accuracy, 0 unnecessary-tool rate and 0 missing-tool rate. | `docs/evals/agent-evaluation-v2.md`, `artifacts/platform/agent-tool-selection-v2.json` | PASS — deterministic policy adapter. |
+| Personalization Evaluation | Scheduling-behavior definition records 0.25 → 0.75 topic matching, +0.50 uplift; no learning-outcome claim. | `docs/evals/personalization-evaluation-v2.md`, `artifacts/platform/personalization-uplift-v2.json` | PASS — controlled engineering fixture. |
 
 | Capability | Current implementation and verification | Artifact / scope | Resume status |
 |---|---|---|---|

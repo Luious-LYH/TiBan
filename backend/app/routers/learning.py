@@ -20,6 +20,7 @@ class ReviewRequest(BaseModel):
 class ReviewCardPublic(BaseModel):
     review_card_id: str
     question_id: str
+    domain_id: str
     due_at: str
     interval_days: int
     difficulty: float | None
@@ -42,6 +43,7 @@ class MentorStepPublic(BaseModel):
 
 class MentorPlanPublic(BaseModel):
     learner_id: str
+    domain_id: str
     study_goal: str
     due_review_count: int
     focus: str
@@ -57,6 +59,7 @@ class MentorResponse(BaseModel):
 
 class LearningMemoryPublic(BaseModel):
     memory_id: str
+    domain_id: str
     kind: str
     summary: str
     status: str
@@ -75,6 +78,7 @@ class LearningMemoryResponse(BaseModel):
 
 class ClearLearningMemoryRequest(BaseModel):
     learner_id: str = "demo_learner"
+    domain_id: str | None = None
 
 
 class ClearLearningMemoryResponse(BaseModel):
@@ -99,22 +103,24 @@ def submit_review(request: ReviewRequest) -> ReviewResponse:
 
 
 @router.get("/mentor", response_model=MentorResponse)
-def get_mentor_plan(learner_id: str = "demo_learner", study_goal: str = "巩固观察证据与复盘边界") -> MentorResponse:
+def get_mentor_plan(learner_id: str = "demo_learner", domain_id: str = "endoscopy", study_goal: str = "巩固观察证据与复盘边界") -> MentorResponse:
     with SessionLocal() as session:
-        return MentorResponse(plan=MentorPlanPublic.model_validate(mentor_plan(session, learner_id=learner_id, study_goal=study_goal)), api_source="backend")
+        return MentorResponse(plan=MentorPlanPublic.model_validate(mentor_plan(session, learner_id=learner_id, domain_id=domain_id, study_goal=study_goal)), api_source="backend")
 
 
 @router.get("/memory", response_model=LearningMemoryResponse)
-def get_learning_memory(learner_id: str = "demo_learner", limit: int = 5) -> LearningMemoryResponse:
+def get_learning_memory(learner_id: str = "demo_learner", domain_id: str | None = None, limit: int = 5) -> LearningMemoryResponse:
     with SessionLocal() as session:
-        items = learning_memory_service.list_for_learner(session, learner_id=learner_id, limit=limit)
+        items = learning_memory_service.list_for_learner(session, learner_id=learner_id, domain_id=domain_id, limit=limit)
         return LearningMemoryResponse(learner_id=learner_id, items=items, api_source="backend")
 
 
 @router.post("/memory/clear", response_model=ClearLearningMemoryResponse)
 def clear_learning_memory(request: ClearLearningMemoryRequest) -> ClearLearningMemoryResponse:
     with SessionLocal() as session:
-        superseded_count = learning_memory_service.clear_for_learner(session, learner_id=request.learner_id)
+        superseded_count = learning_memory_service.clear_for_learner(
+            session, learner_id=request.learner_id, domain_id=request.domain_id
+        )
         session.commit()
         return ClearLearningMemoryResponse(
             learner_id=request.learner_id,
