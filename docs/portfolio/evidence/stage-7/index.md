@@ -1,26 +1,24 @@
-# Stage 7 / v2.0.0 Evidence Index
+# TiBan v2.0 product screenshots
 
-All captures below are local Docker acceptance evidence from the same clean
-stack used by `artifacts/platform/docker-acceptance-v2.json`.  They show the
-shared learner UI and domain switch; no secrets, raw third-party datasets,
-vector IDs or internal scores are included.
+These captures show one shared learning workspace across the Medical /
+Endoscopy and General Science domain packs.
 
 ## Browser captures
 
 - [`docker-banks-medical.png`](docker-banks-medical.png) — Medical / Endoscopy
-  domain catalog.
+  question bank catalog.
 - [`docker-banks-general.png`](docker-banks-general.png) — General Science
-  catalog filtered through the same Banks page.
+  catalog using the same Banks page.
 - [`docker-medical-practice.png`](docker-medical-practice.png) — Medical
-  practice workspace with the persistent right-side Tutor.
+  Practice workspace with the persistent right-side Tutor.
 - [`docker-general-practice.png`](docker-general-practice.png) — General
-  practice workspace using the shared question/session layout.
-- [`docker-general-tutor.png`](docker-general-tutor.png) — General Tutor SSE
-  transcript/source state on the right side.
+  Practice workspace using the shared question and session layout.
+- [`docker-general-tutor.png`](docker-general-tutor.png) — General Tutor chat
+  with streamed response and source state.
 - [`docker-general-feedback.png`](docker-general-feedback.png) — General
   deterministic submission feedback after an Attempt.
 
-## Machine-readable artifacts
+## Implementation artifacts
 
 - [`domain-core-reuse-v2.json`](../../../../artifacts/platform/domain-core-reuse-v2.json)
 - [`cross-domain-isolation-v2.json`](../../../../artifacts/platform/cross-domain-isolation-v2.json)

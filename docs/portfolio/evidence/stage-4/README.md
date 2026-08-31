@@ -1,17 +1,17 @@
-# Stage 4 screenshot evidence
+# TiBan product screenshots
 
-All screenshots were captured from the local Docker acceptance stack at
-`http://127.0.0.1:5174` after the Stage 4 product-copy audit. They contain no
-credentials, patient data, raw chain-of-thought, or developer/audit terminology
-in learner-facing surfaces.
+These captures show the main TiBan learning path: choose a question bank,
+practice with the persistent Tutor, review learning progress, create questions
+from a document and compare model results.
 
-| File | Surface | What it demonstrates |
+| File | Surface | What it shows |
 |---|---|---|
-| `01-banks.png` | Question bank catalog | Complete CMB-Exam, CMExam, and curated Kvasir-VQA cards with learner-facing summaries. |
-| `02-practice-tutor.png` | Practice | A study session with the persistent right-side Tutor and a session recommendation. |
-| `03-adaptive-learning-loop.png` | Overview | Progress, due reviews, and recent learning state. |
-| `04-question-factory.png` | Factory | Document-to-draft product entry point and reviewable generation flow. |
-| `05-model-evaluation.png` | Evaluation | Temporary BYOK model evaluation controls and product-level scope. |
+| `01-banks.png` | Question bank catalog | Medical question banks and the learner-facing catalog. |
+| `02-practice-tutor.png` | Practice | A study session with the persistent right-side Tutor. |
+| `03-adaptive-learning-loop.png` | Overview | Progress, due reviews and the next learning task. |
+| `04-question-factory.png` | Question Factory | The document-to-draft product entry point and review flow. |
+| `05-model-evaluation.png` | Evaluation | The workspace for comparing candidate model responses. |
 
-The detailed engineering traces, benchmark artifacts, and deferred human-review
-statuses remain in `docs/` and `artifacts/`, not in the learner UI.
+The [demo script](../../DEMO_SCRIPT.md) follows these surfaces in order.
+Architecture and evaluation details are linked from the project
+[documentation index](../../PROJECT_OVERVIEW.md).
