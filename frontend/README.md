@@ -1,11 +1,31 @@
-# 消化内镜研修与模型评测平台前端
+# TiBan frontend
 
-React + Vite + TypeScript 前端工作台。v3 前端只保留首页、模型、研修、报告、画像五个主入口，围绕医生研修、证据复盘、报告辅助和能力成长组织界面。
+React + Vite + TypeScript frontend for the TiBan learning platform.
+
+The current shell exposes four product surfaces:
+
+- `/` — learning overview
+- `/banks` — question bank catalog
+- `/practice` — Practice with the persistent right-side Tutor
+- `/eval` — model evaluation
+
+## Development
 
 ```bash
 npm install
 npm run dev
+npm run lint
+npm test -- --run
 npm run build
 ```
 
-默认 API 地址优先使用 `http://127.0.0.1:8002`，也可通过 `VITE_API_BASE_URL` 覆盖。后端不可用时页面会使用本地预览数据。
+The Docker stack serves the frontend on `http://127.0.0.1:5173` and the API on
+`http://127.0.0.1:8000`. For a separately running backend, set
+`VITE_API_BASE_URL`.
+
+The TypeScript API contract is generated from FastAPI OpenAPI:
+
+```bash
+npm run api:generate
+npm run api:check
+```

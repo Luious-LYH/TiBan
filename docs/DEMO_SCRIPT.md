@@ -1,89 +1,54 @@
-# 归档提示
+# TiBan Demo Script
 
-本文是 v2 阶段演示脚本，保留作内部追溯，不作为 v3 录屏脚本。v3 录屏请使用 `docs/V3_PRESENTATION_GUIDE.md`。
+This is the short product walkthrough for the current v2.0 platform.
 
----
+## 1. Start with the product
 
-# DEMO_SCRIPT
+Open `/` and say:
 
-## 1. 开场
+> “This is TiBan, an adaptive QBank and learning platform. It connects
+> question banks, a persistent Tutor, learning memory, FSRS review, Question
+> Factory and model evaluation.”
 
-“这是内镜智训Agent，一个面向消化道内镜医师培训的智能辅导平台。它不是诊断系统，而是训练、解释、复核和审计闭环。”
+## 2. Practice with the Tutor
 
-## 2. 首页总览
+Open `/banks`, choose a question bank and enter `/practice`.
 
-先展示“平台真实性与演示路径”：后端 API、真实公开样例、医师画像回灌、报告知识库、智能服务、模型准入和审计日志都会显示状态。强调系统会主动标注 `智能服务`、`rule`、`fallback`，不会把规则草案伪装成真实模型推理。
+> “The Tutor stays beside the question while I practice. I can ask about the
+> stem, an option or the evidence and keep the conversation in this session.”
 
-点击“沙盒自检”：说明这不是前端动画，而是手动调用 `/api/platform/demo-check?persist=false`，用一条公开样例真实跑通提交答案、带教辅导、挑战基准、报告草稿、报告修改评分、考试 Session、科普卡片草稿、同卡片医生审核、画像回灌和审计写入，然后自动恢复画像、审计和卡片运行记录，适合反复演示前检查。需要留痕时再点击“写入演示画像”，它会以 `persist=true` 保留训练记录、审计和卡片运行记录。运行后展示 9 张收据：公开样例提交、带教辅导、挑战基准、报告草稿、修改评分、考试 Session、科普卡片草稿、卡片审核、审计链路。若 智能服务 未配置，收据会明确显示 `rule` / `public_annotation`；后端断连时按钮不会伪造自检通过。
+Submit an answer:
 
-再展示今日训练、能力雷达、薄弱标签、推荐题型、当前看板候选助手 和安全提示。强调模型页的分数是训练准入检查清单分，不是临床评测结论；模型卡片默认只是能力看板，未完成真实 智能服务 blind probe、公开标注对齐和人工复核前，不宣称已启用正式训练助手。
+> “Submission grades the answer, records the Attempt, updates mastery and
+> schedules the next review. These state changes belong to the learning
+> workflow, while the Tutor supplies context and explanation.”
 
-## 3. 交付证据
+## 3. Show the adaptive loop
 
-进入 `/delivery`，说明这是给评委看的只读证据页，不是新的训练功能。页面会调用 `GET /api/platform/delivery-report`，把当前平台就绪度、林知远医师训练对象、核心闭环证据、真实知识库来源链、审计事件分布、智能服务 配置/自检/准入调用三层状态、验证命令和 `report_integrity` 展示出来。
+Return to the overview or start a Review session:
 
-重点指出三个标志：
+> “The next session uses due reviews, weak topics and learning history. In the
+> fixed scheduling scenario, weak-topic exposure moves from 25% to 75%.”
 
-- 页面顶部显示 `backend live`，说明数据来自当前后端，而不是前端 fallback。
-- 页面顶部显示“只读且无密钥”，对应 `report_integrity.writes_state=false`、`secrets_included=false`、`api_key_returned=false`、`智能服务_base_returned=false`。
-- 智能服务 卡片会把 `configured`、`self_test_verified`、`admission_智能服务_called` 和 `real_inference_verified` 拆开讲；配置齐全只代表具备调用条件，不能讲成已经完成真实推理。
-- 验证命令里包含 `python scripts\verify_all.py`、`node scripts\ui_smoke.mjs` 和交付报告导出命令；`ui_smoke` 会硬性检查 `/delivery` 的 `data-delivery-source=backend` 与 `data-delivery-integrity=clean`，可以抓出旧前端路由或后端断连。
+## 4. Show Question Factory and Evaluation
 
-如果页面显示 `frontend fallback`，不要讲成真实交付证据；应先确认后端 `8001` 在线、前端用 `npm run dev -- --host 127.0.0.1 --port 5173 --strictPort` 重启，避免旧 Vite 进程占用 `5173`。
+From the Banks page, open the Question Factory panel:
 
-## 4. 训练中心
+> “An allowed teaching document becomes a reviewable question through parsing,
+> retrieval, generation, quality checks, repair and publishing. Each revision
+> remains available for review.”
 
-进入 `/training`，先看顶部“Current physician mission”任务队列。说明它读取的是林知远医师后端画像：今日进度、薄弱标签、最近考试、画像写入状态和下一组训练入口都会随提交答案、收藏、带教追问或考试交卷刷新，不是静态欢迎卡。
+Open `/eval`:
 
-再说明三栏结构：
+> “The evaluation workspace compares candidate models on text and
+> image-question datasets. It stays separate from learner practice.”
 
-- 左侧：真实公开内镜样例或教学图、病例摘要、题源标签。
-- 中间：题目、选项、提交。
-- 右侧：智能辅导 Agent、证据、医生 vs 后端挑战基准对照。
+## 5. Product scope
 
-点击“提示一下”：Agent 先追问依据，不泄露答案。
-
-选择一个错误答案并提交：展示得分、错因标签和解释。
-
-进入 `/training?mode=exam`：强调这不是单题倒计时，而是一场全局 12 分钟考试 session。提交单题后可以看解析，但倒计时不会重置；顶部战报会累计已答题、正确率、平均分和最近错题。点击“交卷复盘”后，系统会把整场考试摘要写入林知远医师画像，并新增 `exam_session` 审计记录；随后从错因复盘入口查看薄弱题。
-
-回到首页 `/`：指出“最近考试 Session”卡片已经同步显示本场题量、正确率、平均分和错题数，点击“复盘本场考试”会进入 `/feedback?session=...`，证明考试不是前端临时状态，而是写入了画像与复盘队列。
-
-进入 `/training?view=challenge`：强调比拼模式先独立作答，提交前证据页和挑战基准会锁住；医师提交后才调用 `/api/tutor/challenge-benchmark`。智能服务 可用时由 智能服务 独立作答，失败或未配置时明确回退为公开标注 fallback；该基准只写 `challenge_benchmark` 审计，不重复更新林知远医师画像。比分板下方的“最近挑战基准审计”只在真实后端审计存在时显示已连接，后端不可用时不会用前端 mock 伪造收据。
-
-## 5. 错因分析
-
-进入 `/feedback`，展示作答记录或“复盘示例答案”、参考答案、error_tags、atomic facts 表格和下一题推荐。重点讲“系统解释错在哪里，而不是只给分”。
-
-如果从训练中心提交后进入，这里显示本轮真实提交；如果刷新或直接打开，页面会从后端错题本恢复最近复盘题，并标注为“复盘快照”，其中错误答案是复盘示例，不伪装成真实用户提交，也不会重复写入医师画像。
-
-## 6. 错误前提训练
-
-进入 `/false-premise`，先让林知远医师独立判断“题干假设是否成立”。提交前页面只给原则提示，不亮答案；提交后展示得分、证据不足事实、原子证据和下一步复盘建议。强调这个模块既服务医师训练，也服务模型准入中的安全边界测试。
-
-## 7. 报告中心
-
-进入 `/report`，先展示首屏状态带和“真实推理控制”：数据来源、智能服务、报告模板、后端 `.env` 或本次请求临时 智能服务。展开请求级 智能服务 配置时，先看“Base URL preflight”：它不需要 key、不发送模型请求、不写审计，只说明规范化后的 endpoint、安全拦截原因和下一步；预检未通过时报告生成和 报告质量复核 按钮会被阻断，避免把临时 key 发往不安全地址。选择公开图像或上传图片，说明公开 VQA 标注只进入“图像来源台账”，不会伪装成医生报告结论；临时 key 只随本次请求发送，不保存，单独填写模型名不会触发临时 智能服务。
-
-输入或保留医生所见文本，生成结构化所见、草稿印象、复核点、不确定性说明、证据台账、智能服务 状态和幻觉审查。指出医生审核标识，并说明 `source_trace` 会标出医生输入、公开样例、模板知识库和 智能服务 是否真实使用。
-
-切到 `/report?tab=judge`，演示把“本图明确证明胃癌”这类越界报告改写成带不确定性和复核要求的版本，并回灌医师画像。若配置 智能服务，页面会显示 智能服务 评阅摘要；未配置时明确显示规则 rubric，不伪装成真实模型评分。评分结果里的“生成患者沟通卡片草稿”会把建议改写或医生修改稿摘要带到科普卡片工作室；摘要通过前端路由状态传递，不写进地址栏，进入后仍是医生审核前草稿。
-
-## 8. 科普卡片
-
-进入 `/card`，选择真实样例图和卡片模板，先生成患者友好解释草稿。若从报告修改训练进入，输入区会显示“来源：报告修改训练”，并区分“报告质量复核 建议改写摘要”或“医生修改稿摘要”；这不是已审核报告，也不会自动开放分享。生成后展示“后端草稿收据”：`generation_mode`、`card_template_kb_v2`、`patient_card` 审计 ID 和来源 chips，说明这证明的是后端生成和审计写入，不是医生审核通过。指出此时打印和分享按钮是锁定的。
-
-在右侧“医生审核闸门”逐项勾选：摘要与医生输入一致、未新增病理/治疗/疗效承诺、免责声明保留。点击“确认可用于沟通”后，页面会按当前 `card_id` 调用 approve 接口审核同一张草稿，卡片状态变为“医生已审核”，打印和分享才会开放；审计日志会记录 `patient_card_approve` 高风险事件和原卡片 ID。
-
-## 9. Skills / 模型 / 审计
-
-在 `/skills` 选择当前题运行 `false_premise_guard` 或 `atomic_feedback`。页面展示运行摘要、医生复核状态和“后端 Skill 运行收据”：`skill_run` 审计 ID、输入来源、执行来源、风险等级、收据时间和下一步工作区入口；完整 JSON 只在开发细节折叠项里。若后端不可用，页面只能显示“本地技能预览”，审计 ID 为空，不能讲成真实后端留痕。
-
-在 `/models` 先展示“智能服务 联调状态检查”：它会明确当前是 `智能服务`、`rule` 还是 `fallback`，缺少哪些 `.env` 配置，公开样例池是否存在，以及最近 `智能服务_self_test` / `model_admission` 审计摘要是什么。随后展示“智能服务 请求预演包”：切换文本自检、视觉自检和样例准入三种模式，说明这是后端 请求预演 收据，只接收 key 是否存在的布尔值，不接收真实 key 字符串；它展示 endpoint path、请求体字段、真实公开样例绑定、图片附加计划和隐私边界，并明确 `request_sent=false`、`key_persisted=false`、`audit_logged=false`、`state_updated=false`。接着展示 智能服务 文本轻量自检和视觉通道自检：文本自检只发安全短提示词；视觉自检会把一张公开内镜图片附加到多模态请求，但不发送参考标注，不保存 key/base/完整回复，也不会更新模型准入状态。随后展示用户自带 API/key 的样例级 blind probe 准入检查；智能服务 只拿到图片和问题，不拿参考标注，后端返回后再做公开标注对齐。准入结果下方的“后端模型准入收据”会展示 `model_admission` 审计 ID、blind probe 来源、平台状态是否更新和隐私边界。只有真实调用成功才显示 `智能服务_called=true`；只有调用成功且至少一条盲测回答部分对齐，最近准入才会标为可进入人工复核。最后展示“当前看板候选助手”的准入闸门：真实 智能服务 调用、公开标注对齐、平台准入摘要、非 mock 候选和模型卡动作都通过后，才允许把非 mock 模型写入“待人工复核候选”；mock/rule draft 永远不说成正式训练助手。
-
-最后进入 `/audit` 展示审计驾驶舱：事件总量、高风险事件、医生复核负载、最近写入时间、分类筛选和完整日志表。强调审计日志只保存事件摘要、风险等级和审核状态，不保存 API key 或医师自由追问原文。
-
-## 结束语
-
-“v2.0 已经跑通医师训练、报告训练、错误前提安全、受控 Skills、模型准入和审计闭环。后续可以继续扩展多医师数据库、课程管理和完整评测流水线，但当前演示严格保持教学和医生审核前辅助边界。”
-
+- Medical / Endoscopy is the primary teaching domain.
+- General Science is a lightweight reference domain using the same platform
+  core.
+- The clean-start stack uses compact public fixtures. The local/hosted portfolio
+  dataset contains 3,678 questions and stays outside Git.
+- EndoBench is an Evaluation dataset and is not used by Tutor retrieval,
+  Question Factory or learner-facing QBanks.

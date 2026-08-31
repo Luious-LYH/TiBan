@@ -1,118 +1,157 @@
-# TiBan v2.0.0
+# 题伴 TiBan
 
-**Agent-native Adaptive QBank & Learning Platform** with a reusable learning
-core and governed domain packs. The first packs are Medical / Endoscopy and
-General Science; both use the same QBank, Practice, Tutor, Memory, FSRS,
-Question Factory and Evaluation paths.
+**Agent-native Adaptive QBank & Learning Platform**
 
-> 教学研修与医生复核前辅助，不作为独立诊断依据。
+TiBan brings question banks, a persistent Tutor, retrieval, learning memory,
+FSRS review, question generation and model evaluation into one learning
+workflow. The current domain packs are Medical / Endoscopy and General
+Science.
 
-![Question banks](./docs/portfolio/evidence/stage-4/01-banks.png)
+![Practice workspace with the persistent right-side Tutor](./docs/portfolio/evidence/stage-4/02-practice-tutor.png)
 
-## What a learner can do
+## What you can do
 
-- Start with a compact checked-in teaching seed for local verification; use governed, locally authorized source data only as an optional import-validation fixture.
-- Practice in Study, Exam, or Review mode with a persistent desktop Tutor sidecar.
-- Submit an answer, receive feedback, and let the next practice session prioritize review due dates, weak topics, and coverage.
-- Upload an allowed Markdown/PDF teaching document, generate a reviewable question draft, and publish only after review.
-- Temporarily connect a compatible model to compare text or image-question results without storing its API key.
+- Browse question banks and start Study, Exam or Review sessions.
+- Practice with a Tutor that stays beside the current question and uses the
+  question, permitted evidence and learner context.
+- Submit an answer and continue through grading, Attempt history, mastery and
+  review scheduling.
+- Upload an allowed teaching document, create a source-backed question draft,
+  review revisions and publish the selected version.
+- Compare candidate models on text and image-question evaluation sets through a
+  separate evaluation workspace.
+- Switch domain packs without changing the Practice, Tutor, Memory, FSRS or
+  Evaluation flow.
 
-## Domain packs
+## Why TiBan
 
-- **Medical / Endoscopy** retains the governed CMExam, CMB-Exam and curated
-  Kvasir-VQA local acceptance data, medical knowledge namespaces and the
-  teaching/doctor-review boundary. EndoBench is Evaluation-only.
-- **General Science** is proven by an eight-question TiBan-authored fixture on
-  a clean checkout. ARC Easy can be imported locally for validation, but its
-  raw data is not committed or indexed into Tutor RAG/Question Factory.
+### Tutor Agent + Tool Calling + RAG
 
-`domain_id` scopes catalog, sessions, mastery, FSRS cards, learning memory,
-retrieval metadata and evaluation datasets. Adding the General pack did not
-fork the Practice flow, Tutor runtime, FSRS scheduler or Evaluation engine.
-See [Domain Packs](./docs/architecture/domain-packs-v2.md) and the
-[compatibility matrix](./docs/evals/domain-compatibility-v2.md).
+The Tutor combines bounded tool use, knowledge retrieval and learner context in
+the practice sidecar. Successful submission keeps learning-state writes in the
+application workflow: `grade → Attempt → mastery → review scheduling`.
 
-## Memory & Personalization
+### Adaptive Learning + FSRS + Memory
 
-v1.1 keeps Session Memory, Learning Memory and the derived Learner Profile
-separate. Verified repeated mistakes and explicit, validated concept confusion
-can produce a small evidence-backed learning fact; only the top relevant facts
-are supplied to the Tutor and deterministic next-session selector. Clearing the
-learning-memory view never deletes attempts or FSRS review history.
+Attempts, mastery, learning memory and FSRS cards feed the next practice
+session. In the fixed adaptive scheduling scenario, weak-topic exposure rose
+from **25% to 75%** after evidence of repeated mistakes.
 
-![Learning profile after repeated evidence](./docs/portfolio/evidence/stage-5-learning-profile.png)
+### Question Factory
 
-See [the memory architecture](./docs/architecture/memory-personalization.md)
-and the [reproducible acceptance](./docs/evals/memory-personalization-acceptance.md).
+The Factory turns an allowed document into a reviewable question through
+parsing, indexing, generation, deterministic gates, judging, repair and
+publishing. PostgreSQL stores job and revision state; Redis/Dramatiq runs
+durable background jobs; Qdrant and FastEmbed support retrieval.
 
-| Practice + Tutor | Adaptive learning loop |
+### Modular Monolith + Domain-extensible Core
+
+React + FastAPI share a modular learning core across domain packs. Practice,
+Tutor, Factory and Learning use explicit boundaries, typed contracts and
+provider adapters while keeping the product runnable as one platform.
+
+## Product surfaces
+
+| Practice + Tutor | Adaptive learning |
 | --- | --- |
-| ![Practice with Tutor](./docs/portfolio/evidence/stage-4/02-practice-tutor.png) | ![Learning overview](./docs/portfolio/evidence/stage-4/03-adaptive-learning-loop.png) |
+| ![Practice session with Tutor](./docs/portfolio/evidence/stage-4/02-practice-tutor.png) | ![Progress and adaptive learning loop](./docs/portfolio/evidence/stage-4/03-adaptive-learning-loop.png) |
 
 | Question Factory | Model evaluation |
 | --- | --- |
-| ![Question Factory](./docs/portfolio/evidence/stage-4/04-question-factory.png) | ![Model evaluation](./docs/portfolio/evidence/stage-4/05-model-evaluation.png) |
+| ![Document-to-question Factory](./docs/portfolio/evidence/stage-4/04-question-factory.png) | ![Model evaluation workspace](./docs/portfolio/evidence/stage-4/05-model-evaluation.png) |
+
+## Current Scope
+
+- Medical / Endoscopy is the primary content domain for teaching and
+  physician-review-before-use workflows.
+- General Science is a lightweight reference domain with 8 project-authored
+  questions. It exercises the same shared platform core.
+- EndoBench is an Evaluation dataset. It stays outside Tutor retrieval,
+  Question Factory and learner-facing QBanks.
+- External model providers are configured separately from the reproducible
+  local stack.
+
+## Data
+
+The repository ships compact public clean-start fixtures so a new checkout can
+run without redistributing large third-party datasets.
+
+The local/hosted portfolio dataset is kept outside Git and contains:
+
+| Dataset | Questions | Use |
+| --- | ---: | --- |
+| CMExam | 1,500 | Medical QBank |
+| CMB-Exam | 1,778 | Medical QBank |
+| Curated Kvasir-VQA | 400 | Image-question QBank |
+| **Total** | **3,678** | Portfolio dataset |
+
+Source attribution and reuse boundaries are recorded in
+[`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md). User and organization-owned
+source uploads follow the same source registry and domain boundary.
 
 ## Architecture
 
 ```text
 React + Vite + TypeScript
           │ generated OpenAPI client / SSE
-FastAPI ──┼── PostgreSQL: canonical learning, citation, and job state
+FastAPI ──┼── PostgreSQL: learning, citation and job state
           ├── Qdrant: retrieval index
           ├── Redis + Dramatiq: durable Factory jobs
           ├── bounded Tutor runtime: tools, permissions, retry, cancel, trace
           ├── Question Factory: Generator → gate → Judge → repair → publish
           ├── py-fsrs: review scheduling
-          └── isolated BYOK evaluation domain
+          └── isolated model-evaluation workspace
 ```
 
-The Tutor has read-only tools. Successful submission deterministically executes
-`grade → Attempt → mastery → review scheduling`; a model never writes learner state.
-The Factory's backend and worker share a durable upload volume so a queued job can
-read the exact document recorded by the API.
+The API contract is generated from FastAPI OpenAPI:
 
-v2.0 keeps the pragmatic modular monolith and adds only the validated domain
-boundary. Practice
-uses a transport-free use-case boundary, Tutor runtime dependencies are supplied
-by owned adapters, and PostgreSQL Factory jobs have idempotency, cancellation,
-heartbeat recovery, and durable error state. See the [architecture notes](./docs/architecture/modular-monolith-v1.2.md).
+```powershell
+cd frontend
+npm run api:generate
+```
 
-## Retrieval and adaptive learning
+Architecture details live in [`docs/architecture/`](./docs/architecture/),
+starting with the [platform core](./docs/architecture/platform-core-v2.md) and
+the [project overview](./docs/portfolio/PROJECT_OVERVIEW.md).
 
-Dense retrieval is the v1.0 Tutor default. On the frozen portfolio engineering
-benchmark, it provided the selected quality/latency trade-off among the default
-paths; sparse, hybrid, and hybrid+rerank remain implemented and benchmarkable.
-This is not a claim that Dense is universally superior. See
-[the RAG benchmark](./docs/evals/rag-benchmark-v2.md).
+## Evaluation
 
-The adaptive-loop artifact demonstrates the full state transition from a deliberate
-mistake to a weak-topic next-session recommendation:
-[adaptive-loop-demo-v1.json](./artifacts/learning/adaptive-loop-demo-v1.json).
+### Tutor routing evaluation
+
+Six fixed Tutor routing and permission scenarios:
+
+- Tool selection: **6 / 6**
+- Unnecessary tool calls: **0**
+- Missing tool calls: **0**
+
+See the [Agent evaluation](./docs/evals/agent-evaluation-v2.md) for the test
+setup and artifact links.
+
+### Retrieval and learning evaluation
+
+The RAG benchmark compares sparse, dense, hybrid and hybrid + rerank on the
+same frozen dataset using Recall@K, MRR, nDCG and retrieval latency. The
+[adaptive-loop artifact](./artifacts/learning/adaptive-loop-demo-v1.json)
+shows the transition from a deliberate mistake to a weak-topic next-session
+recommendation.
 
 ## Quick start
 
-Requires Python 3.12+, Node.js 22+, Docker Desktop, and npm.
+Requires Python 3.12+, Node.js 22+, npm and Docker Desktop.
 
 ```powershell
 docker compose up --build
 ```
 
-This starts frontend, backend, PostgreSQL, Qdrant, Redis, and the Dramatiq worker
-with the compact teaching seed. It does not redistribute or require a large
-third-party QBank. To exercise a locally authorized import fixture, explicitly
-set `ENDO_DEMO_QBANK_BOOTSTRAP=true` and configure the ignored local data paths
-in `.env`. The product direction is governed user/organization-owned source
-upload rather than a platform-owned public dataset catalogue. Never commit keys
-or local data roots.
+This starts the frontend, FastAPI backend, PostgreSQL, Qdrant, Redis and the
+Dramatiq worker with the public clean-start fixtures.
 
-## Verification
+Useful local checks:
 
 ```powershell
 # Backend
 cd backend
 $env:PYTHONPATH='.'
-$env:TUTOR_PROVIDER_ENABLED='false'
 python -m pytest -q
 
 # Frontend
@@ -121,36 +160,25 @@ npm run api:check
 npm run lint
 npm test -- --run
 npm run build
-npx playwright test e2e/core-flow.spec.ts --grep 'Flow A:' --project=chromium
 ```
 
-`npm run api:generate` deterministically rebuilds
-`frontend/src/api/generated.ts` from FastAPI OpenAPI. The checked-in GitHub
-Actions workflow is named **TiBan v2.0 platform gates**. Its hosted release run
-for commit `2a6f61b` passed backend, frontend, Medical Flow A and General Flow C:
-[run 33362264760](https://github.com/Luious-LYH/TiBan/actions/runs/33362264760).
+Open the app at `http://127.0.0.1:5173/`, then follow `/banks` → `/practice`.
+The [demo script](./docs/portfolio/DEMO_SCRIPT.md) covers the main product
+flow.
 
-## Evidence and limits
+## Project docs
 
-- [Stage 4 v1.0 final report](./docs/stages/stage-4-v1.0-final-report.md)
-- [Final evidence matrix](./docs/portfolio/FINAL_EVIDENCE_MATRIX.md)
-- [90-second demo script](./docs/portfolio/DEMO_SCRIPT.md)
-- [Data attribution and license boundaries](./THIRD_PARTY_DATA.md)
-- [Security notes](./SECURITY_NOTES.md)
-- [Memory & Personalization acceptance](./docs/evals/memory-personalization-acceptance.md)
-- [v2.0 platform core](./docs/architecture/platform-core-v2.md)
-- [Agent engineering evaluation](./docs/evals/agent-evaluation-v2.md)
-- [Personalization engineering evaluation](./docs/evals/personalization-evaluation-v2.md)
-- [Stage 7 final report](./docs/stages/stage-7-v2.0-final-report.md)
-
-RAG and Question Judge human review remains deferred from v1.0 and is documented
-only in evidence materials. It is not presented as expert or clinical validation.
-EndoBench is evaluation-only and cannot enter Tutor knowledge, Factory sources, or
-learner-facing QBanks. Raw chain-of-thought and secrets are neither displayed nor
-persisted.
+- [Project overview](./docs/portfolio/PROJECT_OVERVIEW.md)
+- [Demo script](./docs/portfolio/DEMO_SCRIPT.md)
+- [Tutor architecture](./docs/architecture/tutor-agent.md)
+- [Question Factory architecture](./docs/architecture/question-factory.md)
+- [Domain packs](./docs/architecture/domain-packs-v2.md)
+- [Stage 7 / v2.0 report](./docs/stages/stage-7-v2.0-final-report.md)
+- [Data attribution](./THIRD_PARTY_DATA.md)
 
 ## License
 
-Code follows the repository license. Third-party datasets are not redistributed;
-their usage and attribution boundaries are recorded in
-[THIRD_PARTY_DATA.md](./THIRD_PARTY_DATA.md) and `knowledge/registry/sources.yaml`.
+Code follows the repository license. Third-party datasets remain outside the
+repository; their attribution and reuse boundaries are listed in
+[`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md) and
+[`knowledge/registry/sources.yaml`](./knowledge/registry/sources.yaml).

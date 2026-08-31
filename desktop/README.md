@@ -1,8 +1,9 @@
-# 消化内镜研修与模型评测平台桌面版
+# TiBan desktop app
 
-桌面版使用 Electron 打开本地窗口，并自动启动 FastAPI 后端服务。它不写入真实密钥、通知地址或患者身份信息。
+The desktop app wraps the TiBan frontend in Electron and starts the local
+FastAPI service for an offline learning workspace.
 
-## 开发运行
+## Development
 
 ```powershell
 cd E:\2.Projects\ARIS\Endoscopy_Agent\code\frontend
@@ -10,13 +11,11 @@ npm run build
 npm run electron:dev
 ```
 
-## 打包安装包
+## Build installers
 
 ```powershell
 cd E:\2.Projects\ARIS\Endoscopy_Agent\code\frontend
 npm run desktop:dist
 ```
 
-输出目录：
-
-`code\frontend\release`
+Installers are written to `code\frontend\release`.
