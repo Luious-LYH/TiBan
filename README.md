@@ -126,9 +126,9 @@ npx playwright test e2e/core-flow.spec.ts --grep 'Flow A:' --project=chromium
 
 `npm run api:generate` deterministically rebuilds
 `frontend/src/api/generated.ts` from FastAPI OpenAPI. The checked-in GitHub
-Actions workflow is named **EndoTutor fast profile**. Its hosted promotion run
-for commit `86fb139` passed backend, frontend, and Playwright Flow A:
-[run 33296518709](https://github.com/Luious-LYH/TiBan/actions/runs/33296518709).
+Actions workflow is named **TiBan v2.0 platform gates**. Its hosted release run
+for commit `2a6f61b` passed backend, frontend, Medical Flow A and General Flow C:
+[run 33362264760](https://github.com/Luious-LYH/TiBan/actions/runs/33362264760).
 
 ## Evidence and limits
 

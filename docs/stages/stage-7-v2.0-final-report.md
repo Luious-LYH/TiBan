@@ -1,6 +1,6 @@
 # Stage 7 — v2.0.0 Learning Platform Final Report
 
-**Status:** Release Gate complete pending the final hosted workflow result.  The
+**Status:** Release Gate complete; `v2.0.0` release is ready.  The
 release is limited to the two approved v2.0 directions: **Domain-extensible
 Learning Platform** and **Advanced Evaluation**.  No Stage 8 work was started.
 
@@ -46,11 +46,11 @@ training.
 | Factory regression | PASS | Docker job reached `published` with two revision records |
 | Backend regression | PASS | `76 passed` |
 | Frontend lint / unit / build | PASS | lint; 12 unit tests; production build |
-| OpenAPI drift | PASS after release commit | `npm run api:generate` / `npm run api:check`; generated client is not manually maintained |
+| OpenAPI drift | PASS | `npm run api:generate` / `npm run api:check`; generated client is not manually maintained |
 | Architecture guard | PASS | `7 application modules; domains=['endoscopy', 'general_science']` |
 | Playwright medical + general smoke | PASS | Flow A and General Flow C; 2 passed |
 | Docker clean-start | PASS | [`docker-acceptance-v2.json`](../../artifacts/platform/docker-acceptance-v2.json) |
-| Hosted GitHub Actions | PENDING final push | Recorded below after the release commit is pushed |
+| Hosted GitHub Actions | PASS | [run 33362264760](https://github.com/Luious-LYH/TiBan/actions/runs/33362264760), commit `2a6f61b`; backend, frontend and both Playwright smoke jobs succeeded |
 | README / Evidence Matrix / resume synchronization | PASS | `README.md`, `docs/portfolio/FINAL_EVIDENCE_MATRIX.md`, resume docs |
 
 The full backend run initially exposed persistent local test rows crowding the
@@ -142,8 +142,8 @@ outside this release.
 
 To be filled from the actual release operation:
 
-- Release commit: `PENDING`
-- Annotated tag: `v2.0.0`
-- Hosted Actions run: `PENDING`
+- Release implementation commit: `2a6f61b5ad7fc82080865cda518e058f792ca998`
+- Annotated tag: `v2.0.0` (points to this release-evidence commit; the implementation parent is listed above)
+- Hosted Actions run: [33362264760](https://github.com/Luious-LYH/TiBan/actions/runs/33362264760) — success
 
 Stage 7 stops after the `v2.0.0` release and does not create a Stage 8.

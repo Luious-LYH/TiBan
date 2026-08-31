@@ -36,10 +36,11 @@ vector IDs or internal scores are included.
 backend: python -m pytest -q                         → 76 passed
 backend: python -m pytest -q tests/test_stage7_platform.py → 8 passed
 backend: python scripts/check_architecture_guard.py  → PASS
-frontend: npm run api:check                          → PASS after commit
+frontend: npm run api:check                          → PASS
 frontend: npm run lint                               → PASS
 frontend: npm test -- --run                          → 12 passed
 frontend: npm run build                              → PASS
 Playwright: Flow A + Flow C                         → 2 passed
 Docker: python scripts/run_stage7_docker_acceptance.py → all acceptance flags true
+Hosted Actions: run 33362264760                      → success
 ```

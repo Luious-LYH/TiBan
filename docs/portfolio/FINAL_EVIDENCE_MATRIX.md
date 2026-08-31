@@ -24,7 +24,7 @@ resume-eligible. Portfolio metrics are not clinical-effectiveness claims.
 | Memory & Personalization | Evidence-backed `LearningMemoryItem` separates long-term learning facts from session chat and derived profile; compact relevant read-back changes Tutor context and deterministic next-session evidence. | `artifacts/memory/`, `docs/architecture/memory-personalization.md`, Stage 5 lifecycle/isolation tests. | Yes, as deterministic personalization engineering. |
 | QBank fixture boundary | Docker clean start uses a compact teaching seed; optional locally authorized CMExam/CMB/Kvasir adapters remain import-validation fixtures and are not redistributed. | `THIRD_PARTY_DATA.md`, source registry, Docker/bootstrap checks. | Yes, as data-governance engineering. |
 | BYOK evaluation | Separate text/VLM packs, request-scoped key, no fallback, per-case and aggregate results. | `docs/evals/model-evaluation-acceptance.md`, evaluation tests. | Yes, as engineering acceptance. |
-| API and delivery | FastAPI OpenAPI → generated TypeScript client; Docker Compose topology; GitHub Actions fast profile. | `npm run api:check`, compose config, `.github/workflows/ci.yml`, [run 33296518709](https://github.com/Luious-LYH/TiBan/actions/runs/33296518709). | Yes. |
+| API and delivery | FastAPI OpenAPI → generated TypeScript client; Docker Compose topology; GitHub Actions platform gates. | `npm run api:check`, compose config, `.github/workflows/ci.yml`, [run 33362264760](https://github.com/Luious-LYH/TiBan/actions/runs/33362264760). | Yes. |
 | Modular monolith engineering | Selected Practice use-case boundary, Tutor-owned dependency adapters, normalized provider errors, and PostgreSQL durable Factory jobs with idempotency/recovery/cancel state. | `docs/architecture/*v1.2.md`, `artifacts/engineering/`, `docs/portfolio/evidence/stage-6/`, `backend/tests/test_stage6_engineering.py`. | PASS — v1.2.0 release commit `8014374`, annotated tag and hosted run `33322744745`. |
 
 ## Release evidence
@@ -46,5 +46,5 @@ resume-eligible. Portfolio metrics are not clinical-effectiveness claims.
 - Raw chain-of-thought and secrets are not stored or displayed.
 - Learning-memory facts are learner-scoped, evidence-backed and lifecycle-managed;
   they are not model weight updates or unrestricted chat retention.
-- Hosted GitHub Actions passed for release baseline `86fb139` in
-  [run 33296518709](https://github.com/Luious-LYH/TiBan/actions/runs/33296518709).
+- Hosted GitHub Actions passed for the v2.0 release commit `2a6f61b` in
+  [run 33362264760](https://github.com/Luious-LYH/TiBan/actions/runs/33362264760).
