@@ -105,7 +105,8 @@ Settings 仍是实例级运行时配置，不引入用户账号、per-user 持�
 
 ### 已提交的明确 V3 范围
 
-- 提交：`db0c371 feat(v3): finalize tiban agent learning workspace`
+- 实现提交：`db0c371 feat(v3): finalize tiban agent learning workspace`
+- 当前 RC 证据提交：`a11efa0 docs(v3): package rc acceptance evidence`
 - 包含：V3 frontend shell / Practice / 智能辅导 / Factory / Evaluation / Settings、对应 backend runtime、OpenAPI generated client、回归测试、Compose runtime 配置、真实知识库 fixture 与 UI evidence 脚本。
 - 没有使用 `git add .`。
 - 没有执行 `git reset --hard`、`git clean -fd`、stash 或删除用户工作树内容。
@@ -133,7 +134,7 @@ npm run api:check
 origin/refactor/v3-tiban-agent-experience
 ```
 
-GitHub Actions workflow 为 `.github/workflows/ci.yml`，仍沿用仓库既有的 backend、frontend、Playwright smoke 和 architecture gate。当前 release commit 已触发 hosted run；最终状态在本报告更新时以 GitHub Actions 实际结果为准，不以本地通过替代 hosted 结果。
+GitHub Actions workflow 为 `.github/workflows/ci.yml`，仍沿用仓库既有的 backend、frontend、Playwright smoke 和 architecture gate。当前 RC 证据提交 `a11efa0` 对应 hosted run `33519082646`（更新时仍在 runner 安装 Chromium）；最终状态以 GitHub Actions 实际结果为准，不以本地通过替代 hosted 结果。
 
 ## H. Final Screenshot Set
 
@@ -171,11 +172,11 @@ Practice + 智能辅导 + Citation
 | Human Acceptance H6 — artifact → case → expected/ranked evidence | PASS | `04-evaluation-evidence-1440.png`、Phase C Flow C |
 | UX / data correctness | PASS | 首页指标、Practice 进度、weak topics、无解析回退、Citation 收纳、工程词清理 |
 | Clean API drift | PASS | `npm run api:check` exit code 0 |
-| Hosted GitHub Actions | PENDING | Run triggered for `db0c371`; see Section G |
+| Hosted GitHub Actions | PENDING | Run `33519082646` for `a11efa0`; see Section G |
 
 ### 当前 promotion 判定
 
-在 Hosted Actions 对 `db0c371` 返回全绿之前，严格 Gate 状态为：
+在 Hosted Actions 对 `a11efa0` 返回全绿之前，严格 Gate 状态为：
 
 ```text
 TiBan V3 RC Promotion Gate = PENDING
@@ -185,7 +186,8 @@ TiBan V3 RC Promotion Gate = PENDING
 
 ## K. Release Commit / Tag Recommendation
 
-- 当前 release commit：`db0c371617db9b0894275d1a341acada100b2b1a`
+- 当前 release commit：`a11efa08490be65bb4bc085f0c3bd19e3ce8507e`
+- 实现提交：`db0c371617db9b0894275d1a341acada100b2b1a`
 - 推荐 tag：`v3.0.0-rc1`
 - 本轮不创建正式 `v3.0.0`，也不自动创建 / push `v3.0.0-rc1`，等待用户确认。
 - Post-RC backlog（开放回答 AI 解析、XLSX、Anki、完整 Agent 评测工作台等）不属于本轮，不进入报告执行范围。
