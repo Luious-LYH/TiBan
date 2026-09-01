@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -12,6 +13,8 @@ from app.db.bootstrap import initialize_database
 from app.db.models import AttemptModel, LearnerMasteryModel, QuestionBankModel, QuestionModel, ReviewCardModel
 from app.main import app
 from app.schemas import QuestionPublic
+from app.db.repositories import learner_visible_weak_topics
+from app.services.stage1_service import stage1_service
 
 
 client = TestClient(app)
@@ -39,6 +42,36 @@ def _all_questions() -> list[dict[str, Any]]:
     response = client.get("/api/v3/practice/questions", params={"limit": 100})
     assert response.status_code == 200
     return response.json()["items"]
+
+
+def test_learner_visible_weak_topics_excludes_grading_labels_and_placeholder_metadata() -> None:
+    bank = SimpleNamespace()
+    attempts = [
+        (SimpleNamespace(correct=False), SimpleNamespace(topic="酸碱", teaching_tags=["化学"], subject="化学"), bank),
+        (SimpleNamespace(correct=False), SimpleNamespace(topic="不符合", teaching_tags=["补充章传统医学病证-模块1"], subject="中医科"), bank),
+        (SimpleNamespace(correct=False), SimpleNamespace(topic=None, teaching_tags=[], subject="妇产科"), bank),
+        (SimpleNamespace(correct=False), SimpleNamespace(topic=None, teaching_tags=[], subject="妇产科"), bank),
+    ]
+
+    assert learner_visible_weak_topics(attempts) == ["酸碱", "学科 · 妇产科"]
+
+
+def test_learner_visible_weak_topics_does_not_promote_subject_copy_to_knowledge_point() -> None:
+    bank = SimpleNamespace()
+    attempts = [
+        (SimpleNamespace(correct=False), SimpleNamespace(topic="不符合", teaching_tags=["中医科", "补充章传统医学病证-模块1"], subject="中医科"), bank),
+        (SimpleNamespace(correct=False), SimpleNamespace(topic="不符合", teaching_tags=["中医科", "补充章传统医学病证-模块1"], subject="中医科"), bank),
+    ]
+
+    assert learner_visible_weak_topics(attempts) == ["学科 · 中医科"]
+
+
+def test_missing_official_explanation_never_returns_grading_prose() -> None:
+    missing = SimpleNamespace(official_explanation_available=False, explanation="评分规则不应显示")
+    official = SimpleNamespace(official_explanation_available=True, explanation="题库提供的真实解析。")
+
+    assert stage1_service._explanation(missing, correct=False, score=0, error_tags=["答案与当前评分规则不一致"]) == ""
+    assert stage1_service._explanation(official, correct=True, score=100, error_tags=[]) == "题库提供的真实解析。"
 
 
 def test_public_question_contract_is_discriminated_and_answer_isolated() -> None:

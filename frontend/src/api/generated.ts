@@ -429,6 +429,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["get_settings_api_v3_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/settings/llm/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Llm */
+        post: operations["test_llm_api_v3_settings_llm_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/settings/llm/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Llm */
+        post: operations["apply_llm_api_v3_settings_llm_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/settings/llm/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Llm */
+        post: operations["restore_llm_api_v3_settings_llm_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/settings/embedding/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Embedding */
+        post: operations["test_embedding_api_v3_settings_embedding_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/settings/embedding/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Embedding */
+        post: operations["apply_embedding_api_v3_settings_embedding_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/settings/embedding/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Embedding */
+        post: operations["restore_embedding_api_v3_settings_embedding_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/evaluation/latest": {
         parameters: {
             query?: never;
@@ -1662,6 +1781,45 @@ export interface components {
             /** Supported Question Types */
             supported_question_types: string[];
         };
+        /** EmbeddingActionResponse */
+        EmbeddingActionResponse: {
+            embedding: components["schemas"]["EmbeddingSettingsPublic"];
+            /** Api Source */
+            api_source: string;
+        };
+        /** EmbeddingSettingsPublic */
+        EmbeddingSettingsPublic: {
+            /** Mode */
+            mode: string;
+            /** Model */
+            model: string;
+            /** Batch Size */
+            batch_size: number;
+            /** Runtime Override */
+            runtime_override: boolean;
+            /** Restores Default On Restart */
+            restores_default_on_restart: boolean;
+            /** Model Switch Supported */
+            model_switch_supported: boolean;
+        };
+        /** EmbeddingSettingsRequest */
+        EmbeddingSettingsRequest: {
+            /** Batch Size */
+            batch_size: number;
+        };
+        /** EmbeddingTestResponse */
+        EmbeddingTestResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Message */
+            message?: string | null;
+            /** Result */
+            result?: {
+                [key: string]: unknown;
+            } | null;
+            /** Api Source */
+            api_source: string;
+        };
         /** EvaluationArtifactResponse */
         EvaluationArtifactResponse: {
             /** Artifact Available */
@@ -1685,6 +1843,10 @@ export interface components {
             cases?: {
                 [key: string]: unknown;
             }[];
+            /** Probes */
+            probes?: components["schemas"]["EvaluationProbePublic"][];
+            /** Strategy Comparison */
+            strategy_comparison?: components["schemas"]["EvaluationStrategyPublic"][];
             /** Created At */
             created_at?: string | null;
             /** Notice */
@@ -1762,6 +1924,50 @@ export interface components {
             /** Tutor Indexed */
             tutor_indexed: boolean;
         };
+        /** EvaluationEvidencePublic */
+        EvaluationEvidencePublic: {
+            /** Evidence Id */
+            evidence_id: string;
+            /** Label */
+            label: string;
+            /** Source Title */
+            source_title: string;
+            /** Section */
+            section: string;
+            /** Snippet */
+            snippet: string;
+        };
+        /** EvaluationProbePublic */
+        EvaluationProbePublic: {
+            /** Id */
+            id: string;
+            /** Query */
+            query: string;
+            expected_evidence: components["schemas"]["EvaluationEvidencePublic"];
+            /** Retrieved */
+            retrieved?: components["schemas"]["EvaluationRetrievedEvidencePublic"][];
+            /** Hit At 1 */
+            hit_at_1: boolean;
+            /** Hit At 3 */
+            hit_at_3: boolean;
+        };
+        /** EvaluationRetrievedEvidencePublic */
+        EvaluationRetrievedEvidencePublic: {
+            /** Evidence Id */
+            evidence_id: string;
+            /** Label */
+            label: string;
+            /** Source Title */
+            source_title: string;
+            /** Section */
+            section: string;
+            /** Snippet */
+            snippet: string;
+            /** Rank */
+            rank: number;
+            /** Score */
+            score?: number | null;
+        };
         /** EvaluationRunRequest */
         EvaluationRunRequest: {
             /** Base Url */
@@ -1835,6 +2041,17 @@ export interface components {
              * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
              */
             safety_notice: string;
+        };
+        /** EvaluationStrategyPublic */
+        EvaluationStrategyPublic: {
+            /** Name */
+            name: string;
+            /** Metrics */
+            metrics?: {
+                [key: string]: number;
+            };
+            /** Artifact Path */
+            artifact_path: string;
         };
         /** ExamSessionAttempt */
         ExamSessionAttempt: {
@@ -2072,6 +2289,77 @@ export interface components {
         JobRequest: {
             /** Document Id */
             document_id: string;
+        };
+        /** LLMActionResponse */
+        LLMActionResponse: {
+            llm: components["schemas"]["LLMSettingsPublic"];
+            /** Api Source */
+            api_source: string;
+        };
+        /**
+         * LLMConnectionTestRequest
+         * @description Optional replacement values for an instance connection test.
+         *
+         *     Leaving a value blank deliberately means "test the active server setting".
+         *     That lets an operator verify the configured service without echoing a
+         *     private endpoint or asking them to re-enter an existing secret.
+         */
+        LLMConnectionTestRequest: {
+            /** Provider */
+            provider?: string | null;
+            /** Base Url */
+            base_url?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Api Key */
+            api_key?: string | null;
+        };
+        /** LLMSettingsPublic */
+        LLMSettingsPublic: {
+            /** Provider */
+            provider: string;
+            /** Base Url Configured */
+            base_url_configured: boolean;
+            /** Api Key Configured */
+            api_key_configured: boolean;
+            /** Model */
+            model: string;
+            /** Reasoning Effort */
+            reasoning_effort?: string | null;
+            /** Runtime Override */
+            runtime_override: boolean;
+            /** Restores Default On Restart */
+            restores_default_on_restart: boolean;
+            /** Private Network Allowed */
+            private_network_allowed: boolean;
+        };
+        /** LLMSettingsRequest */
+        LLMSettingsRequest: {
+            /** Provider */
+            provider: string;
+            /** Base Url */
+            base_url: string;
+            /** Model */
+            model: string;
+            /** Api Key */
+            api_key?: string | null;
+            /** Reasoning Effort */
+            reasoning_effort?: string | null;
+        };
+        /** LLMTestResponse */
+        LLMTestResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Message */
+            message: string;
+            /** Model */
+            model?: string | null;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /** Error */
+            error?: string | null;
+            /** Api Source */
+            api_source: string;
         };
         /** LearningMemoryPublic */
         LearningMemoryPublic: {
@@ -2691,6 +2979,17 @@ export interface components {
             attempt_id: string;
             /** Question Id */
             question_id: string;
+            /** Bank Id */
+            bank_id: string;
+            /** Bank Name */
+            bank_name: string;
+            /** Question Summary */
+            question_summary: string;
+            /**
+             * Question Type
+             * @enum {string}
+             */
+            question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
             /** Score */
             score: number;
             /** Correct */
@@ -2781,6 +3080,13 @@ export interface components {
         /** ReviewResponse */
         ReviewResponse: {
             item: components["schemas"]["ReviewCardPublic"];
+            /** Api Source */
+            api_source: string;
+        };
+        /** SettingsResponse */
+        SettingsResponse: {
+            llm: components["schemas"]["LLMSettingsPublic"];
+            embedding: components["schemas"]["EmbeddingSettingsPublic"];
             /** Api Source */
             api_source: string;
         };
@@ -3970,6 +4276,185 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DomainListResponse"];
+                };
+            };
+        };
+    };
+    get_settings_api_v3_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsResponse"];
+                };
+            };
+        };
+    };
+    test_llm_api_v3_settings_llm_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LLMConnectionTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LLMTestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_llm_api_v3_settings_llm_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LLMSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LLMActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_llm_api_v3_settings_llm_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LLMActionResponse"];
+                };
+            };
+        };
+    };
+    test_embedding_api_v3_settings_embedding_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmbeddingTestResponse"];
+                };
+            };
+        };
+    };
+    apply_embedding_api_v3_settings_embedding_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmbeddingSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmbeddingActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_embedding_api_v3_settings_embedding_restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmbeddingActionResponse"];
                 };
             };
         };

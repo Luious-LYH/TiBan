@@ -46,6 +46,7 @@ services:
       ENDO_DEMO_QBANK_BOOTSTRAP: "false"
       ENDO_PROJECT_DATA_ROOT: /app/data
       ENDO_LOCAL_VQA_ROOT: /app/vqa-data
+      ENDO_EMBEDDING_CACHE: /app/runtime/fastembed
       ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
@@ -76,6 +77,17 @@ services:
         source: ${ENDO_LOCAL_VQA_HOST_ROOT:-./data/vqa}
         target: /app/vqa-data
         read_only: true
+      - type: bind
+        source: ./knowledge
+        target: /app/knowledge
+        read_only: true
+      - type: bind
+        source: ./artifacts
+        target: /app/artifacts
+        read_only: true
+      - type: volume
+        source: endotutor_embedding_cache
+        target: /app/runtime/fastembed
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -99,6 +111,9 @@ services:
       ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1
       ENDO_PROJECT_DATA_ROOT: /app/data
       ENDO_LOCAL_VQA_ROOT: /app/vqa-data
+      ENDO_EMBEDDING_CACHE: /app/runtime/fastembed
+      FACTORY_EMBEDDING_PREWARM: "true"
+      FACTORY_WORKER_READY_FILE: /tmp/factory-worker-ready
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
       # Factory uses the same local-only provider configuration as the API.
@@ -122,17 +137,30 @@ services:
         source: ${ENDO_LOCAL_VQA_HOST_ROOT:-./data/vqa}
         target: /app/vqa-data
         read_only: true
+      - type: bind
+        source: ./knowledge
+        target: /app/knowledge
+        read_only: true
+      - type: volume
+        source: endotutor_embedding_cache
+        target: /app/runtime/fastembed
     depends_on:
       backend:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/factory-worker-ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
 
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_BASE_URL: http://localhost:8000
+        VITE_API_BASE_URL: ""
     ports:
       - "127.0.0.1:5173:80"
     depends_on:
@@ -144,3 +172,4 @@ volumes:
   endotutor_qdrant_data:
   endotutor_redis_data:
   endotutor_factory_uploads:
+  endotutor_embedding_cache:

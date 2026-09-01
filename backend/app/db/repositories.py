@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from collections import Counter
 import random
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -22,6 +23,48 @@ from .models import (
     ReviewCardModel,
 )
 from .seed import TYPE_CODE, TYPE_LABEL, seed_database
+
+
+_WEAK_TOPIC_PLACEHOLDER = re.compile(r"(?:^不符合$|模块\s*\d+|^未知$|^其他$|^n/?a$|import|csv|jsonl)", re.IGNORECASE)
+
+
+def learner_visible_weak_topics(recent_attempts: list[tuple[Any, QuestionModel, QuestionBankModel]]) -> list[str]:
+    """Return only learner-meaningful weak-topic labels from incorrect attempts.
+
+    Grading tags and import placeholders are deliberately excluded.  A subject is
+    a last-resort classification, so it is labelled rather than presented as a
+    knowledge concept.
+    """
+    counts: Counter[str] = Counter()
+    for attempt, question, _ in recent_attempts:
+        if attempt.correct:
+            continue
+        subject = str(question.subject or "").strip()
+
+        def is_meaningful(value: Any) -> bool:
+            candidate = str(value or "").strip()
+            # Imported banks commonly repeat the broad subject in teaching_tags.
+            # It is useful as a labelled fallback, but it is not a knowledge point.
+            return bool(candidate) and candidate != subject and not _WEAK_TOPIC_PLACEHOLDER.search(candidate)
+
+        candidates = [question.topic, *(question.teaching_tags or [])]
+        label = next((str(value).strip() for value in candidates if is_meaningful(value)), None)
+        if label is None and subject and not _WEAK_TOPIC_PLACEHOLDER.search(subject):
+            label = f"学科 · {subject}"
+        if label:
+            counts[label] += 1
+
+    # A generic subject becomes useful only after repeated evidence; a specific
+    # topic remains meaningful after one incorrect attempt.
+    ordered = [
+        label
+        for label, _ in sorted(
+            counts.items(),
+            key=lambda item: (item[0].startswith("学科 · "), -item[1], item[0]),
+        )
+        if not label.startswith("学科 · ") or counts[label] >= 2
+    ]
+    return ordered[:5]
 
 
 class Stage1Repository:
@@ -484,12 +527,14 @@ class Stage1Repository:
             )
         ) or 0
         recent_attempts = list(
-            self.session.scalars(
-                select(AttemptModel)
+            self.session.execute(
+                select(AttemptModel, QuestionModel, QuestionBankModel)
+                .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
+                .join(QuestionBankModel, QuestionBankModel.bank_id == QuestionModel.bank_id)
                 .where(AttemptModel.learner_id == learner_id)
                 .order_by(AttemptModel.created_at.desc())
                 .limit(10)
-            )
+            ).all()
         )
         due_count = self.session.scalar(
             select(func.count(ReviewCardModel.review_card_id)).where(
@@ -498,7 +543,7 @@ class Stage1Repository:
             )
         ) or 0
         recent_accuracy = (
-            sum(1 for item in recent_attempts if item.correct) / len(recent_attempts)
+            sum(1 for item, _, _ in recent_attempts if item.correct) / len(recent_attempts)
             if recent_attempts
             else 0.0
         )
@@ -510,16 +555,20 @@ class Stage1Repository:
             "recent_accuracy": round(recent_accuracy, 3),
             "recent_sessions": [
                 {
-                    "attempt_id": item.attempt_id,
-                    "question_id": item.question_id,
-                    "score": item.score,
-                    "correct": item.correct,
-                    "created_at": item.created_at.isoformat(),
+                    "attempt_id": attempt.attempt_id,
+                    "question_id": attempt.question_id,
+                    "bank_id": question.bank_id,
+                    "bank_name": bank.name,
+                    "question_summary": (question.stem or question.title).strip()[:88],
+                    "question_type": question.question_type,
+                    "score": attempt.score,
+                    "correct": attempt.correct,
+                    "created_at": attempt.created_at.isoformat(),
                 }
-                for item in recent_attempts
+                for attempt, question, bank in recent_attempts
             ],
             "banks": banks,
-            "weak_areas": sorted({tag for item in recent_attempts for tag in (item.error_tags or [])}),
+            "weak_areas": learner_visible_weak_topics(recent_attempts),
             "safety_notice": SAFETY_NOTICE,
             "api_source": "backend",
         }

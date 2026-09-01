@@ -21,7 +21,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.application.factory.jobs import ACTIVE_JOB_STATUSES, JobTransitionError, TERMINAL_JOB_STATUSES, ensure_transition
-from app.core.config import FACTORY_PROVIDER_ENABLED, SAFETY_NOTICE, UPLOAD_DIR
+from app.core import config
+from app.core.config import SAFETY_NOTICE, UPLOAD_DIR
 from app.domains import get_domain
 from app.db.database import SessionLocal
 from app.db.models import (
@@ -480,8 +481,10 @@ def process_factory_job(
     provider_mode: Literal["local_deterministic_adapter", "provider"] | None = None,
 ) -> dict[str, Any]:
     """Worker entry point. Every state change is persisted, never simulated by UI."""
+    from app.services.runtime_settings_service import runtime_settings_service
+    runtime_settings_service.sync()
     resolved_mode: Literal["local_deterministic_adapter", "provider"] = (
-        provider_mode or ("provider" if FACTORY_PROVIDER_ENABLED else "local_deterministic_adapter")
+        provider_mode or ("provider" if config.FACTORY_PROVIDER_ENABLED else "local_deterministic_adapter")
     )
     with SessionLocal() as session:
         job = session.get(FactoryJobModel, job_id)

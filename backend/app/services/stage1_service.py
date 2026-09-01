@@ -209,7 +209,7 @@ class Stage1Service:
                 correct_answer_display="考试结束后显示" if exam_locked else correct_display,
                 answer_source=question.answer_source if question.answer_source in {"dataset_gold", "human_verified", "generated"} else "dataset_gold",
                 explanation_source=question.explanation_source if question.explanation_source in {"dataset_gold", "rag_generated", "human_curated", "none"} else "none",
-                official_explanation_available=False if exam_locked else question.official_explanation_available,
+                official_explanation_available=False if exam_locked else bool(question.official_explanation_available and (question.explanation or "").strip()),
             )
         finally:
             session.close()
@@ -298,13 +298,13 @@ class Stage1Service:
         return (100 if correct else 0), correct, [] if correct else ["答案与当前评分规则不一致"]
 
     def _explanation(self, question: Any, correct: bool, score: int, error_tags: list[str]) -> str:
-        manifest = get_domain(question.domain_id)
-        question_type = question.question_type
-        if correct:
-            return f"本次 {question_type} 提交已通过当前确定性评分规则（{score} 分）。结果仅用于教学训练和复盘。"
-        if manifest.tutor_policy == "general_learning":
-            return f"本次提交得分 {score}。请回到题干条件与概念定义，逐项检查选项判断；记录的复盘标签：{'、'.join(error_tags)}。"
-        return f"本次提交得分 {score}。请回到题干与图像证据，检查选项判断和观察边界；记录的复盘标签：{'、'.join(error_tags)}。"
+        # Objective-question feedback must never turn grading internals into a
+        # learner-facing "explanation".  Only stored, governed explanations are
+        # surfaced here; the UI offers the existing Tutor for a guided walkthrough
+        # when a source bank did not provide one.
+        if question.official_explanation_available:
+            return (question.explanation or "").strip()
+        return ""
 
     def _answer_displays(self, grading: dict[str, Any], selected: Any) -> tuple[str, str]:
         question_type = grading["question_type"]

@@ -20,6 +20,7 @@ export type QuestionBank = Required<components['schemas']['QuestionBankPublic']>
 export type Domain = components['schemas']['DomainPublic']
 export type QuestionsResponse = components['schemas']['PracticeQuestionListResponse']
 export type SessionResponse = components['schemas']['PracticeSessionPublic']
+export type SessionDetailResponse = components['schemas']['PracticeSessionDetailPublic']
 export type TutorHint = components['schemas']['TutorHintResponseV3']
 export type Overview = Omit<Required<components['schemas']['OverviewResponse']>, 'banks' | 'recent_sessions'> & {
   banks: QuestionBank[]
@@ -28,6 +29,8 @@ export type Overview = Omit<Required<components['schemas']['OverviewResponse']>,
 export type EvaluationArtifact = components['schemas']['EvaluationArtifactResponse'] & {
   metrics: Record<string, unknown>
   cases: Array<Record<string, unknown>>
+  probes: components['schemas']['EvaluationProbePublic'][]
+  strategy_comparison: components['schemas']['EvaluationStrategyPublic'][]
 }
 export type EvaluationDataset = components['schemas']['EvaluationDatasetPublic']
 export type EvaluationConnection = components['schemas']['EvaluationConnectionResponse']
@@ -47,6 +50,13 @@ export type ReviewCard = components['schemas']['ReviewCardPublic']
 export type LearningMemoryItem = components['schemas']['LearningMemoryPublic']
 export type LearningMemoryResponse = components['schemas']['LearningMemoryResponse']
 export type ClearLearningMemoryResponse = components['schemas']['ClearLearningMemoryResponse']
+export type InstanceSettings = components['schemas']['SettingsResponse']
+export type LLMSettingsPayload = components['schemas']['LLMSettingsRequest']
+export type EmbeddingSettingsPayload = components['schemas']['EmbeddingSettingsRequest']
+export type LLMConnectionTestPayload = components['schemas']['LLMConnectionTestRequest']
+export type InstanceLLMTestResult = components['schemas']['LLMTestResponse']
+export type InstanceEmbeddingTestResult = components['schemas']['EmbeddingTestResponse']
+export type QBankValidation = { format: string; accepted_count: number; rejected_count: number; ready_to_publish: boolean; items: Array<{ title: string; question: string; question_type: string }>; issues: Array<{ row: number; code: string; message: string }>; summary: { question_type_counts: Record<string, number> } }
 
 export class ApiError extends Error {
   readonly status: number
@@ -100,6 +110,10 @@ export function createPracticeSession(bankId: string, learnerId = 'demo_learner'
   }))
 }
 
+export function getPracticeSession(sessionId: string): Promise<SessionDetailResponse> {
+  return unwrap(api.GET('/api/v3/practice/sessions/{session_id}', { params: { path: { session_id: sessionId } } }))
+}
+
 export function submitPracticeAnswer(payload: SubmitPayload): Promise<SubmitResult> {
   return unwrap(api.POST('/api/v3/practice/submit', { body: { ...payload, learner_id: payload.learner_id ?? 'demo_learner', hint_count: payload.hint_count ?? 0 } }))
 }
@@ -132,7 +146,7 @@ export async function streamTutor(request: TutorStreamRequest, onEvent: (event: 
 
 export async function getLatestEvaluation(): Promise<EvaluationArtifact> {
   const response = await unwrap(api.GET('/api/v3/evaluation/latest'))
-  return { ...response, metrics: response.metrics ?? {}, cases: response.cases ?? [] }
+  return { ...response, metrics: response.metrics ?? {}, cases: response.cases ?? [], probes: response.probes ?? [], strategy_comparison: response.strategy_comparison ?? [] }
 }
 
 export async function getEvaluationDatasets(): Promise<EvaluationDataset[]> {
@@ -191,3 +205,12 @@ export async function submitFsrsReview(questionId: string, rating: 'Again' | 'Ha
   const response = await unwrap(api.POST('/api/v3/learning/review', { body: { learner_id: learnerId, question_id: questionId, rating } }))
   return response.item
 }
+
+export function getInstanceSettings(): Promise<InstanceSettings> { return unwrap(api.GET('/api/v3/settings')) }
+export function testInstanceLLM(payload: LLMConnectionTestPayload): Promise<InstanceLLMTestResult> { return unwrap(api.POST('/api/v3/settings/llm/test', { body: payload })) }
+export function applyInstanceLLM(payload: LLMSettingsPayload) { return unwrap(api.POST('/api/v3/settings/llm/apply', { body: payload })) }
+export function restoreInstanceLLM() { return unwrap(api.POST('/api/v3/settings/llm/restore')) }
+export function testInstanceEmbedding(): Promise<InstanceEmbeddingTestResult> { return unwrap(api.POST('/api/v3/settings/embedding/test')) }
+export function applyInstanceEmbedding(payload: EmbeddingSettingsPayload) { return unwrap(api.POST('/api/v3/settings/embedding/apply', { body: payload })) }
+export function restoreInstanceEmbedding() { return unwrap(api.POST('/api/v3/settings/embedding/restore')) }
+export function validateQuestionBankImport(payload: { format: 'csv' | 'jsonl' | 'markdown'; content: string; source_name?: string }): Promise<QBankValidation> { return unwrap(api.POST('/api/question-banks/import/validate', { body: payload })) as Promise<QBankValidation> }

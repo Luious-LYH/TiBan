@@ -120,27 +120,23 @@ class LocalPolicyModelGateway:
         if context.phase == 'pre_submit' and any(marker in lowered for marker in ('正确答案', 'standard answer', 'hidden rubric', '忽略规则', '服务器标准答案', '正确选项')):
             guidance = "题干、图像和资料依据" if domain.tutor_policy == 'medical_education' else "题干条件、概念和课程资料"
             return f'我可以帮助你梳理{guidance}；当前模式不会读取隐藏 rubric 或服务器内部字段。若你在 Study 模式明确需要答案，可以直接说“告诉我答案”。'
-        profile = observations.get('get_learning_profile', {})
-        mistakes = observations.get('get_recent_mistakes', [])
         memory = observations.get('get_learning_memory', {})
         retrieval = observations.get('retrieve_knowledge', [])
-        history = context.metadata.get('conversation', [])
-        continuation = '继续沿用上一步的证据范围。' if history and any(str(item.get('content', '')).strip() for item in history[-2:]) else ''
+        focus = _question_focus(str(question.get('stem', '当前题目')))
+        evidence = _learning_evidence(retrieval)
         if domain.tutor_policy == 'medical_education':
-            prefix = f"先围绕「{question.get('title', '当前题目')}」梳理可见证据：{continuation}"
-            default_plan = '建议先区分部位、形态和不能由单帧推出的结论。'
+            default_plan = f"先抓住题干里的「{focus}」，再区分选项是在说主要作用、过程，还是结果。"
         else:
-            prefix = f"先围绕「{question.get('title', '当前题目')}」梳理题干中的概念与条件：{continuation}"
-            default_plan = '建议先识别题干给出的条件，再逐项排除与概念不符的选项。'
-        evidence = '、'.join(item.get('snippet', '') for item in retrieval[:2] if item.get('snippet'))
-        plan = f"{default_plan}{evidence}" if evidence else default_plan
+            default_plan = f"先抓住题干里的「{focus}」，再逐项排除与条件不符的选项。"
+        if evidence:
+            default_plan += f" 资料提示：{evidence}"
         if context.phase == 'post_submit':
             grading = observations.get('get_grading_result', {})
-            plan += f" 本次得分为 {grading.get('score', '—')}；请以公开反馈复盘，而不是反向索取答案键。"
-        history_note = f" 近期可复盘错题 {len(mistakes)} 条。" if mistakes else ''
+            result = '这次作答还需要复盘。' if grading.get('correct') is False else '这次作答的判断方向是对的。'
+            default_plan = f"{result} {default_plan}"
         memory_items = memory.get('items', []) if isinstance(memory, dict) else []
-        memory_note = f" 结合你近期的学习情况：{memory_items[0].get('summary', '')}" if memory_items else ''
-        return f"{prefix}{plan} 当前已记录练习 {profile.get('attempt_count', 0)} 次。{memory_note}{history_note}{domain.learner_notice}"
+        memory_note = f" 你之前也容易在这里混淆：{memory_items[0].get('summary', '')}" if memory_items else ''
+        return f"{default_plan}{memory_note}"
 
 
 ToolHandler = Callable[[AgentContext], Any]
@@ -280,6 +276,26 @@ def _tokenize(text: str) -> list[str]:
     return [text[index:index + 18] for index in range(0, len(text), 18)]
 
 
+def _question_focus(stem: str) -> str:
+    """Return a short learner-facing anchor, never a private answer field."""
+
+    compact = re.sub(r"\s+", "", stem).strip()
+    return compact[:32] + ("…" if len(compact) > 32 else "")
+
+
+def _learning_evidence(retrieval: list[dict[str, Any]]) -> str:
+    """Use a single clean sentence from real retrieval, without source logs."""
+
+    for item in retrieval:
+        if item.get('namespace') == 'question_source':
+            continue
+        snippet = re.sub(r"\s+", " ", str(item.get('snippet', ''))).strip()
+        if snippet:
+            sentence = re.split(r"[。！？]", snippet.lstrip("- "))[0].strip()
+            return sentence[:120] + ("…" if len(sentence) > 120 else "")
+    return ""
+
+
 def _clean_user_facing_text(text: str) -> str:
     """Remove accidental runtime/schema labels from model-facing prose.
 
@@ -324,6 +340,8 @@ def _clean_user_facing_text(text: str) -> str:
     cleaned = re.sub(r"\s*\[[^\]]*\bdataset_gold\b[^\]]*\]", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s*[\[【][^\]】\n]*(?:source\s*item|source_id|dataset_gold|explanation_source)[^\]】\n]*[\]】]?", "", cleaned, flags=re.IGNORECASE)
     cleaned = cleaned.replace("**", "")
+    cleaned = re.sub(r"\s*(?:仅供教学研修或医生复核前辅助，不作为独立诊断依据。|仅供教学训练或医生审核前辅助，不作为独立诊断依据。)", "", cleaned)
+    cleaned = re.sub(r"\s*(?:[\w.-]+\.(?:csv|json|md):\d+)", "", cleaned, flags=re.IGNORECASE)
     return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
 

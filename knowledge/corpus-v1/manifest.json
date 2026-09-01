@@ -1,13 +1,13 @@
 {
   "corpus_id": "knowledge-corpus-v1",
-  "generated_at": "2026-08-28",
+  "generated_at": "2026-09-01",
   "source_policy": "NIDDK public health education text only; project-authored Chinese summaries; no upstream full text, images or third-party restricted content.",
   "license_gate": {
     "status": "allow",
     "license_url": "https://www.niddk.nih.gov/copyright",
     "source_id": "niddk-public-health-corpus-v1"
   },
-  "document_count": 45,
+  "document_count": 46,
   "documents": [
     {
       "document_id": "knowledge-v1-digestive-tract-orientation",
@@ -548,6 +548,18 @@
       "topic": "intestinal_obstruction",
       "language": "zh-CN",
       "content_hash": "a4a710c5a0e35c91626a53204609cdbae3d9df9204b537d16b825fd4f5c31a71"
+    },
+    {
+      "document_id": "knowledge-v1-small-intestine-motility",
+      "path": "knowledge/curated/corpus-v1/small-intestine-motility.md",
+      "title": "小肠运动与消化液混合",
+      "source_id": "niddk-public-health-corpus-v1",
+      "source_url": "https://www.niddk.nih.gov/health-information/digestive-diseases/digestive-system-how-it-works",
+      "source_title": "NIDDK Your Digestive System & How It Works",
+      "namespace": "endoscopy",
+      "topic": "small_intestine_motility",
+      "language": "zh-CN",
+      "content_hash": "bf81c8a139de7f44ed5ff86a6b33fdc2c87ef60f0f188c56902b11deb409ddef"
     }
   ]
 }

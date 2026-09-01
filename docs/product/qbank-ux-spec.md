@@ -39,7 +39,4 @@ Only `business_usage=user_ready` is learner-facing. Imported questions retain `s
 
 ## Acceptance evidence
 
-- [QBank catalog](../portfolio/evidence/stage-2.5/qbank-catalog.png)
-- [CMExam feedback](../portfolio/evidence/stage-2.5/cmexam-study-feedback.png)
-- [Exam locked feedback](../portfolio/evidence/stage-2.5/exam-locked-feedback.png)
-- [Review FSRS due](../portfolio/evidence/stage-2.5/review-fsrs-due.png)
+- [Current v2 QBank, feedback and review captures](../portfolio/evidence/current-v2/index.md)

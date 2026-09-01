@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearLearningMemory, createEvaluationRun, createPracticeSession, getDomains, getEvaluationDatasets, getEvaluationRun, getLatestEvaluation, getLearningMemory, getMentorPlan, getOverview, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection } from '../api/client'
+import { clearLearningMemory, createEvaluationRun, createPracticeSession, getDomains, getEvaluationDatasets, getEvaluationRun, getLatestEvaluation, getLearningMemory, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection } from '../api/client'
 import type { EvaluationRun, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -21,6 +21,7 @@ vi.mock('../api/client', () => ({
   getLatestEvaluation: vi.fn(),
   getLearningMemory: vi.fn(),
   getOverview: vi.fn(),
+  getPracticeSession: vi.fn(),
   getQuestionBanks: vi.fn(),
   getQuestions: vi.fn(),
   getMentorPlan: vi.fn(),
@@ -34,6 +35,7 @@ const mockedGetOverview = vi.mocked(getOverview)
 const mockedGetLearningMemory = vi.mocked(getLearningMemory)
 const mockedClearLearningMemory = vi.mocked(clearLearningMemory)
 const mockedCreateSession = vi.mocked(createPracticeSession)
+const mockedGetPracticeSession = vi.mocked(getPracticeSession)
 const mockedGetQuestionBanks = vi.mocked(getQuestionBanks)
 const mockedGetQuestions = vi.mocked(getQuestions)
 const mockedSubmit = vi.mocked(submitPracticeAnswer)
@@ -79,6 +81,11 @@ function renderStrictPage(ui: React.ReactNode, initialEntries = ['/']) {
   return render(<StrictMode><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider></StrictMode>)
 }
 
+function LocationProbe() {
+  const location = useLocation()
+  return <output data-testid="location-probe">{`${location.pathname}${location.search}`}</output>
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockedGetOverview.mockResolvedValue(overview)
@@ -91,6 +98,7 @@ beforeEach(() => {
   mockedGetQuestionBanks.mockResolvedValue(banks)
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
   mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'] })
+  mockedGetPracticeSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'], items: [] })
   mockedSubmit.mockResolvedValue(submitResult('single'))
   mockedMentor.mockResolvedValue({ learner_id: 'demo_learner', domain_id: 'endoscopy', study_goal: '复盘', due_review_count: 1, focus: '胃', weak_areas: ['胃'], recent_errors: [], steps: [{ kind: 'review', title: '完成复习', question_ids: [] }] })
   mockedReview.mockResolvedValue({ review_card_id: 'review-test', question_id: 'single', domain_id: 'endoscopy', due_at: '2026-08-29T00:00:00Z', interval_days: 1, difficulty: 2, stability: 1, retrievability: .9, state: 'Learning', review_count: 1 })
@@ -103,7 +111,7 @@ beforeEach(() => {
     onEvent({ event: 'token', data: { text: '先观察可支持事实。' } })
     onEvent({ event: 'message_end', data: { run_id: 'run-test' } })
   })
-  mockedEvaluation.mockResolvedValue({ artifact_available: false, artifact_path: null, mode: 'not_run', sample_count: 0, metrics: {}, cases: [], notice: '尚未运行', safety_notice: safety })
+  mockedEvaluation.mockResolvedValue({ artifact_available: false, artifact_path: null, mode: 'not_run', sample_count: 0, metrics: {}, cases: [], probes: [], strategy_comparison: [], notice: '尚未运行', safety_notice: safety })
   mockedEvaluationDatasets.mockResolvedValue([{ dataset_id: 'cmexam-text-eval-v1', domain_id: 'endoscopy', name: 'CMExam 文本评测', description: '冻结评测集', source_dataset: 'CMExam', modality: 'text', version: 'cmexam-text-eval-v1', dataset_hash: 'hash', sample_count: 5, supports_vision: false, tutor_indexed: false }])
   mockedTestEvaluationConnection.mockResolvedValue({ ok: true, provider: 'byok_openai_compatible', model: 'candidate-model', latency_ms: 12, error: null, fallback: false, key_persisted: false })
   const evaluationRun: EvaluationRun = { eval_run_id: 'evalrun-test', dataset_id: 'cmexam-text-eval-v1', dataset_version: 'cmexam-text-eval-v1', dataset_hash: 'hash', provider: 'byok_openai_compatible', model: 'candidate-model', prompt_version: 'model-eval-answer-json-v1', status: 'completed', sample_count: 1, aggregate: { accuracy: 1, valid_parse_rate: 1, latency_p50_ms: 12, latency_p95_ms: 12 }, usage: { total_tokens: 12 }, errors: [], created_at: '2026-08-28T00:00:00Z', completed_at: '2026-08-28T00:00:12Z', artifact_path: 'artifacts/eval/model-runs/evalrun-test.json', cases: [{ eval_case_id: 'case-1', question: 'Which option is correct?', candidate_output: '{"answer":"B"}', parsed_answer: 'B', gold_answer: null, correct: null, valid_parse: true, latency_ms: 12, error_category: null, task: 'text_single_choice', topic: 'fixture' }], gold_revealed: false, fallback: false, safety_notice: safety }
@@ -116,43 +124,49 @@ describe('Stage 1 page contracts', () => {
     renderPage(<OverviewPage />)
     expect(await screen.findByTestId('overview-page')).toBeInTheDocument()
     expect(screen.getByText('胃部观察题库')).toBeInTheDocument()
-    expect(screen.getByText('0 / 10')).toBeInTheDocument()
+    expect(screen.getByText('0 题')).toBeInTheDocument()
+    expect(screen.queryByText('0 / 10')).not.toBeInTheDocument()
   })
 
-  it('does not present a review activity as a zero-point score', async () => {
+  it('renders recent answers with bank, question, type, result and time', async () => {
     mockedGetOverview.mockResolvedValueOnce({
       ...overview,
-      recent_sessions: [{ attempt_id: 'attempt-review', question_id: 'single', score: 0, correct: false, created_at: '2026-08-28T00:00:00Z' }],
+      recent_sessions: [{ attempt_id: 'attempt-review', question_id: 'single', bank_id: 'bank-a', bank_name: '胃部观察题库', question_summary: '这是一道可以定位的真实题干摘要。', question_type: 'single_choice', score: 0, correct: false, created_at: '2026-08-28T00:00:00Z' }],
     })
 
     renderPage(<OverviewPage />)
-    expect(await screen.findByText('进入复盘')).toBeInTheDocument()
-    expect(screen.getByText('—')).toBeInTheDocument()
+    const activity = (await screen.findByRole('heading', { name: '最近作答' })).closest('section')
+    expect(activity).not.toBeNull()
+    expect(within(activity as HTMLElement).getByText('胃部观察题库')).toBeInTheDocument()
+    expect(within(activity as HTMLElement).getByText('这是一道可以定位的真实题干摘要。')).toBeInTheDocument()
+    expect(within(activity as HTMLElement).getByText(/单选题 · 需要复盘/)).toBeInTheDocument()
     expect(screen.queryByText('0 分')).not.toBeInTheDocument()
   })
 
-  it('shows evidence-backed learning memory and clears only that derived view', async () => {
-    const user = userEvent.setup()
-    mockedGetLearningMemory.mockResolvedValueOnce({
-      learner_id: 'demo_learner',
-      api_source: 'backend',
-      items: [{ memory_id: 'memory-1', domain_id: 'endoscopy', kind: 'repeated_mistake', summary: '「食管」相关题目出现多次错误，下一轮建议先巩固基础观察与区分依据。', status: 'active', topic_keys: ['食管'], concept_keys: [], first_seen_at: '2026-08-28T00:00:00Z', last_seen_at: '2026-08-29T00:00:00Z', evidence_count: 3 }],
-    })
+  it('shows backend-derived weak areas without exposing a memory management panel', async () => {
+    mockedGetOverview.mockResolvedValueOnce({ ...overview, weak_areas: ['食管'] })
     renderPage(<OverviewPage />)
-    expect(await screen.findByTestId('learning-memory-panel')).toHaveTextContent('食管')
-    await user.click(screen.getByRole('button', { name: '清除长期学习记忆' }))
-    expect(mockedClearLearningMemory).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('食管')).toBeInTheDocument()
+    expect(screen.getByText('近期薄弱主题')).toBeInTheDocument()
+    expect(screen.queryByTestId('learning-memory-panel')).not.toBeInTheDocument()
+    expect(mockedClearLearningMemory).not.toHaveBeenCalled()
   })
 
-  it('renders bank search and routes to a selected bank', async () => {
+  it('opens a session builder from a filtered bank and routes with its selected session settings', async () => {
     const user = userEvent.setup()
-    renderPage(<BanksPage />)
+    renderPage(<><BanksPage /><LocationProbe /></>)
     expect(await screen.findByTestId('banks-page')).toBeInTheDocument()
-    await user.type(screen.getByPlaceholderText('搜索部位、题库名称…'), '食管')
+    await user.type(screen.getByPlaceholderText('搜索题库…'), '食管')
     expect(screen.queryByText('胃部观察题库')).not.toBeInTheDocument()
     const card = screen.getByText('食管观察题库').closest('article')
     expect(card).not.toBeNull()
-    expect(within(card as HTMLElement).getByRole('link', { name: /开始练习/ })).toHaveAttribute('href', '/practice?bank_id=bank-b')
+    await user.click(within(card as HTMLElement).getByRole('button', { name: '开始刷题' }))
+    expect(screen.getByRole('dialog', { name: '食管观察题库' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /考试/ }))
+    await user.click(screen.getByRole('button', { name: '自定义' }))
+    await user.type(screen.getByLabelText('自定义题量'), '37')
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '开始练习' }))
+    expect(await screen.findByTestId('location-probe')).toHaveTextContent('/practice?bank_id=bank-b&count=37&mode=exam&session_id=session-test')
   })
 
   it('supports all four discriminated question controls and typed submit payloads', async () => {
@@ -185,7 +199,7 @@ describe('Stage 1 page contracts', () => {
     }
   })
 
-  it('uses server session membership and shows the adaptive selection reason', async () => {
+  it('uses server session membership while keeping selection rationale out of the practice workspace', async () => {
     const orderedQuestions: Question[] = questionVariants.map((question) => ({
       ...question,
       title: `题-${question.id}`,
@@ -212,16 +226,55 @@ describe('Stage 1 page contracts', () => {
     })
 
     renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
-    expect(await screen.findByTestId('session-recommendation')).toHaveAttribute('data-selection-strategy', 'weak_topic')
-    expect(screen.getByText('优先巩固「胃」相关题目，再维持题库覆盖。')).toBeInTheDocument()
-    expect(screen.getByText('题-short')).toBeInTheDocument()
+    await screen.findByTestId('question-card')
+    expect(screen.getByText('题干-short')).toBeInTheDocument()
+    expect(screen.queryByText('本次按未练题与题库覆盖安排练习。')).not.toBeInTheDocument()
+    expect(screen.queryByText('优先巩固「胃」相关题目，再维持题库覆盖。')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('session-recommendation')).not.toBeInTheDocument()
     expect(mockedGetQuestions).toHaveBeenLastCalledWith({ bankId: 'bank-a', sessionId: 'session-adaptive' })
   })
 
   it('does not duplicate a server session under React StrictMode', async () => {
     renderStrictPage(<PracticePage />, ['/practice?bank_id=bank-a'])
-    await screen.findByTestId('session-recommendation')
+    await screen.findByTestId('question-card')
     expect(mockedCreateSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens a lightweight question map and navigates by real question position', async () => {
+    const user = userEvent.setup()
+    mockedGetQuestions.mockResolvedValueOnce(questionsResponse(questionVariants.slice(0, 2)))
+    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    await screen.findByTestId('practice-page')
+    await user.click(screen.getByRole('button', { name: '题单' }))
+    expect(screen.getByRole('region', { name: '题单' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /第 2 题，未作答/ }))
+    expect(screen.getByText('请根据当前证据选择答案。')).toBeInTheDocument()
+  })
+
+  it('resumes at the first unanswered item and keeps position and completion semantics separate', async () => {
+    mockedGetQuestions.mockResolvedValueOnce(questionsResponse(questionVariants.slice(0, 3)))
+    mockedGetPracticeSession.mockResolvedValueOnce({
+      session_id: 'session-resumed', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 3, question_ids: ['single', 'multi', 'judge'], selection_strategy: 'coverage', selection_reason: '服务端会话。', selection_evidence: [],
+      items: [{ question_id: 'single', ordinal: 0, state: 'correct' }, { question_id: 'multi', ordinal: 1, state: 'incorrect' }, { question_id: 'judge', ordinal: 2, state: 'unanswered' }],
+    })
+
+    renderPage(<PracticePage />, ['/practice?bank_id=bank-a&session_id=session-resumed'])
+    expect(await screen.findByText('第 3 / 3 题')).toBeInTheDocument()
+    expect(screen.getByLabelText('已完成 2 / 3，67%')).toBeInTheDocument()
+  })
+
+  it('uses an honest missing-explanation state and opens the existing Tutor instead of showing grading prose', async () => {
+    const user = userEvent.setup()
+    mockedGetQuestions.mockResolvedValueOnce(questionsResponse([questionVariants[0]]))
+    mockedSubmit.mockResolvedValueOnce({ ...submitResult('single'), official_explanation_available: false, explanation: '' })
+    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    await screen.findByTestId('practice-page')
+    await user.click(screen.getByRole('button', { name: /选项一/ }))
+    await user.click(screen.getByTestId('submit-answer'))
+    expect(await screen.findByText('暂无题库解析')).toBeInTheDocument()
+    expect(screen.queryByText('已按确定性规则记录。')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '让智能辅导讲解' }))
+    expect(screen.getByTestId('tutor-sidecar')).toHaveClass('is-open')
   })
 
   it('shows loading, error and no private answer fields in the browser UI', async () => {
@@ -239,8 +292,8 @@ describe('Stage 1 page contracts', () => {
   it('renders the evaluation not-run state without inventing metrics', async () => {
     renderPage(<EvaluationPage />, ['/eval'])
     expect(await screen.findByTestId('evaluation-page')).toBeInTheDocument()
-    expect(screen.getByText('连接候选模型')).toBeInTheDocument()
-    expect(screen.getByText('评测集总规模：5 道题')).toBeInTheDocument()
+    expect(screen.getByText('新建评测')).toBeInTheDocument()
+    expect(screen.getByText('5 道题 · 文本输入 · 冻结评测集')).toBeInTheDocument()
     expect(screen.getByText('本次抽样题量')).toBeInTheDocument()
     expect(screen.queryByText('100')).not.toBeInTheDocument()
   })
@@ -260,7 +313,7 @@ describe('Stage 1 page contracts', () => {
     expect(screen.queryByText('Gold', { exact: true })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '查看对照答案' }))
     expect(await screen.findByText('参考答案已展示')).toBeInTheDocument()
-    expect(screen.getAllByText('B', { exact: true })).toHaveLength(2)
+    expect(screen.getByText('B', { exact: true })).toBeInTheDocument()
     expect(mockedCreateEvaluationRun.mock.calls[0]?.[0].api_key).toBe('secret-not-persisted')
     expect(mockedGetEvaluationRun).toHaveBeenCalledWith('evalrun-test', true)
   })
@@ -269,10 +322,31 @@ describe('Stage 1 page contracts', () => {
     const user = userEvent.setup()
     renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
     await screen.findByTestId('practice-page')
-    await user.type(screen.getByLabelText('向 Tutor 提问'), '请帮助我观察')
-    await user.click(screen.getByLabelText('发送给 Tutor'))
+    await user.type(screen.getByLabelText('向智能辅导提问'), '请帮助我观察')
+    await user.click(screen.getByLabelText('发送给智能辅导'))
     expect(await screen.findByText('先观察可支持事实。')).toBeInTheDocument()
     expect(screen.getByTestId('tutor-sources')).toHaveTextContent('test source')
+  })
+
+  it('deduplicates repeated citations and keeps extra sources collapsed by default', async () => {
+    const user = userEvent.setup()
+    mockedStreamTutor.mockImplementationOnce(async (_request, onEvent) => {
+      onEvent({ event: 'source', data: { document_name: '资料 A', section: '第一节', snippet: '相同资料' } })
+      onEvent({ event: 'source', data: { document_name: '资料 A', section: '第一节', snippet: '相同资料（重复）' } })
+      onEvent({ event: 'source', data: { document_name: '资料 B', section: '第二节', snippet: '第二条资料' } })
+      onEvent({ event: 'source', data: { document_name: '资料 C', section: '第三节', snippet: '第三条资料' } })
+      onEvent({ event: 'token', data: { text: '已结合资料说明。' } })
+    })
+    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    await screen.findByTestId('practice-page')
+    await user.type(screen.getByLabelText('向智能辅导提问'), '请解释')
+    await user.click(screen.getByLabelText('发送给智能辅导'))
+    expect(await screen.findByText('参考资料 3 条')).toBeInTheDocument()
+    expect(screen.getByText(/资料 A/)).toBeInTheDocument()
+    expect(screen.getByText(/资料 B/)).toBeInTheDocument()
+    expect(screen.queryByText(/资料 C/)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '查看全部 3 条' }))
+    expect(screen.getByText(/资料 C/)).toBeInTheDocument()
   })
 
   it('uses a full-width text-only question layout and hides importer provenance copy', async () => {
@@ -280,9 +354,9 @@ describe('Stage 1 page contracts', () => {
     renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
     expect(await screen.findByTestId('practice-page')).toBeInTheDocument()
     const questionCard = screen.getByTestId('question-card')
-    expect(questionCard).toHaveClass('text-only')
+    expect(questionCard).toHaveClass('is-text-only')
     expect(questionCard).toHaveAttribute('data-question-layout', 'text-only')
     expect(screen.queryByText('来自 CMB-Exam 的真实题目；用于教学研修，保留上游来源与授权边界。')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('question-card')?.querySelector('.s1-question-image')).toBeNull()
+    expect(screen.queryByTestId('question-card')?.querySelector('.practice-question-image')).toBeNull()
   })
 })

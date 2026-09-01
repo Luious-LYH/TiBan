@@ -19,6 +19,12 @@ import yaml
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = BACKEND_ROOT.parent
+# The development tree keeps ``backend/`` below the project root, while the
+# production Compose image copies the backend itself to ``/app`` and mounts
+# the governed corpus at ``/app/knowledge``.  Prefer that mounted root when
+# the host-style parent cannot contain the corpus.
+if not (PROJECT_ROOT / "knowledge").is_dir() and (BACKEND_ROOT / "knowledge").is_dir():
+    PROJECT_ROOT = BACKEND_ROOT
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
@@ -90,6 +96,7 @@ def index_corpus(*, dry_run: bool = False) -> dict[str, object]:
         chunk_ids = rag_service.index_markdown(
             path,
             document_id=document_id,
+            document_name=str(item["title"]),
             child_size=CHILD_SIZE,
             namespace=namespace,
             source_id=source_id,

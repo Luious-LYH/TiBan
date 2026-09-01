@@ -117,6 +117,8 @@ class LLMProvider:
         return hosts
 
     def status(self) -> dict[str, Any]:
+        from app.services.runtime_settings_service import runtime_settings_service
+        runtime_settings_service.sync()
         demo_attempts = self._local_demo_provider_attempts()
         demo_configured = bool(demo_attempts)
         primary_configured = bool(
@@ -150,6 +152,8 @@ class LLMProvider:
         }
 
     def preflight(self, base_url: str | None = None) -> dict[str, Any]:
+        from app.services.runtime_settings_service import runtime_settings_service
+        runtime_settings_service.sync()
         raw_base_url = (base_url or "").strip()
         warnings: list[str] = []
         next_actions = [
@@ -288,6 +292,8 @@ class LLMProvider:
         provider: str | None = None,
         allow_fallback: bool = True,
     ) -> LLMResult:
+        from app.services.runtime_settings_service import runtime_settings_service
+        runtime_settings_service.sync()
         image_data = self._image_data_url(image_path) if image_path else None
         image_attached = bool(image_data)
         attempts = self._provider_attempts(
@@ -536,9 +542,9 @@ class LLMProvider:
             return "loopback_port_required"
         if is_loopback and port is not None and port < 1024:
             return "loopback_port_blocked"
-        if scheme == "http" and not is_loopback:
+        if scheme == "http" and not is_loopback and not self._private_host_allowed(hostname):
             return "non_loopback_http_blocked"
-        if not is_loopback and self._is_blocked_ip_literal(hostname):
+        if not is_loopback and self._is_blocked_ip_literal(hostname) and not self._private_host_allowed(hostname):
             return "private_or_reserved_ip_blocked"
         if not is_loopback:
             resolution = self._resolution_safety(hostname, port)

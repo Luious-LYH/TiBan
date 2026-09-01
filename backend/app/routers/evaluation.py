@@ -10,10 +10,17 @@ from pydantic import BaseModel, Field
 from app.core.config import SAFETY_NOTICE
 from app.schemas import EvaluationArtifactResponse
 from app.services.model_eval_service import get_run, list_datasets, run_evaluation, test_connection
+from app.services.portfolio_agent_runtime import portfolio_agent_runtime
 
 
 router = APIRouter(prefix="/api/v3/evaluation", tags=["stage1-evaluation"])
-ARTIFACT_PATH = Path(__file__).resolve().parents[2] / ".." / "artifacts" / "eval" / "latest.json"
+_HOST_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_COMPOSE_ARTIFACT_ROOT = Path("/app/artifacts")
+# Backend source is the Docker build context, while evaluation artifacts stay
+# at the repository root.  Compose mounts that existing, read-only artifact
+# folder at /app/artifacts; host runs continue to resolve ../artifacts.
+ARTIFACT_ROOT = _COMPOSE_ARTIFACT_ROOT if _COMPOSE_ARTIFACT_ROOT.exists() else _HOST_PROJECT_ROOT / "artifacts"
+ARTIFACT_PATH = ARTIFACT_ROOT / "eval" / "latest.json"
 
 
 def _artifact() -> dict[str, Any]:
@@ -38,10 +45,74 @@ def _artifact() -> dict[str, Any]:
         "sample_count": int(payload.get("metrics", {}).get("case_count", len(payload.get("cases", [])))),
         "metrics": payload.get("metrics", {}),
         "cases": payload.get("cases", []),
+        "probes": _public_probes(payload),
+        # The current artifact contains one sparse retrieval replay only.
+        # Do not invent Dense/Hybrid/Rerank rows merely to fill a comparison.
+        "strategy_comparison": _public_strategies(payload),
         "created_at": payload.get("created_at"),
         "notice": "离线确定性 artifact；不代表真实候选模型或临床性能。",
         "safety_notice": SAFETY_NOTICE,
     }
+
+
+def _evidence_catalog() -> dict[str, dict[str, str]]:
+    catalog: dict[str, dict[str, str]] = {}
+    for case in portfolio_agent_runtime.list_cases():
+        for fact in case.get("facts", []):
+            evidence_id = str(fact.get("id", ""))
+            if evidence_id:
+                catalog[evidence_id] = {
+                    "evidence_id": evidence_id,
+                    "label": str(fact.get("label", "教学证据")),
+                    "source_title": str(case.get("source_dataset", "公开教学样例")),
+                    "section": str(fact.get("dimension", "事实依据")),
+                    "snippet": str(fact.get("evidence", "")),
+                    "query_context": f"{case.get('title', '')} {fact.get('label', '')} {(fact.get('aliases') or [''])[0]}",
+                }
+    return catalog
+
+
+def _public_probes(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    catalog = _evidence_catalog()
+    raw_probes = payload.get("retrieval_eval", {}).get("probes", [])
+    items: list[dict[str, Any]] = []
+    for raw in raw_probes:
+        if not isinstance(raw, dict):
+            continue
+        expected_id = str(raw.get("expected_evidence_id", ""))
+        expected = catalog.get(expected_id)
+        if expected is None:
+            continue
+        retrieved = []
+        for rank, evidence_id in enumerate(raw.get("ranked_evidence_ids", []), start=1):
+            evidence = catalog.get(str(evidence_id))
+            if evidence is not None:
+                retrieved.append({**{key: value for key, value in evidence.items() if key != "query_context"}, "rank": rank})
+        items.append({
+            "id": str(raw.get("query_id", expected_id)),
+            "query": expected["query_context"],
+            "expected_evidence": {key: value for key, value in expected.items() if key != "query_context"},
+            "retrieved": retrieved,
+            "hit_at_1": bool(raw.get("hit_at_1")),
+            "hit_at_3": bool(raw.get("hit_at_3")),
+        })
+    return items
+
+
+def _public_strategies(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    comparison = payload.get("strategy_comparison")
+    if not isinstance(comparison, list):
+        return []
+    rows = []
+    for item in comparison:
+        if not isinstance(item, dict) or not isinstance(item.get("metrics"), dict):
+            continue
+        rows.append({
+            "name": str(item.get("name", "未命名策略")),
+            "metrics": {str(key): float(value) for key, value in item["metrics"].items() if isinstance(value, (int, float))},
+            "artifact_path": str(item.get("artifact_path", "artifacts/eval/latest.json")),
+        })
+    return rows
 
 
 @router.get("/latest", response_model=EvaluationArtifactResponse)

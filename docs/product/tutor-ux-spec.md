@@ -35,6 +35,6 @@ Tutor v1 is bounded to `AgentRunner`, `ToolRegistry`, `ModelGateway`, `AgentCont
 
 ## Evidence
 
-- [Tutor provider real direct-answer state](../portfolio/evidence/stage-2.5/tutor-provider-direct-answer.png)
+- [Current v2 Tutor and practice captures](../portfolio/evidence/current-v2/index.md)
 - [Tutor architecture](../architecture/tutor-agent.md)
 - [anonymous trace](../../artifacts/agent/tutor-v1/anonymous-demo-trace.json)

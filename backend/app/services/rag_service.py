@@ -9,15 +9,18 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
-from typing import Iterable, Literal
+from typing import TYPE_CHECKING, Iterable, Literal
 
 from fastembed import TextEmbedding
 from qdrant_client import QdrantClient, models
-from sentence_transformers import CrossEncoder
 from sqlalchemy import select
+
+if TYPE_CHECKING:
+    from sentence_transformers import CrossEncoder
 
 from app.db.database import SessionLocal
 from app.db.models import DocumentVersionModel, KnowledgeChunkModel, SourceDocumentModel
+from app.services.runtime_settings_service import runtime_settings_service
 
 
 MODEL_NAME = 'BAAI/bge-small-zh-v1.5'
@@ -73,7 +76,7 @@ def _sparse_score(query: str, content: str) -> float:
 class RagService:
     def __init__(self) -> None:
         self._embedder: TextEmbedding | None = None
-        self._reranker: CrossEncoder | None = None
+        self._reranker: "CrossEncoder | None" = None
 
     @property
     def embedder(self) -> TextEmbedding:
@@ -92,18 +95,40 @@ class RagService:
         return QdrantClient(url=os.getenv('QDRANT_URL', 'http://127.0.0.1:6333'), timeout=timeout)
 
     @property
-    def reranker(self) -> CrossEncoder:
+    def reranker(self) -> "CrossEncoder":
         if self._reranker is None:
+            # Importing sentence-transformers imports the heavyweight torch
+            # runtime. Keep that optional path out of API cold-start; dense
+            # retrieval and the local Tutor policy do not need the reranker.
+            from sentence_transformers import CrossEncoder
+
             # Apache-2.0 cross encoder; cached inside the repository runtime so
             # Windows' default temporary cache never requires symlink privilege.
             self._reranker = CrossEncoder(RERANK_MODEL, cache_dir=str(MODEL_CACHE / 'cross-encoder'))
         return self._reranker
+
+    def prewarm(self) -> dict[str, object]:
+        """Initialize the dense embedding path before a Factory actor accepts work.
+
+        This performs the real model load and one harmless embedding in the
+        worker process.  It deliberately does not create a collection, index
+        content, or mutate business data.
+        """
+
+        started = perf_counter()
+        vector = next(self.embedder.embed(["题伴题目生成服务就绪检查"], batch_size=runtime_settings_service.embedding_batch_size()))
+        return {
+            "model": MODEL_NAME,
+            "vector_size": len(vector),
+            "elapsed_ms": round((perf_counter() - started) * 1000),
+        }
 
     def index_markdown(
         self,
         path: Path,
         *,
         document_id: str = 'source-stage2-endoscopy-v1',
+        document_name: str | None = None,
         domain_id: str = 'endoscopy',
         child_size: int = 180,
         namespace: str = 'medical_general',
@@ -115,7 +140,7 @@ class RagService:
         version_label: str | None = None,
     ) -> list[str]:
         text = path.read_text(encoding='utf-8')
-        document_name = path.name
+        resolved_document_name = document_name or path.name
         source_hash = _hash(text)
         chunks = list(_chunk_markdown(_strip_frontmatter(text), child_size))
         # Chunk identity changed in Stage 2 so identical uploads can coexist
@@ -131,9 +156,10 @@ class RagService:
         with SessionLocal() as session:
             document = session.get(SourceDocumentModel, document_id)
             if not document:
-                session.add(SourceDocumentModel(document_id=document_id, domain_id=domain_id, bank_id=None, name=document_name, media_type='text/markdown', content_hash=source_hash, status='indexed', source_id=source_id, business_usage=business_usage, license_gate_status=license_gate_status, ai_ingestion_allowed=ai_ingestion_allowed, source_uri=source_uri or str(path.resolve()), namespace=namespace))
+                session.add(SourceDocumentModel(document_id=document_id, domain_id=domain_id, bank_id=None, name=resolved_document_name, media_type='text/markdown', content_hash=source_hash, status='indexed', source_id=source_id, business_usage=business_usage, license_gate_status=license_gate_status, ai_ingestion_allowed=ai_ingestion_allowed, source_uri=source_uri or str(path.resolve()), namespace=namespace))
                 session.flush()
             else:
+                document.name = resolved_document_name
                 document.namespace = namespace
                 document.domain_id = domain_id
                 document.source_id = source_id or document.source_id
@@ -168,7 +194,7 @@ class RagService:
             rows = list(session.scalars(select(KnowledgeChunkModel).where(KnowledgeChunkModel.version_id == version_id).order_by(KnowledgeChunkModel.ordinal)))
             document = session.get(SourceDocumentModel, document_id)
             assert document is not None
-            vectors = list(self.embedder.embed([row.content for row in rows]))
+            vectors = list(self.embedder.embed([row.content for row in rows], batch_size=runtime_settings_service.embedding_batch_size()))
             client = self.qdrant
             if not client.collection_exists(COLLECTION):
                 client.create_collection(COLLECTION, vectors_config=models.VectorParams(size=len(vectors[0]), distance=models.Distance.COSINE))

@@ -181,6 +181,10 @@ def build_tutor_dependencies() -> TutorDependencies:
 
 
 def configured_tutor_gateway() -> ModelGateway:
-    if os.getenv("TUTOR_PROVIDER_ENABLED", "").strip().lower() == "true" and config.LLM_BASE_URL and config.LLM_API_KEY:
+    from app.services.runtime_settings_service import runtime_settings_service
+
+    runtime_settings_service.sync()
+    runtime_override = bool(runtime_settings_service.llm_public()["runtime_override"])
+    if (os.getenv("TUTOR_PROVIDER_ENABLED", "").strip().lower() == "true" or runtime_override) and config.LLM_BASE_URL and config.LLM_API_KEY:
         return OpenAICompatibleTutorGateway()
     return LocalPolicyModelGateway()

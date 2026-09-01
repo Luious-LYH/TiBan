@@ -1,25 +1,29 @@
 # 题伴 TiBan
 
-**Agent-native Adaptive QBank & Learning Platform**
+**Agent-native Question Bank & Learning Workspace**
 
-TiBan brings question banks, a persistent Tutor, retrieval, learning memory,
+TiBan brings question banks, a persistent Tutor Agent, retrieval, learning memory,
 FSRS review, question generation and model evaluation into one learning
 workflow. The current domain packs are Medical / Endoscopy and General
 Science.
 
-![Practice workspace with the persistent right-side Tutor](./docs/portfolio/evidence/stage-4/02-practice-tutor.png)
+![Practice workspace with the persistent right-side Tutor](./docs/v3/evidence/phase-e/01-practice-rag-citation-1440.png)
 
 ## What you can do
 
-- Browse question banks and start Study, Exam or Review sessions.
+- Browse question banks and start focused 刷题 or 考试 sessions.
 - Practice with a Tutor that stays beside the current question and uses the
   question, permitted evidence and learner context.
 - Submit an answer and continue through grading, Attempt history, mastery and
   review scheduling.
-- Upload an allowed teaching document, create a source-backed question draft,
+- Open the 题库导入 workspace to validate an existing CSV/JSONL/Markdown bank,
+  or create a source-backed question draft from an allowed teaching document,
   review revisions and publish the selected version.
 - Compare candidate models on text and image-question evaluation sets through a
   separate evaluation workspace.
+- Configure the current TiBan instance's LLM and Embedding runtime without
+  storing API keys in the browser; runtime overrides restore their defaults on
+  service restart.
 - Switch domain packs without changing the Practice, Tutor, Memory, FSRS or
   Evaluation flow.
 
@@ -54,11 +58,11 @@ provider adapters while keeping the product runnable as one platform.
 
 | Practice + Tutor | Adaptive learning |
 | --- | --- |
-| ![Practice session with Tutor](./docs/portfolio/evidence/stage-4/02-practice-tutor.png) | ![Progress and adaptive learning loop](./docs/portfolio/evidence/stage-4/03-adaptive-learning-loop.png) |
+| ![Practice session with Tutor](./docs/v3/evidence/phase-e/01-practice-rag-citation-1440.png) | ![Learning homepage with real recent answers](./docs/v3/evidence/phase-e/05-overview-1440.png) |
 
 | Question Factory | Model evaluation |
 | --- | --- |
-| ![Document-to-question Factory](./docs/portfolio/evidence/stage-4/04-question-factory.png) | ![Model evaluation workspace](./docs/portfolio/evidence/stage-4/05-model-evaluation.png) |
+| ![Document-to-question Factory](./docs/v3/evidence/phase-e/03-factory-real-job-1440.png) | ![Model evaluation workspace](./docs/v3/evidence/phase-e/04-evaluation-evidence-1440.png) |
 
 ## Current Scope
 
@@ -163,8 +167,9 @@ npm run build
 ```
 
 Open the app at `http://127.0.0.1:5173/`, then follow `/banks` → `/practice`.
-The [demo script](./docs/portfolio/DEMO_SCRIPT.md) covers the main product
-flow.
+The [V3 core demo flow](./docs/v3/portfolio/V3_DEMO_FLOW.md) covers the main
+刷题 → 智能辅导 → Citation → Submit → Review path, with Factory and Evaluation
+as the secondary demonstrations.
 
 ## Project docs
 
@@ -173,7 +178,9 @@ flow.
 - [Tutor architecture](./docs/architecture/tutor-agent.md)
 - [Question Factory architecture](./docs/architecture/question-factory.md)
 - [Domain packs](./docs/architecture/domain-packs-v2.md)
-- [Stage 7 / v2.0 report](./docs/stages/stage-7-v2.0-final-report.md)
+- [V3 Phase E final report](./docs/v3/V3_PHASE_E_FINAL_REPORT.md)
+- [V3 evidence matrix](./docs/portfolio/FINAL_EVIDENCE_MATRIX.md)
+- [TiBan v2.0 release report](./docs/V2_RELEASE_REPORT.md)
 - [Data attribution](./THIRD_PARTY_DATA.md)
 
 ## License

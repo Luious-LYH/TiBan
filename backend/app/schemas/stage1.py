@@ -256,6 +256,10 @@ class PracticeSubmitResponse(Stage1Model):
 class RecentSessionPublic(Stage1Model):
     attempt_id: str
     question_id: str
+    bank_id: str
+    bank_name: str
+    question_summary: str
+    question_type: Literal["single_choice", "multiple_choice", "true_false", "short_answer"]
     score: int
     correct: bool
     created_at: datetime
@@ -303,6 +307,36 @@ class EvaluationArtifactResponse(Stage1Model):
     sample_count: int = Field(default=0, ge=0)
     metrics: dict[str, Any] = Field(default_factory=dict)
     cases: list[dict[str, Any]] = Field(default_factory=list)
+    probes: list["EvaluationProbePublic"] = Field(default_factory=list)
+    strategy_comparison: list["EvaluationStrategyPublic"] = Field(default_factory=list)
     created_at: str | None = None
     notice: str
     safety_notice: str = SAFETY_NOTICE
+
+
+class EvaluationEvidencePublic(Stage1Model):
+    evidence_id: str
+    label: str
+    source_title: str
+    section: str
+    snippet: str
+
+
+class EvaluationRetrievedEvidencePublic(EvaluationEvidencePublic):
+    rank: int = Field(ge=1)
+    score: float | None = None
+
+
+class EvaluationProbePublic(Stage1Model):
+    id: str
+    query: str
+    expected_evidence: EvaluationEvidencePublic
+    retrieved: list[EvaluationRetrievedEvidencePublic] = Field(default_factory=list)
+    hit_at_1: bool
+    hit_at_3: bool
+
+
+class EvaluationStrategyPublic(Stage1Model):
+    name: str
+    metrics: dict[str, float] = Field(default_factory=dict)
+    artifact_path: str
