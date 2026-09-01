@@ -22,3 +22,23 @@ frontend/npm-audit*.json
 frontend/docs/
 frontend/playwright-report/
 frontend/test-results/
+
+# Local-only development instructions and working notes.
+# Keep the public repository focused on the runnable product and its public docs.
+/01_平台总构建方案书.md
+/02_Agent自动开发提示词文档.md
+/03_系统需求规格与接口数据字典.md
+/04_AGENTS.md
+/AGENTS.md
+/README_使用说明.md
+
+# Local Compose overrides are used for acceptance runs and isolated experiments.
+# The public runtime entry point is docker-compose.yml.
+/compose*.yml
+
+# Generated/local audit material that should not enter the public repository.
+/frontend/openapi.json
+/前端视觉目标/
+/docs/ARCHIVE_MANIFEST.md
+/docs/V2_RELEASE_REPORT.md
+/docs/portfolio/evidence/current-v2/
