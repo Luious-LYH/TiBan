@@ -89,7 +89,7 @@ jobs:
         working-directory: frontend
         env:
           CI: true
-        run: npx playwright test e2e/core-flow.spec.ts --grep "Flow A:" --project=chromium
+        run: npx playwright test e2e/core-flow.spec.ts --grep "Flow V3-A:" --project=chromium
 
       - name: Run General Domain smoke flow
         working-directory: frontend
