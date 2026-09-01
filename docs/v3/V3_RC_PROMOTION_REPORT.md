@@ -134,7 +134,7 @@ npm run api:check
 origin/refactor/v3-tiban-agent-experience
 ```
 
-GitHub Actions workflow 为 `.github/workflows/ci.yml`，仍沿用仓库既有的 backend、frontend、Playwright smoke 和 architecture gate。当前 RC 证据提交 `a11efa0` 对应 hosted run `33519082646`（更新时仍在 runner 安装 Chromium）；最终状态以 GitHub Actions 实际结果为准，不以本地通过替代 hosted 结果。
+GitHub Actions workflow 为 `.github/workflows/ci.yml`，仍沿用仓库既有的 backend、frontend、Playwright smoke 和 architecture gate。当前 release commit `085b9a9` 对应 hosted run [`33521373767`](https://github.com/Luious-LYH/TiBan/actions/runs/33521373767)，三个 job 均已成功。之前的失败 run 使用了旧的 `--grep "Flow A:"`，与实际测试名 `Flow V3-A:` 不匹配；该 CI-only 问题已在 `085b9a9` 修复。
 
 ## H. Final Screenshot Set
 
@@ -172,21 +172,22 @@ Practice + 智能辅导 + Citation
 | Human Acceptance H6 — artifact → case → expected/ranked evidence | PASS | `04-evaluation-evidence-1440.png`、Phase C Flow C |
 | UX / data correctness | PASS | 首页指标、Practice 进度、weak topics、无解析回退、Citation 收纳、工程词清理 |
 | Clean API drift | PASS | `npm run api:check` exit code 0 |
-| Hosted GitHub Actions | PENDING | Run `33519082646` for `a11efa0`; see Section G |
+| Hosted GitHub Actions | PASS | Run `33521373767` for `085b9a9`; backend / frontend / Playwright smoke 全部 success |
 
 ### 当前 promotion 判定
 
-在 Hosted Actions 对 `a11efa0` 返回全绿之前，严格 Gate 状态为：
+Hosted Actions 已对 `085b9a9` 返回全绿，Promotion Gate 状态为：
 
 ```text
-TiBan V3 RC Promotion Gate = PENDING
+TiBan V3 RC Promotion Gate = PASS
 ```
 
 这不是功能 blocker；本地可展示版本已经完成，剩余是远程 release hygiene。收到 hosted run 的最终结果后，只需更新本节和 Section G，不再重复 Phase E 或重新设计 UI。
 
 ## K. Release Commit / Tag Recommendation
 
-- 当前 release commit：`a11efa08490be65bb4bc085f0c3bd19e3ce8507e`
+- 当前 release commit：`085b9a956c0e3801ce812d1331509c3e49fc6c9c`
+- Hosted Actions：`33521373767`（全绿）
 - 实现提交：`db0c371617db9b0894275d1a341acada100b2b1a`
 - 推荐 tag：`v3.0.0-rc1`
 - 本轮不创建正式 `v3.0.0`，也不自动创建 / push `v3.0.0-rc1`，等待用户确认。
