@@ -42,3 +42,13 @@ frontend/test-results/
 /docs/ARCHIVE_MANIFEST.md
 /docs/V2_RELEASE_REPORT.md
 /docs/portfolio/evidence/current-v2/
+
+# Historical stage-only reports, evidence and acceptance scratch data.
+/artifacts/stage-2.5/
+/docs/stages/
+/docs/portfolio/evidence/stage-*/
+/docs/evals/demo-qbank-bootstrap-regression-v1.md
+/docs/evals/phase-0-baseline-test-results.md
+/docs/evals/question-judge-eval-v1.md
+/docs/evals/rag-benchmark-v1.md
+/docs/evals/stage-*.md
