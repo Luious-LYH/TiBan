@@ -7,7 +7,7 @@ FSRS review, question generation and model evaluation into one learning
 workflow. The current domain packs are Medical / Endoscopy and General
 Science.
 
-![Practice workspace with the persistent right-side Tutor](./docs/v3/evidence/phase-e/01-practice-rag-citation-1440.png)
+![Practice workspace with the persistent right-side Tutor](./docs/v3/evidence/rc-promotion/01-practice-rag-citation-1440.png)
 
 ## What you can do
 
@@ -58,11 +58,11 @@ provider adapters while keeping the product runnable as one platform.
 
 | Practice + Tutor | Adaptive learning |
 | --- | --- |
-| ![Practice session with Tutor](./docs/v3/evidence/phase-e/01-practice-rag-citation-1440.png) | ![Learning homepage with real recent answers](./docs/v3/evidence/phase-e/05-overview-1440.png) |
+| ![Practice session with Tutor](./docs/v3/evidence/rc-promotion/01-practice-rag-citation-1440.png) | ![Learning homepage with real recent answers](./docs/v3/evidence/rc-promotion/05-overview-1440.png) |
 
 | Question Factory | Model evaluation |
 | --- | --- |
-| ![Document-to-question Factory](./docs/v3/evidence/phase-e/03-factory-real-job-1440.png) | ![Model evaluation workspace](./docs/v3/evidence/phase-e/04-evaluation-evidence-1440.png) |
+| ![Document-to-question Factory](./docs/v3/evidence/rc-promotion/03-factory-real-job-1440.png) | ![Model evaluation workspace](./docs/v3/evidence/rc-promotion/04-evaluation-evidence-1440.png) |
 
 ## Current Scope
 
@@ -179,6 +179,7 @@ as the secondary demonstrations.
 - [Question Factory architecture](./docs/architecture/question-factory.md)
 - [Domain packs](./docs/architecture/domain-packs-v2.md)
 - [V3 Phase E final report](./docs/v3/V3_PHASE_E_FINAL_REPORT.md)
+- [V3 RC promotion report](./docs/v3/V3_RC_PROMOTION_REPORT.md)
 - [V3 evidence matrix](./docs/portfolio/FINAL_EVIDENCE_MATRIX.md)
 - [TiBan v2.0 release report](./docs/V2_RELEASE_REPORT.md)
 - [Data attribution](./THIRD_PARTY_DATA.md)
