@@ -2,109 +2,118 @@
 
 # 题伴 TiBan
 
-**Agent-native 自适应题库与学习工作台**
+### 面向消化内镜研修的 Agent-native 自适应题库与学习工作台
 
-从刷题、智能辅导到复盘与知识检索，把学习状态真正连接起来。
+把题库、刷题、智能辅导、知识检索与复习调度，组织成一条会持续积累的学习路径。
 
 [中文](#中文) · [English](#english)
 
 </div>
 
-> 当前公开分支：`refactor/v3-tiban-agent-experience`。本 README 默认展示中文产品说明；English 版本见文末。
-
-![Practice、题目上下文与持久化智能辅导侧栏](./docs/v3/evidence/v3-1/batch-a/03-practice-1440.png)
+![TiBan 学习首页](./docs/v3/evidence/readme/01-overview-1440.png)
 
 ## 中文
 
-### TiBan 解决什么问题
+### 让每一道题都成为下一步学习的起点
 
-TiBan 面向消化内镜研修场景，将题库、Practice、智能辅导、受治理知识检索、作答记录、掌握度、FSRS 复习调度、题库导入和模型评测组织成一条可追踪的学习闭环。
+TiBan 是一个面向消化内镜研修的智能学习平台。学习者可以从题库选择刷题或考试，在清晰的题目工作区中完成作答，并随时向右侧的智能辅导提问。
 
-它的核心不是把聊天窗口放进题库，而是让辅导智能体理解当前题目、遵守 Study / Exam 权限边界，并在真实资料命中时给出可核验的来源。
+提交之后，系统会把本次作答沉淀为可继续使用的学习状态：掌握度、复习安排、薄弱主题和学习记忆会沿着同一条路径持续更新。下一次打开 TiBan 时，学习不会从空白开始。
 
-### 一条真实学习路径
+智能辅导理解当前题目、练习模式和作答上下文；需要资料支持时，它会检索已启用的知识来源，并把关键出处放在回答旁边。它始终围绕当前学习任务工作，像一位安静而持续的辅导伙伴。
+
+### 一条连贯的学习路径
 
 ```text
-题库详情
-   ↓ 选择刷题 / 考试
-Practice + 智能辅导
-   ↓ 提交答案
-Attempt → 掌握度 → FSRS Review Queue → Learning Memory
+选择题库
    ↓
-错题与复习 / 带教 Agent
+刷题 / 考试
+   ↓
+作答与智能辅导
+   ↓
+即时评分与题目解析
+   ↓
+掌握度 · FSRS 复习 · 学习记忆
+   ↓
+下一次更合适的练习
 ```
 
-### 当前可展示的核心能力
+### 核心体验
 
-| 能力 | 用户能看到什么 | 关键实现 |
+| 模块 | 体验 | 技术能力 |
 | --- | --- | --- |
-| 刷题与考试 | 题库详情、全部/未做/已做/错题/标记、轻量题单、提交反馈 | FastAPI practice workflow、Attempt、mastery、FSRS |
-| 智能辅导 | 当前题目上下文、对话、真实检索状态、引用与流式活动 | 受控 Tool Registry、SSE、RAG relevance gate |
-| 带教 Agent | 跨会话查看最近作答、复习队列、题库进度和学习记忆 | 持久化对话、只读学习工具、真实 runtime context |
-| 题库导入 | 导入已有题目，或从资料生成可审核题目草稿 | CSV/JSONL/Markdown validate、解析、生成、Gate/Judge/Repair |
-| 知识库 | PDF、DOCX、Markdown、TXT 的解析、索引、启停与来源预览 | FastEmbed + Qdrant + source/version/chunk registry |
-| 模型评测 | Retrieval / 辅导评测中的真实 case、指标和 evidence | 冻结 artifact、typed API projection、隔离评测数据 |
+| 题库与题库详情 | 先了解题库规模，再按全部、未做、已做、错题和标记浏览 | 领域隔离、题目状态投影、持久化进度 |
+| Practice | 题目、选项、题单和进度集中在一个工作区，作答后即时得到清晰反馈 | FastAPI 学习工作流、Attempt、服务端评分 |
+| 智能辅导 | 围绕当前题目提示、追问和讲解；回答需要资料时显示清晰出处 | 受控工具路由、语义检索、Citation、SSE 流式交互 |
+| 带教 Agent | 跨题库查看最近作答、复习队列、题库进度和学习记忆，帮助安排下一步 | 持久化对话、只读学习工具、跨会话上下文 |
+| 题库导入 | 校验已有 CSV / JSONL / Markdown，或从教学资料生成可审核题目 | 解析、来源绑定、Gate、Judge、Repair、Review / Publish |
+| 知识库 | 管理 PDF、DOCX、Markdown、TXT，查看解析片段并控制是否参与检索 | 文档版本、分段索引、FastEmbed、Qdrant |
+| 模型评测 | 查看检索与辅导评测中的案例、指标和证据关系 | Typed OpenAPI、离线评测 artifact、模型调用隔离 |
 
-### 真实界面证据
+### 产品界面
 
-以下截图来自本地真实运行页面，不是设计稿或 mock screenshot。
+以下界面展示 TiBan 的主要使用路径与核心工作区。
 
 <table>
   <tr>
-    <td width="50%"><strong>Practice + 智能辅导</strong><br><img src="./docs/v3/evidence/v3-1/batch-a/03-practice-1440.png" alt="Practice 与智能辅导" width="100%"></td>
-    <td width="50%"><strong>题库详情与状态浏览</strong><br><img src="./docs/v3/evidence/v3-1/batch-a/02-bank-detail-1440.png" alt="题库详情" width="100%"></td>
+    <td width="50%"><strong>学习首页</strong><br><img src="./docs/v3/evidence/readme/01-overview-1440.png" alt="TiBan 学习首页" width="100%"></td>
+    <td width="50%"><strong>Practice + 智能辅导</strong><br><img src="./docs/v3/evidence/readme/04-practice-tutor-selected-1440.png" alt="Practice 与智能辅导" width="100%"></td>
   </tr>
   <tr>
-    <td width="50%"><strong>带教 Agent：跨会话学习上下文</strong><br><img src="./docs/v3/evidence/v3-1/batch-c/03-coach-learning-plan-1440.png" alt="带教 Agent 学习计划" width="100%"></td>
-    <td width="50%"><strong>知识库：真实资料与索引状态</strong><br><img src="./docs/v3/evidence/v3-1/batch-b/02-knowledge-system-sources-1440.png" alt="知识库系统资料" width="100%"></td>
+    <td width="50%"><strong>题库详情与状态浏览</strong><br><img src="./docs/v3/evidence/readme/03-bank-detail-1440.png" alt="题库详情与题目状态" width="100%"></td>
+    <td width="50%"><strong>带教 Agent</strong><br><img src="./docs/v3/evidence/readme/05-coach-agent-1440.png" alt="带教 Agent 工作区" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><strong>知识库</strong><br><img src="./docs/v3/evidence/readme/08-knowledge-library-1440.png" alt="知识库管理页面" width="100%"></td>
+    <td width="50%"><strong>模型评测</strong><br><img src="./docs/v3/evidence/readme/07-model-evaluation-1440.png" alt="模型评测页面" width="100%"></td>
   </tr>
 </table>
 
-更多真实验收截图：
+### Agent-native 的技术主线
 
-- [Practice + Citation](./docs/v3/evidence/rc-promotion/01-practice-rag-citation-1440.png)
-- [题库导入 / Question Factory](./docs/v3/evidence/rc-promotion/03-factory-real-job-1440.png)
-- [模型评测 evidence](./docs/v3/evidence/rc-promotion/04-evaluation-evidence-1440.png)
-- [设置与实例级智能服务配置](./docs/v3/evidence/rc-promotion/07-settings-1440.png)
+TiBan 把 Agent 能力放在真实学习流程中：
 
-### 技术主线
+- **Context-aware 智能辅导**：每次请求都携带当前题目、学习者、练习模式和作答阶段，Study、Exam、Review 遵循不同的权限边界。
+- **受控 Retrieval**：只有在问题确实需要资料时才检索；检索结果经过领域、命名空间、相关性和去重处理，再以章节、页码和片段形式回到回答中。
+- **Persistent Learning Memory**：学习记忆来自真实作答与复盘事实，帮助系统理解近期薄弱点和下一步训练方向。
+- **FSRS 复习调度**：每次提交都会进入持续计算的复习链路，形成下一次练习的时间依据。
+- **Durable Question Factory**：资料解析、题目生成、质量门禁、Judge、修订、人工审核和发布都有明确状态，任务可以被追踪和恢复。
+- **Typed Model Evaluation**：模型评测与学习状态隔离，用案例和指标观察检索、辅导和模型调用的实际表现。
+- **Domain Pack 架构**：消化内镜是主要教学领域，通用科学用于验证核心能力的领域复用和隔离。
+
+### 技术栈
 
 ```text
 React 19 + TypeScript + Vite
-            │ typed OpenAPI client / SSE
-FastAPI ────┼── PostgreSQL：题目、作答、复习、知识源与任务状态
-            ├── Qdrant：受治理知识检索
-            ├── Redis + Dramatiq：持久化题库导入任务
-            ├── 辅导智能体：受控工具、权限、流式事件和可审计结果
-            ├── Question Factory：Parse → Generate → Gate → Judge → Repair → Review → Publish
-            └── py-fsrs：复习调度
+        │  OpenAPI typed client + SSE
+        ▼
+FastAPI + Pydantic + SQLAlchemy
+        ├─ PostgreSQL：题库、作答、复习、知识源和任务状态
+        ├─ Qdrant + FastEmbed：受治理知识检索
+        ├─ Redis + Dramatiq：可恢复的题库导入任务
+        ├─ py-fsrs：复习调度
+        └─ OpenAI-compatible Provider：受安全边界约束的模型调用
 ```
 
-前端通过生成的 OpenAPI client 访问后端，运行时状态以 API、数据库和 artifact 为准；`frontend/src/api/generated.ts` 不手工维护。
-
-### 安全与数据边界
-
-- 医疗 / 消化内镜是主要教学领域，所有医疗辅助输出保留医生复核边界。
-- Tutor / 带教 Agent 只能读取当前允许的题目、学习者状态和知识源，不编造图像依据。
-- EndoBench 只属于 Evaluation，不进入 Tutor、题库或题目生成链路。
-- 大型第三方题库与用户上传资料不随仓库分发；来源、许可和复用边界见 [`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md)。
-- API Key 不存入浏览器；实例级智能服务配置通过运行时设置影响后端，重启后恢复 `.env` / Docker 默认值。
+前端通过生成的 OpenAPI 类型访问后端，服务端工作流统一维护题库、作答、复习与 Agent 状态。医疗教学内容始终保留医生复核边界；TiBan 用于教学训练与医生复核前辅助，不替代临床诊断或治疗决策。
 
 ### 快速开始
 
-环境要求：Python 3.12+、Node.js 22+、npm、Docker Desktop。
+环境要求：Python 3.12+、Node.js 22+、npm 和 Docker Desktop。
 
 ```powershell
+git clone https://github.com/Luious-LYH/TiBan.git
+cd TiBan
 docker compose up --build
 ```
 
-启动后访问 `http://127.0.0.1:5173/`，推荐按以下顺序体验：
+启动后访问 `http://127.0.0.1:5173/`，推荐按下面的顺序体验：
 
 ```text
-/banks → /banks/:bankId → /practice → 提交答案 → /review
+/banks → 题库详情 → 开始刷题 → Practice → 提交答案 → 错题与复习
 ```
 
-题库导入、知识库、带教 Agent、模型评测和设置是独立的次级演示入口。
+题库导入、知识库、带教 Agent、模型评测和设置，构成从资料到学习反馈的完整平台体验。
 
 本地回归：
 
@@ -122,55 +131,79 @@ npm test -- --run
 npm run build
 ```
 
+### 数据与安全
+
+- CMExam、CMB-Exam、Kvasir 等大型第三方数据只在获得授权的本地环境中导入，不随公共仓库分发。
+- API Key 仅存放在本地 `.env` 或请求级运行时配置中，不写入浏览器存储、数据库或 Git。
+- 知识库资料拥有独立的来源、版本、解析片段和启停状态，便于控制哪些内容可以参与 Agent 检索。
+- 医疗相关输出保留医生复核要求和安全提示，不生成面向真实患者的自主诊断或治疗结论。
+
+数据来源与授权边界见 [`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md)。
+
 ### 项目文档
 
 - [项目总览](./docs/portfolio/PROJECT_OVERVIEW.md)
-- [Demo Flow](./docs/v3/portfolio/V3_DEMO_FLOW.md)
-- [带教智能体与智能辅导架构](./docs/architecture/tutor-agent.md)
-- [Question Factory 架构](./docs/architecture/question-factory.md)
+- [TiBan Demo Flow](./docs/v3/portfolio/V3_DEMO_FLOW.md)
+- [智能辅导与带教 Agent 架构](./docs/architecture/tutor-agent.md)
+- [题库导入架构](./docs/architecture/question-factory.md)
+- [知识检索管线](./docs/architecture/rag-pipeline.md)
 - [领域包与共享核心](./docs/architecture/domain-packs-v2.md)
-- [V3.1 功能闭环与 Learning Agent 报告](./docs/v3/V3_1_LEARNING_AGENT_CLOSURE_REPORT.md)
-- [V3 RC Promotion 报告](./docs/v3/V3_RC_PROMOTION_REPORT.md)
-- [公开 Evidence Matrix](./docs/portfolio/FINAL_EVIDENCE_MATRIX.md)
 - [数据来源与许可边界](./THIRD_PARTY_DATA.md)
 
 ## English
 
-### What is TiBan?
+### TiBan in one sentence
 
-TiBan is an agent-native adaptive question-bank and learning workspace for endoscopy education. It connects question banks, Practice, a persistent learning assistant, governed knowledge retrieval, attempts, mastery, FSRS scheduling, question import, and model evaluation into one auditable loop.
+TiBan is an agent-native adaptive question-bank and learning workspace for endoscopy education. It turns every answer into a next-step learning signal through contextual tutoring, governed retrieval, review scheduling, and persistent learning memory.
 
-The product is not a chat box placed next to a quiz. The learning assistant receives the current question context, respects Study / Exam permission boundaries, and cites governed sources only when retrieval produces relevant evidence.
+### Product experience
 
-### Core experience
+Learners choose a question bank, enter Practice or Exam, answer in a focused workspace, and ask the persistent learning assistant for hints or explanations. After submission, the platform records the attempt, updates mastery and FSRS scheduling, and keeps the result available for future review.
 
-- **Practice and Exam** — browse bank details and question states, answer questions, submit without waiting for the LLM, and continue through Attempt, mastery and FSRS scheduling.
-- **Persistent learning assistant** — keeps the current question in context, exposes retrieval state and inline citations, and streams controlled activity through SSE.
-- **Coach Agent** — reads recent attempts, review queue, bank progress and learning memory across sessions through read-only tools.
-- **Question import** — validate an existing CSV/JSONL/Markdown bank or turn an allowed teaching document into a reviewable draft.
-- **Knowledge library** — parse, index, enable/disable and preview PDF, DOCX, Markdown and TXT sources with provenance.
-- **Model evaluation** — project real retrieval and tutoring artifacts into understandable cases, metrics and evidence.
+The learning assistant understands the current question and learning mode. When an answer genuinely needs supporting material, it retrieves enabled sources and presents readable citations alongside the explanation. The Coach Agent extends that context across question banks and sessions so learners can ask what to review next, revisit recent mistakes, or explore a knowledge topic.
+
+### Core capabilities
+
+- **Question banks and Practice** — browse question states, start a focused session, submit answers, and continue through a durable learning loop.
+- **Contextual learning assistant** — controlled tools, mode-aware permissions, SSE streaming, retrieval status, and inline citations.
+- **Coach Agent** — cross-session view of recent attempts, review scheduling, bank progress, learning memory, and enabled knowledge sources.
+- **Question import** — validate CSV / JSONL / Markdown banks or generate reviewable drafts from teaching documents through a durable workflow.
+- **Knowledge library** — parse, index, enable, disable, reindex, and preview PDF, DOCX, Markdown, and TXT sources.
+- **Model evaluation** — inspect retrieval and tutoring cases through typed projections of existing evaluation artifacts.
 
 ### Architecture
 
-TiBan uses React 19, TypeScript, Vite, FastAPI, PostgreSQL, Qdrant, Redis/Dramatiq, FastEmbed, SSE and `py-fsrs`. OpenAPI types are generated from the FastAPI contract. Runtime truth stays in the API, database and evaluation artifacts rather than in frontend-only mock state.
+```text
+React 19 + TypeScript + Vite
+        │  generated OpenAPI client / SSE
+        ▼
+FastAPI + PostgreSQL
+        ├─ Qdrant + FastEmbed for governed retrieval
+        ├─ Redis + Dramatiq for durable import jobs
+        ├─ FSRS for review scheduling
+        └─ OpenAI-compatible providers behind a controlled boundary
+```
+
+The platform is designed for educational training and physician-review-before-use support. It does not replace clinical diagnosis or treatment decisions. Large third-party datasets and user uploads stay outside the public repository, with attribution and reuse boundaries documented in [`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md).
 
 ### Quick start
 
-Requirements: Python 3.12+, Node.js 22+, npm and Docker Desktop.
+Requirements: Python 3.12+, Node.js 22+, npm, and Docker Desktop.
 
-```powershell
+```bash
+git clone https://github.com/Luious-LYH/TiBan.git
+cd TiBan
 docker compose up --build
 ```
 
-Open `http://127.0.0.1:5173/` and follow `/banks` → `/banks/:bankId` → `/practice` → submit → `/review`.
+Open `http://127.0.0.1:5173/` and follow:
 
-See the [Demo Flow](./docs/v3/portfolio/V3_DEMO_FLOW.md), [V3.1 closure report](./docs/v3/V3_1_LEARNING_AGENT_CLOSURE_REPORT.md), and [data attribution policy](./THIRD_PARTY_DATA.md) for details.
+```text
+/banks → bank details → Practice → submit → Review
+```
 
-### Scope and safety
+See the [Demo Flow](./docs/v3/portfolio/V3_DEMO_FLOW.md), [tutoring and Coach Agent architecture](./docs/architecture/tutor-agent.md), and [data attribution policy](./THIRD_PARTY_DATA.md) for more details.
 
-TiBan is for educational training and physician-review-before-use support. It is not an independent diagnostic or treatment system. EndoBench remains evaluation-only, and large third-party datasets and user uploads stay outside the public repository.
+### License and safety
 
-## License
-
-Code follows the repository license. Third-party datasets and source documents retain their own attribution and reuse restrictions.
+Code follows the repository license. Third-party datasets and teaching sources retain their own attribution and reuse restrictions. TiBan is intended for educational training and physician-review-before-use support; it is not an independent diagnostic or treatment system.
