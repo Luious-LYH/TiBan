@@ -1,7 +1,7 @@
 {
-  "eval_id": "eval_20260820T085509347250Z",
+  "eval_id": "eval_20260902T092814677353Z",
   "metric_version": "portfolio-agent-eval-v2.1",
-  "created_at": "2026-08-20T08:55:09.347250+00:00",
+  "created_at": "2026-09-02T09:28:14.677353+00:00",
   "conditions": {
     "mode": "deterministic_offline_golden_case_replay",
     "model_call": false,
@@ -26,8 +26,8 @@
     "recovery_rate": 1.0,
     "checkpoint_replay_rate": 1.0,
     "mean_fact_f1": 1.0,
-    "latency_p50_ms": 4.379,
-    "latency_p95_ms": 5.286
+    "latency_p50_ms": 4.236,
+    "latency_p95_ms": 5.786
   },
   "cases": [
     {
@@ -42,7 +42,7 @@
       "retrieved_count": 5,
       "context_estimated_tokens": 126,
       "model_calls": 0,
-      "latency_ms": 5.342
+      "latency_ms": 4.353
     },
     {
       "case_id": "case_polyp_followup",
@@ -56,7 +56,7 @@
       "retrieved_count": 5,
       "context_estimated_tokens": 128,
       "model_calls": 0,
-      "latency_ms": 4.379
+      "latency_ms": 4.236
     },
     {
       "case_id": "case_negative_findings",
@@ -70,7 +70,7 @@
       "retrieved_count": 5,
       "context_estimated_tokens": 101,
       "model_calls": 0,
-      "latency_ms": 3.78
+      "latency_ms": 6.144
     },
     {
       "case_id": "case_instrument_field",
@@ -84,7 +84,7 @@
       "retrieved_count": 5,
       "context_estimated_tokens": 128,
       "model_calls": 0,
-      "latency_ms": 5.061
+      "latency_ms": 4.119
     },
     {
       "case_id": "case_capsule_anatomy",
@@ -98,7 +98,7 @@
       "retrieved_count": 3,
       "context_estimated_tokens": 83,
       "model_calls": 0,
-      "latency_ms": 2.775
+      "latency_ms": 2.606
     }
   ],
   "retrieval_eval": {
@@ -365,9 +365,9 @@
     }
   ],
   "checkpoint_replay": {
-    "source_run_id": "agent_run_ce24bfe2899f",
-    "replay_id": "agent_run_4df99d2a7c78",
-    "parent_run_id": "agent_run_ce24bfe2899f",
+    "source_run_id": "agent_run_2db841b19e34",
+    "replay_id": "agent_run_4ba82bf27112",
+    "parent_run_id": "agent_run_2db841b19e34",
     "input_hash_match": true
   }
 }

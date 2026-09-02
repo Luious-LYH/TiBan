@@ -46,7 +46,7 @@ def _wrong_option(question_id: str) -> str:
         return next(str(item["id"]) for item in question.options if str(item["id"]) != answer)
 
 
-def test_domain_manifest_and_catalog_filtering_are_public_and_scoped() -> None:
+def test_domain_manifest_and_catalog_filtering_are_public_and_v31_scoped() -> None:
     client = TestClient(app)
     domains = client.get("/api/v3/domains")
     assert domains.status_code == 200
@@ -54,63 +54,22 @@ def test_domain_manifest_and_catalog_filtering_are_public_and_scoped() -> None:
 
     general = client.get("/api/v3/question-banks", params={"domain_id": "general_science"})
     assert general.status_code == 200
-    assert general.json()["items"]
-    assert {item["domain_id"] for item in general.json()["items"]} == {"general_science"}
-    assert all(item["question_count"] > 0 for item in general.json()["items"])
+    # General Science remains an internal compatibility/evaluation domain, but
+    # V3.1 intentionally removes fixture packs from the learner catalog.
+    assert general.json()["items"] == []
 
     medical = client.get("/api/v3/question-banks", params={"domain_id": "endoscopy"})
     assert medical.status_code == 200
-    assert all(item["domain_id"] == "endoscopy" for item in medical.json()["items"])
+    assert {item["bank_id"] for item in medical.json()["items"]} == {"bank-cmexam-real"}
 
 
-def test_general_domain_reuses_study_exam_review_tutor_and_fsrs() -> None:
+def test_hidden_general_fixture_cannot_start_a_learner_session() -> None:
     client = TestClient(app)
     learner_id = f"stage7-general-{uuid4().hex[:8]}"
     study = client.post("/api/v3/practice/sessions", json={
         "learner_id": learner_id, "bank_id": GENERAL_BANK_ID, "mode": "study", "question_count": 2, "shuffle_seed": 7,
     })
-    assert study.status_code == 200, study.text
-    study_payload = study.json()
-    assert study_payload["domain_id"] == "general_science"
-    question_id = study_payload["question_ids"][0]
-
-    scoped_out = client.get("/api/v3/practice/questions", params={
-        "session_id": study_payload["session_id"], "domain_id": "endoscopy",
-    })
-    assert scoped_out.status_code == 200 and scoped_out.json()["items"] == []
-
-    tutor_events = list(tutor_runner.stream(AgentContext(
-        question_id=question_id, learner_id=learner_id, user_message="请解释这个概念的条件和资料依据。", phase="pre_submit",
-    )))
-    tutor_text = "".join(str(event.data.get("text", "")) for event in tutor_events if event.event == "token")
-    assert tutor_text
-    assert not any(term in tutor_text for term in ("临床", "医生复核", "内镜", "诊疗"))
-
-    submitted = client.post("/api/v3/practice/submit", json={
-        "learner_id": learner_id, "question_id": question_id, "session_id": study_payload["session_id"],
-        "selected_answer": _wrong_option(question_id), "mode": "study",
-    })
-    assert submitted.status_code == 200, submitted.text
-    assert submitted.json()["doctor_review_required"] is False
-    assert "医生" not in submitted.json()["safety_notice"]
-
-    reviewed = client.post("/api/v3/learning/review", json={
-        "learner_id": learner_id, "question_id": question_id, "rating": "Good",
-    })
-    assert reviewed.status_code == 200, reviewed.text
-    assert reviewed.json()["item"]["domain_id"] == "general_science"
-
-    exam = client.post("/api/v3/practice/sessions", json={
-        "learner_id": learner_id, "bank_id": GENERAL_BANK_ID, "mode": "exam", "question_count": 1, "shuffle_seed": 11,
-    })
-    assert exam.status_code == 200
-    exam_question = exam.json()["question_ids"][0]
-    locked = client.post("/api/v3/practice/submit", json={
-        "learner_id": learner_id, "question_id": exam_question, "session_id": exam.json()["session_id"],
-        "selected_answer": _wrong_option(exam_question), "mode": "exam",
-    })
-    assert locked.status_code == 200
-    assert locked.json()["correct_answer_display"] == "考试结束后显示"
+    assert study.status_code == 404, study.text
 
 
 def test_cross_domain_mastery_and_memory_are_isolated_even_for_same_label() -> None:
@@ -152,12 +111,13 @@ def test_cross_domain_mastery_and_memory_are_isolated_even_for_same_label() -> N
 def test_cross_domain_rag_retrieval_isolated() -> None:
     suffix = uuid4().hex[:10]
     marker = f"stage7marker{suffix}"
+    second_marker = f"stage7anchor{uuid4().hex[:10]}"
     medical_document = f"stage7-medical-{suffix}"
     general_document = f"stage7-general-{suffix}"
     with SessionLocal() as session:
         for document_id, domain_id, namespace, content in (
-            (medical_document, "endoscopy", "medical_general", f"医学专用术语，仅属于医疗资料。{marker}medical"),
-            (general_document, "general_science", "general_science", f"能量转化需要依据题干给出的条件判断。{marker}general"),
+            (medical_document, "endoscopy", "medical_general", f"医学专用术语，仅属于医疗资料。{marker}medical {second_marker}medical"),
+            (general_document, "general_science", "general_science", f"能量转化需要依据题干给出的条件判断。{marker}general {second_marker}general"),
         ):
             version_id = f"version-{document_id}"
             session.add(SourceDocumentModel(
@@ -175,7 +135,7 @@ def test_cross_domain_rag_retrieval_isolated() -> None:
             ))
         session.commit()
     citations = rag_service.retrieve(
-        f"{marker}general", mode="sparse", limit=5, domain_id="general_science", namespaces=["general_science"],
+        f"{marker}general {second_marker}general", mode="sparse", limit=5, domain_id="general_science", namespaces=["general_science"],
     )
     assert citations
     assert {citation.namespace for citation in citations} == {"general_science"}

@@ -15,5 +15,5 @@ class Stage1PracticeWorkflowAdapter:
     def submit(self, request: PracticeSubmitRequest) -> PracticeSubmitResponse:
         return self._service.submit(request)
 
-    def create_session(self, learner_id: str, bank_id: str, mode: str, question_count: int, shuffle_seed: int | None) -> dict[str, Any]:
-        return self._service.create_session(learner_id, bank_id, mode, question_count, shuffle_seed)
+    def create_session(self, learner_id: str, bank_id: str, mode: str, question_count: int, shuffle_seed: int | None, question_scope: str = "all") -> dict[str, Any]:
+        return self._service.create_session(learner_id, bank_id, mode, question_count, shuffle_seed, question_scope)

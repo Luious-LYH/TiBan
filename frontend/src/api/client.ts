@@ -21,6 +21,11 @@ export type Domain = components['schemas']['DomainPublic']
 export type QuestionsResponse = components['schemas']['PracticeQuestionListResponse']
 export type SessionResponse = components['schemas']['PracticeSessionPublic']
 export type SessionDetailResponse = components['schemas']['PracticeSessionDetailPublic']
+export type BankQuestionProgress = components['schemas']['BankQuestionProgressPublic']
+export type BankQuestionProgressResponse = components['schemas']['BankQuestionProgressResponse']
+export type ReviewSummary = components['schemas']['ReviewSummaryPublic']
+export type ReviewItem = components['schemas']['ReviewItemPublic']
+export type ReviewItemDetail = components['schemas']['ReviewItemDetailPublic']
 export type TutorHint = components['schemas']['TutorHintResponseV3']
 export type Overview = Omit<Required<components['schemas']['OverviewResponse']>, 'banks' | 'recent_sessions'> & {
   banks: QuestionBank[]
@@ -37,9 +42,11 @@ export type EvaluationConnection = components['schemas']['EvaluationConnectionRe
 export type EvaluationRun = components['schemas']['EvaluationRunResponse']
 export type TutorStreamRequest = components['schemas']['TutorStreamRequest']
 export type TutorStreamEvent = {
-  event: 'message_start' | 'reasoning' | 'token' | 'tool_start' | 'tool_end' | 'source' | 'message_end' | 'error'
+  event: 'agent_start' | 'activity' | 'message_start' | 'reasoning' | 'token' | 'tool_start' | 'tool_end' | 'source' | 'done' | 'message_end' | 'error'
   data: Record<string, unknown>
 }
+export type CoachConversation = components['schemas']['CoachConversationPublic']
+export type CoachMessage = components['schemas']['CoachMessagePublic']
 // API payload contracts are generated from FastAPI/OpenAPI. Components may
 // add purely presentational state around them, but not response schemas.
 export type FactoryDocument = components['schemas']['FactoryDocumentPublic']
@@ -56,6 +63,8 @@ export type EmbeddingSettingsPayload = components['schemas']['EmbeddingSettingsR
 export type LLMConnectionTestPayload = components['schemas']['LLMConnectionTestRequest']
 export type InstanceLLMTestResult = components['schemas']['LLMTestResponse']
 export type InstanceEmbeddingTestResult = components['schemas']['EmbeddingTestResponse']
+export type KnowledgeSource = components['schemas']['KnowledgeSourcePublic']
+export type KnowledgeSourceDetail = components['schemas']['KnowledgeSourceDetailPublic']
 export type QBankValidation = { format: string; accepted_count: number; rejected_count: number; ready_to_publish: boolean; items: Array<{ title: string; question: string; question_type: string }>; issues: Array<{ row: number; code: string; message: string }>; summary: { question_type_counts: Record<string, number> } }
 
 export class ApiError extends Error {
@@ -104,10 +113,74 @@ export function getQuestions(query: QuestionQuery = {}): Promise<QuestionsRespon
   }))
 }
 
-export function createPracticeSession(bankId: string, learnerId = 'demo_learner', mode: 'study' | 'exam' | 'review' | 'practice' = 'study', questionCount = 20): Promise<SessionResponse> {
+export function createPracticeSession(bankId: string, learnerId = 'demo_learner', mode: 'study' | 'exam' | 'review' | 'practice' = 'study', questionCount = 20, questionScope: 'all' | 'uncompleted' | 'incorrect' | 'marked' | 'due' = 'all'): Promise<SessionResponse> {
   return unwrap(api.POST('/api/v3/practice/sessions', {
-    body: { bank_id: bankId, learner_id: learnerId, mode, question_count: questionCount },
+    body: { bank_id: bankId, learner_id: learnerId, mode, question_count: questionCount, question_scope: questionScope },
   }))
+}
+
+export function getBankQuestionProgress(bankId: string, state: 'all' | 'uncompleted' | 'completed' | 'incorrect' | 'marked' = 'all'): Promise<BankQuestionProgressResponse> {
+  return unwrap(api.GET('/api/v3/question-banks/{bank_id}/questions', { params: { path: { bank_id: bankId }, query: { learner_id: 'demo_learner', state, limit: 100, offset: 0 } } }))
+}
+
+export function getReviewSummary(): Promise<ReviewSummary> {
+  return unwrap(api.GET('/api/v3/review/summary', { params: { query: { learner_id: 'demo_learner' } } }))
+}
+
+export function getReviewItems(tab: 'due' | 'wrong' | 'marked'): Promise<{ tab: string; total: number; items: ReviewItem[] }> {
+  return unwrap(api.GET('/api/v3/review/items', { params: { query: { learner_id: 'demo_learner', tab, limit: 100 } } })) as Promise<{ tab: string; total: number; items: ReviewItem[] }>
+}
+
+export function getReviewItem(questionId: string): Promise<ReviewItemDetail> {
+  return unwrap(api.GET('/api/v3/review/items/{question_id}', { params: { path: { question_id: questionId }, query: { learner_id: 'demo_learner' } } }))
+}
+
+export function createReviewSession(tab: 'due' | 'wrong' | 'marked', questionCount: number, bankId?: string): Promise<SessionResponse> {
+  return unwrap(api.POST('/api/v3/review/sessions', { body: { learner_id: 'demo_learner', tab, question_count: questionCount, bank_id: bankId } }))
+}
+
+export function setQuestionMark(questionId: string, marked: boolean): Promise<{ question_id: string; marked: boolean }> {
+  return unwrap(api.PUT('/api/v3/questions/{question_id}/mark', { params: { path: { question_id: questionId } }, body: { learner_id: 'demo_learner', marked } }))
+}
+
+export async function getKnowledgeSources(scope?: 'system' | 'user' | 'qbank_explanations'): Promise<KnowledgeSource[]> {
+  const response = await unwrap(api.GET('/api/v3/knowledge/sources', { params: { query: { scope } } }))
+  return response.items
+}
+
+export async function getKnowledgeSource(documentId: string): Promise<KnowledgeSourceDetail> {
+  const response = await unwrap(api.GET('/api/v3/knowledge/sources/{document_id}', { params: { path: { document_id: documentId } } }))
+  return response.item
+}
+
+export async function uploadKnowledgeSource(file: File): Promise<KnowledgeSourceDetail> {
+  const content = await fileToBase64(file)
+  const response = await unwrap(api.POST('/api/v3/knowledge/sources', { body: { filename: file.name, content_base64: content, content_type: file.type || undefined, domain_id: 'endoscopy' } }))
+  return response.item
+}
+
+export async function setKnowledgeSourceEnabled(documentId: string, enabled: boolean): Promise<KnowledgeSourceDetail> {
+  const response = await unwrap(api.PATCH('/api/v3/knowledge/sources/{document_id}', { params: { path: { document_id: documentId } }, body: { enabled } }))
+  return response.item
+}
+
+export async function reindexKnowledgeSource(documentId: string): Promise<KnowledgeSourceDetail> {
+  const response = await unwrap(api.POST('/api/v3/knowledge/sources/{document_id}/reindex', { params: { path: { document_id: documentId } } }))
+  return response.item
+}
+
+export async function deleteKnowledgeSource(documentId: string): Promise<{ status: string; api_source: string }> {
+  const response = await unwrap(api.DELETE('/api/v3/knowledge/sources/{document_id}', { params: { path: { document_id: documentId } } }))
+  return { status: String(response.status), api_source: String(response.api_source) }
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error)
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
+    reader.readAsDataURL(file)
+  })
 }
 
 export function getPracticeSession(sessionId: string): Promise<SessionDetailResponse> {
@@ -123,10 +196,33 @@ export function getTutorHint(questionId: string, learnerId = 'demo_learner'): Pr
 }
 
 export async function streamTutor(request: TutorStreamRequest, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal): Promise<void> {
-  const response = await fetch(`${API_BASE}/api/v3/tutor/stream`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request), signal,
+  await streamSse(`${API_BASE}/api/v3/tutor/stream`, request, onEvent, signal, '智能辅导请求失败')
+}
+
+export async function listCoachConversations(learnerId = 'demo_learner'): Promise<CoachConversation[]> {
+  const response = await unwrap(api.GET('/api/v3/coach/conversations', { params: { query: { learner_id: learnerId } } }))
+  return response.items
+}
+
+export async function createCoachConversation(learnerId = 'demo_learner'): Promise<CoachConversation> {
+  const response = await unwrap(api.POST('/api/v3/coach/conversations', { params: { query: { learner_id: learnerId } } }))
+  return response.item
+}
+
+export async function getCoachConversation(conversationId: string, learnerId = 'demo_learner'): Promise<CoachConversation> {
+  const response = await unwrap(api.GET('/api/v3/coach/conversations/{conversation_id}', { params: { path: { conversation_id: conversationId }, query: { learner_id: learnerId } } }))
+  return response.item
+}
+
+export async function streamCoachMessage(conversationId: string, message: string, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal, learnerId = 'demo_learner'): Promise<void> {
+  await streamSse(`${API_BASE}/api/v3/coach/conversations/${encodeURIComponent(conversationId)}/stream`, { learner_id: learnerId, message }, onEvent, signal, '带教 Agent 请求失败')
+}
+
+async function streamSse(url: string, body: unknown, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal, failure: string): Promise<void> {
+  const response = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal,
   })
-  if (!response.ok || !response.body) throw new ApiError(`Tutor 请求失败（${response.status}）`, response.status)
+  if (!response.ok || !response.body) throw new ApiError(`${failure}（${response.status}）`, response.status)
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''

@@ -10,6 +10,9 @@ from app.routers.practice import legacy_router as stage1_practice_compat_router
 from app.routers.tutor import router as stage1_tutor_router
 from app.routers.tutor_agent import router as stage2_tutor_router
 from app.routers.learning import router as stage2_learning_router
+from app.routers.review import router as v31_review_router
+from app.routers.knowledge import router as v31_knowledge_router
+from app.routers.coach import router as v31_coach_router
 from app.routers.factory import router as stage2_factory_router
 from app.routers.assets import router as stage25_assets_router
 from app.routers.domains import router as domains_router
@@ -47,6 +50,9 @@ app.include_router(stage1_practice_compat_router)
 app.include_router(stage1_tutor_router)
 app.include_router(stage2_tutor_router)
 app.include_router(stage2_learning_router)
+app.include_router(v31_review_router)
+app.include_router(v31_knowledge_router)
+app.include_router(v31_coach_router)
 app.include_router(stage2_factory_router)
 app.include_router(stage25_assets_router)
 app.include_router(domains_router)
@@ -58,6 +64,10 @@ app.include_router(router)
 @app.on_event("startup")
 def startup_database() -> None:
     initialize_database()
+    # Retire V3.1-excluded generated corpora in the relational eligibility
+    # graph only. This is deliberately independent from Qdrant availability.
+    from app.services.knowledge_service import knowledge_service
+    knowledge_service.retire_legacy_system_corpus()
     # Instance-level Settings are intentionally runtime scoped; an API service
     # restart restores the Compose/.env defaults instead of retaining a key.
     from app.services.runtime_settings_service import runtime_settings_service

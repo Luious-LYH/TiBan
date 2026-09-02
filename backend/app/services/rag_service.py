@@ -73,6 +73,42 @@ def _sparse_score(query: str, content: str) -> float:
     return sum(min(left[key], right[key]) for key in left) / max(sum(left.values()), 1)
 
 
+# These instruction words occur in almost every explicit retrieval request but
+# say nothing about the medical concept being requested.  Letting them pass the
+# evidence gate is how a request such as "根据资料解释当前题" used to cite a
+# merely adjacent question-bank explanation.  Keep the ranking signal intact;
+# this list is only used to decide whether a result is credible enough to show
+# as learner-facing evidence.
+_RETRIEVAL_INSTRUCTION_TERMS = {
+    "根据", "据资", "资料", "料解", "解释", "释当", "当前", "前题", "题目",
+    "题考", "考点", "并给", "给出", "来源", "知识", "识库", "上传", "我的",
+    "请问", "一下", "什么", "怎么", "如何", "有关", "相关", "内容", "学习",
+    # Function-word bigrams that are common at the end of a Chinese question
+    # (for example “……的药是”) must not bridge two unrelated items.
+    "的药", "药是", "的是", "一种", "这个", "那个", "资料", "source", "sources",
+    "citation", "citations",
+}
+
+
+def _meaningful_lexical_overlap(query: str, content: str) -> int:
+    """Count concept-bearing lexical overlap for citation eligibility.
+
+    Dense/RRF ranking is deliberately still available to order candidates.
+    A citation, however, needs at least two non-instruction lexical anchors.
+    That accepts a real ``heart failure`` match and Chinese medical concepts,
+    while allowing a truthful zero-hit result when the library has no direct
+    source for the current question.
+    """
+
+    left = _terms(query)
+    right = _terms(content)
+    return sum(
+        min(count, right.get(term, 0))
+        for term, count in left.items()
+        if term not in _RETRIEVAL_INSTRUCTION_TERMS
+    )
+
+
 class RagService:
     def __init__(self) -> None:
         self._embedder: TextEmbedding | None = None
@@ -178,12 +214,13 @@ class RagService:
                 # relational chunk insert is idempotent across such retries.
                 chunk = session.get(KnowledgeChunkModel, chunk_id)
                 if chunk is None:
-                    session.add(KnowledgeChunkModel(chunk_id=chunk_id, document_id=document_id, version_id=version_id, parent_section=section, page=1, ordinal=ordinal, content=content, content_hash=_hash(content), token_count=len(content), namespace=namespace, source_uri=source_uri or str(path.resolve())))
+                    session.add(KnowledgeChunkModel(chunk_id=chunk_id, document_id=document_id, version_id=version_id, parent_section=section, page=_page_from_section(section), ordinal=ordinal, content=content, content_hash=_hash(content), token_count=len(content), namespace=namespace, source_uri=source_uri or str(path.resolve())))
                 else:
                     # Re-indexing is idempotent but also refreshes parser
                     # output when a curated note's frontmatter or section
                     # handling changes.
                     chunk.parent_section = section
+                    chunk.page = _page_from_section(section)
                     chunk.ordinal = ordinal
                     chunk.content = content
                     chunk.content_hash = _hash(content)
@@ -200,6 +237,21 @@ class RagService:
                 client.create_collection(COLLECTION, vectors_config=models.VectorParams(size=len(vectors[0]), distance=models.Distance.COSINE))
             client.upsert(COLLECTION, points=[models.PointStruct(id=_point_id(row.chunk_id), vector=vector.tolist(), payload={'chunk_id': row.chunk_id, 'document_id': row.document_id, 'version_id': row.version_id, 'domain_id': domain_id, 'namespace': row.namespace, 'document_name': document.name, 'page': row.page, 'section': row.parent_section, 'source_uri': row.source_uri, 'content': row.content}) for row, vector in zip(rows, vectors)])
             return [row.chunk_id for row in rows]
+
+    def delete_documents(self, document_ids: list[str]) -> None:
+        """Remove only the specified documents' derived vector points."""
+        if not document_ids:
+            return
+        client = self.qdrant
+        if not client.collection_exists(COLLECTION):
+            return
+        client.delete(
+            COLLECTION,
+            points_selector=models.FilterSelector(
+                filter=models.Filter(must=[models.FieldCondition(key='document_id', match=models.MatchAny(any=document_ids))])
+            ),
+            wait=True,
+        )
 
     def retrieve(
         self,
@@ -248,6 +300,7 @@ class RagService:
                 SourceDocumentModel.business_usage != 'benchmark_only',
                 SourceDocumentModel.business_usage != 'excluded',
                 SourceDocumentModel.ai_ingestion_allowed.is_(True),
+                SourceDocumentModel.enabled.is_(True),
                 SourceDocumentModel.license_gate_status.in_(['allow', 'allow_noncommercial']),
             )
             if domain_id:
@@ -256,6 +309,7 @@ class RagService:
             docs = {doc.document_id: doc for doc in session.scalars(select(SourceDocumentModel).where(SourceDocumentModel.document_id.in_({row.document_id for row in rows})))}
         if not rows:
             return []
+        eligible_document_ids = sorted({row.document_id for row in rows})
         sparse = {row.chunk_id: _sparse_score(query, row.content) for row in rows}
         dense: dict[str, float] = {}
         if mode != 'sparse':
@@ -273,6 +327,10 @@ class RagService:
                 conditions.append(models.FieldCondition(key='namespace', match=models.MatchValue(value=namespace)))
             elif namespaces:
                 conditions.append(models.FieldCondition(key='namespace', match=models.MatchAny(any=namespaces)))
+            # Qdrant is a derived index. Keep its candidates aligned with the
+            # governed relational source graph so retired documents cannot
+            # occupy dense-retrieval result slots.
+            conditions.append(models.FieldCondition(key='document_id', match=models.MatchAny(any=eligible_document_ids)))
             query_filter = models.Filter(must=conditions) if conditions else None
             result = self.qdrant.query_points(COLLECTION, query=vector, limit=max(limit * 3, 10), with_payload=True, query_filter=query_filter).points
             dense = {str(point.payload['chunk_id']): float(point.score) for point in result}
@@ -284,7 +342,18 @@ class RagService:
                 scores[row.chunk_id] = dense.get(row.chunk_id, 0.0)
             else:
                 scores[row.chunk_id] = _rrf_rank(sparse, row.chunk_id) + _rrf_rank(dense, row.chunk_id)
-        candidates = sorted(rows, key=lambda row: scores[row.chunk_id], reverse=True)[:max(limit * 4, 20)]
+        # RRF always gives every dense candidate a small positive score. That
+        # is useful for ranking, but it is not evidence of relevance: without
+        # this gate an unrelated query still received several citations from a
+        # tiny corpus. A concrete lexical overlap is the conservative first
+        # calibration for this bilingual, source-governed library. Cross-
+        # language sources with no matching terms correctly produce zero hits
+        # instead of an invented citation.
+        candidates = [
+            row
+            for row in sorted(rows, key=lambda row: scores[row.chunk_id], reverse=True)
+            if _meaningful_lexical_overlap(query, row.content) >= 2
+        ][:max(limit * 4, 20)]
         if mode == 'hybrid_rerank' and candidates:
             # This is a learned cross-encoder inference, not a lexical score
             # boost.  Its score only orders candidate passages after hybrid RRF.
@@ -293,6 +362,16 @@ class RagService:
             scores = {**scores, **{row.chunk_id: float(score) for score, row in zip(rerank_scores, candidates)}}
         else:
             selected = candidates[:limit]
+        # Adjacent chunks from the same document/section seldom add evidence
+        # value. Keep one best passage per section so citations remain compact.
+        deduped: list[KnowledgeChunkModel] = []
+        seen_sections: set[tuple[str, str]] = set()
+        for row in selected:
+            key = (row.document_id, row.parent_section)
+            if key not in seen_sections:
+                seen_sections.add(key)
+                deduped.append(row)
+        selected = deduped[:limit]
         _ = perf_counter() - started
         return [Citation(chunk_id=row.chunk_id, document_name=docs.get(row.document_id).name if row.document_id in docs else '教学资料', page=row.page, section=row.parent_section, snippet=row.content[:220], score=round(scores[row.chunk_id], 5), document_id=row.document_id, namespace=row.namespace, source_uri=docs.get(row.document_id).source_uri if row.document_id in docs else row.source_uri) for row in selected if scores[row.chunk_id] > 0]
 
@@ -327,6 +406,17 @@ def _chunk_markdown(text: str, child_size: int) -> Iterable[tuple[str, str]]:
 def _split_section(section: str, content: str, child_size: int) -> Iterable[tuple[str, str]]:
     for index in range(0, len(content), child_size):
         yield section, content[index:index + child_size]
+
+
+def _page_from_section(section: str) -> int:
+    """Keep page provenance when a PDF parser has emitted a page heading.
+
+    Markdown/TXT sources intentionally remain page 1.  This is provenance
+    display only; it never supplies a citation that retrieval did not return.
+    """
+
+    match = re.search(r"(?:PDF\s*第|第)\s*(\d+)\s*页", section)
+    return int(match.group(1)) if match else 1
 
 
 def _strip_frontmatter(text: str) -> str:

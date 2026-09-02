@@ -19,6 +19,7 @@ from .models import (
     PracticeSessionItemModel,
     PracticeSessionModel,
     QuestionBankModel,
+    QuestionMarkModel,
     QuestionModel,
     ReviewCardModel,
 )
@@ -26,6 +27,17 @@ from .seed import TYPE_CODE, TYPE_LABEL, seed_database
 
 
 _WEAK_TOPIC_PLACEHOLDER = re.compile(r"(?:^不符合$|模块\s*\d+|^未知$|^其他$|^n/?a$|import|csv|jsonl)", re.IGNORECASE)
+
+# These imported datasets remain available to evaluation and historical records,
+# but they are not part of the focused V3.1 learner catalog.  New sessions may
+# only start from a published formal bank; existing persisted sessions can still
+# be read so that removing a catalog entry never corrupts learning history.
+_HIDDEN_LEARNER_BANK_IDS = {
+    "bank-cmb-exam-real",
+    "bank-general-science-foundations",
+    "bank-arc-easy-local",
+    "factory-generated-endoscopy-v1",
+}
 
 
 def learner_visible_weak_topics(recent_attempts: list[tuple[Any, QuestionModel, QuestionBankModel]]) -> list[str]:
@@ -83,6 +95,20 @@ class Stage1Repository:
             question.license_gate_status = "allow_noncommercial"
             question.source_uri = "https://github.com/medAI-NEU/EndoBench"
         banks = list(self.session.scalars(select(QuestionBankModel)).all())
+        catalog_changed = False
+        for bank in banks:
+            # V3.1 intentionally retires the old seed/ARC catalog from the
+            # learner surface.  Rows remain for compatibility, audit and test
+            # history; a formal learning bank is a real CMExam/Kvasir/imported
+            # bank rather than a bootstrap fixture.
+            if (
+                bank.bank_id in _HIDDEN_LEARNER_BANK_IDS
+                or bank.version == "seed-v1"
+                or "fixture" in bank.name.lower()
+            ):
+                if bank.status != "draft":
+                    bank.status = "draft"
+                    catalog_changed = True
         type_rows = self.session.execute(
             select(QuestionModel.bank_id, QuestionModel.question_type, func.count(QuestionModel.question_id))
             .where(QuestionModel.business_usage == "user_ready")
@@ -125,7 +151,7 @@ class Stage1Repository:
                 bank.modality_counts = modality_counts
                 bank.body_parts = body_parts
                 inventory_changed = True
-        if benchmark_rows or inventory_changed:
+        if benchmark_rows or inventory_changed or catalog_changed:
             # Quarantine and inventory are data-policy projections, not
             # response-only filters. Persist them so a fresh process cannot
             # expose benchmark rows or stale zero-question counts.
@@ -133,22 +159,83 @@ class Stage1Repository:
 
     def list_banks(self, learner_id: str = "demo_learner", domain_id: str | None = None) -> list[QuestionBankModel]:
         self.ensure_seeded()
-        statement = select(QuestionBankModel).where(QuestionBankModel.question_count > 0)
+        statement = select(QuestionBankModel).where(
+            QuestionBankModel.question_count > 0,
+            QuestionBankModel.status == "published",
+            QuestionBankModel.bank_id.not_in(_HIDDEN_LEARNER_BANK_IDS),
+        )
         if domain_id:
             statement = statement.where(QuestionBankModel.domain_id == domain_id)
-        banks = list(self.session.scalars(statement.order_by(QuestionBankModel.name)))
+        banks = [
+            bank
+            for bank in self.session.scalars(statement.order_by(QuestionBankModel.name))
+            if not bank.bank_id.startswith("adaptive-bank-")
+            and not self._test_only_bank(bank.bank_id)
+        ]
         for bank in banks:
-            completed = self.session.scalar(
-                select(func.count(func.distinct(AttemptModel.question_id)))
-                .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
-                .where(
-                    AttemptModel.learner_id == learner_id,
-                    QuestionModel.bank_id == bank.bank_id,
-                    QuestionModel.business_usage == "user_ready",
-                )
-            ) or 0
-            bank._stage1_completed_count = int(completed)
+            bank._stage1_progress = self.bank_progress(bank.bank_id, learner_id)
+            bank._stage1_completed_count = bank._stage1_progress["completed_count"]
         return banks
+
+    def _test_only_bank(self, bank_id: str) -> bool:
+        source_types = set(self.session.scalars(
+            select(QuestionModel.source_type).where(QuestionModel.bank_id == bank_id).distinct()
+        ))
+        return bool(source_types) and source_types == {"test"}
+
+    def _is_learner_visible_bank(self, bank: QuestionBankModel) -> bool:
+        """Apply the single learner-catalog policy to every learner projection."""
+        return (
+            bank.question_count > 0
+            and bank.status == "published"
+            and bank.bank_id not in _HIDDEN_LEARNER_BANK_IDS
+            and not bank.bank_id.startswith("adaptive-bank-")
+            and not self._test_only_bank(bank.bank_id)
+        )
+
+    def _learner_visible_bank_ids(self, bank_id: str | None = None) -> list[str]:
+        """Resolve learner-visible banks once for read-heavy review projections.
+
+        Review previously called ``_test_only_bank`` for every question in a
+        bank. Build the same policy from one bank query plus one distinct
+        source-type query, so a 1,500-question bank does not create 1,500
+        repeated SQL reads.
+        """
+        statement = select(QuestionBankModel.bank_id).where(
+            QuestionBankModel.question_count > 0,
+            QuestionBankModel.status == "published",
+            QuestionBankModel.bank_id.not_in(_HIDDEN_LEARNER_BANK_IDS),
+        )
+        if bank_id:
+            statement = statement.where(QuestionBankModel.bank_id == bank_id)
+        candidates = [
+            value
+            for value in self.session.scalars(statement.order_by(QuestionBankModel.name))
+            if not value.startswith("adaptive-bank-")
+        ]
+        if not candidates:
+            return []
+        source_types: dict[str, set[str]] = {}
+        for candidate_id, source_type in self.session.execute(
+            select(QuestionModel.bank_id, QuestionModel.source_type)
+            .where(QuestionModel.bank_id.in_(candidates))
+            .distinct()
+        ):
+            source_types.setdefault(str(candidate_id), set()).add(str(source_type))
+        return [candidate_id for candidate_id in candidates if source_types.get(candidate_id, set()) != {"test"}]
+
+    def _review_question_ids(self, bank_id: str | None = None) -> list[str]:
+        visible_bank_ids = self._learner_visible_bank_ids(bank_id)
+        if not visible_bank_ids:
+            return []
+        return list(self.session.scalars(
+            select(QuestionModel.question_id)
+            .where(
+                QuestionModel.business_usage == "user_ready",
+                QuestionModel.bank_id.in_(visible_bank_ids),
+            )
+            .order_by(QuestionModel.question_id)
+        ))
 
     def get_bank(self, bank_id: str) -> QuestionBankModel:
         self.ensure_seeded()
@@ -156,6 +243,233 @@ class Stage1Repository:
         if not bank or bank.question_count <= 0:
             raise KeyError(f"Question bank not found: {bank_id}")
         return bank
+
+    def learner_bank(self, bank_id: str) -> QuestionBankModel:
+        bank = self.get_bank(bank_id)
+        if bank.status != "published" or bank.bank_id in _HIDDEN_LEARNER_BANK_IDS:
+            raise KeyError(f"Question bank is not learner-facing: {bank_id}")
+        return bank
+
+    def bank_progress(self, bank_id: str, learner_id: str) -> dict[str, int]:
+        question_ids = list(self.session.scalars(
+            select(QuestionModel.question_id).where(
+                QuestionModel.bank_id == bank_id,
+                QuestionModel.business_usage == "user_ready",
+            )
+        ))
+        if not question_ids:
+            return {"completed_count": 0, "uncompleted_count": 0, "incorrect_count": 0, "marked_count": 0}
+        latest = self._latest_attempts(learner_id, question_ids)
+        marked = set(self.session.scalars(
+            select(QuestionMarkModel.question_id).where(
+                QuestionMarkModel.learner_id == learner_id,
+                QuestionMarkModel.question_id.in_(question_ids),
+            )
+        ))
+        completed = len(latest)
+        return {
+            "completed_count": completed,
+            "uncompleted_count": len(question_ids) - completed,
+            "incorrect_count": sum(1 for attempt in latest.values() if not attempt.correct),
+            "marked_count": len(marked),
+        }
+
+    def bank_question_progress(
+        self,
+        *,
+        bank_id: str,
+        learner_id: str,
+        state: str = "all",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict[str, Any]], int]:
+        self.learner_bank(bank_id)
+        questions = list(self.session.scalars(
+            select(QuestionModel)
+            .where(QuestionModel.bank_id == bank_id, QuestionModel.business_usage == "user_ready")
+            .order_by(QuestionModel.question_id)
+        ))
+        question_ids = [item.question_id for item in questions]
+        latest = self._latest_attempts(learner_id, question_ids)
+        counts = Counter(self.session.scalars(
+            select(AttemptModel.question_id).where(
+                AttemptModel.learner_id == learner_id,
+                AttemptModel.question_id.in_(question_ids),
+            )
+        )) if question_ids else Counter()
+        marked = set(self.session.scalars(
+            select(QuestionMarkModel.question_id).where(
+                QuestionMarkModel.learner_id == learner_id,
+                QuestionMarkModel.question_id.in_(question_ids),
+            )
+        ))
+        rows = [self._question_progress_payload(item, latest.get(item.question_id), int(counts[item.question_id]), item.question_id in marked) for item in questions]
+        if state == "uncompleted":
+            rows = [item for item in rows if not item["completed"]]
+        elif state == "completed":
+            rows = [item for item in rows if item["completed"]]
+        elif state == "incorrect":
+            rows = [item for item in rows if item["incorrect"]]
+        elif state == "marked":
+            rows = [item for item in rows if item["marked"]]
+        return rows[offset: offset + limit], len(rows)
+
+    def set_question_mark(self, *, learner_id: str, question_id: str, marked: bool) -> bool:
+        question = self.get_question(question_id)
+        if question.business_usage != "user_ready":
+            raise KeyError(question_id)
+        existing = self.session.scalar(select(QuestionMarkModel).where(
+            QuestionMarkModel.learner_id == learner_id,
+            QuestionMarkModel.question_id == question_id,
+        ))
+        if marked and existing is None:
+            self.session.add(QuestionMarkModel(mark_id=f"mark_{uuid4().hex[:12]}", learner_id=learner_id, question_id=question_id))
+            self.session.commit()
+        elif not marked and existing is not None:
+            self.session.delete(existing)
+            self.session.commit()
+        return marked
+
+    def review_summary(self, learner_id: str) -> dict[str, int]:
+        ids = self._review_question_ids()
+        latest = self._latest_attempts(learner_id, ids)
+        return {
+            "due_count": int(self.session.scalar(select(func.count(ReviewCardModel.review_card_id)).where(
+                ReviewCardModel.learner_id == learner_id,
+                ReviewCardModel.question_id.in_(ids),
+                ReviewCardModel.due_at <= datetime.utcnow(),
+            )) or 0) if ids else 0,
+            "incorrect_count": sum(1 for attempt in latest.values() if not attempt.correct),
+            "marked_count": int(self.session.scalar(select(func.count(QuestionMarkModel.mark_id)).where(
+                QuestionMarkModel.learner_id == learner_id,
+                QuestionMarkModel.question_id.in_(ids),
+            )) or 0) if ids else 0,
+        }
+
+    def review_items(self, *, learner_id: str, tab: str, bank_id: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
+        ids = self._review_question_ids(bank_id)
+        if not ids:
+            return []
+        latest = self._latest_attempts(learner_id, ids)
+        marked = set(self.session.scalars(select(QuestionMarkModel.question_id).where(
+            QuestionMarkModel.learner_id == learner_id,
+            QuestionMarkModel.question_id.in_(ids),
+        )))
+        cards = {card.question_id: card for card in self.session.scalars(select(ReviewCardModel).where(
+            ReviewCardModel.learner_id == learner_id,
+            ReviewCardModel.question_id.in_(ids),
+        ))}
+        now = datetime.utcnow()
+        if tab == "due":
+            selected_ids = {question_id for question_id, card in cards.items() if card.due_at <= now}
+        elif tab == "wrong":
+            selected_ids = {question_id for question_id, attempt in latest.items() if not attempt.correct}
+        elif tab == "marked":
+            selected_ids = marked
+        else:
+            raise ValueError(f"unsupported review tab: {tab}")
+        if not selected_ids:
+            return []
+        rows = list(self.session.execute(
+            select(QuestionModel, QuestionBankModel)
+            .join(QuestionBankModel, QuestionBankModel.bank_id == QuestionModel.bank_id)
+            .where(QuestionModel.question_id.in_(selected_ids))
+            .order_by(QuestionBankModel.name, QuestionModel.question_id)
+            .limit(limit)
+        ).all())
+        selected_question_ids = [question.question_id for question, _ in rows]
+        all_attempts = list(self.session.scalars(select(AttemptModel).where(
+            AttemptModel.learner_id == learner_id,
+            AttemptModel.question_id.in_(selected_question_ids),
+        ).order_by(AttemptModel.created_at.desc())))
+        attempts_by_question: dict[str, list[AttemptModel]] = {}
+        for attempt in all_attempts:
+            attempts_by_question.setdefault(attempt.question_id, []).append(attempt)
+        result: list[dict[str, Any]] = []
+        for question, bank in rows:
+            latest_attempt = latest.get(question.question_id)
+            payload = self._question_progress_payload(
+                question, latest_attempt, len(attempts_by_question.get(question.question_id, [])), question.question_id in marked
+            )
+            payload.update({
+                "bank_id": bank.bank_id,
+                "bank_name": bank.name,
+                "due_at": cards[question.question_id].due_at if question.question_id in cards else None,
+                "wrong_count": sum(1 for attempt in attempts_by_question.get(question.question_id, []) if not attempt.correct),
+                "last_selected_answer": latest_attempt.selected_answer if latest_attempt else None,
+                "official_explanation_available": bool(question.official_explanation_available and (question.explanation or "").strip()),
+            })
+            result.append(payload)
+        return result
+
+    def review_item_detail(self, *, learner_id: str, question_id: str) -> dict[str, Any]:
+        visible_bank_ids = self._learner_visible_bank_ids()
+        if not visible_bank_ids:
+            raise KeyError(question_id)
+        pair = self.session.execute(
+            select(QuestionModel, QuestionBankModel)
+            .join(QuestionBankModel, QuestionBankModel.bank_id == QuestionModel.bank_id)
+            .where(
+                QuestionModel.question_id == question_id,
+                QuestionModel.business_usage == "user_ready",
+                QuestionModel.bank_id.in_(visible_bank_ids),
+            )
+        ).first()
+        if pair is None:
+            raise KeyError(question_id)
+        question, bank = pair
+        attempts = list(self.session.scalars(select(AttemptModel).where(
+            AttemptModel.learner_id == learner_id,
+            AttemptModel.question_id == question_id,
+        ).order_by(AttemptModel.created_at.desc())))
+        latest_attempt = attempts[0] if attempts else None
+        marked = self.session.scalar(select(QuestionMarkModel.mark_id).where(
+            QuestionMarkModel.learner_id == learner_id,
+            QuestionMarkModel.question_id == question_id,
+        )) is not None
+        card = self.session.scalar(select(ReviewCardModel).where(
+            ReviewCardModel.learner_id == learner_id,
+            ReviewCardModel.question_id == question_id,
+        ))
+        if not (
+            (card is not None and card.due_at <= datetime.utcnow())
+            or (latest_attempt is not None and not latest_attempt.correct)
+            or marked
+        ):
+            raise KeyError(question_id)
+        row = self._question_progress_payload(question, latest_attempt, len(attempts), marked)
+        row.update({
+            "bank_id": bank.bank_id,
+            "bank_name": bank.name,
+            "due_at": card.due_at if card is not None else None,
+            "wrong_count": sum(1 for attempt in attempts if not attempt.correct),
+            "last_selected_answer": latest_attempt.selected_answer if latest_attempt else None,
+            "official_explanation_available": bool(question.official_explanation_available and (question.explanation or "").strip()),
+        })
+        grading = question.grading_payload or {}
+        options = {str(item.get("id")): str(item.get("text")) for item in (question.options or [])}
+        def display(selected: Any) -> str:
+            if isinstance(selected, list):
+                return "、".join(options.get(str(item), str(item)) for item in selected)
+            if question.question_type == "true_false":
+                return "正确" if bool(selected) else "错误"
+            return options.get(str(selected), str(selected))
+        if question.question_type == "single_choice":
+            answer = options.get(str(grading.get("correct_option_id")), "")
+        elif question.question_type == "multiple_choice":
+            answer = "、".join(options.get(str(item), str(item)) for item in grading.get("correct_option_ids", []))
+        elif question.question_type == "true_false":
+            answer = "正确" if grading.get("correct_value") else "错误"
+        else:
+            answer = "参考答案见评分标准"
+        row.update({
+            "stem": question.stem,
+            "options": list(question.options or []),
+            "correct_answer_display": answer,
+            "explanation": question.explanation if question.official_explanation_available else "",
+            "recent_attempts": [{"selected_answer_display": display(item.selected_answer), "correct": item.correct, "created_at": item.created_at} for item in attempts[:5]],
+        })
+        return row
 
     def list_questions(
         self,
@@ -222,8 +536,10 @@ class Stage1Repository:
         mode: str = "practice",
         question_count: int = 20,
         shuffle_seed: int | None = None,
+        question_scope: str = "all",
+        allow_non_catalog: bool = False,
     ) -> tuple[PracticeSessionModel, dict[str, Any]]:
-        bank = self.get_bank(bank_id)
+        bank = self.get_bank(bank_id) if allow_non_catalog else self.learner_bank(bank_id)
         questions = list(
             self.session.scalars(
                 select(QuestionModel)
@@ -231,6 +547,7 @@ class Stage1Repository:
                 .order_by(QuestionModel.question_id)
             )
         )
+        questions = self._filter_questions_for_scope(questions, learner_id=learner_id, scope=question_scope)
         if not questions:
             raise KeyError(f"No learner-ready questions in bank: {bank_id}")
         selection_size = min(max(question_count, 1), len(questions))
@@ -265,6 +582,60 @@ class Stage1Repository:
         self.session.commit()
         self.session.refresh(session)
         return session, selection
+
+    def _filter_questions_for_scope(self, questions: list[QuestionModel], *, learner_id: str, scope: str) -> list[QuestionModel]:
+        if scope == "all":
+            return questions
+        question_ids = [item.question_id for item in questions]
+        latest = self._latest_attempts(learner_id, question_ids)
+        if scope == "uncompleted":
+            return [item for item in questions if item.question_id not in latest]
+        if scope == "incorrect":
+            return [item for item in questions if item.question_id in latest and not latest[item.question_id].correct]
+        if scope == "marked":
+            marked = set(self.session.scalars(select(QuestionMarkModel.question_id).where(
+                QuestionMarkModel.learner_id == learner_id,
+                QuestionMarkModel.question_id.in_(question_ids),
+            )))
+            return [item for item in questions if item.question_id in marked]
+        if scope == "due":
+            now = datetime.utcnow()
+            due = set(self.session.scalars(select(ReviewCardModel.question_id).where(
+                ReviewCardModel.learner_id == learner_id,
+                ReviewCardModel.question_id.in_(question_ids),
+                ReviewCardModel.due_at <= now,
+            )))
+            return [item for item in questions if item.question_id in due]
+        raise ValueError(f"unsupported question scope: {scope}")
+
+    def _latest_attempts(self, learner_id: str, question_ids: list[str]) -> dict[str, AttemptModel]:
+        if not question_ids:
+            return {}
+        attempts = list(self.session.scalars(
+            select(AttemptModel)
+            .where(AttemptModel.learner_id == learner_id, AttemptModel.question_id.in_(question_ids))
+            .order_by(AttemptModel.created_at.desc())
+        ))
+        latest: dict[str, AttemptModel] = {}
+        for attempt in attempts:
+            latest.setdefault(attempt.question_id, attempt)
+        return latest
+
+    @staticmethod
+    def _question_progress_payload(question: QuestionModel, latest: AttemptModel | None, attempt_count: int, marked: bool) -> dict[str, Any]:
+        return {
+            "question_id": question.question_id,
+            "question_type": question.question_type,
+            "question_summary": (question.stem or question.title).strip()[:120],
+            "subject": question.subject,
+            "topic": question.topic,
+            "completed": latest is not None,
+            "incorrect": bool(latest is not None and not latest.correct),
+            "marked": marked,
+            "attempt_count": attempt_count,
+            "last_result": None if latest is None else ("correct" if latest.correct else "incorrect"),
+            "last_attempt_at": None if latest is None else latest.created_at,
+        }
 
     def _select_adaptive_session_questions(
         self,
@@ -435,7 +806,10 @@ class Stage1Repository:
             current = self.session.get(PracticeSessionModel, session_id)
             if current and current.learner_id == learner_id and current.bank_id == bank_id:
                 return current
-        created, _ = self.create_session(learner_id, bank_id, mode)
+        # Historical/compatibility submissions may target an archived seed
+        # question.  Preserve their immutable Attempt history without letting
+        # that bank reappear as a new learner-facing catalog choice.
+        created, _ = self.create_session(learner_id, bank_id, mode, allow_non_catalog=True)
         return created
 
     def session_questions(self, session_id: str) -> list[QuestionModel]:
@@ -491,6 +865,7 @@ class Stage1Repository:
         error_tags: list[str],
         hint_count: int = 0,
         duration_ms: int | None = None,
+        timings: dict[str, float] | None = None,
     ) -> AttemptModel:
         now = datetime.utcnow()
         attempt = AttemptModel(
@@ -506,14 +881,19 @@ class Stage1Repository:
             duration_ms=duration_ms,
             created_at=now,
         )
+        timing = timings if timings is not None else {}
+        started = datetime.utcnow()
         self.session.add(attempt)
         session.last_active_at = now
         # The submit workflow owns the only side effects: once the immutable
         # attempt is staged, derive mastery and FSRS scheduling deterministically.
         self.session.flush()
+        timing["attempt_insert_ms"] = round((datetime.utcnow() - started).total_seconds() * 1000, 3)
         from app.services.learning_service import apply_learning_outcome
-        apply_learning_outcome(self.session, attempt=attempt, question=question, now=now)
+        apply_learning_outcome(self.session, attempt=attempt, question=question, now=now, timings=timing)
+        commit_started = datetime.utcnow()
         self.session.commit()
+        timing["commit_ms"] = round((datetime.utcnow() - commit_started).total_seconds() * 1000, 3)
         self.session.refresh(attempt)
         return attempt
 

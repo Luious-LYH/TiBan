@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 
 from app.composition import practice_use_cases
 from app.domains import PLATFORM_NOTICE, get_domain
@@ -16,7 +16,7 @@ from app.schemas import (
     PracticeSubmitRequest,
     PracticeSubmitResponse,
 )
-from app.services.stage1_service import stage1_service
+from app.services.stage1_service import stage1_service, submit_timing_context
 
 
 canonical_router = APIRouter(prefix="/api/v3", tags=["stage1-practice"])
@@ -87,6 +87,7 @@ def create_session_v3(request: PracticeSessionCreateRequest) -> dict[str, object
             request.mode,
             request.question_count,
             request.shuffle_seed,
+            request.question_scope,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question bank not found.") from exc
@@ -104,9 +105,14 @@ def get_session_v3(
 
 
 @canonical_router.post("/practice/submit", response_model=PracticeSubmitResponse)
-def submit_v3(request: PracticeSubmitRequest) -> PracticeSubmitResponse:
+def submit_v3(request: PracticeSubmitRequest, response: Response) -> PracticeSubmitResponse:
     try:
-        return practice_use_cases.submit_answer(request)
+        result = practice_use_cases.submit_answer(request)
+        timings = submit_timing_context.get()
+        response.headers["Server-Timing"] = ", ".join(
+            f"{name.replace('_ms', '')};dur={value}" for name, value in timings.items() if name.endswith("_ms")
+        )
+        return result
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question or bank not found.") from exc
 
@@ -194,14 +200,20 @@ def create_session_compat(request: PracticeSessionCreateRequest) -> dict[str, ob
             request.mode,
             request.question_count,
             request.shuffle_seed,
+            request.question_scope,
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question bank not found.") from exc
 
 
 @legacy_router.post("/practice/submit")
-def submit_compat(request: PracticeSubmitRequest) -> dict[str, object]:
+def submit_compat(request: PracticeSubmitRequest, response: Response) -> dict[str, object]:
     try:
-        return practice_use_cases.submit_answer(request).model_dump(mode="json")
+        result = practice_use_cases.submit_answer(request)
+        timings = submit_timing_context.get()
+        response.headers["Server-Timing"] = ", ".join(
+            f"{name.replace('_ms', '')};dur={value}" for name, value in timings.items() if name.endswith("_ms")
+        )
+        return result.model_dump(mode="json")
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question or bank not found.") from exc

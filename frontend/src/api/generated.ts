@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/question-banks/{bank_id}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Bank Questions */
+        get: operations["list_bank_questions_api_v3_question_banks__bank_id__questions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/overview": {
         parameters: {
             query?: never;
@@ -304,6 +321,197 @@ export interface paths {
         put?: never;
         /** Clear Learning Memory */
         post: operations["clear_learning_memory_api_v3_learning_memory_clear_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/review/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review Summary */
+        get: operations["get_review_summary_api_v3_review_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/review/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Review Items */
+        get: operations["list_review_items_api_v3_review_items_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/review/items/{question_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Review Item */
+        get: operations["get_review_item_api_v3_review_items__question_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/review/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Review Session */
+        post: operations["create_review_session_api_v3_review_sessions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/questions/{question_id}/mark": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Question Mark */
+        put: operations["set_question_mark_api_v3_questions__question_id__mark_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/knowledge/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Sources */
+        get: operations["list_sources_api_v3_knowledge_sources_get"];
+        put?: never;
+        /** Upload Source */
+        post: operations["upload_source_api_v3_knowledge_sources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/knowledge/sources/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Source Detail */
+        get: operations["source_detail_api_v3_knowledge_sources__document_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Source */
+        delete: operations["delete_source_api_v3_knowledge_sources__document_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Source */
+        patch: operations["update_source_api_v3_knowledge_sources__document_id__patch"];
+        trace?: never;
+    };
+    "/api/v3/knowledge/sources/{document_id}/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reindex Source */
+        post: operations["reindex_source_api_v3_knowledge_sources__document_id__reindex_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/coach/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Conversations */
+        get: operations["list_conversations_api_v3_coach_conversations_get"];
+        put?: never;
+        /** Create Conversation */
+        post: operations["create_conversation_api_v3_coach_conversations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/coach/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Conversation Detail */
+        get: operations["conversation_detail_api_v3_coach_conversations__conversation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/coach/conversations/{conversation_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stream Message */
+        post: operations["stream_message_api_v3_coach_conversations__conversation_id__stream_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1703,6 +1911,54 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** BankQuestionProgressPublic */
+        BankQuestionProgressPublic: {
+            /** Question Id */
+            question_id: string;
+            /**
+             * Question Type
+             * @enum {string}
+             */
+            question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
+            /** Question Summary */
+            question_summary: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /** Completed */
+            completed: boolean;
+            /** Incorrect */
+            incorrect: boolean;
+            /** Marked */
+            marked: boolean;
+            /** Attempt Count */
+            attempt_count: number;
+            /** Last Result */
+            last_result?: ("correct" | "incorrect") | null;
+            /** Last Attempt At */
+            last_attempt_at?: string | null;
+        };
+        /** BankQuestionProgressResponse */
+        BankQuestionProgressResponse: {
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "all" | "uncompleted" | "completed" | "incorrect" | "marked";
+            /** Total */
+            total: number;
+            /** Items */
+            items?: components["schemas"]["BankQuestionProgressPublic"][];
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
         /** ChallengeBenchmarkRequest */
         ChallengeBenchmarkRequest: {
             /** Question Id */
@@ -1743,6 +1999,70 @@ export interface components {
             preserved_review_history: boolean;
             /** Api Source */
             api_source: string;
+        };
+        /** CoachConversationListResponse */
+        CoachConversationListResponse: {
+            /** Items */
+            items: components["schemas"]["CoachConversationPublic"][];
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** CoachConversationPublic */
+        CoachConversationPublic: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Messages */
+            messages?: components["schemas"]["CoachMessagePublic"][];
+        };
+        /** CoachConversationResponse */
+        CoachConversationResponse: {
+            item: components["schemas"]["CoachConversationPublic"];
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** CoachMessagePublic */
+        CoachMessagePublic: {
+            /** Id */
+            id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+            /** Activity */
+            activity?: {
+                [key: string]: unknown;
+            }[];
+            /** Sources */
+            sources?: {
+                [key: string]: unknown;
+            }[];
+            /** Created At */
+            created_at: string;
+        };
+        /** CoachMessageRequest */
+        CoachMessageRequest: {
+            /**
+             * Learner Id
+             * @default demo_learner
+             */
+            learner_id: string;
+            /** Message */
+            message: string;
         };
         /** DocumentUploadRequest */
         DocumentUploadRequest: {
@@ -2290,6 +2610,110 @@ export interface components {
             /** Document Id */
             document_id: string;
         };
+        /** KnowledgeDetailResponse */
+        KnowledgeDetailResponse: {
+            item: components["schemas"]["KnowledgeSourceDetailPublic"];
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** KnowledgeEnabledRequest */
+        KnowledgeEnabledRequest: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /** KnowledgeListResponse */
+        KnowledgeListResponse: {
+            /** Items */
+            items: components["schemas"]["KnowledgeSourcePublic"][];
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** KnowledgeSourceDetailPublic */
+        KnowledgeSourceDetailPublic: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** File Name */
+            file_name: string;
+            /** Media Type */
+            media_type: string;
+            /** Scope */
+            scope: string;
+            /** Status */
+            status: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Parser Version */
+            parser_version?: string | null;
+            /** Embedding Model */
+            embedding_model?: string | null;
+            /** Attribution */
+            attribution?: string | null;
+            /** Created At */
+            created_at: unknown;
+            /** Updated At */
+            updated_at?: unknown | null;
+            /** Preview */
+            preview?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** KnowledgeSourcePublic */
+        KnowledgeSourcePublic: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** File Name */
+            file_name: string;
+            /** Media Type */
+            media_type: string;
+            /** Scope */
+            scope: string;
+            /** Status */
+            status: string;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Parser Version */
+            parser_version?: string | null;
+            /** Embedding Model */
+            embedding_model?: string | null;
+            /** Attribution */
+            attribution?: string | null;
+            /** Created At */
+            created_at: unknown;
+            /** Updated At */
+            updated_at?: unknown | null;
+        };
+        /** KnowledgeUploadRequest */
+        KnowledgeUploadRequest: {
+            /** Filename */
+            filename: string;
+            /** Content Base64 */
+            content_base64: string;
+            /** Content Type */
+            content_type?: string | null;
+            /**
+             * Domain Id
+             * @default endoscopy
+             */
+            domain_id: string;
+        };
         /** LLMActionResponse */
         LLMActionResponse: {
             llm: components["schemas"]["LLMSettingsPublic"];
@@ -2651,6 +3075,12 @@ export interface components {
             question_count: number;
             /** Shuffle Seed */
             shuffle_seed?: number | null;
+            /**
+             * Question Scope
+             * @default all
+             * @enum {string}
+             */
+            question_scope: "all" | "uncompleted" | "incorrect" | "marked" | "due";
         };
         /** PracticeSessionDetailPublic */
         PracticeSessionDetailPublic: {
@@ -2961,10 +3391,48 @@ export interface components {
              */
             completed_count: number;
             /**
+             * Uncompleted Count
+             * @default 0
+             */
+            uncompleted_count: number;
+            /**
+             * Incorrect Count
+             * @default 0
+             */
+            incorrect_count: number;
+            /**
+             * Marked Count
+             * @default 0
+             */
+            marked_count: number;
+            /**
              * Progress
              * @default 0
              */
             progress: number;
+        };
+        /** QuestionMarkRequest */
+        QuestionMarkRequest: {
+            /**
+             * Learner Id
+             * @default demo_learner
+             */
+            learner_id: string;
+            /** Marked */
+            marked: boolean;
+        };
+        /** QuestionMarkResponse */
+        QuestionMarkResponse: {
+            /** Question Id */
+            question_id: string;
+            /** Marked */
+            marked: boolean;
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
         };
         /** QuestionOptionPublic */
         QuestionOptionPublic: {
@@ -3042,6 +3510,18 @@ export interface components {
             /** Model */
             model?: string | null;
         };
+        /** ReviewAttemptPublic */
+        ReviewAttemptPublic: {
+            /** Selected Answer Display */
+            selected_answer_display: string;
+            /** Correct */
+            correct: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** ReviewCardPublic */
         ReviewCardPublic: {
             /** Review Card Id */
@@ -3065,6 +3545,120 @@ export interface components {
             /** Review Count */
             review_count: number;
         };
+        /** ReviewItemDetailPublic */
+        ReviewItemDetailPublic: {
+            /** Question Id */
+            question_id: string;
+            /**
+             * Question Type
+             * @enum {string}
+             */
+            question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
+            /** Question Summary */
+            question_summary: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /** Completed */
+            completed: boolean;
+            /** Incorrect */
+            incorrect: boolean;
+            /** Marked */
+            marked: boolean;
+            /** Attempt Count */
+            attempt_count: number;
+            /** Last Result */
+            last_result?: ("correct" | "incorrect") | null;
+            /** Last Attempt At */
+            last_attempt_at?: string | null;
+            /** Bank Id */
+            bank_id: string;
+            /** Bank Name */
+            bank_name: string;
+            /** Due At */
+            due_at?: string | null;
+            /** Wrong Count */
+            wrong_count: number;
+            /** Last Selected Answer */
+            last_selected_answer?: string | string[] | boolean | null;
+            /**
+             * Official Explanation Available
+             * @default false
+             */
+            official_explanation_available: boolean;
+            /** Stem */
+            stem: string;
+            /** Options */
+            options?: components["schemas"]["QuestionOptionPublic"][];
+            /** Correct Answer Display */
+            correct_answer_display: string;
+            /** Explanation */
+            explanation: string;
+            /** Recent Attempts */
+            recent_attempts?: components["schemas"]["ReviewAttemptPublic"][];
+        };
+        /** ReviewItemPublic */
+        ReviewItemPublic: {
+            /** Question Id */
+            question_id: string;
+            /**
+             * Question Type
+             * @enum {string}
+             */
+            question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
+            /** Question Summary */
+            question_summary: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /** Completed */
+            completed: boolean;
+            /** Incorrect */
+            incorrect: boolean;
+            /** Marked */
+            marked: boolean;
+            /** Attempt Count */
+            attempt_count: number;
+            /** Last Result */
+            last_result?: ("correct" | "incorrect") | null;
+            /** Last Attempt At */
+            last_attempt_at?: string | null;
+            /** Bank Id */
+            bank_id: string;
+            /** Bank Name */
+            bank_name: string;
+            /** Due At */
+            due_at?: string | null;
+            /** Wrong Count */
+            wrong_count: number;
+            /** Last Selected Answer */
+            last_selected_answer?: string | string[] | boolean | null;
+            /**
+             * Official Explanation Available
+             * @default false
+             */
+            official_explanation_available: boolean;
+        };
+        /** ReviewItemsResponse */
+        ReviewItemsResponse: {
+            /**
+             * Tab
+             * @enum {string}
+             */
+            tab: "due" | "wrong" | "marked";
+            /** Total */
+            total: number;
+            /** Items */
+            items?: components["schemas"]["ReviewItemPublic"][];
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
         /** ReviewRequest */
         ReviewRequest: {
             /**
@@ -3082,6 +3676,36 @@ export interface components {
             item: components["schemas"]["ReviewCardPublic"];
             /** Api Source */
             api_source: string;
+        };
+        /** ReviewSessionCreateRequest */
+        ReviewSessionCreateRequest: {
+            /**
+             * Learner Id
+             * @default demo_learner
+             */
+            learner_id: string;
+            /**
+             * Tab
+             * @default due
+             * @enum {string}
+             */
+            tab: "due" | "wrong" | "marked";
+            /**
+             * Question Count
+             * @default 20
+             */
+            question_count: number;
+            /** Bank Id */
+            bank_id?: string | null;
+        };
+        /** ReviewSummaryPublic */
+        ReviewSummaryPublic: {
+            /** Due Count */
+            due_count: number;
+            /** Incorrect Count */
+            incorrect_count: number;
+            /** Marked Count */
+            marked_count: number;
         };
         /** SettingsResponse */
         SettingsResponse: {
@@ -3508,6 +4132,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuestionBankPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_bank_questions_api_v3_question_banks__bank_id__questions_get: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+                state?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankQuestionProgressResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4052,6 +4712,496 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClearLearningMemoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_summary_api_v3_review_summary_get: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewSummaryPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_review_items_api_v3_review_items_get: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+                tab?: string;
+                bank_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewItemsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_review_item_api_v3_review_items__question_id__get: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+            };
+            header?: never;
+            path: {
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewItemDetailPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_review_session_api_v3_review_sessions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewSessionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeSessionPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_question_mark_api_v3_questions__question_id__mark_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionMarkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionMarkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sources_api_v3_knowledge_sources_get: {
+        parameters: {
+            query?: {
+                scope?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_source_api_v3_knowledge_sources_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_detail_api_v3_knowledge_sources__document_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_source_api_v3_knowledge_sources__document_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_source_api_v3_knowledge_sources__document_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeEnabledRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reindex_source_api_v3_knowledge_sources__document_id__reindex_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_conversations_api_v3_coach_conversations_get: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachConversationListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_conversation_api_v3_coach_conversations_post: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachConversationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    conversation_detail_api_v3_coach_conversations__conversation_id__get: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+            };
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CoachConversationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_message_api_v3_coach_conversations__conversation_id__stream_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CoachMessageRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

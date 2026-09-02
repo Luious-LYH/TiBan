@@ -50,14 +50,23 @@ def _public_source(context: AgentContext) -> dict[str, str] | None:
 
 def _retrieve_knowledge(context: AgentContext) -> list[dict[str, str]]:
     question = _question_context(context)
-    query = f"{question.get('body_part', '')} {question.get('stem', '')} {context.user_message}"
+    # Retrieval is explicit-route only. Keep the user request first, with a
+    # small question anchor for terms such as “这个选项”，rather than searching
+    # the entire stem and manufacturing a superficially similar citation.
+    query = f"{context.user_message}\n当前题目：{question.get('stem', '')[:180]}"
     citations: list[Any] = []
     if os.getenv("TUTOR_RETRIEVAL_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}:
         try:
             from app.services.rag_service import rag_service
 
             manifest = get_domain(str(question["domain_id"]))
-            citations = rag_service.retrieve(query, mode="dense", limit=3, domain_id=manifest.domain_id, namespaces=list(manifest.knowledge_namespaces))
+            citations = rag_service.retrieve(
+                query,
+                mode="hybrid",
+                limit=4,
+                domain_id=manifest.domain_id,
+                namespaces=["system", "user", "qbank_explanations"],
+            )
         except Exception:
             # No local fake source is presented as RAG evidence. Public question
             # provenance below remains a truthful fallback when index is absent.
@@ -75,8 +84,9 @@ def _retrieve_knowledge(context: AgentContext) -> list[dict[str, str]]:
             }
             for citation in citations
         ]
-    source = _public_source(context)
-    return [source] if source else []
+    # Zero is a valid retrieval result.  Question provenance is context, never
+    # masqueraded as a knowledge-base citation.
+    return []
 
 
 def _learning_profile(context: AgentContext) -> dict[str, Any]:

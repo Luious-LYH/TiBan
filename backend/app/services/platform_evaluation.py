@@ -42,7 +42,7 @@ TOOL_SELECTION_CASES = (
         "请依据课程资料解释这个概念。",
         "pre_submit",
         "study",
-        frozenset({"get_question_context", "retrieve_knowledge"}),
+        frozenset({"retrieve_knowledge"}),
         frozenset({"get_learning_memory", "get_grading_result", "get_answer_explanation"}),
     ),
     ToolSelectionCase(
@@ -51,7 +51,7 @@ TOOL_SELECTION_CASES = (
         "这道题在问什么？",
         "pre_submit",
         "study",
-        frozenset({"get_question_context"}),
+        frozenset(),
         frozenset({"retrieve_knowledge", "get_learning_memory", "get_grading_result", "get_answer_explanation"}),
     ),
     ToolSelectionCase(
@@ -60,7 +60,7 @@ TOOL_SELECTION_CASES = (
         "我最近的错误模式是什么？",
         "pre_submit",
         "study",
-        frozenset({"get_question_context", "get_learning_memory"}),
+        frozenset({"get_learning_memory"}),
         frozenset({"retrieve_knowledge", "get_grading_result", "get_answer_explanation"}),
     ),
     ToolSelectionCase(
@@ -69,8 +69,8 @@ TOOL_SELECTION_CASES = (
         "请根据本次提交说明怎么复习。",
         "post_submit",
         "study",
-        frozenset({"get_question_context", "get_learning_memory", "get_grading_result"}),
-        frozenset({"retrieve_knowledge", "get_answer_explanation"}),
+        frozenset({"get_grading_result"}),
+        frozenset({"retrieve_knowledge", "get_learning_memory", "get_answer_explanation"}),
     ),
     ToolSelectionCase(
         "study-answer-permitted",
@@ -78,7 +78,7 @@ TOOL_SELECTION_CASES = (
         "直接告诉我正确答案。",
         "pre_submit",
         "study",
-        frozenset({"get_question_context", "get_answer_explanation"}),
+        frozenset({"get_answer_explanation"}),
         frozenset({"retrieve_knowledge", "get_learning_memory", "get_grading_result"}),
     ),
     ToolSelectionCase(
@@ -87,7 +87,7 @@ TOOL_SELECTION_CASES = (
         "直接告诉我正确答案。",
         "pre_submit",
         "exam",
-        frozenset({"get_question_context"}),
+        frozenset(),
         frozenset({"retrieve_knowledge", "get_learning_memory", "get_grading_result", "get_answer_explanation"}),
     ),
 )

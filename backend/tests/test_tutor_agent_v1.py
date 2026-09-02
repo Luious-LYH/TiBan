@@ -42,13 +42,15 @@ def test_event_order_is_real_tool_receipt_then_tokens_then_end() -> None:
     events = list(tutor_runner.stream(AgentContext(
         question_id='endo_text_esophagus_reflux_single',
         learner_id='agent-order',
-        user_message='请给我一个观察提示。',
+        user_message='请根据知识库资料给我一个观察提示。',
         phase='pre_submit',
     )))
     names = [event.event for event in events]
     assert names[0] == 'message_start'
     assert names.index('tool_start') < names.index('tool_end') < names.index('token') < names.index('message_end')
-    assert any(event.event == 'source' for event in events)
+    assert any(event.event == 'activity' for event in events)
+    # Retrieval can be empty; question provenance must never be faked as RAG.
+    assert not any(event.event == 'source' and event.data.get('namespace') == 'question_source' for event in events)
 
 
 def test_recent_mistakes_is_read_only_and_answer_free() -> None:
@@ -87,13 +89,13 @@ def test_sse_endpoint_emits_protocol_events() -> None:
     response = client.post('/api/v3/tutor/stream', json={
         'question_id': 'endo_text_esophagus_reflux_single',
         'learner_id': 'agent-sse',
-        'message': '请提供提示。',
+        'message': '请根据知识库资料提供提示。',
     })
     assert response.status_code == 200
     assert response.headers['content-type'].startswith('text/event-stream')
     event_names = [line.removeprefix('event: ') for line in response.text.splitlines() if line.startswith('event: ')]
     assert event_names[0] == 'message_start'
-    assert 'tool_start' in event_names and 'tool_end' in event_names and 'source' in event_names
+    assert 'agent_start' in event_names and 'tool_start' in event_names and 'tool_end' in event_names and 'activity' in event_names
     assert event_names[-1] == 'message_end'
     payloads = [json.loads(line.removeprefix('data: ')) for line in response.text.splitlines() if line.startswith('data: ')]
     assert not (_keys(payloads) & SENSITIVE)
@@ -116,8 +118,10 @@ def test_runner_retries_one_gateway_failure_then_recovers() -> None:
             return '恢复完成。'
 
     gateway: ModelGateway = FailOnceGateway()
-    events = list(AgentRunner(ToolRegistry(), gateway, retries=1).stream(AgentContext(
-        question_id='q', learner_id='retry', user_message='提示', phase='pre_submit',
+    registry = ToolRegistry()
+    registry.register('retrieve_knowledge', {'pre_submit'}, lambda _: [])
+    events = list(AgentRunner(registry, gateway, retries=1).stream(AgentContext(
+        question_id='q', learner_id='retry', user_message='请根据知识库资料提示', phase='pre_submit',
     )))
     assert events[-1].event == 'message_end'
     assert events[-1].data['retry_count'] == 1
@@ -127,7 +131,7 @@ def test_cancelled_context_emits_real_cancel_error_without_tools() -> None:
     events = list(tutor_runner.stream(AgentContext(
         question_id='endo_text_esophagus_reflux_single', learner_id='cancel', user_message='提示', phase='pre_submit', cancelled=lambda: True,
     )))
-    assert [event.event for event in events] == ['message_start', 'error']
+    assert [event.event for event in events] == ['message_start', 'agent_start', 'error']
     assert events[-1].data['code'] == 'cancelled'
 
 

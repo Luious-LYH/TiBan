@@ -1,4 +1,4 @@
-import { BookOpen, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { ArrowRight, BookOpen, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -32,9 +32,9 @@ export function BanksPage() {
     </section>
     {banks.length === 0 ? <section className="catalog-empty"><EmptyState title="没有匹配的题库" detail="试试清空搜索或切换题型筛选。" /></section> : <section className="catalog-list">{banks.map((bank) => <article className="catalog-row" key={bank.bank_id}>
       <span className="catalog-row-icon"><BookOpen size={18} /></span>
-      <div className="catalog-row-copy"><h2>{displayName(bank.name)}</h2><p>{learnerBankDescription(bank.bank_id, bank.description)}</p><div>{bank.body_parts.length > 0 && <span>{bank.body_parts.join(' · ')}</span>}<span>{bank.question_count} 题</span>{Object.entries(bank.question_type_counts).map(([key, count]) => <span key={key}>{count} {typeLabels[key] ?? key}</span>)}</div></div>
-      <div className="catalog-row-progress">{bank.completed_count > 0 && <><span>{bank.completed_count} / {bank.question_count}</span><i><b style={{ width: `${Math.round(bank.progress * 100)}%` }} /></i></>}</div>
-      <SessionBuilder bankId={bank.bank_id} bankName={displayName(bank.name)} />
+      <div className="catalog-row-copy"><Link to={`/banks/${encodeURIComponent(bank.bank_id)}`}><h2>{displayName(bank.name)}</h2></Link><p>{learnerBankDescription(bank.bank_id, bank.description)}</p><div><span>{bank.question_count} 题</span><span>已做 {bank.completed_count}</span><span>错题 {bank.incorrect_count}</span><span>标记 {bank.marked_count}</span>{Object.entries(bank.question_type_counts).map(([key, count]) => <span key={key}>{count} {typeLabels[key] ?? key}</span>)}</div></div>
+      <div className="catalog-row-progress"><span>{bank.completed_count} / {bank.question_count}</span><i><b style={{ width: `${Math.round(bank.progress * 100)}%` }} /></i></div>
+      <div className="catalog-row-actions"><Link to={`/banks/${encodeURIComponent(bank.bank_id)}`}>查看题目 <ArrowRight size={14} /></Link><SessionBuilder bankId={bank.bank_id} bankName={displayName(bank.name)} /></div>
     </article>)}</section>}
   </div>
 }

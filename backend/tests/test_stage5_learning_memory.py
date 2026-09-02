@@ -14,7 +14,9 @@ from app.services.learning_memory_service import learning_memory_service
 from app.services.stage1_service import stage1_service
 
 
-QUESTION_ID = "endo_text_esophagus_reflux_single"
+# V3.1 retires the legacy esophagus fixture from the learner catalog.  Memory
+# scheduling must continue to work against the formal CMExam learning bank.
+QUESTION_ID = "cmexam_000886"
 
 
 def _answers() -> tuple[str, str]:

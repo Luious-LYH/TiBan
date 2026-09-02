@@ -18,6 +18,6 @@ class PracticeUseCases:
         return self._workflow.submit(request)
 
     def create_practice_session(
-        self, learner_id: str, bank_id: str, mode: str, question_count: int, shuffle_seed: int | None
+        self, learner_id: str, bank_id: str, mode: str, question_count: int, shuffle_seed: int | None, question_scope: str = "all"
     ) -> dict[str, Any]:
-        return self._workflow.create_session(learner_id, bank_id, mode, question_count, shuffle_seed)
+        return self._workflow.create_session(learner_id, bank_id, mode, question_count, shuffle_seed, question_scope)

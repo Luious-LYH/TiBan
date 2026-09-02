@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from time import perf_counter
+from contextvars import ContextVar
 from typing import Any
 
 from app.db.database import SessionLocal
@@ -10,6 +12,9 @@ from app.db.repositories import Stage1Repository
 from app.db.serializers import grading_question_payload, public_bank_payload, public_question_payload
 from app.domains import get_domain
 from app.schemas import FactFeedbackPublic, PracticeSubmitRequest, PracticeSubmitResponse
+
+
+submit_timing_context: ContextVar[dict[str, float]] = ContextVar("submit_timing_context", default={})
 
 
 class Stage1Service:
@@ -105,10 +110,11 @@ class Stage1Service:
         mode: str = "practice",
         question_count: int = 20,
         shuffle_seed: int | None = None,
+        question_scope: str = "all",
     ) -> dict[str, Any]:
         session, repository = self._repository()
         try:
-            created, selection = repository.create_session(learner_id, bank_id, mode, question_count, shuffle_seed)
+            created, selection = repository.create_session(learner_id, bank_id, mode, question_count, shuffle_seed, question_scope)
             items = repository.session_items(created.session_id)
             return {
                 "session_id": created.session_id,
@@ -150,19 +156,28 @@ class Stage1Service:
             session.close()
 
     def submit(self, request: PracticeSubmitRequest) -> PracticeSubmitResponse:
+        started = perf_counter()
+        timings: dict[str, float] = {"request_receive_ms": 0.0}
         session, repository = self._repository()
         try:
+            mark = perf_counter()
             question = repository.get_question(request.question_id)
+            timings["question_load_ms"] = round((perf_counter() - mark) * 1000, 3)
             bank_id = question.bank_id
+            mark = perf_counter()
             practice_session = repository.get_or_create_session(
                 request.learner_id,
                 bank_id,
                 request.session_id,
                 request.mode,
             )
+            timings["session_load_ms"] = round((perf_counter() - mark) * 1000, 3)
+            mark = perf_counter()
             grading = grading_question_payload(question)
             normalized = self._normalize_submission(request.selected_answer, grading)
             score, correct, error_tags = self._grade(question, grading, normalized)
+            timings["grade_ms"] = round((perf_counter() - mark) * 1000, 3)
+            mark = perf_counter()
             attempt = repository.record_attempt(
                 session=practice_session,
                 question=question,
@@ -172,7 +187,10 @@ class Stage1Service:
                 error_tags=error_tags,
                 hint_count=request.hint_count,
                 duration_ms=request.duration_ms,
+                timings=timings,
             )
+            timings["attempt_workflow_ms"] = round((perf_counter() - mark) * 1000, 3)
+            mark = perf_counter()
             facts = list(question.expected_keywords or question.teaching_tags or [])[:4]
             feedback = [
                 FactFeedbackPublic(
@@ -185,7 +203,7 @@ class Stage1Service:
             exam_locked = request.mode == "exam"
             explanation = "考试进行中；提交本题后暂不显示正确答案和解析，结束后统一复盘。" if exam_locked else self._explanation(question, correct, score, error_tags)
             selected_display, correct_display = self._answer_displays(grading, normalized)
-            return PracticeSubmitResponse(
+            response = PracticeSubmitResponse(
                 attempt_id=attempt.attempt_id,
                 question_id=question.question_id,
                 session_id=practice_session.session_id,
@@ -211,6 +229,10 @@ class Stage1Service:
                 explanation_source=question.explanation_source if question.explanation_source in {"dataset_gold", "rag_generated", "human_curated", "none"} else "none",
                 official_explanation_available=False if exam_locked else bool(question.official_explanation_available and (question.explanation or "").strip()),
             )
+            timings["serialize_ms"] = round((perf_counter() - mark) * 1000, 3)
+            timings["request_total_ms"] = round((perf_counter() - started) * 1000, 3)
+            submit_timing_context.set(timings)
+            return response
         finally:
             session.close()
 

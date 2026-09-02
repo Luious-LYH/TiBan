@@ -143,6 +143,9 @@ class QuestionBankPublic(Stage1Model):
     modality_counts: dict[str, int] = Field(default_factory=dict)
     body_parts: list[str] = Field(default_factory=list)
     completed_count: int = Field(default=0, ge=0)
+    uncompleted_count: int = Field(default=0, ge=0)
+    incorrect_count: int = Field(default=0, ge=0)
+    marked_count: int = Field(default=0, ge=0)
     progress: float = Field(default=0, ge=0, le=1)
 
 
@@ -185,6 +188,7 @@ class PracticeSessionCreateRequest(Stage1Model):
     mode: Literal["study", "exam", "review", "practice"] = "study"
     question_count: int = Field(default=20, ge=1, le=100)
     shuffle_seed: int | None = None
+    question_scope: Literal["all", "uncompleted", "incorrect", "marked", "due"] = "all"
 
 
 class PracticeSessionPublic(Stage1Model):
@@ -202,6 +206,82 @@ class PracticeSessionPublic(Stage1Model):
     selection_strategy: Literal["due_review", "learning_memory", "weak_topic", "coverage"] = "coverage"
     selection_reason: str = "本次按题库覆盖安排练习。"
     selection_evidence: list[str] = Field(default_factory=list)
+
+
+class BankQuestionProgressPublic(Stage1Model):
+    question_id: str
+    question_type: QuestionTypeCode
+    question_summary: str
+    subject: str | None = None
+    topic: str | None = None
+    completed: bool
+    incorrect: bool
+    marked: bool
+    attempt_count: int = Field(ge=0)
+    last_result: Literal["correct", "incorrect"] | None = None
+    last_attempt_at: datetime | None = None
+
+
+class BankQuestionProgressResponse(Stage1Model):
+    bank_id: str
+    state: Literal["all", "uncompleted", "completed", "incorrect", "marked"]
+    total: int = Field(ge=0)
+    items: list[BankQuestionProgressPublic] = Field(default_factory=list)
+    api_source: Literal["backend"] = "backend"
+
+
+class ReviewSummaryPublic(Stage1Model):
+    due_count: int = Field(ge=0)
+    incorrect_count: int = Field(ge=0)
+    marked_count: int = Field(ge=0)
+
+
+class ReviewItemPublic(BankQuestionProgressPublic):
+    bank_id: str
+    bank_name: str
+    due_at: datetime | None = None
+    wrong_count: int = Field(ge=0)
+    last_selected_answer: str | list[str] | bool | None = None
+    official_explanation_available: bool = False
+
+
+class ReviewItemsResponse(Stage1Model):
+    tab: Literal["due", "wrong", "marked"]
+    total: int = Field(ge=0)
+    items: list[ReviewItemPublic] = Field(default_factory=list)
+    api_source: Literal["backend"] = "backend"
+
+
+class ReviewAttemptPublic(Stage1Model):
+    selected_answer_display: str
+    correct: bool
+    created_at: datetime
+
+
+class ReviewItemDetailPublic(ReviewItemPublic):
+    stem: str
+    options: list[QuestionOptionPublic] = Field(default_factory=list)
+    correct_answer_display: str
+    explanation: str
+    recent_attempts: list[ReviewAttemptPublic] = Field(default_factory=list)
+
+
+class ReviewSessionCreateRequest(Stage1Model):
+    learner_id: str = "demo_learner"
+    tab: Literal["due", "wrong", "marked"] = "due"
+    question_count: int = Field(default=20, ge=1, le=100)
+    bank_id: str | None = None
+
+
+class QuestionMarkRequest(Stage1Model):
+    learner_id: str = "demo_learner"
+    marked: bool
+
+
+class QuestionMarkResponse(Stage1Model):
+    question_id: str
+    marked: bool
+    api_source: Literal["backend"] = "backend"
 
 
 class PracticeSessionQuestionStatePublic(Stage1Model):

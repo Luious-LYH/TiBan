@@ -117,6 +117,53 @@ class AttemptModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False, index=True)
 
 
+class QuestionMarkModel(Base):
+    """A learner-owned bookmark, deliberately separate from an Attempt.
+
+    A mark is an intentional study signal, not a derived score.  Keeping it in
+    its own small table makes the bank/review filters truthful and prevents the
+    frontend from pretending a browser-local toggle is durable learning state.
+    """
+
+    __tablename__ = "question_marks"
+    __table_args__ = (UniqueConstraint("learner_id", "question_id", name="uq_question_mark_learner_question"),)
+
+    mark_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    question_id: Mapped[str] = mapped_column(ForeignKey("questions.question_id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class AgentConversationModel(Base):
+    """Minimal durable history for the global learning coach only.
+
+    Practice-side intelligent-assistant turns are deliberately scoped to the
+    active question and remain ephemeral; the coach is the cross-session
+    learning surface that needs a truthful, learner-owned history.
+    """
+
+    __tablename__ = "agent_conversations"
+
+    conversation_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    agent_profile: Mapped[str] = mapped_column(String(40), nullable=False, default="coach", index=True)
+    title: Mapped[str] = mapped_column(String(240), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False, index=True)
+
+
+class AgentMessageModel(Base):
+    __tablename__ = "agent_messages"
+
+    message_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(ForeignKey("agent_conversations.conversation_id"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    activity: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    sources: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False, index=True)
+
+
 class ReviewCardModel(Base):
     __tablename__ = "review_cards"
     __table_args__ = (UniqueConstraint("learner_id", "question_id", name="uq_review_card_learner_question"),)
@@ -158,7 +205,17 @@ class SourceDocumentModel(Base):
     source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
     namespace: Mapped[str] = mapped_column(String(80), nullable=False, default="medical_general", index=True)
     attribution: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # V3.1 knowledge-library metadata. ``name`` remains the learner-visible
+    # title; the remaining fields describe the actual indexed source without
+    # exposing vector/chunk implementation details to the UI.
+    source_scope: Mapped[str] = mapped_column(String(32), nullable=False, default="system", index=True)
+    file_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
+    parser_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String(180), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
 
 class DocumentVersionModel(Base):

@@ -47,7 +47,7 @@ def test_tutor_application_runs_with_fake_model_and_retrieval_ports() -> None:
         public_source=lambda _: None,
         record_explicit_confusion=lambda _, __: None,
     )
-    events = list(build_tutor_runtime(dependencies, FakeGateway()).stream(AgentContext(question_id="q", learner_id="l", user_message="提示", phase="pre_submit")))
+    events = list(build_tutor_runtime(dependencies, FakeGateway()).stream(AgentContext(question_id="q", learner_id="l", user_message="根据资料给我提示", phase="pre_submit")))
     assert [event.event for event in events][0] == "message_start"
     assert any(event.event == "source" and event.data["document_name"] == "fake source" for event in events)
     assert events[-1].event == "message_end"

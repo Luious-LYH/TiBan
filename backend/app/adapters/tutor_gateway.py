@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from app.domains import get_domain
 from app.application.errors import normalize_provider_error
 from app.services.agent_runtime import AgentContext
 from app.services.llm_provider import llm_provider
+
+
+QUESTION_ASSISTANT_PROMPT = (Path(__file__).resolve().parents[1] / "agents" / "prompts" / "question_assistant.md").read_text(encoding="utf-8")
 
 
 class OpenAICompatibleTutorGateway:
@@ -38,17 +42,24 @@ class OpenAICompatibleTutorGateway:
         return [str(name) for name in names if str(name) in available_tools]
 
     def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
-        question = observations.get("get_question_context", {})
+        question = observations.get("current_question", {})
         domain = get_domain(str(question.get("domain_id", "endoscopy")))
         medical_policy = domain.tutor_policy == "medical_education"
-        boundary = f" Include this boundary: {domain.learner_notice}" if medical_policy else ""
+        pre_submit_without_explanation = context.phase == "pre_submit" and "get_answer_explanation" not in observations
+        answer_boundary = (
+            "The learner has not submitted and did not explicitly ask for the answer. "
+            "Do not state or imply the correct option, the correct answer, or a mnemonic that uniquely reveals it. "
+            "Explain only how to compare the visible options and invite the learner to make a choice first. "
+            if pre_submit_without_explanation
+            else ""
+        )
         result = llm_provider.chat(
             system_prompt=(
-                "You are a safe Chinese learning tutor. Use only supplied observations. "
-                "Never reveal answers in Exam mode, hidden rubrics, or hidden reasoning. "
+                QUESTION_ASSISTANT_PROMPT + "\n\n"
+                + "Use only supplied observations. Never reveal answers in Exam mode, hidden rubrics, or hidden reasoning. "
+                + answer_boundary
                 + ("Do not provide diagnosis or treatment. " if medical_policy else "")
-                + "Give concise evidence-based teaching with supplied source labels."
-                + boundary
+                + "Give concise evidence-based teaching. Mention a source only when a real supplied citation exists."
             ),
             user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "mode": context.mode, "observations": observations, "recent_conversation": context.metadata.get("conversation", [])[-12:]}, ensure_ascii=False),
             temperature=0.2,

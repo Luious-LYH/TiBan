@@ -117,17 +117,17 @@ def test_openapi_exposes_four_question_variants() -> None:
         assert question_union.get("discriminator", {}).get("propertyName") == "question_type"
 
 
-def test_banks_return_distinct_question_sets() -> None:
+def test_learner_catalog_exposes_only_formal_bank_and_its_pages_are_distinct() -> None:
     response = client.get("/api/v3/question-banks")
     assert response.status_code == 200
     banks = response.json()["items"]
-    assert len(banks) >= 2
+    assert [bank["bank_id"] for bank in banks] == ["bank-cmexam-real"]
 
     first_items = client.get(
-        "/api/v3/practice/questions", params={"bank_id": banks[0]["bank_id"], "limit": 100}
+        "/api/v3/practice/questions", params={"bank_id": "bank-cmexam-real", "limit": 20, "offset": 0}
     ).json()["items"]
     second_items = client.get(
-        "/api/v3/practice/questions", params={"bank_id": banks[1]["bank_id"], "limit": 100}
+        "/api/v3/practice/questions", params={"bank_id": "bank-cmexam-real", "limit": 20, "offset": 20}
     ).json()["items"]
     assert first_items and second_items
     assert {item["id"] for item in first_items}.isdisjoint({item["id"] for item in second_items})
@@ -335,3 +335,67 @@ def test_adaptive_session_reuses_attempt_mastery_and_review_state_without_new_sc
     })
     assert session_questions.status_code == 200, session_questions.text
     assert [item["id"] for item in session_questions.json()["items"]] == payload["question_ids"]
+
+
+def test_v31_bank_progress_marks_and_review_are_unique_question_projections(monkeypatch) -> None:
+    """A second attempt updates the same question state; it never inflates progress."""
+    learner_id = f"v31-progress-{uuid4().hex[:8]}"
+    banks = client.get("/api/v3/question-banks").json()["items"]
+    bank = next(item for item in banks if item["bank_id"] == "bank-cmexam-real" or item["question_count"] >= 2)
+    question = client.get("/api/v3/practice/questions", params={"bank_id": bank["bank_id"], "limit": 1}).json()["items"][0]
+    answer = question["options"][0]["id"] if question.get("options") else True
+    for _ in range(2):
+        submitted = client.post("/api/v3/practice/submit", json={
+            "learner_id": learner_id, "question_id": question["id"], "selected_answer": answer,
+        })
+        assert submitted.status_code == 200, submitted.text
+
+    marked = client.put(f"/api/v3/questions/{question['id']}/mark", json={"learner_id": learner_id, "marked": True})
+    assert marked.status_code == 200 and marked.json()["marked"] is True
+    progress = client.get(f"/api/v3/question-banks/{bank['bank_id']}/questions", params={"learner_id": learner_id, "state": "completed"})
+    assert progress.status_code == 200
+    entry = next(item for item in progress.json()["items"] if item["question_id"] == question["id"])
+    assert entry["attempt_count"] == 2
+    assert entry["completed"] is True
+    marked_items = client.get("/api/v3/review/items", params={"learner_id": learner_id, "tab": "marked"})
+    assert marked_items.status_code == 200
+    assert any(item["question_id"] == question["id"] for item in marked_items.json()["items"])
+
+    # Review projections resolve learner-visible bank IDs once. If the old
+    # per-question helper ever returns here, this regression test fails rather
+    # than silently reintroducing an N+1 scan on large CMExam banks.
+    def forbidden_test_only_bank(*_args: object, **_kwargs: object) -> bool:
+        raise AssertionError("review must not call _test_only_bank per question")
+
+    monkeypatch.setattr("app.db.repositories.Stage1Repository._test_only_bank", forbidden_test_only_bank)
+    summary = client.get("/api/v3/review/summary", params={"learner_id": learner_id})
+    assert summary.status_code == 200
+    assert summary.json()["marked_count"] >= 1
+    items = client.get("/api/v3/review/items", params={"learner_id": learner_id, "tab": "marked"})
+    assert items.status_code == 200
+    item = next(row for row in items.json()["items"] if row["question_id"] == question["id"])
+    detail = client.get(f"/api/v3/review/items/{question['id']}", params={"learner_id": learner_id})
+    assert detail.status_code == 200
+    assert detail.json()["question_id"] == item["question_id"]
+    session = client.post("/api/v3/review/sessions", json={"learner_id": learner_id, "tab": "marked", "question_count": 1})
+    assert session.status_code == 200, session.text
+
+
+def test_objective_submit_emits_timing_and_never_touches_llm_or_retrieval(monkeypatch) -> None:
+    learner_id = f"v31-fast-submit-{uuid4().hex[:8]}"
+    question = next(item for item in _all_questions() if item["question_type"] == "single_choice")
+
+    def forbidden(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("objective submit must not call an AI/RAG dependency")
+
+    monkeypatch.setattr("app.services.llm_provider.LLMProvider.chat", forbidden)
+    monkeypatch.setattr("app.services.rag_service.RagService.retrieve", forbidden)
+    response = client.post("/api/v3/practice/submit", json={
+        "learner_id": learner_id,
+        "question_id": question["id"],
+        "selected_answer": question["options"][0]["id"],
+    })
+    assert response.status_code == 200, response.text
+    timing = response.headers.get("server-timing", "")
+    for phase in ("question_load", "grade", "attempt_insert", "fsrs_update", "mastery_update", "memory_update", "serialize", "request_total"):
+        assert f"{phase};dur=" in timing

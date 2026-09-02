@@ -108,7 +108,9 @@ def legacy_bank_payload(bank: QuestionBankModel, completed_count: int = 0) -> di
 def public_bank_payload(bank: QuestionBankModel, completed_count: int = 0) -> dict[str, Any]:
     """Project a bank into the strict canonical Stage 1 response contract."""
 
-    progress = min(max(completed_count, 0), bank.question_count) / bank.question_count if bank.question_count else 0
+    progress_state = getattr(bank, "_stage1_progress", {})
+    completed = int(progress_state.get("completed_count", completed_count))
+    progress = min(max(completed, 0), bank.question_count) / bank.question_count if bank.question_count else 0
     return {
         "bank_id": bank.bank_id,
         "domain_id": bank.domain_id,
@@ -120,6 +122,9 @@ def public_bank_payload(bank: QuestionBankModel, completed_count: int = 0) -> di
         "question_type_counts": dict(bank.question_type_counts or {}),
         "modality_counts": dict(bank.modality_counts or {}),
         "body_parts": list(bank.body_parts or []),
-        "completed_count": completed_count,
+        "completed_count": completed,
+        "uncompleted_count": int(progress_state.get("uncompleted_count", max(bank.question_count - completed, 0))),
+        "incorrect_count": int(progress_state.get("incorrect_count", 0)),
+        "marked_count": int(progress_state.get("marked_count", 0)),
         "progress": round(progress, 3),
     }

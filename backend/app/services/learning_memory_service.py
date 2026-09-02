@@ -128,8 +128,22 @@ class LearningMemoryService:
         """
 
         affected: list[LearningMemoryItemModel] = []
+        # This remains in the deterministic submit transaction, but avoids one
+        # full learner-history query per topic key.
+        domain_history = list(
+            session.execute(
+                select(AttemptModel, QuestionModel)
+                .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
+                .where(AttemptModel.learner_id == attempt.learner_id, QuestionModel.domain_id == question.domain_id)
+                .order_by(AttemptModel.created_at)
+            ).all()
+        )
         for topic_key in topic_keys_for_question(question):
-            history = self._topic_attempt_history(session, attempt.learner_id, question.domain_id, topic_key)
+            history = [
+                (row_attempt, row_question)
+                for row_attempt, row_question in domain_history
+                if topic_key.casefold() in {item.casefold() for item in topic_keys_for_question(row_question)}
+            ]
             incorrect = [(row_attempt, row_question) for row_attempt, row_question in history if not row_attempt.correct]
             if len(incorrect) < REPEATED_MISTAKE_THRESHOLD:
                 continue

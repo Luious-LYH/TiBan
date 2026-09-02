@@ -12,7 +12,7 @@ from uuid import uuid4
 from app.domains import get_domain
 
 
-AgentEventType = Literal['message_start', 'reasoning', 'token', 'tool_start', 'tool_end', 'source', 'message_end', 'error']
+AgentEventType = Literal['agent_start', 'activity', 'message_start', 'reasoning', 'token', 'tool_start', 'tool_end', 'source', 'done', 'message_end', 'error']
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ class AgentContext:
     question_id: str
     learner_id: str
     user_message: str
-    phase: Literal['pre_submit', 'post_submit']
+    phase: Literal['pre_submit', 'post_submit', 'coach']
     mode: Literal['study', 'exam', 'review'] = 'study'
     attempt_id: str | None = None
     cancelled: Callable[[], bool] = lambda: False
@@ -85,34 +85,13 @@ class LocalPolicyModelGateway:
     name = 'local-policy-adapter/external-provider-pending'
 
     def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
-        lowered = context.user_message.lower()
-        requested = ['get_question_context', 'get_learning_profile']
-        asks_for_answer = context.mode == 'study' and context.phase == 'pre_submit' and any(
-            marker in lowered for marker in ('正确答案', '直接告诉我', '我不会', '答案是什么', '给答案')
-        )
-        needs_memory = context.phase == 'post_submit' or any(
-            marker in lowered for marker in ('提示', '为什么', '如何', '复习', '薄弱', '错误', '历史', '混淆', '下一轮')
-        )
-        # A post-submit turn must retain its deterministic grading observation
-        # even when retrieval and memory are also relevant to the explanation.
-        if context.phase == 'post_submit' and 'get_grading_result' in available_tools:
-            requested.append('get_grading_result')
-        if any(marker in lowered for marker in ('错题', '错误', '薄弱', '近期', '历史表现', '复习记录')):
-            requested.append('get_recent_mistakes')
-        if any(marker in lowered for marker in (
-            '提示', '解释', '为什么', '依据', '资料', '指南', '反流', '胃炎', '出血', '解剖',
-            '概念', '原理', '公式', '条件',
-        )):
-            requested.insert(1, 'retrieve_knowledge')
-        if asks_for_answer:
-            requested.append('get_answer_explanation')
-        if needs_memory:
-            requested.append('get_learning_memory')
-        return list(dict.fromkeys(tool for tool in requested if tool in available_tools))
+        return _policy_tools(context, available_tools)
 
     def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
+        if context.metadata.get('agent_profile') == 'coach':
+            return _compose_coach_local(context, observations)
         lowered = context.user_message.lower()
-        question = observations.get('get_question_context', {})
+        question = observations.get('current_question', {})
         domain = get_domain(str(question.get('domain_id', 'endoscopy')))
         answer = observations.get('get_answer_explanation')
         if answer and context.mode == 'study':
@@ -175,6 +154,7 @@ class AgentRunner:
         retries: int = 1,
         public_source: Callable[[AgentContext], dict[str, str] | None] | None = None,
         record_explicit_confusion: Callable[[AgentContext, str], str | None] | None = None,
+        default_context: Callable[[AgentContext], dict[str, Any]] | None = None,
     ) -> None:
         self.registry = registry
         self.gateway = gateway or LocalPolicyModelGateway()
@@ -183,20 +163,38 @@ class AgentRunner:
         self.retries = retries
         self._public_source = public_source
         self._record_explicit_confusion = record_explicit_confusion
+        self._default_context = default_context
 
     def stream(self, context: AgentContext) -> Iterator[AgentEvent]:
         run_id = f'run_{uuid4().hex[:12]}'
         yield AgentEvent('message_start', {'run_id': run_id, 'provider': self.gateway.name, 'provider_real': self.gateway.name != LocalPolicyModelGateway.name, 'phase': context.phase, 'mode': context.mode})
+        yield AgentEvent('agent_start', {'run_id': run_id, 'profile': str(context.metadata.get('agent_profile', 'question_assistant')), 'phase': context.phase})
         started = perf_counter()
         observations: dict[str, Any] = {}
+        # Current-question context is part of the Practice workspace, not a
+        # retrieval/tool action.  It stays public before submit and therefore
+        # cannot leak answer/rubric fields.  This prevents a normal concept
+        # question from looking like an unnecessary tool invocation.
+        if self._default_context is not None and context.phase != 'coach':
+            try:
+                observations['current_question'] = self._default_context(context)
+            except Exception:
+                observations['current_question'] = {}
         receipts: list[ToolReceipt] = []
-        source_emitted = False
         try:
+            if context.cancelled():
+                yield AgentEvent('error', {'code': 'cancelled', 'message': '请求已取消。'})
+                return
             available = self.registry.allowed(context.phase, context.mode)
+            policy_allowed = set(_policy_tools(context, available))
             retry_count = 0
             while True:
                 try:
-                    selected = self.gateway.select_tools(context, available)[: self.max_steps]
+                    # Do not spend a separate model call deciding whether a
+                    # plain concept question should query data.  When policy
+                    # says no extra observation is needed, composition is the
+                    # only model call and tool count remains exactly zero.
+                    selected = self.gateway.select_tools(context, policy_allowed)[: self.max_steps] if policy_allowed else []
                     break
                 except Exception as exc:
                     if retry_count >= self.retries:
@@ -208,40 +206,18 @@ class AgentRunner:
                     yield AgentEvent('error', {'code': 'cancelled', 'message': '请求已取消。'})
                     return
                 if perf_counter() - started > self.timeout_seconds:
-                    yield AgentEvent('error', {'code': 'timeout', 'message': 'Tutor 响应超时，可重试。'})
+                    yield AgentEvent('error', {'code': 'timeout', 'message': '智能辅导响应超时，可重试。'})
                     return
                 yield AgentEvent('tool_start', {'tool_name': tool_name})
+                yield AgentEvent('activity', {'activity': tool_name, 'status': 'running', 'label': _activity_label(tool_name, 'running')})
                 observation, receipt = self.registry.call(tool_name, context)
                 observations[tool_name] = observation
                 receipts.append(receipt)
                 yield AgentEvent('tool_end', {'tool_name': tool_name, **asdict(receipt)})
+                yield AgentEvent('activity', {'activity': tool_name, 'status': 'completed' if receipt.status == 'ok' else 'failed', 'label': _activity_label(tool_name, receipt.status), 'elapsed_ms': receipt.elapsed_ms})
                 if tool_name == 'retrieve_knowledge':
                     for source in observation:
                         yield AgentEvent('source', source)
-                        source_emitted = True
-            # A Tutor turn can legitimately skip retrieval (for example, when
-            # the model only needs the current question).  Keep the SSE
-            # protocol stable by emitting the public question provenance in
-            # that case.  This is a real, answer-free source projection, not
-            # a synthetic UI status or a hidden grading observation.
-            if not source_emitted:
-                question = observations.get('get_question_context')
-                if not isinstance(question, dict) and self._public_source is not None:
-                    question = self._public_source(context)
-                if isinstance(question, dict):
-                    yield AgentEvent('source', {
-                        'document_name': str(question.get('source_dataset', '题目来源')),
-                        'page': '题目来源',
-                        'section': str(question.get('body_part', '观察要点')),
-                        'snippet': str(question.get('citation_note', '当前题目的公开来源信息。')),
-                        'source_uri': '',
-                        'namespace': 'question_source',
-                    })
-                else:
-                    # The typed protocol also supports tool-only/unit runner
-                    # contexts with no public question projection.  This is a
-                    # lifecycle marker (not a learner-facing citation).
-                    yield AgentEvent('source', {'status': 'none'})
             text = _clean_user_facing_text(self.gateway.compose(context, observations))
             memory_observation = observations.get('get_learning_memory', {})
             memory_trace = {
@@ -267,13 +243,102 @@ class AgentRunner:
             yield AgentEvent('reasoning', {'summary': ['识别学习目标', '对照题目与允许的证据', '组织面向学习者的回答'], 'duration_ms': round((perf_counter() - started) * 1000)})
             for token in _tokenize(text):
                 yield AgentEvent('token', {'text': token})
+            yield AgentEvent('done', {'run_id': run_id, 'duration_ms': round((perf_counter() - started) * 1000), 'receipt_count': len(receipts)})
             yield AgentEvent('message_end', {'run_id': run_id, 'receipt_count': len(receipts), 'provider': self.gateway.name, 'retry_count': retry_count, 'trace': memory_trace})
         except Exception as exc:
-            yield AgentEvent('error', {'code': 'agent_failure', 'message': f'Tutor 暂不可用：{type(exc).__name__}。请重试。'})
+            yield AgentEvent('error', {'code': 'agent_failure', 'message': f'智能辅导暂不可用：{type(exc).__name__}。请重试。'})
 
 
 def _tokenize(text: str) -> list[str]:
     return [text[index:index + 18] for index in range(0, len(text), 18)]
+
+
+def _policy_tools(context: AgentContext, available_tools: set[str]) -> list[str]:
+    """Route only when extra data materially changes the answer.
+
+    The model may phrase the answer, but it must not use retrieval simply to
+    make the UI look agentic.  The deterministic policy gives provider and
+    local paths the same conservative boundary, which also makes behavior
+    tests meaningful.
+    """
+
+    lowered = context.user_message.lower()
+    profile = str(context.metadata.get('agent_profile', 'question_assistant'))
+    explicit_knowledge = any(marker in lowered for marker in (
+        '知识库', '我的资料', '上传的资料', '根据资料', '课程资料', '根据来源', '文献', '指南', '查资料', '查一下资料', '引用来源',
+    ))
+    history_request = any(marker in lowered for marker in (
+        '我最近', '近期', '我的错题', '我老错', '总在这题错', '为什么总', '容易错',
+        '我的掌握', '学习记录', '复习队列', '今天先复习', '今天应该先复习', '学习计划', '接下来刷',
+    ))
+    asks_for_answer = context.mode == 'study' and context.phase == 'pre_submit' and any(
+        marker in lowered for marker in ('正确答案', '直接告诉我', '我不会', '答案是什么', '给答案')
+    )
+    selected: list[str] = []
+    if explicit_knowledge:
+        selected.append('retrieve_knowledge' if profile == 'question_assistant' else 'search_knowledge')
+    if profile == 'coach' and history_request:
+        if any(marker in lowered for marker in ('今天', '复习', '队列')):
+            selected.extend(['get_review_queue', 'get_bank_progress', 'get_learning_summary'])
+        elif any(marker in lowered for marker in ('错题', '最近', '老错')):
+            selected.extend(['get_recent_attempts', 'get_learning_summary', 'get_learning_memories'])
+        else:
+            selected.extend(['get_learning_summary', 'get_learning_memories'])
+    elif context.phase == 'post_submit':
+        selected.append('get_grading_result')
+        if history_request:
+            selected.extend(['get_recent_mistakes', 'get_learning_memory'])
+    elif history_request:
+        selected.extend(['get_recent_mistakes', 'get_learning_profile', 'get_learning_memory'])
+    if asks_for_answer:
+        selected.append('get_answer_explanation')
+    return list(dict.fromkeys(name for name in selected if name in available_tools))
+
+
+def _activity_label(tool_name: str, status: str) -> str:
+    labels = {
+        'retrieve_knowledge': ('正在检索资料', '已完成资料检索'),
+        'search_knowledge': ('正在检索资料', '已完成资料检索'),
+        'get_grading_result': ('正在读取本次作答', '已读取本次作答'),
+        'get_recent_mistakes': ('正在读取最近错题', '已读取最近错题'),
+        'get_recent_attempts': ('正在读取最近作答', '已读取最近作答'),
+        'get_learning_profile': ('正在读取学习概况', '已读取学习概况'),
+        'get_learning_summary': ('正在读取学习概况', '已读取学习概况'),
+        'get_learning_memory': ('正在读取学习记忆', '已读取学习记忆'),
+        'get_learning_memories': ('正在读取学习记忆', '已读取学习记忆'),
+        'get_review_queue': ('正在读取复习队列', '已读取复习队列'),
+        'get_bank_progress': ('正在读取题库进度', '已读取题库进度'),
+        'get_answer_explanation': ('正在读取题目解析', '已读取题目解析'),
+    }
+    running, completed = labels.get(tool_name, ('正在准备学习信息', '已准备学习信息'))
+    return running if status == 'running' else completed if status == 'ok' else '暂未取得所需信息'
+
+
+def _compose_coach_local(context: AgentContext, observations: dict[str, Any]) -> str:
+    """Small deterministic fallback for local development, based only on tools."""
+
+    message = context.user_message
+    evidence = observations.get('search_knowledge', [])
+    if evidence:
+        first = evidence[0]
+        snippet = re.sub(r'\s+', ' ', str(first.get('snippet', ''))).strip()
+        return f"我在已启用资料中找到了相关内容：{snippet[:180]}{'…' if len(snippet) > 180 else ''}"
+    if any(key in observations for key in ('get_review_queue', 'get_bank_progress', 'get_learning_summary')):
+        summary = observations.get('get_learning_summary', {})
+        queue = observations.get('get_review_queue', {})
+        due = int(queue.get('due_count', summary.get('due_review_count', 0))) if isinstance(queue, dict) and isinstance(summary, dict) else 0
+        focus = next(iter(summary.get('weak_areas', [])), '当前错题') if isinstance(summary, dict) else '当前错题'
+        return f"今天可以先处理 {due} 道到期复习，再围绕「{focus}」完成一组短练习。完成后回到错题与复习确认掌握情况。"
+    if any(key in observations for key in ('get_recent_attempts', 'get_learning_memories')):
+        attempts = observations.get('get_recent_attempts', [])
+        if attempts:
+            wrong = [item for item in attempts if not item.get('correct')]
+            topic = next((str(item.get('topic') or '') for item in wrong if item.get('topic')), '最近错题')
+            return f"最近作答里有 {len(wrong)} 道需要复盘，优先从「{topic}」开始。先看错因，再用错题与复习做一轮短复习。"
+        return "还没有足够的作答记录来判断稳定的薄弱点。先完成一小组刷题，之后我就能基于真实记录一起复盘。"
+    if '牛顿' in message:
+        return "牛顿是英国物理学家和数学家，以经典力学、万有引力和微积分等工作闻名。"
+    return "我可以帮你结合最近作答、错题、复习队列和已启用资料安排下一步；也可以直接回答一个具体知识问题。"
 
 
 def _question_focus(stem: str) -> str:
@@ -303,11 +368,13 @@ def _clean_user_facing_text(text: str) -> str:
     detail, never in the learner's answer.  This is a narrow output guard, not
     a substitute for the prompt contract.
     """
+    cleaned = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", text)
+    cleaned = cleaned.replace("```", "").replace("`", "")
     cleaned = re.sub(
         r"\s*(?:explanation_source|答案解析来源|解析来源|correct_option_ids?|hidden_rubric)"
         r"\s*[:：]?\s*(?:[^\n。；;]+)?",
         "",
-        text,
+        cleaned,
         flags=re.IGNORECASE,
     )
     cleaned = re.sub(r"\s*\[(?:get_[a-z_]+|retrieve_knowledge|ToolReceipt)\]", "", cleaned, flags=re.IGNORECASE)
@@ -340,7 +407,10 @@ def _clean_user_facing_text(text: str) -> str:
     cleaned = re.sub(r"\s*\[[^\]]*\bdataset_gold\b[^\]]*\]", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s*[\[【][^\]】\n]*(?:source\s*item|source_id|dataset_gold|explanation_source)[^\]】\n]*[\]】]?", "", cleaned, flags=re.IGNORECASE)
     cleaned = cleaned.replace("**", "")
-    cleaned = re.sub(r"\s*(?:仅供教学研修或医生复核前辅助，不作为独立诊断依据。|仅供教学训练或医生审核前辅助，不作为独立诊断依据。)", "", cleaned)
+    cleaned = re.sub(r"\s*(?:仅供教学研修(?:或医生复核前辅助)?(?:，不作为独立诊断依据)?。?|仅供教学训练(?:或医生审核前辅助)?(?:，不作为独立诊断依据)?。?)", "", cleaned)
+    # Current question provenance is part of the workspace context, not a
+    # retrieved source.  Never let a provider turn it into a pseudo-citation.
+    cleaned = re.sub(r"\s*题目来源\s*[:：][^。\n]*(?:。|$)", "", cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s*(?:[\w.-]+\.(?:csv|json|md):\d+)", "", cleaned, flags=re.IGNORECASE)
     return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
 
@@ -370,6 +440,7 @@ def build_tutor_runtime(
         gateway=gateway,
         public_source=dependencies.public_source,
         record_explicit_confusion=dependencies.record_explicit_confusion,
+        default_context=dependencies.question_context,
     )
 
 

@@ -12,6 +12,8 @@ from .models import (  # noqa: F401
     PracticeSessionModel,
     QuestionBankModel,
     QuestionModel,
+    AgentConversationModel,
+    AgentMessageModel,
     ReviewCardModel,
     SourceDocumentModel,
     DocumentVersionModel,
@@ -163,6 +165,7 @@ def _upgrade_local_sqlite_domain_scope() -> None:
     with engine.begin() as connection:
         inspector = inspect(connection)
         _upgrade_local_sqlite_factory_jobs(connection, inspector)
+        _upgrade_local_sqlite_knowledge_sources(connection, inspector)
         for table_name in domain_tables:
             columns = {column["name"] for column in inspector.get_columns(table_name)}
             if "domain_id" not in columns:
@@ -230,6 +233,30 @@ def _upgrade_local_sqlite_factory_jobs(connection: object, inspector: object) ->
     indexes = {item["name"] for item in inspector.get_indexes("factory_jobs") if item.get("name")}
     if "ix_factory_jobs_idempotency_key" not in indexes:
         connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_factory_jobs_idempotency_key ON factory_jobs (idempotency_key)"))
+
+
+def _upgrade_local_sqlite_knowledge_sources(connection: object, inspector: object) -> None:
+    """Add V3.1 knowledge-library metadata without replacing local sources."""
+
+    columns = {column["name"] for column in inspector.get_columns("source_documents")}
+    definitions = {
+        "source_scope": "VARCHAR(32) NOT NULL DEFAULT 'system'",
+        "file_name": "VARCHAR(300)",
+        "size_bytes": "INTEGER NOT NULL DEFAULT 0",
+        "enabled": "BOOLEAN NOT NULL DEFAULT 1",
+        "parser_version": "VARCHAR(80)",
+        "embedding_model": "VARCHAR(180)",
+        "updated_at": "DATETIME",
+    }
+    for name, definition in definitions.items():
+        if name not in columns:
+            connection.execute(text(f"ALTER TABLE source_documents ADD COLUMN {name} {definition}"))
+    connection.execute(text("UPDATE source_documents SET source_scope = 'qbank_explanations' WHERE namespace = 'qbank_explanations'"))
+    connection.execute(text("UPDATE source_documents SET source_scope = 'user' WHERE business_usage = 'factory_source'"))
+    connection.execute(text("UPDATE source_documents SET file_name = name WHERE file_name IS NULL"))
+    connection.execute(text("UPDATE source_documents SET updated_at = created_at WHERE updated_at IS NULL"))
+    connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_source_scope ON source_documents (source_scope)"))
+    connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_enabled ON source_documents (enabled)"))
 
 
 def _rebuild_sqlite_unique_scope(connection: object, table_name: str, expected_constraint: str) -> None:

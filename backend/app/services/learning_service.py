@@ -31,8 +31,10 @@ def _rating_name(rating: Rating) -> str:
     return {Rating.Again: "Again", Rating.Hard: "Hard", Rating.Good: "Good", Rating.Easy: "Easy"}[rating]
 
 
-def apply_learning_outcome(session: Session, *, attempt: AttemptModel, question: QuestionModel, now: datetime | None = None) -> ReviewCardModel:
+def apply_learning_outcome(session: Session, *, attempt: AttemptModel, question: QuestionModel, now: datetime | None = None, timings: dict[str, float] | None = None) -> ReviewCardModel:
     """Apply deterministic state transitions after an immutable attempt exists."""
+    timings = timings if timings is not None else {}
+    started = datetime.utcnow()
     review_at = _aware(now or attempt.created_at)
     card_model = session.scalar(select(ReviewCardModel).where(
         ReviewCardModel.learner_id == attempt.learner_id,
@@ -71,26 +73,39 @@ def apply_learning_outcome(session: Session, *, attempt: AttemptModel, question:
         card_model.stability = scheduled.stability
         card_model.retrievability = retrievability
         card_model.fsrs_state = scheduled.state.name
+    timings["fsrs_update_ms"] = round((datetime.utcnow() - started).total_seconds() * 1000, 3)
+    mastery_started = datetime.utcnow()
     _rebuild_mastery(session, attempt.learner_id, question)
+    timings["mastery_update_ms"] = round((datetime.utcnow() - mastery_started).total_seconds() * 1000, 3)
     # Memory is a compact derived fact built only after the immutable attempt,
     # mastery and FSRS state are already staged in this same transaction.
     from app.services.learning_memory_service import learning_memory_service
 
+    memory_started = datetime.utcnow()
     learning_memory_service.consolidate_attempt(session, attempt=attempt, question=question)
+    timings["memory_update_ms"] = round((datetime.utcnow() - memory_started).total_seconds() * 1000, 3)
     return card_model
 
 
 def _rebuild_mastery(session: Session, learner_id: str, question: QuestionModel) -> None:
     """Rebuild the affected knowledge points from immutable attempts."""
     points = sorted(set(question.teaching_tags or [question.body_part]))
+    # Submit is a latency-sensitive deterministic path. Read the learner's
+    # affected-domain history once, rather than loading every question again
+    # for each tag (the former implementation became N×M queries as a learner
+    # accumulated attempts).
+    history = list(
+        session.execute(
+            select(AttemptModel, QuestionModel)
+            .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
+            .where(AttemptModel.learner_id == learner_id, QuestionModel.domain_id == question.domain_id)
+            .order_by(AttemptModel.created_at)
+        ).all()
+    )
     for point in points:
-        # JSON containment compiles differently on SQLite and PostgreSQL.  The
-        # immutable attempt set is small in this training workflow, so use a
-        # portable query and apply the tag projection in Python.
-        learner_attempts = list(session.scalars(
-            select(AttemptModel).where(AttemptModel.learner_id == learner_id).order_by(AttemptModel.created_at)
-        ))
-        attempts = [item for item in learner_attempts if (linked := session.get(QuestionModel, item.question_id)) and linked.domain_id == question.domain_id and (point in (linked.teaching_tags or []) or linked.body_part == point)]
+        # JSON containment compiles differently on SQLite and PostgreSQL, so
+        # retain a portable in-Python tag projection over the single query.
+        attempts = [attempt for attempt, linked in history if point in (linked.teaching_tags or []) or linked.body_part == point]
         if not attempts:
             continue
         errors = Counter(tag for item in attempts for tag in (item.error_tags or []))
