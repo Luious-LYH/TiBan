@@ -123,11 +123,45 @@ function safeJoin(root, requestPath) {
   return resolved
 }
 
+function isApiRequest(requestUrl) {
+  const pathname = new URL(requestUrl || '/', 'http://127.0.0.1').pathname
+  return pathname === '/api' || pathname.startsWith('/api/')
+}
+
+function proxyApiRequest(req, res) {
+  const proxy = http.request({
+    hostname: '127.0.0.1',
+    port: Number(backendPort),
+    path: req.url || '/',
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: `127.0.0.1:${backendPort}`,
+    },
+  }, (upstream) => {
+    res.writeHead(upstream.statusCode || 502, upstream.headers)
+    upstream.pipe(res)
+  })
+  proxy.on('error', () => {
+    if (res.headersSent) {
+      res.end()
+      return
+    }
+    res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' })
+    res.end(JSON.stringify({ detail: '桌面版本地后端暂不可用，请稍后重试。' }))
+  })
+  req.pipe(proxy)
+}
+
 function createStaticServer() {
   const fs = require('fs')
   const indexPath = path.join(distRoot, 'index.html')
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
+      if (isApiRequest(req.url)) {
+        proxyApiRequest(req, res)
+        return
+      }
       const filePath = safeJoin(distRoot, req.url || '/')
       const targetPath = filePath && fs.existsSync(filePath) && fs.statSync(filePath).isFile()
         ? filePath
@@ -141,7 +175,7 @@ function createStaticServer() {
         }
         let responseData = data
         if (isPackaged && targetPath === indexPath) {
-          const apiBaseScript = `<script>window.__TIBAN_API_BASE__=${JSON.stringify(`http://127.0.0.1:${backendPort}`)}</script>`
+          const apiBaseScript = '<script>window.__TIBAN_API_BASE__=window.location.origin</script>'
           responseData = Buffer.from(data.toString('utf8').replace('</head>', `${apiBaseScript}</head>`), 'utf8')
         }
         res.writeHead(200, { 'Content-Type': contentType(targetPath) })
