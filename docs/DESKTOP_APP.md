@@ -56,11 +56,11 @@ npm run desktop:dist
 code\frontend\release
 ```
 
-当前会生成：
+V3.3.1 当前会生成：
 
 ```text
-code\frontend\release\题伴 TiBan-3.2.2-x64-Setup.exe
-code\frontend\release\题伴 TiBan-3.2.2-x64-Portable.exe
+code\frontend\release\题伴 TiBan-3.3.1-x64-Setup.exe
+code\frontend\release\题伴 TiBan-3.3.1-x64-Portable.exe
 code\frontend\release\win-unpacked\题伴 TiBan.exe
 ```
 
@@ -77,5 +77,7 @@ python -m pip install -r requirements.txt
 ## 当前边界
 
 Electron 版本是桌面外壳版：它会自动启动本机 FastAPI 后端，并在桌面窗口中加载构建后的前端页面。
+
+本次 V3.3.1 发布的安装包和便携包仍要求目标电脑具备 Python 运行环境及上述后端依赖；它们不是完全离线、自包含的 Python 安装包。
 
 如果需要发给没有 Python 环境的电脑使用，后续可以继续做“完全离线安装包”：把后端用 PyInstaller 打成可执行文件，再随 Electron 一起打包。
