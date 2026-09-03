@@ -6,6 +6,22 @@ HTTP client, so make the same local bootstrap explicit for every pytest run.
 """
 
 import os
+import shutil
+from pathlib import Path
+
+# The live application deliberately uses ``runtime/data/stage1.sqlite3``.
+# Keep service tests away from that file: otherwise a developer's test-only
+# evaluation suites can become the newest record in the learner-facing lab.
+_runtime_data_dir = Path(__file__).resolve().parents[1] / "runtime" / "data"
+_live_db = _runtime_data_dir / "stage1.sqlite3"
+_test_db = _runtime_data_dir / "pytest-stage1.sqlite3"
+_test_db.unlink(missing_ok=True)
+if _live_db.is_file():
+    # Keep the current local catalog available to integration tests without
+    # ever letting a test write sessions, suites, or results into the live
+    # learner database that a running TiBan instance is serving.
+    shutil.copy2(_live_db, _test_db)
+os.environ["ENDO_DATABASE_URL"] = f"sqlite:///{_test_db.as_posix()}"
 
 # RAG has its own deterministic retrieval/benchmark coverage. Tutor contract
 # tests use question provenance and must not require an optional Qdrant service

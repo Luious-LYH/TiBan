@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
 from app.services.evaluation_lab_service import evaluation_lab_service
+from app.services.model_discovery_service import model_discovery_service
 
 
 router = APIRouter(prefix="/api/v3/evaluation", tags=["evaluation-lab"])
@@ -95,6 +96,23 @@ class EvaluationExperimentResponse(BaseModel):
 class EvaluationDeleteResponse(BaseModel):
     deleted_experiment_count: int
     deleted_run_count: int
+
+
+class ModelDiscoveryRequest(BaseModel):
+    base_url: str = Field(min_length=1, max_length=512)
+    api_key: str = Field(min_length=1, max_length=512)
+    api_format: Literal["openai"] = "openai"
+
+
+class DiscoveredModelPublic(BaseModel):
+    id: str
+    display_name: str | None = None
+    owned_by: str | None = None
+
+
+class ModelDiscoveryResponse(BaseModel):
+    models: list[DiscoveredModelPublic]
+    latency_ms: int
 
 
 class ModelExperimentRequest(BaseModel):
@@ -196,6 +214,18 @@ def create_model_experiment(request: ModelExperimentRequest) -> dict[str, Any]:
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="评测集不存在。") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/lab/models/discover", response_model=ModelDiscoveryResponse)
+def discover_models(request: ModelDiscoveryRequest) -> dict[str, Any]:
+    try:
+        return model_discovery_service.discover(
+            base_url=request.base_url,
+            api_key=request.api_key,
+            api_format=request.api_format,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

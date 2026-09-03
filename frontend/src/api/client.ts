@@ -37,6 +37,8 @@ export type EvalSuite = { suite_id: string; bank_id: string; bank_name: string; 
 export type EvaluationLabRun = { run_id: string; name: string; provider: string; base_url: string; model: string; retrieval_profile: RetrievalProfile | null; status: string; aggregate: Record<string, unknown>; progress: number; stage: string; error: string | null }
 export type EvaluationExperiment = { experiment_id: string; experiment_type: 'model' | 'rag'; status: string; suite: EvalSuite; fixed_snapshot: Record<string, unknown>; runs: EvaluationLabRun[]; created_at: string }
 export type EvaluationCatalog = { banks: EvaluationBank[]; runtime_models: string[]; default_profile: RetrievalProfile; prompt_version: string }
+export type DiscoveredModel = { id: string; display_name: string | null; owned_by: string | null }
+export type ModelDiscoveryResult = { models: DiscoveredModel[]; latency_ms: number }
 export type TutorStreamRequest = components['schemas']['TutorStreamRequest']
 export type PracticeResumable = components['schemas']['PracticeResumablePublic']
 export type TutorThread = components['schemas']['TutorThreadPublic']
@@ -301,6 +303,10 @@ export function deleteSavedRagProfile(bankId: string, profileId: string): Promis
 
 export function createModelEvaluation(payload: components['schemas']['ModelExperimentRequest']): Promise<EvaluationExperiment> {
   return unwrap(api.POST('/api/v3/evaluation/lab/experiments/model', { body: payload })) as Promise<EvaluationExperiment>
+}
+
+export function discoverEvaluationModels(payload: components['schemas']['ModelDiscoveryRequest']): Promise<ModelDiscoveryResult> {
+  return unwrap(api.POST('/api/v3/evaluation/lab/models/discover', { body: payload })) as Promise<ModelDiscoveryResult>
 }
 
 export function createRagEvaluation(payload: components['schemas']['RagExperimentRequest']): Promise<EvaluationExperiment> {

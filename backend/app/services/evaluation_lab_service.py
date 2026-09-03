@@ -325,7 +325,14 @@ class EvaluationLabService:
         api_key: str | None = None,
         provider: str | None = None,
     ) -> dict[str, Any]:
-        candidates = list(dict.fromkeys(item.strip()[:180] for item in models if item and item.strip()))
+        candidates: list[str] = []
+        seen_candidates: set[str] = set()
+        for item in models:
+            candidate = item.strip()[:180] if item else ""
+            normalized = candidate.lower()
+            if candidate and normalized not in seen_candidates:
+                candidates.append(candidate)
+                seen_candidates.add(normalized)
         if not candidates:
             candidates = [LLM_MODEL]
         connection = self._resolve_connection(

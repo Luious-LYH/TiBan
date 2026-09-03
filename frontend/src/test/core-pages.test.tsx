@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearLearningMemory, createEvaluationSuite, createMentorConversation, createModelEvaluation, createPracticeSession, createReviewSession, createRagEvaluation, deleteEvaluationExperiments, deleteKnowledgeSource, deleteMentorConversation, deleteSavedRagProfile, getDomains, getEvaluationCatalog, getEvaluationExperiment, getLatestEvaluationExperiment, getKnowledgeSource, getKnowledgeSources, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, getLatestEvaluationSuite, getSavedRagProfiles, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, saveRagProfile, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, uploadKnowledgeSource } from '../api/client'
+import { clearLearningMemory, createEvaluationSuite, createMentorConversation, createModelEvaluation, createPracticeSession, createReviewSession, createRagEvaluation, deleteEvaluationExperiments, deleteKnowledgeSource, deleteMentorConversation, deleteSavedRagProfile, discoverEvaluationModels, getDomains, getEvaluationCatalog, getEvaluationExperiment, getLatestEvaluationExperiment, getKnowledgeSource, getKnowledgeSources, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, getLatestEvaluationSuite, getSavedRagProfiles, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, saveRagProfile, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, uploadKnowledgeSource } from '../api/client'
 import type { EvaluationExperiment, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult, SavedRagProfile } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -27,6 +27,7 @@ vi.mock('../api/client', () => ({
   getLatestEvaluationSuite: vi.fn(),
   getLatestEvaluationExperiment: vi.fn(),
   deleteEvaluationExperiments: vi.fn(),
+  discoverEvaluationModels: vi.fn(),
   createModelEvaluation: vi.fn(),
   createRagEvaluation: vi.fn(),
   deleteSavedRagProfile: vi.fn(),
@@ -91,6 +92,7 @@ const mockedCreateEvaluationSuite = vi.mocked(createEvaluationSuite)
 const mockedGetLatestEvaluationSuite = vi.mocked(getLatestEvaluationSuite)
 const mockedGetLatestEvaluationExperiment = vi.mocked(getLatestEvaluationExperiment)
 const mockedDeleteEvaluationExperiments = vi.mocked(deleteEvaluationExperiments)
+const mockedDiscoverEvaluationModels = vi.mocked(discoverEvaluationModels)
 const mockedCreateModelEvaluation = vi.mocked(createModelEvaluation)
 const mockedCreateRagEvaluation = vi.mocked(createRagEvaluation)
 const mockedGetEvaluationExperiment = vi.mocked(getEvaluationExperiment)
@@ -193,6 +195,7 @@ beforeEach(() => {
   mockedGetLatestEvaluationExperiment.mockResolvedValue(null)
   mockedDeleteEvaluationExperiments.mockResolvedValue({ deleted_experiment_count: 1, deleted_run_count: 1 })
   mockedCreateModelEvaluation.mockResolvedValue(evaluationExperiment)
+  mockedDiscoverEvaluationModels.mockResolvedValue({ models: [{ id: 'provider/model-a', display_name: null, owned_by: null }, { id: 'provider/model-b', display_name: 'Model B', owned_by: null }], latency_ms: 12 })
   mockedCreateRagEvaluation.mockResolvedValue({ ...evaluationExperiment, experiment_type: 'rag', runs: [{ ...evaluationExperiment.runs[0], name: 'TiBan Default', retrieval_profile: { name: 'TiBan Default', mode: 'hybrid', top_k: 5, candidate_pool: 20, rerank_enabled: false, rrf_k: 60, section_dedupe: true }, aggregate: { answer_accuracy: 1, p50_latency_ms: 12, avg_context_tokens: 42, recall_at_k: null } }] })
   mockedGetEvaluationExperiment.mockResolvedValue(evaluationExperiment)
   mockedGetSavedRagProfiles.mockResolvedValue([])
@@ -491,6 +494,34 @@ describe('Stage 1 page contracts', () => {
     await user.click(screen.getByRole('button', { name: '显示评测 API Key' }))
     expect(key).toHaveAttribute('type', 'text')
     expect(screen.getByLabelText('评测 Base URL')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '从上游获取模型' })).toBeDisabled()
+  })
+
+  it('discovers custom-provider models into the editable candidate draft without starting an experiment', async () => {
+    const user = userEvent.setup()
+    renderPage(<EvaluationPage />, ['/eval'])
+    await user.click(await screen.findByRole('button', { name: '自定义 API' }))
+    await user.type(screen.getByLabelText('评测 Base URL'), 'https://provider.example/v1')
+    await user.type(screen.getByLabelText('评测 API Key'), 'runtime-only-key')
+    const discovery = screen.getByRole('button', { name: '从上游获取模型' })
+    await user.click(discovery)
+    await waitFor(() => expect(mockedDiscoverEvaluationModels).toHaveBeenCalledWith({ base_url: 'https://provider.example/v1', api_key: 'runtime-only-key', api_format: 'openai' }))
+    expect(screen.getByLabelText('候选模型')).toHaveValue('provider/model-a\nprovider/model-b')
+    expect(mockedCreateModelEvaluation).not.toHaveBeenCalled()
+  })
+
+  it('keeps an existing candidate draft when upstream model discovery fails', async () => {
+    mockedDiscoverEvaluationModels.mockRejectedValueOnce(new Error('无法连接上游模型服务。'))
+    const user = userEvent.setup()
+    renderPage(<EvaluationPage />, ['/eval'])
+    await user.click(await screen.findByRole('button', { name: '自定义 API' }))
+    await user.type(screen.getByLabelText('评测 Base URL'), 'https://provider.example/v1')
+    await user.type(screen.getByLabelText('评测 API Key'), 'runtime-only-key')
+    await user.clear(screen.getByLabelText('候选模型'))
+    await user.type(screen.getByLabelText('候选模型'), 'keep-this-model')
+    await user.click(screen.getByRole('button', { name: '从上游获取模型' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('无法连接上游模型服务。')
+    expect(screen.getByLabelText('候选模型')).toHaveValue('keep-this-model')
   })
 
   it('caps RAG variants at two and renders absent Recall@K as an em dash', async () => {

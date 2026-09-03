@@ -32,6 +32,10 @@ frontend/test-results/
 /AGENTS.md
 /README_使用说明.md
 
+# Local-only generated question-bank samples.
+/临时生成题库/
+/临时生成题库目录/
+
 # Local Compose overrides are used for acceptance runs and isolated experiments.
 # The public runtime entry point is docker-compose.yml.
 /compose*.yml

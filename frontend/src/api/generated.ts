@@ -911,6 +911,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/evaluation/lab/models/discover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Discover Models */
+        post: operations["discover_models_api_v3_evaluation_lab_models_discover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/evaluation/lab/experiments/rag": {
         parameters: {
             query?: never;
@@ -2016,6 +2033,15 @@ export interface components {
             /** Api Source */
             api_source: string;
         };
+        /** DiscoveredModelPublic */
+        DiscoveredModelPublic: {
+            /** Id */
+            id: string;
+            /** Display Name */
+            display_name?: string | null;
+            /** Owned By */
+            owned_by?: string | null;
+        };
         /** DocumentUploadRequest */
         DocumentUploadRequest: {
             /** Filename */
@@ -2918,6 +2944,26 @@ export interface components {
             selected_sample_ids?: string[];
             /** Test Focus */
             test_focus?: string[];
+        };
+        /** ModelDiscoveryRequest */
+        ModelDiscoveryRequest: {
+            /** Base Url */
+            base_url: string;
+            /** Api Key */
+            api_key: string;
+            /**
+             * Api Format
+             * @default openai
+             * @constant
+             */
+            api_format: "openai";
+        };
+        /** ModelDiscoveryResponse */
+        ModelDiscoveryResponse: {
+            /** Models */
+            models: components["schemas"]["DiscoveredModelPublic"][];
+            /** Latency Ms */
+            latency_ms: number;
         };
         /** ModelExperimentRequest */
         ModelExperimentRequest: {
@@ -6126,6 +6172,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EvaluationExperimentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discover_models_api_v3_evaluation_lab_models_discover_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelDiscoveryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelDiscoveryResponse"];
                 };
             };
             /** @description Validation Error */
