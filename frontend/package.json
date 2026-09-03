@@ -58,7 +58,7 @@
     "vitest": "^4.1.11"
   },
   "build": {
-    "appId": "com.aris.endoscopy.agent",
+    "appId": "com.aris.tiban.learning",
     "productName": "题伴 TiBan",
     "directories": {
       "output": "release"

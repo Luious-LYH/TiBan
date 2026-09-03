@@ -6,8 +6,9 @@
 question banks, Practice, a persistent Tutor, retrieval, learning memory, FSRS
 review, Question Factory and model evaluation in one workflow.
 
-The current domain packs are Medical / Endoscopy and General Science. Both use
-the same learning core.
+The repository ships Medical / Endoscopy and General Science as demonstration
+domain packs. Both use the same learning core, and the product contract is
+designed for additional domains without duplicating the learning engine.
 
 ## What a learner can do
 
@@ -50,9 +51,9 @@ policy while the Practice and Tutor flows stay shared.
 
 ## Current Scope and Data
 
-- Medical / Endoscopy is the primary teaching domain.
-- General Science is a lightweight reference domain with 8 project-authored
-  questions.
+- Medical / Endoscopy is the default professional-learning demo pack.
+- General Science is a lightweight reference pack with 8 project-authored
+  questions that demonstrates domain portability.
 - The clean-start repository uses compact public fixtures.
 - The local/hosted portfolio dataset contains 1,500 CMExam questions, 1,778
   CMB-Exam questions and 400 curated Kvasir-VQA questions: 3,678 in total.

@@ -1,14 +1,15 @@
 # TiBan project experience
 
 **v2.0 / Stage 7 Interview Ready:** TiBan is an Agent-native Adaptive QBank &
-Learning Platform. Medical / Endoscopy and General Science packs use the same
-Practice, Tutor, Memory, FSRS and Evaluation core. Each claim below maps to
+Learning Platform. The repository uses Medical / Endoscopy as its default demo
+pack and General Science as a portability pack over the same Practice, Tutor,
+Memory, FSRS and Evaluation core. Each claim below maps to
 current code, tests, and an artifact; deferred human review is not presented as
 expert or clinical validation.
 
 ## Agent / LLM application engineering
 
-- Built a bounded Tutor Agent for endoscopy education around `AgentRunner`, `ToolRegistry`, and `ModelGateway`, with real SSE `AgentEvent`/ToolReceipt traces, max-step/timeout/cancel/retry controls, and server-enforced Study vs Exam permissions.
+- Built a bounded Tutor Agent for multi-domain learning around `AgentRunner`, `ToolRegistry`, and `ModelGateway`, with real SSE `AgentEvent`/ToolReceipt traces, max-step/timeout/cancel/retry controls, and server-enforced Study vs Exam permissions. The default Medical / Endoscopy pack demonstrates the professional-learning path.
 - Implemented PostgreSQL source/citation state plus a Qdrant retrieval index and benchmarked sparse, dense, hybrid, and hybrid+rerank chains on 60 held-out cases with Recall@5, MRR, nDCG, and P50/P95 latency; retained the reranker negative result as an explicit trade-off.
 - Built a role-separated Question Factory with Parse/Index, Generator schema, deterministic gate, Provider Judge, revision-preserving Repair, and publish workflow; retained a frozen review set, failure cases and an explicit human-review boundary instead of presenting an unreviewed Judge score as accuracy.
 - Implemented an Adaptive Learning Loop: immutable Attempts drive mastery and FSRS ReviewCards, while the next session reads due reviews, weak topics and coverage state and returns an inspectable recommendation reason.
@@ -32,8 +33,8 @@ Incrementally evolved the stable product into a pragmatic modular monolith: a Pr
 
 Added a minimal validated `DomainManifest` boundary without duplicating the
 Practice, Tutor, FSRS, Memory or Evaluation engines. The Medical / Endoscopy
-pack remains the product regression path; a small project-authored General
-Science pack proves Study/Exam/Review/Tutor/Attempt/Mastery/FSRS/Memory and
+pack is the default product demo; a small project-authored General Science pack
+proves Study/Exam/Review/Tutor/Attempt/Mastery/FSRS/Memory and
 Evaluation reuse. Domain-scoped PostgreSQL state and RAG namespace filters
 prevent same-label memory or source leakage. Advanced engineering evaluation
 records fixed-case tool-selection metrics and scheduling-behavior uplift; these

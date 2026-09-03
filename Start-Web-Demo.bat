@@ -22,8 +22,8 @@ if not exist "%POWERSHELL%" (
 )
 
 set "ARIS_BROWSER_DEFERRED=1"
-start "Endoscopy Platform" "%POWERSHELL%" -NoLogo -NoProfile -NoExit -ExecutionPolicy Bypass -File "%SCRIPT%"
+start "TiBan Platform" "%POWERSHELL%" -NoLogo -NoProfile -NoExit -ExecutionPolicy Bypass -File "%SCRIPT%"
 if exist "%BROWSER_SCRIPT%" (
-  start "Open Endoscopy Platform" /min "%POWERSHELL%" -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%BROWSER_SCRIPT%"
+  start "Open TiBan Platform" /min "%POWERSHELL%" -NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%BROWSER_SCRIPT%"
 )
 exit /b 0

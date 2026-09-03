@@ -332,7 +332,7 @@ def _provider_generator(
 ) -> GeneratedDraft:
     """One real provider call for the Generator role; no fallback is allowed."""
 
-    system_prompt = """You are the EndoTutor Question Factory Generator. Create one Chinese medical-education single-choice learning draft from supplied evidence only. Do not diagnose, prescribe, or invent facts. Return JSON only with title, stem, options [{id,text}], correct_option_id, explanation, teaching_tags. The explanation must include the Chinese safety notice that it is for teaching or physician review before use and not an independent diagnostic basis."""
+    system_prompt = """You are the TiBan Question Factory Generator. Create one Chinese learning single-choice draft from supplied evidence only. Do not diagnose, prescribe, or invent facts. Return JSON only with title, stem, options [{id,text}], correct_option_id, explanation, teaching_tags. The explanation must include the Chinese safety notice that it is for teaching or physician review before use and not an independent diagnostic basis."""
     user_payload = {
         "objective": payload.objective,
         "evidence": payload.evidence,
@@ -397,7 +397,7 @@ def _provider_judge(
 ) -> JudgeDecision:
     """One independently prompted Judge call that sees no Generator reasoning."""
 
-    system_prompt = """You are the EndoTutor Question Factory Judge. Judge only the provided draft, evidence and rubric. Do not access or infer hidden reasoning. Return JSON only with passed, groundedness, answer_consistency, citation_validity, distractor_quality, teaching_value, rewrite_instruction. Each criterion must be exactly pass or fail. Mark pass only if the evidence supports the correct option, the answer is internally consistent, the citation is present, distractors are distinct, and the teaching response preserves doctor-review/non-diagnosis boundaries."""
+    system_prompt = """You are the TiBan Question Factory Judge. Judge only the provided draft, evidence and rubric. Do not access or infer hidden reasoning. Return JSON only with passed, groundedness, answer_consistency, citation_validity, distractor_quality, teaching_value, rewrite_instruction. Each criterion must be exactly pass or fail. Mark pass only if the evidence supports the correct option, the answer is internally consistent, the citation is present, distractors are distinct, and the teaching response preserves doctor-review/non-diagnosis boundaries."""
     public_draft = {
         "question_type": draft.question_type,
         "title": draft.title,

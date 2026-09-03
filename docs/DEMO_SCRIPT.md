@@ -45,8 +45,8 @@ Open `/eval`:
 
 ## 5. Product scope
 
-- Medical / Endoscopy is the primary teaching domain.
-- General Science is a lightweight reference domain using the same platform
+- Medical / Endoscopy is the default professional-learning demo pack.
+- General Science is a lightweight portability pack using the same platform
   core.
 - The clean-start stack uses compact public fixtures. The local/hosted portfolio
   dataset contains 3,678 questions and stays outside Git.

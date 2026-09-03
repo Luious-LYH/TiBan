@@ -74,9 +74,9 @@ v3 面向医生用户，只暴露五个主流程：
 ```json
 {
   "version": "v3",
-  "product_name": "内镜智训Agent",
-  "positioning": "面向消化道内镜医师的智能研修与报告辅助平台",
-  "demo_spine": ["模型评估", "医生研修", "证据复盘", "报告辅助", "画像成长"],
+  "product_name": "题伴 TiBan",
+  "positioning": "面向多领域学习与知识训练的 Agent-native 自适应学习平台",
+  "demo_spine": ["题库与知识", "刷题与考试", "智能辅导", "错题复习与 FSRS", "带教 Agent"],
   "practice_state": {
     "progress": { "completed": 3, "target": 8, "percent": 38, "review_queue": 2 }
   },
@@ -88,7 +88,7 @@ v3 面向医生用户，只暴露五个主流程：
 
 `GET /api/models/evaluation`
 
-返回模型池、评估指标、排行榜、雷达图和复杂度曲线。页面只展示“平台统一内镜数据资源”，不展开具体数据来源名称。
+返回模型池、评估指标、排行榜、雷达图和复杂度曲线。页面以平台统一评测资源呈现模型能力；默认演示领域由 Domain Pack 提供，不改变 TiBan 的多领域产品定位。
 
 核心指标：
 
@@ -104,9 +104,9 @@ v3 面向医生用户，只暴露五个主流程：
 ```json
 {
   "summary": {
-    "title": "内镜智能助手评估池",
-    "headline": "领域适配模型在复杂研修题和证据完整性上表现最稳",
-    "sample_scope": "平台统一内镜数据资源",
+    "title": "TiBan 智能学习模型评估池",
+    "headline": "候选模型在复杂学习任务和证据完整性上的表现对比",
+    "sample_scope": "平台统一评测资源",
     "top_model_name": "平台智能助手 · 领域适配 Qwen"
   },
   "metrics": ["图像问答正确率", "错误前提识别率", "复杂问题支持率", "分步证据完整率", "输出可解析率", "综合研修适配度"],
@@ -221,8 +221,8 @@ v3 面向医生用户，只暴露五个主流程：
       "image_url": "/assets/real_samples/sample.png",
       "question": "请判断题干预设是否被图像支持。",
       "options": ["A", "B", "C", "D"],
-      "source_dataset": "平台统一内镜数据",
-      "citation_note": "平台统一内镜教学数据，仅用于医生研修。"
+      "source_dataset": "平台统一教学评测数据",
+      "citation_note": "平台教学评测数据，仅用于学习训练与人工复核。"
     }
   ],
   "total": 18
@@ -242,7 +242,7 @@ v3 面向医生用户，只暴露五个主流程：
     "title": "错误前提识别研修",
     "question": "请判断题干预设是否被图像支持。",
     "options": ["支持", "不支持", "证据不足"],
-    "source_dataset": "平台统一内镜数据"
+    "source_dataset": "平台统一教学评测数据"
   },
   "safety_notice": "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
 }

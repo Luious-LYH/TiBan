@@ -1,2 +1,1 @@
-"""Endoscopy Agent backend package."""
-
+"""TiBan backend package."""

@@ -20,7 +20,7 @@ code\Start-Web-Demo.bat
 - 本机服务：`http://127.0.0.1:8002`
 - 网页界面：`http://127.0.0.1:5174`
 
-启动窗口标题为“消化内镜研修与模型评测平台”。一键启动使用已经构建好的 `frontend\dist` 静态前端，不依赖 `node_modules` 或 Vite 开发服务器。如需真实智能服务，请先在本机环境变量、`code\.env` 或 `code\backend\.env` 中配置 `LLM_BASE_URL` 与 `LLM_API_KEY`，再双击启动；脚本只读取本机配置，不会写入源码或提交包。
+启动窗口标题为“题伴 TiBan 学习与模型评测平台”。一键启动使用已经构建好的 `frontend\dist` 静态前端，不依赖 `node_modules` 或 Vite 开发服务器。如需真实智能服务，请先在本机环境变量、`code\.env` 或 `code\backend\.env` 中配置 `LLM_BASE_URL` 与 `LLM_API_KEY`，再双击启动；脚本只读取本机配置，不会写入源码或提交包。
 
 停止时双击：
 
@@ -59,9 +59,9 @@ code\frontend\release
 当前会生成：
 
 ```text
-code\frontend\release\消化内镜研修与模型评测平台-0.0.0-x64-Setup.exe
-code\frontend\release\消化内镜研修与模型评测平台-0.0.0-x64-Portable.exe
-code\frontend\release\win-unpacked\消化内镜研修与模型评测平台.exe
+code\frontend\release\题伴 TiBan-3.2.2-x64-Setup.exe
+code\frontend\release\题伴 TiBan-3.2.2-x64-Portable.exe
+code\frontend\release\win-unpacked\题伴 TiBan.exe
 ```
 
 ## 运行前要求

@@ -1,7 +1,7 @@
 {
   "updated_at": "2026-06-02T16:00:00Z",
   "last_admission_id": "demo_seed",
-  "provider_name": "EndoTutor Mock Orchestrator",
+  "provider_name": "TiBan Rule Learning Baseline",
   "grade": "A",
   "total_score": 82,
   "mode": "rule",

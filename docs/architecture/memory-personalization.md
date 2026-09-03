@@ -2,7 +2,7 @@
 
 ## Purpose
 
-EndoTutor v1.1 makes repeat use explainably different: a learner's verified
+TiBan makes repeat use explainably different: a learner's verified
 mistakes and explicitly stated confusions can shape the next Tutor response and
 the next bounded practice session. It does not claim that a model permanently
 learns or that model weights change.

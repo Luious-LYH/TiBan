@@ -372,8 +372,8 @@ class DashboardService:
         latest_exam = readiness.get("latest_exam_replay")
         return {
             "generated_at": now_iso(),
-            "title": "消化内镜研修与模型评测平台演示状态报告",
-            "scope": "内镜医师教学研修、刷题复盘、报告修改训练、报告辅助材料和模型接入前准入检查。",
+            "title": "TiBan 学习与模型评测平台演示状态报告",
+            "scope": "多领域教学训练、刷题复盘、报告表达训练、学习辅助材料和模型接入前准入检查。",
             "doctor_context": {
                 "learner_id": profile.learner_id,
                 "name": profile.name,

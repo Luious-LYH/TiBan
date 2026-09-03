@@ -394,7 +394,7 @@ class V3FacadeService:
             for sample in samples
         ] or [
             llm_provider.chat(
-                system_prompt="你是内镜研修平台的临时模型评估探针，只返回中文教学评估摘要。",
+                system_prompt="你是 TiBan 学习平台的临时模型评估探针，只返回中文教学评估摘要。",
                 user_prompt=(
                     "请完成一个内镜医师研修平台的小样本能力探测："
                     "1) 判断图像问答是否应基于可观察证据；"
@@ -1288,7 +1288,7 @@ class V3FacadeService:
             "recommendation": "当前平台智能助手，用于研修反馈和报告辅助。" if active else "作为模型池对照，用于能力分布参考。",
             "provenance": {
                 "label": "平台统一评估结果",
-                "sample_scope": "平台统一内镜数据资源",
+                "sample_scope": "平台统一教学评测资源",
                 "public_label_only": True,
             },
         }

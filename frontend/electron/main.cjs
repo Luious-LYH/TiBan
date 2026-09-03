@@ -4,7 +4,7 @@ const http = require('http')
 const path = require('path')
 
 const isPackaged = app.isPackaged
-const platformName = '消化内镜研修与模型评测平台'
+const platformName = '题伴 TiBan 学习与模型评测平台'
 const backendPort = process.env.ARIS_BACKEND_PORT || '8002'
 const backendHealthUrl = `http://127.0.0.1:${backendPort}/api/health`
 const codeRoot = isPackaged ? process.resourcesPath : path.resolve(__dirname, '..', '..')

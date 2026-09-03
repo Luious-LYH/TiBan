@@ -21,7 +21,7 @@ resume-eligible. Portfolio metrics are not clinical-effectiveness claims.
 
 | Capability | Current implementation and verification | Artifact / scope | Resume status |
 |---|---|---|---|
-| Domain-extensible core | Validated `DomainManifest` registry serves Medical / Endoscopy and General Science through one catalog, Practice, Tutor, Memory, FSRS and Evaluation core. | `docs/architecture/domain-packs-v2.md`, `artifacts/platform/domain-core-reuse-v2.json`, `tests/test_stage7_platform.py` | PASS — engineering reuse claim only. |
+| Domain-extensible core | Validated `DomainManifest` registry serves the default Medical / Endoscopy demo pack and General Science portability pack through one catalog, Practice, Tutor, Memory, FSRS and Evaluation core. | `docs/architecture/domain-packs-v2.md`, `artifacts/platform/domain-core-reuse-v2.json`, `tests/test_stage7_platform.py` | PASS — engineering reuse claim only. |
 | Cross-domain isolation | `domain_id` scopes sessions, mastery, memory, retrieval metadata and evaluation packs; hard isolation tests pass. | `artifacts/platform/cross-domain-isolation-v2.json`, `docs/evals/domain-compatibility-v2.md` | PASS. |
 | General Domain proof | Eight-row project-authored fixture supports Study/Exam/Review/Tutor/Attempt/Mastery/FSRS/Memory/Evaluation; ARC Easy remains local-only. | `backend/app/data/general_science_fixture.json`, `artifacts/platform/general-domain-flow-v2.json` | PASS — small proof pack. |
 | Advanced Agent Evaluation | Fixed six-case tool-selection regression records 1.0 accuracy, 0 unnecessary-tool rate and 0 missing-tool rate. | `docs/evals/agent-evaluation-v2.md`, `artifacts/platform/agent-tool-selection-v2.json` | PASS — deterministic policy adapter. |

@@ -256,7 +256,7 @@ def seed_database(session: Session) -> int:
             document_id="source-seed-endoscopy-v1",
             domain_id="endoscopy",
             bank_id=None,
-            name="EndoTutor seed teaching catalog",
+            name="TiBan curated teaching catalog",
             media_type="application/json",
             content_hash="seed-catalog-v1",
             status="seed",

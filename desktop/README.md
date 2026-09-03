@@ -1,4 +1,4 @@
-# TiBan desktop app
+# TiBan desktop learning workspace
 
 The desktop app wraps the TiBan frontend in Electron and starts the local
 FastAPI service for an offline learning workspace.

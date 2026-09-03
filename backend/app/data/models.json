@@ -1,7 +1,7 @@
 [
   {
     "id": "m_mock_tutor",
-    "name": "EndoTutor Mock Orchestrator",
+    "name": "TiBan Rule Learning Baseline",
     "provider_type": "mock",
     "model_family": "内镜领域",
     "recommended_roles": [

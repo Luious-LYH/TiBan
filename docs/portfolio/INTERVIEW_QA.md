@@ -1,4 +1,4 @@
-# EndoTutor interview Q&A
+# TiBan interview Q&A
 
 This file is synchronized with the Stage 4 / v1.0 frozen release. Human review
 of the RAG and Judge label sets is deferred; answers below describe engineering

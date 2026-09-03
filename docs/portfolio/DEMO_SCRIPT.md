@@ -21,8 +21,8 @@ then shows the engineering surfaces behind it.
 - The Factory uses the same source and citation graph as Tutor retrieval.
 - The local stack starts with compact public fixtures. The 3,678-question
   portfolio dataset is kept outside Git and imported separately.
-- Medical / Endoscopy is the primary teaching domain. General Science is a
-  lightweight reference pack using the same platform core.
+- Medical / Endoscopy is the default professional-learning demo pack. General
+  Science is a lightweight portability pack using the same platform core.
 
 ## Technical follow-up
 
