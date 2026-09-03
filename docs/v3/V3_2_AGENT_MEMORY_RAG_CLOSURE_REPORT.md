@@ -6,7 +6,7 @@
 
 ## 结论
 
-**V3.2 的代码与离线回归验收通过。** 本次只收口 Agent 边界、Practice 会话、长期学习记忆与可重建检索索引；没有增加新的学习业务页面、部署配置或第二套 Agent 架构。
+**V3.2 的代码与离线回归验收通过。** 本次只收口 Agent 边界、Practice 会话、长期学习记忆、可重建检索索引，以及线上 Provider 的环境配置；没有增加新的学习业务页面或第二套 Agent 架构。
 
 在线基础设施验收是单独的运行环境前置条件：本机 Docker Desktop Linux Engine 在本次验收时未运行，因此没有将 SiliconFlow、Qdrant、Redis/Dramatiq 的在线成功伪称为已验证。Compose 定义已通过静态校验；上线或本地 Compose 启动后应执行本报告末尾的 Online Smoke Test。
 
@@ -45,6 +45,9 @@ Reflection 使用 `reflection:{session_id}:{version}` 幂等标识；候选 ADD/
 
 - 默认在线 Embedding：SiliconFlow OpenAI-compatible API，`BAAI/bge-m3`。
 - 默认 reranker 目标：`BAAI/bge-reranker-v2-m3`；本地 FastEmbed 作为 lazy fallback。
+- 默认 LLM 降级链：Cloudflare Workers AI `@cf/qwen/qwen3-30b-a3b-fp8` → OpenRouter `minimax/minimax-m3:free` → BigModel `GLM-5.3-Flash`。
+- Provider 凭证只从环境变量读取：`CLOUDFLARE_API_TOKEN`、`OPENROUTER_API_KEY`、`BIGMODEL_API_KEY` 和 `SILICONFLOW_API_KEY`；泛化的 `LLM_*` / `EMBEDDING_*` 变量可由实例所有者覆盖默认值。
+- 交互式 Tutor/Mentor 请求在前一 Provider 发生限流、超时或 5xx 后进入下一层；模型评测和 Factory 的显式单 Provider 调用仍关闭 fallback，保证评测与生成 Gate 的来源可审计。
 - Knowledge 与 Learning Memory 使用分离 collection：`tiban_knowledge_v32`、`tiban_learning_memory_v32`。
 - Settings 的 test/apply/restore 会真实更新 runtime-scoped 配置；Embedding 变更会将两类派生索引标为 stale，并通过后台 job 重建。
 - Knowledge 展示与检索只取 document 的最新 canonical version；`stage7-*` 旧 corpus 已逻辑退役，数据库资格过滤会阻止残留向量进入召回。
@@ -88,7 +91,7 @@ Reflection 使用 `reflection:{session_id}:{version}` 幂等标识；候选 ADD/
 | `docker compose config -q` | PASS |
 | `git diff --check` | PASS（仅 CRLF warning） |
 
-`npm run api:check` 的脚本包含 `git diff --exit-code -- src/api/generated.ts`。当前 V3.2 的 OpenAPI 与 generated client 尚处于未提交工作树，所以它会将这份合法的待提交 generated diff 视为非零结果；不是生成失败或 schema drift。提交明确属于 V3.2 的变更后，在该提交基线上重新执行可关闭该 gate。
+`npm run api:check` 在 V3.2 提交基线上已通过；generated client 与当前 OpenAPI 一致。V3.2 已推送到 `origin/refactor/v3-tiban-agent-experience`，最近两个提交为 `c374aaa` 与 `a0f3f2c`。工作树中剩余的旧视觉目录是未跟踪本地资料，未纳入提交。
 
 ## Online Smoke Test（运行环境准备后）
 
