@@ -234,6 +234,11 @@ class RuntimeSettingsService:
         self.sync()
         provider_status = llm_provider.status()
         with self._lock:
+            # This is the same gate used by the Tutor/Mentor composition edge.
+            # Reporting it explicitly prevents the UI from treating a merely
+            # present provider key as proof that the Agent runtime is active.
+            provider_enabled = os.getenv("TUTOR_PROVIDER_ENABLED", "").strip().lower() == "true" or self._llm_override
+            agent_available = provider_enabled and bool(provider_status["configured"])
             return {
                 # The public Settings page should describe the effective
                 # chain entry, not the first configured slot. In a normal
@@ -243,6 +248,8 @@ class RuntimeSettingsService:
                 "provider": provider_status["provider"],
                 "base_url_configured": bool(provider_status["base_url_configured"]),
                 "api_key_configured": bool(provider_status["api_key_configured"]),
+                "agent_available": agent_available,
+                "agent_mode": "provider" if agent_available else "rule",
                 "model": provider_status["model"],
                 "reasoning_effort": config.LLM_MODEL_REASONING_EFFORT or None,
                 "runtime_override": self._llm_override,

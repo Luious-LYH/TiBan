@@ -24,6 +24,8 @@ const baseSettings = {
     provider: 'cloudflare_workers_ai',
     base_url_configured: true,
     api_key_configured: true,
+    agent_available: true,
+    agent_mode: 'provider',
     model: '@cf/qwen/qwen3-30b-a3b-fp8',
     reasoning_effort: null,
     runtime_override: false,
@@ -87,5 +89,16 @@ describe('SettingsPage default configuration actions', () => {
 
     for (const button of screen.getAllByRole('button', { name: /^使用项目默认$/ })) expect(button).toBeEnabled()
     expect(screen.getByRole('button', { name: /^恢复默认$/ })).toBeEnabled()
+  })
+
+  it('clearly gates Agent use when the active provider is not available', async () => {
+    mockedGetInstanceSettings.mockResolvedValue({
+      ...baseSettings,
+      llm: { ...baseSettings.llm, api_key_configured: false, agent_available: false, agent_mode: 'rule' },
+    })
+    renderSettings()
+
+    expect(await screen.findByText('需要配置 API 才能使用 Agent')).toBeInTheDocument()
+    expect(screen.getByText(/题库、刷题和复习仍可使用/)).toBeInTheDocument()
   })
 })

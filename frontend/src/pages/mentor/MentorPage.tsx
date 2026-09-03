@@ -1,10 +1,11 @@
-import { BookOpenText, ChevronRight, FileText, LoaderCircle, MessageSquarePlus, Plus, Send, Sparkles, Trash2 } from 'lucide-react'
+import { BookOpenText, ChevronRight, CircleAlert, FileText, LoaderCircle, MessageSquarePlus, Plus, Send, Sparkles, Trash2 } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { createMentorConversation, deleteMentorConversation, getKnowledgeSources, getMentorConversation, listMentorConversations, streamMentorMessage, type MentorMessage, type TutorStreamEvent } from '../../api/client'
 import { EmptyState, ErrorState, LoadingState } from '../../components/shared/AsyncState'
+import { useAgentAvailability } from '../../components/shared/AgentAvailability'
 
 type MentorSource = { document_name?: string; section?: string; page?: string; snippet?: string }
 type LiveMessage = { id: string; role: 'user' | 'assistant'; content: string; activity?: Array<{ label?: string; status?: string }>; sources?: MentorSource[] }
@@ -13,6 +14,7 @@ const starters = ['根据我最近的错题，告诉我接下来应该复习什�
 export function MentorPage() {
   const query = useQueryClient()
   const conversations = useQuery({ queryKey: ['mentor-conversations'], queryFn: () => listMentorConversations() })
+  const settings = useAgentAvailability()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const effectiveId = selectedId ?? conversations.data?.[0]?.id ?? null
   const detail = useQuery({ queryKey: ['mentor-conversation', effectiveId], queryFn: () => getMentorConversation(effectiveId ?? ''), enabled: Boolean(effectiveId) })
@@ -27,6 +29,7 @@ export function MentorPage() {
   const [follow, setFollow] = useState(true)
   const [contextMenu, setContextMenu] = useState<{ conversationId: string; x: number; y: number } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
+  const agentAvailable = settings.agentAvailable
   const create = useMutation({ mutationFn: createMentorConversation, onSuccess: (item) => { setSelectedId(item.id); void query.invalidateQueries({ queryKey: ['mentor-conversations'] }) } })
   const remove = useMutation({
     mutationFn: (conversationId: string) => deleteMentorConversation(conversationId),
@@ -61,6 +64,7 @@ export function MentorPage() {
   useEffect(() => { const node = transcript.current; if (!node || !follow) return; const frame = requestAnimationFrame(() => { node.scrollTop = node.scrollHeight }); return () => cancelAnimationFrame(frame) }, [follow, messages.length, running])
 
   async function startConversation() {
+    if (!agentAvailable) return null
     const item = await create.mutateAsync()
     loadedConversation.current = item.id
     setLive([])
@@ -69,8 +73,9 @@ export function MentorPage() {
 
   async function send(value = draft) {
     const text = value.trim()
-    if (!text || running) return
+    if (!text || running || !agentAvailable) return
     const conversationId = effectiveId ?? await startConversation()
+    if (!conversationId) return
     const user: LiveMessage = { id: `local-user-${Date.now()}`, role: 'user', content: text }
     const assistantId = `local-assistant-${Date.now()}`
     setLive((current) => [...(effectiveId ? current : []), user, { id: assistantId, role: 'assistant', content: '', activity: [], sources: [] }])
@@ -112,21 +117,22 @@ export function MentorPage() {
 
   const enabledSources = (knowledge.data ?? []).filter((item) => item.enabled)
   return <div className="mentor-page" data-testid="mentor-page" onClick={() => setContextMenu(null)}>
-    <aside className="mentor-history"><header><div><span>Agent</span><h1>带教 Agent</h1></div><button type="button" onClick={() => void startConversation()} disabled={create.isPending} aria-label="新建带教对话"><Plus size={17} /></button></header><p>跨题库读取你的作答、复习安排和学习记忆。</p><div className="mentor-history-label"><span>最近对话</span><small>右键管理</small></div><nav>{(conversations.data ?? []).length === 0 ? <p className="mentor-history-empty">还没有带教对话</p> : conversations.data?.map((item) => <button type="button" key={item.id} className={item.id === effectiveId ? 'is-selected' : ''} title="右键删除对话" onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); setContextMenu({ conversationId: item.id, x: event.clientX, y: event.clientY }) }} onClick={() => { loadedConversation.current = null; setSelectedId(item.id); setLive([]) }}><span>{item.title}</span><small>{formatTime(item.updated_at)}</small></button>)}</nav></aside>
+    <aside className="mentor-history"><header><div><span>Agent</span><h1>带教 Agent</h1></div><button type="button" onClick={() => void startConversation()} disabled={create.isPending || !agentAvailable} aria-label="新建带教对话"><Plus size={17} /></button></header><p>跨题库读取你的作答、复习安排和学习记忆。</p><div className="mentor-history-label"><span>最近对话</span><small>右键管理</small></div><nav>{(conversations.data ?? []).length === 0 ? <p className="mentor-history-empty">还没有带教对话</p> : conversations.data?.map((item) => <button type="button" key={item.id} className={item.id === effectiveId ? 'is-selected' : ''} title="右键删除对话" onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); setContextMenu({ conversationId: item.id, x: event.clientX, y: event.clientY }) }} onClick={() => { loadedConversation.current = null; setSelectedId(item.id); setLive([]) }}><span>{item.title}</span><small>{formatTime(item.updated_at)}</small></button>)}</nav></aside>
     <main className="mentor-conversation"><header><div><span className="mentor-avatar"><Sparkles size={17} /></span><div><strong>带教 Agent</strong><small>基于真实学习记录与已启用资料</small></div></div>{running && <span className="mentor-running"><LoaderCircle className="s1-spin" size={14} />正在整理</span>}</header><div className="mentor-transcript" ref={transcript} onScroll={(event) => { const node = event.currentTarget; setFollow(node.scrollHeight - node.scrollTop - node.clientHeight < 36) }}>
-      {!effectiveId && <MentorEmpty onSend={(text) => void send(text)} />}
+      {!settings.isPending && !settings.isError && !agentAvailable && <div className="mentor-agent-required" role="status"><CircleAlert size={17} /><div><strong>带教 Agent 需要配置 API</strong><p>当前没有可用的模型服务。配置后才能进行真实对话，题库、刷题和复习不受影响。</p><Link to="/settings">前往设置配置</Link></div></div>}
+      {!effectiveId && <MentorEmpty onSend={(text) => void send(text)} disabled={!agentAvailable} />}
       {effectiveId && detail.isPending && <LoadingState label="正在读取对话…" />}
       {effectiveId && detail.isError && <ErrorState message={detail.error.message} onRetry={() => void detail.refetch()} />}
       {messages.map((item) => <MentorTurn key={item.id} item={item} />)}
     </div>{!follow && <button className="mentor-jump" type="button" onClick={() => { setFollow(true); transcript.current?.scrollTo({ top: transcript.current.scrollHeight, behavior: 'smooth' }) }}>回到底部</button>}
-    <footer><label><span className="s1-visually-hidden">向带教 Agent 提问</span><textarea aria-label="向带教 Agent 提问" rows={2} value={draft} placeholder="问问我最近该复习什么，或直接提一个知识问题…" disabled={running} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }} /><button type="button" aria-label="发送给带教 Agent" disabled={!draft.trim() || running} onClick={() => void send()}><Send size={17} /></button></label></footer></main>
+    <footer><label><span className="s1-visually-hidden">向带教 Agent 提问</span><textarea aria-label="向带教 Agent 提问" rows={2} value={draft} placeholder={agentAvailable ? '问问我最近该复习什么，或直接提一个知识问题…' : settings.isError ? '暂时无法读取模型配置' : '配置 API 后启用带教 Agent'} disabled={running || !agentAvailable} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }} /><button type="button" aria-label="发送给带教 Agent" disabled={!draft.trim() || running || !agentAvailable} onClick={() => void send()}><Send size={17} /></button></label></footer></main>
     <aside className="mentor-knowledge"><header><BookOpenText size={17} /><div><strong>已启用资料</strong><small>带教 Agent 仅在需要时检索</small></div></header><div>{knowledge.isPending ? <LoadingState label="正在读取资料…" /> : enabledSources.length === 0 ? <EmptyState title="没有启用资料" detail="到知识库添加或启用一份学习资料。" /> : enabledSources.map((source) => <article key={source.id}><FileText size={16} /><div><strong>{source.title}</strong><small>{source.scope === 'user' ? '我的资料' : source.scope === 'qbank_explanations' ? '题库解析' : '系统资料'} · {source.chunk_count} 个片段</small></div></article>)}</div><Link to="/knowledge">管理知识库 <ChevronRight size={14} /></Link></aside>
     {contextMenu && <div className="mentor-context-menu" role="menu" style={{ left: Math.min(contextMenu.x, window.innerWidth - 176), top: Math.min(contextMenu.y, window.innerHeight - 60) }} onClick={(event) => event.stopPropagation()}><button type="button" role="menuitem" onClick={() => { const item = conversations.data?.find((entry) => entry.id === contextMenu.conversationId); if (item) setDeleteTarget({ id: item.id, title: item.title }); setContextMenu(null) }}><Trash2 size={15} />删除对话</button></div>}
     {deleteTarget && <div className="mentor-delete-confirm" role="dialog" aria-modal="true" aria-labelledby="mentor-delete-title" onClick={(event) => event.stopPropagation()}><div><span className="mentor-delete-icon"><Trash2 size={16} /></span><div><strong id="mentor-delete-title">删除这段对话？</strong><p>“{deleteTarget.title}”及其中消息将被永久删除。</p></div></div><footer><button type="button" onClick={() => setDeleteTarget(null)} disabled={remove.isPending}>取消</button><button type="button" className="mentor-delete-action" onClick={() => remove.mutate(deleteTarget.id)} disabled={remove.isPending}>{remove.isPending ? '正在删除…' : '删除对话'}</button></footer>{remove.isError && <p role="alert">删除失败：{remove.error.message}</p>}</div>}
   </div>
 }
 
-function MentorEmpty({ onSend }: { onSend: (text: string) => void }) { return <section className="mentor-empty"><span className="mentor-empty-mark"><MessageSquarePlus size={22} /></span><h2>今天想从哪里开始？</h2><p>我会在需要时读取真实的学习记录、复习队列和已启用资料。</p><div>{starters.map((item) => <button type="button" key={item} onClick={() => onSend(item)}>{item}<ChevronRight size={15} /></button>)}</div></section> }
+function MentorEmpty({ onSend, disabled = false }: { onSend: (text: string) => void; disabled?: boolean }) { return <section className="mentor-empty"><span className="mentor-empty-mark"><MessageSquarePlus size={22} /></span><h2>今天想从哪里开始？</h2><p>我会在需要时读取真实的学习记录、复习队列和已启用资料。</p><div>{starters.map((item) => <button type="button" key={item} disabled={disabled} onClick={() => onSend(item)}>{item}<ChevronRight size={15} /></button>)}</div></section> }
 function MentorTurn({ item }: { item: LiveMessage }) { const evidence = dedupe(item.sources ?? []); const completed = (item.activity ?? []).filter((entry) => entry.status === 'completed'); return <article className={`mentor-turn is-${item.role}`}><span>{item.role === 'user' ? '你' : '带教 Agent'}</span>{item.content && <p>{item.content}</p>}{completed.length > 0 && <details><summary>{completed.map((entry) => entry.label).filter(Boolean).join(' · ')}</summary></details>}{evidence.length > 0 && <div className="mentor-evidence">{evidence.map((source, index) => <article key={`${source.document_name}-${source.section}-${index}`}><strong>{source.document_name ?? '学习资料'}</strong><small>{source.section ?? source.page}</small><p>{source.snippet?.slice(0, 160)}</p></article>)}</div>}</article> }
 function toLiveMessage(item: MentorMessage): LiveMessage { return { id: item.id, role: item.role, content: item.content, activity: (item.activity ?? []) as LiveMessage['activity'], sources: (item.sources ?? []) as LiveMessage['sources'] } }
 function dedupe(sources: MentorSource[]) { const seen = new Set<string>(); return sources.filter((source) => { const key = `${source.document_name ?? ''}:${source.section ?? ''}`; if (seen.has(key)) return false; seen.add(key); return true }) }

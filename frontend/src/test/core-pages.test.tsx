@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearLearningMemory, createEvaluationSuite, createMentorConversation, createModelEvaluation, createPracticeSession, createReviewSession, createRagEvaluation, deleteEvaluationExperiments, deleteKnowledgeSource, deleteMentorConversation, deleteSavedRagProfile, discoverEvaluationModels, getDomains, getEvaluationCatalog, getEvaluationExperiment, getLatestEvaluationExperiment, getKnowledgeSource, getKnowledgeSources, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, getLatestEvaluationSuite, getSavedRagProfiles, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, saveRagProfile, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, uploadKnowledgeSource } from '../api/client'
+import { clearLearningMemory, createEvaluationSuite, createMentorConversation, createModelEvaluation, createPracticeSession, createReviewSession, createRagEvaluation, deleteEvaluationExperiments, deleteKnowledgeSource, deleteMentorConversation, deleteSavedRagProfile, discoverEvaluationModels, getDomains, getEvaluationCatalog, getEvaluationExperiment, getInstanceSettings, getLatestEvaluationExperiment, getKnowledgeSource, getKnowledgeSources, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, getLatestEvaluationSuite, getSavedRagProfiles, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, saveRagProfile, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, uploadKnowledgeSource } from '../api/client'
 import type { EvaluationExperiment, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult, SavedRagProfile } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -33,6 +33,7 @@ vi.mock('../api/client', () => ({
   deleteSavedRagProfile: vi.fn(),
   getEvaluationCatalog: vi.fn(),
   getEvaluationExperiment: vi.fn(),
+  getInstanceSettings: vi.fn(),
   getSavedRagProfiles: vi.fn(),
   getKnowledgeSource: vi.fn(),
   getKnowledgeSources: vi.fn(),
@@ -60,6 +61,7 @@ vi.mock('../api/client', () => ({
 }))
 
 const mockedGetOverview = vi.mocked(getOverview)
+const mockedGetInstanceSettings = vi.mocked(getInstanceSettings)
 const mockedCreateMentorConversation = vi.mocked(createMentorConversation)
 const mockedGetMentorConversation = vi.mocked(getMentorConversation)
 const mockedGetKnowledgeSources = vi.mocked(getKnowledgeSources)
@@ -143,6 +145,11 @@ function LocationProbe() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockedGetInstanceSettings.mockResolvedValue({
+    llm: { provider: 'test-provider', base_url_configured: true, api_key_configured: true, agent_available: true, agent_mode: 'provider', model: 'test-model', reasoning_effort: null, runtime_override: false, restores_default_on_restart: true, private_network_allowed: false },
+    embedding: { mode: 'api', provider: 'siliconflow', base_url_configured: true, api_key_configured: true, model: 'BAAI/bge-m3', local_model: 'BAAI/bge-small-zh-v1.5', active_provider: 'siliconflow', active_model: 'BAAI/bge-m3', reranker_mode: 'api', reranker_provider: 'siliconflow', reranker_model: 'BAAI/bge-reranker-v2-m3', batch_size: 32, runtime_override: false, restores_default_on_restart: true, model_switch_supported: true, knowledge_index_status: 'ready', memory_index_status: 'ready' },
+    api_source: 'backend',
+  })
   mockedGetOverview.mockResolvedValue(overview)
   mockedGetResumablePracticeSession.mockResolvedValue(null)
   mockedResumePracticeSession.mockResolvedValue({ tutor_thread_id: 'tutor-thread-resumed', practice_session_id: 'session-test', status: 'active' })

@@ -2738,6 +2738,10 @@ export interface components {
             base_url_configured: boolean;
             /** Api Key Configured */
             api_key_configured: boolean;
+            /** Agent Available */
+            agent_available: boolean;
+            /** Agent Mode */
+            agent_mode: string;
             /** Model */
             model: string;
             /** Reasoning Effort */

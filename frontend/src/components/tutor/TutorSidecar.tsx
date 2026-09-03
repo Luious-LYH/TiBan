@@ -1,7 +1,9 @@
-import { Bot, Check, ChevronDown, ChevronUp, CornerDownLeft, ExternalLink, LoaderCircle, RotateCcw, Square, X } from 'lucide-react'
+import { Bot, Check, ChevronDown, ChevronUp, CircleAlert, CornerDownLeft, ExternalLink, LoaderCircle, RotateCcw, Square, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { streamTutor, type TutorStreamEvent } from '../../api/client'
+import { useAgentAvailability } from '../shared/AgentAvailability'
+import { Link } from 'react-router-dom'
 
 type TutorMode = 'study' | 'exam' | 'review'
 type Source = { document_name?: string; page?: string; section?: string; snippet?: string; source_uri?: string; namespace?: string }
@@ -18,6 +20,8 @@ export function TutorSidecar({ questionId, practiceSessionId, tutorThreadId, att
   const [activity, setActivity] = useState<string | null>(null)
   const [followTranscript, setFollowTranscript] = useState(true)
   const transcript = useRef<HTMLDivElement>(null)
+  const settings = useAgentAvailability()
+  const agentAvailable = settings.agentAvailable
 
   useEffect(() => {
     // A resumed or newly-created Practice Session deliberately starts a fresh
@@ -34,7 +38,7 @@ export function TutorSidecar({ questionId, practiceSessionId, tutorThreadId, att
 
   async function send(nextMessage = message) {
     const text = nextMessage.trim()
-    if (!text || running || mode === 'exam') return
+    if (!text || running || mode === 'exam' || !agentAvailable) return
     const userTurn: Turn = { id: `user-${Date.now()}`, role: 'user', text }
     const assistantId = `assistant-${Date.now()}`
     const assistantTurn: Turn = { id: assistantId, role: 'assistant', text: '', sources: [], reasoning: [], activities: [] }
@@ -95,9 +99,9 @@ export function TutorSidecar({ questionId, practiceSessionId, tutorThreadId, att
       <div><button className="tutor-reset" type="button" onClick={reset}>新对话</button><button className="tutor-close" type="button" onClick={onClose} aria-label="关闭智能辅导"><X size={18} /></button></div>
     </header>
     {mode === 'exam' ? <div className="tutor-exam-lock"><strong>考试进行中</strong><span>完成本次考试后再一起复盘题目。</span></div> : <>
-      <div className="tutor-context-status"><span><Check size={14} />当前题目已就绪</span>{sourceCount > 0 && <span><Check size={14} />已参考资料 {sourceCount} 条</span>}</div>
+      <div className="tutor-context-status"><span><Check size={14} />当前题目已就绪</span>{sourceCount > 0 && <span><Check size={14} />已参考资料 {sourceCount} 条</span>}{settings.data && !agentAvailable && <span className="tutor-status-required"><Link to="/settings"><CircleAlert size={13} />配置 API 后启用智能辅导</Link></span>}</div>
       <div className="tutor-transcript" ref={transcript} onScroll={(event) => { const node = event.currentTarget; setFollowTranscript(node.scrollHeight - node.scrollTop - node.clientHeight < 36) }} aria-live="polite" data-testid="tutor-transcript">
-        {showEmpty && <div className="tutor-empty"><strong>智能辅导已准备好</strong><p>我会结合题目、你的作答和已返回的资料，陪你一步步梳理判断依据。</p></div>}
+        {showEmpty && <div className="tutor-empty">{agentAvailable ? <><strong>智能辅导已准备好</strong><p>我会结合题目、你的作答和已返回的资料，陪你一步步梳理判断依据。</p></> : settings.isPending ? <><strong>正在确认智能辅导状态</strong><p>请稍候，正在读取当前实例的模型配置。</p></> : settings.isError ? <><strong>暂时无法确认智能辅导状态</strong><p>模型配置读取失败，请到设置页检查当前服务状态。</p><Link className="tutor-config-link" to="/settings">打开设置</Link></> : <><strong>智能辅导尚未启用</strong><p>当前实例没有可用的模型 API。配置后即可进行真实的题目讲解和追问。</p><Link className="tutor-config-link" to="/settings">前往设置配置 API</Link></>}</div>}
         {turns.map((turn) => <article className={`tutor-turn is-${turn.role}`} key={turn.id}>
           {turn.role === 'user' && <span className="tutor-role">你</span>}
           {turn.role === 'assistant' && <span className="s1-visually-hidden">智能辅导</span>}
@@ -110,7 +114,7 @@ export function TutorSidecar({ questionId, practiceSessionId, tutorThreadId, att
       </div>
       {!followTranscript && <button type="button" className="tutor-jump-bottom" onClick={() => { setFollowTranscript(true); transcript.current?.scrollTo({ top: transcript.current.scrollHeight, behavior: 'smooth' }) }}>回到底部</button>}
       {showEmpty && <div className="tutor-suggestions">{starterPrompts.map((prompt) => <button key={prompt} type="button" onClick={() => void send(prompt)}>{prompt}</button>)}</div>}
-      <div className="tutor-composer-wrap"><label className="tutor-composer"><span className="s1-visually-hidden">向智能辅导提问</span><textarea aria-label="向智能辅导提问" value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }} disabled={running} placeholder="继续追问当前题目…" rows={2} /><button type="button" aria-label="发送给智能辅导" disabled={!message.trim() || running} onClick={() => void send()}><CornerDownLeft size={17} /></button></label>
+      <div className="tutor-composer-wrap"><label className="tutor-composer"><span className="s1-visually-hidden">向智能辅导提问</span><textarea aria-label="向智能辅导提问" value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }} disabled={running || !agentAvailable} placeholder={agentAvailable ? '继续追问当前题目…' : '配置 API 后启用智能辅导'} rows={2} /><button type="button" aria-label="发送给智能辅导" disabled={!message.trim() || running || !agentAvailable} onClick={() => void send()}><CornerDownLeft size={17} /></button></label>
         <div className="tutor-actions">{running ? <button type="button" onClick={() => controller.current?.abort()}><Square size={14} />停止</button> : lastUser && <button type="button" onClick={() => void send(lastUser.text)}><RotateCcw size={14} />重新生成</button>}</div>
       </div>
     </>}

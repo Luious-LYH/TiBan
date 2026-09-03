@@ -17,10 +17,12 @@ def test_instance_llm_settings_are_redacted_runtime_scoped_and_restorable() -> N
     })
     assert applied.status_code == 200
     assert applied.json()["llm"]["runtime_override"] is True
+    assert applied.json()["llm"]["agent_available"] is True
     assert secret not in applied.text
     current = client.get("/api/v3/settings")
     assert current.status_code == 200
     assert current.json()["llm"]["api_key_configured"] is True
+    assert current.json()["llm"]["agent_available"] is True
     assert secret not in current.text
     restored = client.post("/api/v3/settings/llm/restore")
     assert restored.status_code == 200

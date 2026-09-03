@@ -61,6 +61,8 @@ class LLMSettingsPublic(BaseModel):
     provider: str
     base_url_configured: bool
     api_key_configured: bool
+    agent_available: bool
+    agent_mode: str
     model: str
     reasoning_effort: str | None = None
     runtime_override: bool

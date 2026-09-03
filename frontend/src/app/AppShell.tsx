@@ -16,6 +16,7 @@ import {
 import type { ComponentType, ReactNode } from 'react'
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useAgentAvailability } from '../components/shared/AgentAvailability'
 
 type NavItem = { to?: string; label: string; icon: ComponentType<{ size?: number }>; queryKey?: string; queryValue?: string; disabled?: boolean }
 type NavGroup = { label: string; items: NavItem[] }
@@ -47,6 +48,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const agentSurface = location.pathname === '/practice' || location.pathname === '/mentor'
+  const { agentAvailable, isPending, isError } = useAgentAvailability(agentSurface)
+  const agentUnavailable = agentSurface && !isPending && !isError && !agentAvailable
 
   return (
     <div className={`app-shell ${collapsed ? 'is-collapsed' : ''} ${location.pathname === '/practice' ? 'is-practice-shell' : ''}`}>
@@ -78,7 +82,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="app-content">
         <header className="app-topbar">
           <div className="app-topbar-leading"><button className="app-menu-button" type="button" aria-label="打开导航" onClick={() => setSidebarOpen(true)}><Menu size={19} /></button><button className="app-collapse-button" type="button" aria-label={collapsed ? '展开导航' : '收起导航'} onClick={() => setCollapsed((value) => !value)}>{collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}</button><span className="app-context">{location.pathname === '/practice' ? '练习中' : '题伴 TiBan'}</span></div>
-          <div className="app-topbar-actions" />
+          <div className="app-topbar-actions">{agentUnavailable && <Link className="app-agent-status" to="/settings"><CircleAlert size={14} /><span>智能 Agent 需要配置 API</span><small>去设置</small></Link>}</div>
         </header>
         <main className={location.pathname === '/practice' ? 'app-main is-practice' : 'app-main'}>{children}</main>
       </div>
