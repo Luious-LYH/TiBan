@@ -11,7 +11,6 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core import config
 from app.db.database import SessionLocal
 from app.db.models import (
     AttemptModel,
@@ -103,10 +102,20 @@ class MemoryReflectionService:
             from app.workers.background_worker import process_memory_reflection_actor
 
             process_memory_reflection_actor.send(job_id)
-        except Exception:
-            # Redis/worker availability never invalidates the already-committed
-            # Attempt/session data. Startup/inactivity reconciliation retries it.
-            pass
+        except Exception as exc:
+            # Attempt and session data are already durable, but a queued row
+            # must never pretend that a broker accepted it. Keep the job
+            # retryable so the next reconciliation can dispatch it again.
+            with SessionLocal() as session:
+                job = session.get(BackgroundJobModel, job_id)
+                practice = session.get(PracticeSessionModel, session_id)
+                if job is not None:
+                    job.status, job.stage = "failed", "dispatch_failed"
+                    job.error_message = type(exc).__name__
+                    job.completed_at = datetime.utcnow()
+                if practice is not None:
+                    practice.reflection_status = "failed"
+                session.commit()
         return job_id
 
     def process(self, job_id: str) -> dict[str, Any]:
@@ -147,14 +156,14 @@ class MemoryReflectionService:
                 session.commit()
             raise
 
-    def reconcile_inactive(self, *, now: datetime | None = None) -> list[str]:
+    def reconcile_inactive(self, *, now: datetime | None = None, limit: int = 12) -> list[str]:
         cutoff = (now or datetime.utcnow()) - timedelta(minutes=REFLECTION_INACTIVITY_MINUTES)
         with SessionLocal() as session:
             ids = list(session.scalars(select(PracticeSessionModel.session_id).where(
                 PracticeSessionModel.reflection_dirty.is_(True),
                 PracticeSessionModel.last_active_at <= cutoff,
                 PracticeSessionModel.status.in_(["active", "abandoned", "completed"]),
-            )))
+            ).order_by(PracticeSessionModel.last_active_at).limit(max(1, limit))))
         return [job_id for session_id in ids if (job_id := self.enqueue(session_id, reason="inactivity"))]
 
     def _session_evidence(self, session_id: str, learner_id: str) -> dict[str, Any]:
@@ -208,9 +217,10 @@ class MemoryReflectionService:
     def _candidate(self, evidence: dict[str, Any]) -> ReflectionCandidate:
         if not evidence["attempts"] and not evidence["transcript"]:
             return ReflectionCandidate(action="NOOP")
-        if not (config.LLM_BASE_URL and config.LLM_API_KEY):
-            raise RuntimeError("reflection_provider_not_configured")
         from app.services.llm_provider import llm_provider
+
+        if not llm_provider.status().get("configured"):
+            raise RuntimeError("reflection_provider_not_configured")
 
         prompt = {
             "attempts": evidence["attempts"],

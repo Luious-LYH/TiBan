@@ -40,6 +40,12 @@ class MentorConversationResponse(BaseModel):
     api_source: str = "backend"
 
 
+class MentorConversationDeleteResponse(BaseModel):
+    conversation_id: str
+    deleted: bool
+    api_source: str = "backend"
+
+
 class MentorMessageRequest(BaseModel):
     learner_id: str = "demo_learner"
     message: str = Field(min_length=1, max_length=2000)
@@ -59,6 +65,14 @@ def create_conversation(learner_id: str = "demo_learner") -> MentorConversationR
 def conversation_detail(conversation_id: str, learner_id: str = "demo_learner") -> MentorConversationResponse:
     try:
         return MentorConversationResponse(item=MentorConversationPublic.model_validate(mentor_agent_service.detail(conversation_id, learner_id)))
+    except KeyError as exc:
+        raise HTTPException(404, "带教对话不存在。") from exc
+
+
+@router.delete("/conversations/{conversation_id}", response_model=MentorConversationDeleteResponse)
+def delete_conversation(conversation_id: str, learner_id: str = "demo_learner") -> MentorConversationDeleteResponse:
+    try:
+        return MentorConversationDeleteResponse(**mentor_agent_service.delete_conversation(conversation_id, learner_id))
     except KeyError as exc:
         raise HTTPException(404, "带教对话不存在。") from exc
 

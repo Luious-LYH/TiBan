@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.config import DEFAULT_DOMAIN_ID
 from app.db.database import SessionLocal
 from app.services.learning_memory_service import learning_memory_service
 from app.services.learning_service import mentor_plan, review_card_payload, review_with_rating
@@ -103,7 +104,7 @@ def submit_review(request: ReviewRequest) -> ReviewResponse:
 
 
 @router.get("/mentor", response_model=MentorResponse)
-def get_mentor_plan(learner_id: str = "demo_learner", domain_id: str = "endoscopy", study_goal: str = "巩固观察证据与复盘边界") -> MentorResponse:
+def get_mentor_plan(learner_id: str = "demo_learner", domain_id: str = DEFAULT_DOMAIN_ID, study_goal: str = "巩固当前学习领域的重点") -> MentorResponse:
     with SessionLocal() as session:
         return MentorResponse(plan=MentorPlanPublic.model_validate(mentor_plan(session, learner_id=learner_id, domain_id=domain_id, study_goal=study_goal)), api_source="backend")
 

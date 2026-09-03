@@ -449,13 +449,21 @@ class RuntimeSettingsService:
             )
             session.add(row)
             session.commit()
+        result_status, result_stage, result_progress = row.status, row.stage, row.progress
         try:
             from app.workers.background_worker import rebuild_vector_indexes_actor
 
             rebuild_vector_indexes_actor.send(row.job_id)
-        except Exception:
-            pass
-        return {'job_id': row.job_id, 'status': row.status, 'stage': row.stage, 'progress': row.progress}
+        except Exception as exc:
+            result_status, result_stage = 'failed', 'dispatch_failed'
+            with SessionLocal() as session:
+                failed = session.get(BackgroundJobModel, row.job_id)
+                if failed is not None:
+                    failed.status, failed.stage = 'failed', 'dispatch_failed'
+                    failed.error_message = type(exc).__name__
+                    failed.completed_at = datetime.utcnow()
+                    session.commit()
+        return {'job_id': row.job_id, 'status': result_status, 'stage': result_stage, 'progress': result_progress}
 
     def process_index_rebuild(self, job_id: str) -> dict[str, Any]:
         """Worker-side implementation for the single active vector representation."""

@@ -5,7 +5,8 @@ import base64
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.factory_service import enqueue_factory_job, get_job, import_allowed_document, publish_revision, record_queue_message, request_job_cancellation
+from app.core.config import DEFAULT_DOMAIN_ID
+from app.services.factory_service import enqueue_factory_job, get_job, import_allowed_document, mark_factory_dispatch_failed, publish_revision, record_queue_message, request_job_cancellation
 from app.workers.factory_worker import process_factory_job_actor
 
 
@@ -16,7 +17,7 @@ class DocumentUploadRequest(BaseModel):
     filename: str = Field(min_length=3, max_length=255)
     content_base64: str = Field(min_length=1)
     content_type: str | None = None
-    domain_id: str = "endoscopy"
+    domain_id: str = DEFAULT_DOMAIN_ID
 
 
 class FactoryDocumentPublic(BaseModel):
@@ -125,15 +126,20 @@ def create_job(request: JobRequest) -> FactoryJobCreateResponse:
     try:
         # Dramatiq is the single async queue path; status is persisted before enqueue.
         item = enqueue_factory_job(request.document_id)
-        message = process_factory_job_actor.send(item["job_id"])
-        record_queue_message(item["job_id"], message.message_id)
+        # Reusing an active/succeeded row must not create duplicate broker
+        # messages. A retryable queued row still needs one fresh dispatch.
+        if not (item.get("reused") == "true" and item.get("status") in {"running", "succeeded"}):
+            try:
+                message = process_factory_job_actor.send(item["job_id"])
+                record_queue_message(item["job_id"], message.message_id)
+            except Exception as exc:
+                mark_factory_dispatch_failed(item["job_id"], exc)
+                raise HTTPException(503, "任务队列暂不可用，请稍后重试。") from exc
         return FactoryJobCreateResponse(item=FactoryJobQueuedPublic.model_validate(item), api_source="backend")
     except KeyError as exc:
         raise HTTPException(404, "Document not found") from exc
-    except Exception as exc:
-        # The queued row remains canonical evidence, but learners must receive
-        # an actionable failure instead of an opaque 500 when Redis is down.
-        raise HTTPException(503, "任务队列暂不可用，请稍后重试。") from exc
+    except HTTPException:
+        raise
 
 
 @router.get("/jobs/{job_id}", response_model=FactoryJobReadResponse)

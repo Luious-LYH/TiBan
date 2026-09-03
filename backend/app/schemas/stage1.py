@@ -355,16 +355,20 @@ class PracticeSubmitResponse(Stage1Model):
     official_explanation_available: bool = False
 
 
-class RecentSessionPublic(Stage1Model):
-    attempt_id: str
-    question_id: str
+class RecentBankActivityPublic(Stage1Model):
     bank_id: str
     bank_name: str
-    question_summary: str
-    question_type: Literal["single_choice", "multiple_choice", "true_false", "short_answer"]
-    score: int
-    correct: bool
-    created_at: datetime
+    bank_question_count: int = Field(ge=0)
+    bank_completed_count: int = Field(ge=0)
+    bank_progress: float = Field(ge=0, le=1)
+    last_session_id: str
+    last_session_status: Literal["active", "completed", "abandoned"]
+    last_session_mode: Literal["study", "exam", "review", "practice"]
+    session_question_count: int = Field(ge=0)
+    session_answered_count: int = Field(ge=0)
+    next_question_ordinal: int = Field(ge=1)
+    last_active_at: datetime
+    resumable: bool
 
 
 class OverviewResponse(Stage1Model):
@@ -373,7 +377,7 @@ class OverviewResponse(Stage1Model):
     daily_target: int = Field(ge=0)
     due_review_count: int = Field(ge=0)
     recent_accuracy: float = Field(ge=0, le=1)
-    recent_sessions: list[RecentSessionPublic] = Field(default_factory=list)
+    recent_bank_activity: list[RecentBankActivityPublic] = Field(default_factory=list)
     banks: list[QuestionBankPublic] = Field(default_factory=list)
     weak_areas: list[str] = Field(default_factory=list)
     safety_notice: str = SAFETY_NOTICE

@@ -529,7 +529,8 @@ export interface paths {
         get: operations["conversation_detail_api_v3_mentor_conversations__conversation_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Delete Conversation */
+        delete: operations["delete_conversation_api_v3_mentor_conversations__conversation_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -901,6 +902,32 @@ export interface paths {
         };
         /** Health */
         get: operations["health_api_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness
+         * @description Report local service dependencies without probing external LLMs.
+         *
+         *     ``/health`` is intentionally a cheap liveness endpoint. Compose and an
+         *     operator can use this endpoint when they need to know whether the
+         *     database, Redis queue, Qdrant index service, and schema are usable. Every
+         *     network probe has a short timeout so an offline derived service cannot
+         *     hold the request open for the normal client timeout.
+         */
+        get: operations["readiness_api_ready_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2791,6 +2818,18 @@ export interface components {
             /** Api Source */
             api_source: string;
         };
+        /** MentorConversationDeleteResponse */
+        MentorConversationDeleteResponse: {
+            /** Conversation Id */
+            conversation_id: string;
+            /** Deleted */
+            deleted: boolean;
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
         /** MentorConversationListResponse */
         MentorConversationListResponse: {
             /** Items */
@@ -3005,8 +3044,8 @@ export interface components {
             due_review_count: number;
             /** Recent Accuracy */
             recent_accuracy: number;
-            /** Recent Sessions */
-            recent_sessions?: components["schemas"]["RecentSessionPublic"][];
+            /** Recent Bank Activity */
+            recent_bank_activity?: components["schemas"]["RecentBankActivityPublic"][];
             /** Banks */
             banks?: components["schemas"]["QuestionBankPublic"][];
             /** Weak Areas */
@@ -3532,32 +3571,43 @@ export interface components {
             /** Text */
             text: string;
         };
-        /** RecentSessionPublic */
-        RecentSessionPublic: {
-            /** Attempt Id */
-            attempt_id: string;
-            /** Question Id */
-            question_id: string;
+        /** RecentBankActivityPublic */
+        RecentBankActivityPublic: {
             /** Bank Id */
             bank_id: string;
             /** Bank Name */
             bank_name: string;
-            /** Question Summary */
-            question_summary: string;
+            /** Bank Question Count */
+            bank_question_count: number;
+            /** Bank Completed Count */
+            bank_completed_count: number;
+            /** Bank Progress */
+            bank_progress: number;
+            /** Last Session Id */
+            last_session_id: string;
             /**
-             * Question Type
+             * Last Session Status
              * @enum {string}
              */
-            question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
-            /** Score */
-            score: number;
-            /** Correct */
-            correct: boolean;
+            last_session_status: "active" | "completed" | "abandoned";
             /**
-             * Created At
+             * Last Session Mode
+             * @enum {string}
+             */
+            last_session_mode: "study" | "exam" | "review" | "practice";
+            /** Session Question Count */
+            session_question_count: number;
+            /** Session Answered Count */
+            session_answered_count: number;
+            /** Next Question Ordinal */
+            next_question_ordinal: number;
+            /**
+             * Last Active At
              * Format: date-time
              */
-            created_at: string;
+            last_active_at: string;
+            /** Resumable */
+            resumable: boolean;
         };
         /** ReportDraftRequest */
         ReportDraftRequest: {
@@ -5253,6 +5303,39 @@ export interface operations {
             };
         };
     };
+    delete_conversation_api_v3_mentor_conversations__conversation_id__delete: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+            };
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentorConversationDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     stream_message_api_v3_mentor_conversations__conversation_id__stream_post: {
         parameters: {
             query?: never;
@@ -5872,6 +5955,26 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    readiness_api_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

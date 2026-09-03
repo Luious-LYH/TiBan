@@ -918,10 +918,21 @@ class Stage1Repository:
 
     def overview(self, learner_id: str = "demo_learner") -> dict[str, Any]:
         banks = self.list_banks(learner_id)
+        visible_bank_ids = {bank.bank_id for bank in banks}
+        if visible_bank_ids:
+            visible_question_ids = list(self.session.scalars(
+                select(QuestionModel.question_id).where(
+                    QuestionModel.bank_id.in_(visible_bank_ids),
+                    QuestionModel.business_usage == "user_ready",
+                )
+            ))
+        else:
+            visible_question_ids = []
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         completed_today = self.session.scalar(
             select(func.count(AttemptModel.attempt_id)).where(
                 AttemptModel.learner_id == learner_id,
+                AttemptModel.question_id.in_(visible_question_ids) if visible_question_ids else False,
                 AttemptModel.created_at >= today_start,
             )
         ) or 0
@@ -931,13 +942,15 @@ class Stage1Repository:
                 .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
                 .join(QuestionBankModel, QuestionBankModel.bank_id == QuestionModel.bank_id)
                 .where(AttemptModel.learner_id == learner_id)
+                .where(QuestionModel.question_id.in_(visible_question_ids) if visible_question_ids else False)
                 .order_by(AttemptModel.created_at.desc())
-                .limit(10)
+                .limit(30)
             ).all()
         )
         due_count = self.session.scalar(
             select(func.count(ReviewCardModel.review_card_id)).where(
                 ReviewCardModel.learner_id == learner_id,
+                ReviewCardModel.question_id.in_(visible_question_ids) if visible_question_ids else False,
                 ReviewCardModel.due_at <= datetime.utcnow(),
             )
         ) or 0
@@ -946,28 +959,87 @@ class Stage1Repository:
             if recent_attempts
             else 0.0
         )
+        sessions = list(self.session.scalars(
+            select(PracticeSessionModel).where(
+                PracticeSessionModel.learner_id == learner_id,
+                PracticeSessionModel.bank_id.in_(visible_bank_ids) if visible_bank_ids else False,
+            ).order_by(PracticeSessionModel.last_active_at.desc())
+        ))
+        session_ids = [item.session_id for item in sessions]
+        session_items = list(self.session.scalars(
+            select(PracticeSessionItemModel).where(
+                PracticeSessionItemModel.practice_session_id.in_(session_ids) if session_ids else False,
+            ).order_by(PracticeSessionItemModel.ordinal)
+        ))
+        attempts_by_session: dict[str, set[str]] = {}
+        if session_ids:
+            for attempt in self.session.scalars(select(AttemptModel).where(
+                AttemptModel.learner_id == learner_id,
+                AttemptModel.practice_session_id.in_(session_ids),
+            )):
+                attempts_by_session.setdefault(attempt.practice_session_id, set()).add(attempt.question_id)
+        items_by_session: dict[str, list[PracticeSessionItemModel]] = {}
+        for item in session_items:
+            items_by_session.setdefault(item.practice_session_id, []).append(item)
+        bank_map = {bank.bank_id: bank for bank in banks}
+        recent_bank_activity: list[dict[str, Any]] = []
+        seen_banks: set[str] = set()
+        for practice in sessions:
+            if practice.bank_id in seen_banks or practice.bank_id not in bank_map:
+                continue
+            seen_banks.add(practice.bank_id)
+            items = items_by_session.get(practice.session_id, [])
+            answered = attempts_by_session.get(practice.session_id, set())
+            first_unanswered = next((item for item in items if item.question_id not in answered), None)
+            bank = bank_map[practice.bank_id]
+            recent_bank_activity.append({
+                "bank_id": bank.bank_id,
+                "bank_name": bank.name,
+                "bank_question_count": bank.question_count,
+                "bank_completed_count": int(getattr(bank, "_stage1_completed_count", 0)),
+                "bank_progress": round(min(max(int(getattr(bank, "_stage1_completed_count", 0)), 0), bank.question_count) / bank.question_count, 3) if bank.question_count else 0.0,
+                "last_session_id": practice.session_id,
+                "last_session_status": practice.status,
+                "last_session_mode": practice.mode,
+                "session_question_count": len(items),
+                "session_answered_count": len(answered),
+                "next_question_ordinal": (first_unanswered.ordinal + 1) if first_unanswered is not None else max(len(items), 1),
+                "last_active_at": practice.last_active_at,
+                "resumable": practice.status == "active" and first_unanswered is not None,
+            })
         return {
             "learner_id": learner_id,
             "completed_today": int(completed_today),
             "daily_target": 10,
             "due_review_count": int(due_count),
             "recent_accuracy": round(recent_accuracy, 3),
-            "recent_sessions": [
-                {
-                    "attempt_id": attempt.attempt_id,
-                    "question_id": attempt.question_id,
-                    "bank_id": question.bank_id,
-                    "bank_name": bank.name,
-                    "question_summary": (question.stem or question.title).strip()[:88],
-                    "question_type": question.question_type,
-                    "score": attempt.score,
-                    "correct": attempt.correct,
-                    "created_at": attempt.created_at.isoformat(),
-                }
-                for attempt, question, bank in recent_attempts
-            ],
+            "recent_bank_activity": recent_bank_activity,
             "banks": banks,
-            "weak_areas": learner_visible_weak_topics(recent_attempts),
+            "weak_areas": self._overview_weak_areas(learner_id, recent_attempts),
             "safety_notice": SAFETY_NOTICE,
             "api_source": "backend",
         }
+
+    def _overview_weak_areas(self, learner_id: str, recent_attempts: list[tuple[Any, QuestionModel, QuestionBankModel]]) -> list[str]:
+        """Prefer canonical memory/mastery labels, then use clean attempt fallback."""
+        labels: list[str] = []
+        memories = list(self.session.scalars(select(LearningMemoryItemModel).where(
+            LearningMemoryItemModel.learner_id == learner_id,
+            LearningMemoryItemModel.status == "active",
+        ).order_by(LearningMemoryItemModel.last_seen_at.desc()).limit(10)))
+        for item in memories:
+            for value in [*(item.topic_keys or []), *(item.concept_keys or [])]:
+                candidate = str(value).strip()
+                if candidate and not _WEAK_TOPIC_PLACEHOLDER.search(candidate) and candidate not in labels:
+                    labels.append(candidate)
+        if len(labels) < 5:
+            mastery = list(self.session.scalars(select(LearnerMasteryModel).where(
+                LearnerMasteryModel.learner_id == learner_id,
+                LearnerMasteryModel.attempt_count > 0,
+                LearnerMasteryModel.mastery_score < 80,
+            ).order_by(LearnerMasteryModel.mastery_score, LearnerMasteryModel.updated_at.desc()).limit(10)))
+            for item in mastery:
+                candidate = str(item.knowledge_point).strip()
+                if candidate and not _WEAK_TOPIC_PLACEHOLDER.search(candidate) and candidate not in labels:
+                    labels.append(candidate)
+        return labels[:5] or learner_visible_weak_topics(recent_attempts)

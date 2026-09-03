@@ -47,6 +47,7 @@ services:
       ENDO_PROJECT_DATA_ROOT: /app/data
       ENDO_LOCAL_VQA_ROOT: /app/vqa-data
       ENDO_EMBEDDING_CACHE: /app/runtime/fastembed
+      ENDO_KNOWLEDGE_UPLOAD_DIR: /app/runtime/knowledge
       ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
@@ -114,6 +115,9 @@ services:
       - type: volume
         source: endotutor_embedding_cache
         target: /app/runtime/fastembed
+      - type: volume
+        source: tiban_knowledge_data
+        target: /app/runtime/knowledge
       # Instance-scoped Settings are runtime-only.  This small shared volume
       # lets the API and Dramatiq worker observe an applied provider/key while
       # keeping it outside PostgreSQL, browser state and the repository.
@@ -144,6 +148,7 @@ services:
       ENDO_PROJECT_DATA_ROOT: /app/data
       ENDO_LOCAL_VQA_ROOT: /app/vqa-data
       ENDO_EMBEDDING_CACHE: /app/runtime/fastembed
+      ENDO_KNOWLEDGE_UPLOAD_DIR: /app/runtime/knowledge
       FACTORY_EMBEDDING_PREWARM: "true"
       FACTORY_WORKER_READY_FILE: /tmp/factory-worker-ready
       QDRANT_URL: http://qdrant:6333
@@ -203,6 +208,9 @@ services:
         source: endotutor_embedding_cache
         target: /app/runtime/fastembed
       - type: volume
+        source: tiban_knowledge_data
+        target: /app/runtime/knowledge
+      - type: volume
         source: endotutor_runtime_state
         target: /app/runtime/data
     depends_on:
@@ -235,3 +243,4 @@ volumes:
   endotutor_factory_uploads:
   endotutor_embedding_cache:
   endotutor_runtime_state:
+  tiban_knowledge_data:

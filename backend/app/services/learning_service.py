@@ -13,6 +13,8 @@ from uuid import uuid4
 
 from fsrs import Card, Rating, Scheduler
 from sqlalchemy import select
+
+from app.core.config import DEFAULT_DOMAIN_ID
 from sqlalchemy.orm import Session
 
 from app.db.models import AttemptModel, LearnerMasteryModel, QuestionModel, ReviewCardModel
@@ -158,7 +160,7 @@ def review_card_payload(card: ReviewCardModel) -> dict[str, Any]:
     }
 
 
-def mentor_plan(session: Session, *, learner_id: str, domain_id: str = "endoscopy", study_goal: str = "巩固观察证据与复盘边界") -> dict[str, Any]:
+def mentor_plan(session: Session, *, learner_id: str, domain_id: str = DEFAULT_DOMAIN_ID, study_goal: str = "巩固当前学习领域的重点") -> dict[str, Any]:
     due = list(session.scalars(select(ReviewCardModel).where(ReviewCardModel.learner_id == learner_id, ReviewCardModel.domain_id == domain_id).order_by(ReviewCardModel.due_at).limit(8)))
     mastery = list(session.scalars(select(LearnerMasteryModel).where(LearnerMasteryModel.learner_id == learner_id, LearnerMasteryModel.domain_id == domain_id).order_by(LearnerMasteryModel.mastery_score).limit(3)))
     recent = list(session.scalars(select(AttemptModel).join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id).where(AttemptModel.learner_id == learner_id, QuestionModel.domain_id == domain_id).order_by(AttemptModel.created_at.desc()).limit(8)))

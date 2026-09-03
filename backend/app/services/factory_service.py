@@ -22,7 +22,7 @@ from sqlalchemy import select
 
 from app.application.factory.jobs import ACTIVE_JOB_STATUSES, JobTransitionError, TERMINAL_JOB_STATUSES, ensure_transition
 from app.core import config
-from app.core.config import SAFETY_NOTICE, UPLOAD_DIR
+from app.core.config import DEFAULT_DOMAIN_ID, SAFETY_NOTICE, UPLOAD_DIR
 from app.domains import get_domain
 from app.db.database import SessionLocal
 from app.db.models import (
@@ -135,7 +135,7 @@ def import_allowed_document(
     business_usage: str = "factory_source",
     license_gate_status: str = "needs_review",
     ai_ingestion_allowed: bool = False,
-    domain_id: str = "endoscopy",
+    domain_id: str = DEFAULT_DOMAIN_ID,
 ) -> dict[str, str]:
     manifest = get_domain(domain_id)
     suffix = Path(filename).suffix.lower()
@@ -214,6 +214,25 @@ def enqueue_factory_job(document_id: str) -> dict[str, str]:
         session.commit()
         job_id = job.job_id
     return {"job_id": job_id, "status": "queued", "reused": "false"}
+
+
+def mark_factory_dispatch_failed(job_id: str, error: Exception) -> None:
+    """Persist a broker failure instead of leaving an orphaned queued job."""
+
+    with SessionLocal() as session:
+        job = session.get(FactoryJobModel, job_id)
+        if job is None:
+            raise KeyError("factory job not found")
+        if job.status == "queued":
+            _set_lifecycle(
+                job,
+                "failed",
+                stage="dispatch_failed",
+                error_code="dispatch_failed",
+                error_message=type(error).__name__,
+            )
+            _record_event(job, "dispatch_failed", "任务未能提交到后台队列，可重试。", progress=job.progress)
+            session.commit()
 
 
 def record_queue_message(job_id: str, message_id: str) -> None:

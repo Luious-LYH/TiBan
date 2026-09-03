@@ -4,7 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearLearningMemory, createEvaluationRun, createMentorConversation, createPracticeSession, createReviewSession, deleteKnowledgeSource, getDomains, getEvaluationDatasets, getEvaluationRun, getKnowledgeSource, getKnowledgeSources, getLatestEvaluation, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection, uploadKnowledgeSource } from '../api/client'
+import { clearLearningMemory, createEvaluationRun, createMentorConversation, createPracticeSession, createReviewSession, deleteKnowledgeSource, deleteMentorConversation, getDomains, getEvaluationDatasets, getEvaluationRun, getKnowledgeSource, getKnowledgeSources, getLatestEvaluation, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection, uploadKnowledgeSource } from '../api/client'
 import type { EvaluationRun, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -19,6 +19,7 @@ vi.mock('../api/client', () => ({
   createPracticeSession: vi.fn(),
   createReviewSession: vi.fn(),
   deleteKnowledgeSource: vi.fn(),
+  deleteMentorConversation: vi.fn(),
   getMentorConversation: vi.fn(),
   getDomains: vi.fn(),
   clearLearningMemory: vi.fn(),
@@ -60,6 +61,7 @@ const mockedUploadKnowledgeSource = vi.mocked(uploadKnowledgeSource)
 const mockedSetKnowledgeSourceEnabled = vi.mocked(setKnowledgeSourceEnabled)
 const mockedReindexKnowledgeSource = vi.mocked(reindexKnowledgeSource)
 const mockedDeleteKnowledgeSource = vi.mocked(deleteKnowledgeSource)
+const mockedDeleteMentorConversation = vi.mocked(deleteMentorConversation)
 const mockedListMentorConversations = vi.mocked(listMentorConversations)
 const mockedStreamMentorMessage = vi.mocked(streamMentorMessage)
 const mockedGetLearningMemory = vi.mocked(getLearningMemory)
@@ -100,7 +102,7 @@ const banks: QuestionBank[] = [
   { bank_id: 'bank-a', domain_id: 'endoscopy', name: '胃部观察题库', description: '胃部位与可见事实训练。', version: 'test-v1', status: 'published', question_count: 4, question_type_counts: { single_choice: 1, multiple_choice: 1, true_false: 1, short_answer: 1 }, modality_counts: { image: 4 }, body_parts: ['胃'], completed_count: 0, uncompleted_count: 4, incorrect_count: 0, marked_count: 0, progress: 0 },
   { bank_id: 'bank-b', domain_id: 'endoscopy', name: '食管观察题库', description: '食管观察与表达训练。', version: 'test-v1', status: 'published', question_count: 2, question_type_counts: { single_choice: 2 }, modality_counts: { text: 2 }, body_parts: ['食管'], completed_count: 0, uncompleted_count: 2, incorrect_count: 0, marked_count: 0, progress: 0 },
 ]
-const overview: Overview = { learner_id: 'demo_learner', completed_today: 0, daily_target: 10, due_review_count: 0, recent_accuracy: 0, recent_sessions: [], banks, weak_areas: [], safety_notice: safety, api_source: 'backend' }
+const overview: Overview = { learner_id: 'demo_learner', completed_today: 0, daily_target: 10, due_review_count: 0, recent_accuracy: 0, recent_bank_activity: [], banks, weak_areas: [], safety_notice: safety, api_source: 'backend' }
 
 function questionsResponse(items: Question[]): QuestionsResponse {
   return { items, total: items.length, available_type_counts: {}, bank_id: 'bank-a', safety_notice: safety, api_source: 'backend' }
@@ -138,6 +140,7 @@ beforeEach(() => {
   mockedSetKnowledgeSourceEnabled.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex, preview: [] })
   mockedReindexKnowledgeSource.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex, preview: [] })
   mockedDeleteKnowledgeSource.mockResolvedValue({ status: 'deleted', api_source: 'backend' })
+  mockedDeleteMentorConversation.mockResolvedValue({ conversation_id: 'mentor-test', deleted: true })
   mockedCreateMentorConversation.mockResolvedValue({ id: 'mentor-test', title: '新的带教对话', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', messages: [] })
   mockedGetMentorConversation.mockResolvedValue({ id: 'mentor-test', title: '今日复习', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', messages: [] })
   mockedStreamMentorMessage.mockImplementation(async (_id, _message, onEvent) => {
@@ -187,19 +190,19 @@ describe('Stage 1 page contracts', () => {
     expect(screen.queryByText('0 / 10')).not.toBeInTheDocument()
   })
 
-  it('renders recent answers with bank, question, type, result and time', async () => {
+  it('renders recent practice as one row per bank with progress and resume state', async () => {
     mockedGetOverview.mockResolvedValueOnce({
       ...overview,
-      recent_sessions: [{ attempt_id: 'attempt-review', question_id: 'single', bank_id: 'bank-a', bank_name: '胃部观察题库', question_summary: '这是一道可以定位的真实题干摘要。', question_type: 'single_choice', score: 0, correct: false, created_at: '2026-08-28T00:00:00Z' }],
+      recent_bank_activity: [{ bank_id: 'bank-a', bank_name: '胃部观察题库', bank_question_count: 4, bank_completed_count: 1, bank_progress: .25, last_session_id: 'session-test', last_session_status: 'active', last_session_mode: 'study', session_question_count: 2, session_answered_count: 1, next_question_ordinal: 2, last_active_at: '2026-08-28T00:00:00Z', resumable: true }],
     })
 
     renderPage(<OverviewPage />)
-    const activity = (await screen.findByRole('heading', { name: '最近作答' })).closest('section')
+    const activity = (await screen.findByRole('heading', { name: '最近练习' })).closest('section')
     expect(activity).not.toBeNull()
     expect(within(activity as HTMLElement).getByText('胃部观察题库')).toBeInTheDocument()
-    expect(within(activity as HTMLElement).getByText('这是一道可以定位的真实题干摘要。')).toBeInTheDocument()
-    expect(within(activity as HTMLElement).getByText(/单选题 · 需要复盘/)).toBeInTheDocument()
-    expect(screen.queryByText('0 分')).not.toBeInTheDocument()
+    expect(within(activity as HTMLElement).getByText('上次练习：第 2 / 2 题')).toBeInTheDocument()
+    expect(within(activity as HTMLElement).getByText(/题库进度 1 \/ 4/)).toBeInTheDocument()
+    expect(within(activity as HTMLElement).getByText('继续练习')).toBeInTheDocument()
   })
 
   it('shows backend-derived weak areas without exposing a memory management panel', async () => {
@@ -312,6 +315,17 @@ describe('Stage 1 page contracts', () => {
     expect(leavePracticeSession).toHaveBeenCalledTimes(2)
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
     view.unmount()
+  })
+
+  it('abandons a resumable session without treating the valid 204 response as an error', async () => {
+    const user = userEvent.setup()
+    mockedGetResumablePracticeSession.mockResolvedValueOnce({ session_id: 'session-resume', bank_id: 'bank-a', mode: 'study', current_position: 4, last_active_at: '2026-09-03T00:00:00Z' })
+    renderPage(<><PracticePage /><LocationProbe /></>, ['/practice'])
+    expect(await screen.findByRole('dialog', { name: '继续上次练习' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '重新选择题库' }))
+    expect(await screen.findByText('/banks')).toBeInTheDocument()
+    expect(leavePracticeSession).toHaveBeenCalledWith('session-resume', 'demo_learner', true)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('opens a lightweight question map and navigates by real question position', async () => {
@@ -445,6 +459,18 @@ describe('Stage 1 page contracts', () => {
     expect(screen.getByText('已读取复习队列')).toBeInTheDocument()
     expect(mockedCreateMentorConversation).toHaveBeenCalledTimes(1)
     expect(mockedStreamMentorMessage).toHaveBeenCalledWith('mentor-test', '我今天应该先复习什么？', expect.any(Function), expect.any(AbortSignal))
+  })
+
+  it('offers a right-click delete action for a Mentor conversation and refreshes its history', async () => {
+    const user = userEvent.setup()
+    mockedListMentorConversations.mockResolvedValueOnce([{ id: 'mentor-test', title: '待删除对话', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', messages: [] }])
+    renderPage(<MentorPage />, ['/mentor'])
+    const item = await screen.findByTitle('右键删除对话')
+    fireEvent.contextMenu(item, { clientX: 120, clientY: 160 })
+    await user.click(screen.getByRole('menuitem', { name: '删除对话' }))
+    expect(await screen.findByRole('dialog', { name: /删除这段对话/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '删除对话' }))
+    expect(mockedDeleteMentorConversation).toHaveBeenCalledWith('mentor-test')
   })
 
   it('deduplicates repeated citations and keeps extra sources collapsed by default', async () => {

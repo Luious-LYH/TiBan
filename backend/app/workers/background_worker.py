@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import os
-
 import dramatiq
-from dramatiq.brokers.redis import RedisBroker
 
-broker = RedisBroker(url=os.getenv("REDIS_URL", "redis://127.0.0.1:56379/0"))
-dramatiq.set_broker(broker)
+from app.workers.broker import broker
 
 
 @dramatiq.actor(max_retries=2, time_limit=180_000)

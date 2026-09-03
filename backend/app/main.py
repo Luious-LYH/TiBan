@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import APP_NAME, APP_VERSION
+from app.core.config import ALLOWED_ORIGINS, APP_NAME, APP_VERSION
 from app.db.bootstrap import initialize_database
 from app.routers.banks import router as stage1_banks_router
 from app.routers.evaluation import router as stage1_evaluation_router
@@ -20,21 +20,13 @@ from app.routers.api import router
 
 app = FastAPI(
     title="TiBan 学习与模型评测平台",
-    description="面向医疗/消化内镜与通用科学领域的题库学习、Tutor 辅导和模型评测本机服务。",
+    description="Agent-native 自适应题库与学习工作台，支持按领域配置题库、学习、复习与智能辅导。",
     version=APP_VERSION,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:4173",
-        "http://127.0.0.1:4173",
-    ],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+    allow_origins=list(ALLOWED_ORIGINS),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,7 +65,7 @@ def startup_database() -> None:
     # Requeue only durable pending evidence; a browser-close signal is never
     # relied upon as the sole trigger for Reflection.
     from app.services.memory_reflection_service import memory_reflection_service
-    memory_reflection_service.reconcile_inactive()
+    memory_reflection_service.reconcile_inactive(limit=12)
 
 
 @app.get("/")

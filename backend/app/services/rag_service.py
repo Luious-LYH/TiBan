@@ -15,6 +15,7 @@ from typing import Iterable, Literal
 from qdrant_client import QdrantClient, models
 from sqlalchemy import func, select
 
+from app.core.config import DEFAULT_DOMAIN_ID, DEFAULT_KNOWLEDGE_NAMESPACE, QDRANT_URL
 from app.db.database import SessionLocal
 from app.db.models import DocumentVersionModel, KnowledgeChunkModel, SourceDocumentModel, VectorIndexStateModel
 from app.services.embedding_provider import EmbeddingProvider, RerankerProvider, configured_embedding_provider, configured_reranker_provider
@@ -36,7 +37,7 @@ class Citation:
     snippet: str
     score: float
     document_id: str | None = None
-    namespace: str = 'medical_general'
+    namespace: str = DEFAULT_KNOWLEDGE_NAMESPACE
     source_uri: str | None = None
 
 
@@ -149,7 +150,7 @@ class RagService:
         # Docker Desktop machines, which turns a healthy clean-start into a
         # false Factory indexing failure.
         timeout = float(os.getenv('QDRANT_TIMEOUT_SECONDS', '30'))
-        return QdrantClient(url=os.getenv('QDRANT_URL', 'http://127.0.0.1:6333'), timeout=timeout)
+        return QdrantClient(url=QDRANT_URL, timeout=timeout)
 
     @property
     def reranker_provider(self) -> RerankerProvider:
@@ -184,9 +185,9 @@ class RagService:
         *,
         document_id: str = 'source-stage2-endoscopy-v1',
         document_name: str | None = None,
-        domain_id: str = 'endoscopy',
+        domain_id: str = DEFAULT_DOMAIN_ID,
         child_size: int = 180,
-        namespace: str = 'medical_general',
+        namespace: str = DEFAULT_KNOWLEDGE_NAMESPACE,
         source_id: str | None = None,
         source_uri: str | None = None,
         business_usage: str = 'knowledge_base',
@@ -311,19 +312,43 @@ class RagService:
         return self.index_state()
 
     def rebuild_knowledge_index(self, *, document_ids: list[str] | None = None) -> list[str]:
-        """Recreate the one active knowledge collection from canonical chunks.
+        """Build canonical vectors, incrementally for ordinary one-document work.
 
-        ``document_ids`` is accepted for the upload call site but a changed
-        provider/model always rebuilds all governed chunks, preserving the
-        one-active-index invariant rather than creating per-model collections.
+        Upload/reindex calls pass one or more document IDs. When the active
+        provider and vector dimension are unchanged, only those documents are
+        embedded and upserted; their old point IDs are removed *after* the new
+        points succeed. First build, provider/model changes, dimension changes,
+        and an unavailable collection use the full-corpus path.
         """
 
         provider = self.embedding_provider
+        requested_ids = {str(value) for value in (document_ids or []) if str(value)}
+        previous_ready = False
+        previous_dimension: int | None = None
+        incremental = False
         try:
             with SessionLocal() as session:
                 state = session.get(VectorIndexStateModel, KNOWLEDGE_INDEX_KEY)
+                previous_ready = bool(
+                    state is not None
+                    and state.status == "ready"
+                    and state.provider == provider.provider_id
+                    and state.model_id == provider.model_id
+                    and state.vector_dimension
+                )
+                previous_dimension = state.vector_dimension if state is not None else None
+                if requested_ids and previous_ready:
+                    # A collection check is intentionally limited to the
+                    # incremental decision. If no collection exists, a
+                    # single-document call must bootstrap the complete index.
+                    incremental = self.qdrant.collection_exists(COLLECTION)
                 if state is None:
-                    state = VectorIndexStateModel(index_key=KNOWLEDGE_INDEX_KEY, provider=provider.provider_id, model_id=provider.model_id, status="rebuilding")
+                    state = VectorIndexStateModel(
+                        index_key=KNOWLEDGE_INDEX_KEY,
+                        provider=provider.provider_id,
+                        model_id=provider.model_id,
+                        status="rebuilding",
+                    )
                     session.add(state)
                 else:
                     state.provider, state.model_id, state.status, state.error_message = provider.provider_id, provider.model_id, "rebuilding", None
@@ -334,20 +359,31 @@ class RagService:
                     .join(SourceDocumentModel, SourceDocumentModel.document_id == KnowledgeChunkModel.document_id)
                     .join(DocumentVersionModel, DocumentVersionModel.version_id == KnowledgeChunkModel.version_id)
                     .where(
+                        SourceDocumentModel.business_usage == "knowledge_base",
                         SourceDocumentModel.business_usage != "benchmark_only",
                         SourceDocumentModel.business_usage != "excluded",
                         SourceDocumentModel.ai_ingestion_allowed.is_(True),
                         SourceDocumentModel.enabled.is_(True),
+                        # ``indexing`` is an internal build state for the
+                        # source currently being prepared; it is allowed into
+                        # the worker's candidate set and becomes learner-
+                        # retrievable only after KnowledgeService marks it
+                        # ready. Other transitional states stay excluded.
+                        SourceDocumentModel.status.not_in(["queued", "rebuilding", "uploaded", "failed", "disabled", "retired"]),
                         SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
                     )
                     .order_by(KnowledgeChunkModel.document_id, KnowledgeChunkModel.ordinal)
                 )
+                # An incompatible single-document request must still rebuild
+                # every eligible document so the collection is one coherent
+                # vector space. Compatible requests stay document-local.
+                if incremental:
+                    statement = statement.where(KnowledgeChunkModel.document_id.in_(requested_ids))
                 versioned_rows = list(session.execute(statement).all())
+                old_target_ids = set(session.scalars(
+                    select(KnowledgeChunkModel.chunk_id).where(KnowledgeChunkModel.document_id.in_(requested_ids))
+                )) if incremental else set()
 
-            # A source can retain historical versions for audit/retry safety.
-            # The active vector index must contain only the newest canonical
-            # version for each source; otherwise a changed upload would leave
-            # two semantically identical passages competing in retrieval.
             latest_version: dict[str, tuple[datetime, str]] = {}
             for chunk, document, version in versioned_rows:
                 candidate = (version.created_at, version.version_id)
@@ -361,11 +397,17 @@ class RagService:
             ]
 
             if not rows:
-                self._replace_collection(provider, [])
-                self._finish_index_state(provider, 0)
+                if incremental:
+                    self._delete_point_ids(old_target_ids)
+                    self._finish_index_state(provider, previous_dimension or provider.dimension())
+                else:
+                    self._replace_collection(provider, [])
+                    self._finish_index_state(provider, 0)
                 return []
+
             vectors = provider.embed_documents([chunk.content for chunk, _ in rows])
-            self._replace_collection(provider, vectors)
+            if len(vectors) != len(rows) or any(not vector for vector in vectors):
+                raise RuntimeError("embedding_vectors_invalid")
             points = [
                 models.PointStruct(
                     id=_point_id(chunk.chunk_id),
@@ -385,12 +427,30 @@ class RagService:
                 )
                 for (chunk, document), vector in zip(rows, vectors)
             ]
-            self.qdrant.upsert(COLLECTION, points=points, wait=True)
+            if incremental:
+                self.qdrant.upsert(COLLECTION, points=points, wait=True)
+                current_ids = {chunk.chunk_id for chunk, _ in rows}
+                self._delete_point_ids(old_target_ids - current_ids)
+            else:
+                self._replace_collection(provider, vectors)
+                self.qdrant.upsert(COLLECTION, points=points, wait=True)
             self._finish_index_state(provider, len(vectors[0]))
             return [chunk.chunk_id for chunk, _ in rows]
         except Exception as exc:
-            self._fail_index_state(provider, type(exc).__name__)
+            # A compatible incremental failure leaves the previous collection
+            # usable. Mark its state ready with an error note so retrieval can
+            # continue while the source remains visibly retryable.
+            self._fail_index_state(provider, type(exc).__name__, preserve_ready=previous_ready and incremental)
             raise
+
+    def _delete_point_ids(self, chunk_ids: set[str]) -> None:
+        if not chunk_ids:
+            return
+        self.qdrant.delete(
+            COLLECTION,
+            points_selector=models.PointIdsList(points=[_point_id(chunk_id) for chunk_id in chunk_ids]),
+            wait=True,
+        )
 
     def _replace_collection(self, provider: EmbeddingProvider, vectors: list[list[float]]) -> None:
         client = self.qdrant
@@ -409,14 +469,14 @@ class RagService:
             state.vector_dimension, state.status, state.indexed_at, state.error_message = dimension, "ready", datetime.utcnow(), None
             session.commit()
 
-    def _fail_index_state(self, provider: EmbeddingProvider, error: str) -> None:
+    def _fail_index_state(self, provider: EmbeddingProvider, error: str, *, preserve_ready: bool = False) -> None:
         with SessionLocal() as session:
             state = session.get(VectorIndexStateModel, KNOWLEDGE_INDEX_KEY)
             if state is None:
                 state = VectorIndexStateModel(index_key=KNOWLEDGE_INDEX_KEY, provider=provider.provider_id, model_id=provider.model_id, status="failed", error_message=error)
                 session.add(state)
             else:
-                state.status, state.error_message = "failed", error
+                state.status, state.error_message = ("ready" if preserve_ready else "failed"), error
             session.commit()
 
     def retrieve(

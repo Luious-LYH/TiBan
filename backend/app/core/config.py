@@ -6,9 +6,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 APP_NAME = "TiBan 学习与模型评测平台"
-APP_VERSION = "3.2.0"
+APP_VERSION = "3.2.1"
 SAFETY_NOTICE = "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
 DEMO_LEARNER_ID = "demo_learner"
+DEFAULT_DOMAIN_ID = "endoscopy"
+DEFAULT_KNOWLEDGE_NAMESPACE = "general_learning"
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
@@ -46,6 +48,17 @@ DATABASE_URL = _env_first(
     "ENDO_DATABASE_URL",
     "DATABASE_URL",
     default=f"sqlite:///{(RUNTIME_DATA_DIR / 'stage1.sqlite3').as_posix()}",
+)
+QDRANT_URL = _env_first("QDRANT_URL", default="http://127.0.0.1:6333").rstrip("/")
+REDIS_URL = _env_first("REDIS_URL", default="redis://127.0.0.1:56379/0")
+_allowed_origins_raw = _env_first(
+    "ENDO_ALLOWED_ORIGINS",
+    default="http://localhost:5173,http://127.0.0.1:5173",
+)
+ALLOWED_ORIGINS = tuple(
+    origin.strip().rstrip("/")
+    for origin in _allowed_origins_raw.split(",")
+    if origin.strip()
 )
 
 

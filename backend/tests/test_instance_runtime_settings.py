@@ -38,6 +38,23 @@ def test_embedding_batch_setting_is_bounded_and_restorable() -> None:
     assert restored.json()["embedding"]["batch_size"] == 32
 
 
+def test_mentor_conversation_delete_is_learner_scoped_and_removes_the_history() -> None:
+    client = TestClient(app)
+    learner_id = "mentor-delete-test"
+    created = client.post("/api/v3/mentor/conversations", params={"learner_id": learner_id})
+    assert created.status_code == 200
+    conversation_id = created.json()["item"]["id"]
+
+    other_learner = client.delete(f"/api/v3/mentor/conversations/{conversation_id}", params={"learner_id": "other-learner"})
+    assert other_learner.status_code == 404
+
+    deleted = client.delete(f"/api/v3/mentor/conversations/{conversation_id}", params={"learner_id": learner_id})
+    assert deleted.status_code == 200
+    assert deleted.json()["conversation_id"] == conversation_id
+    assert deleted.json()["deleted"] is True
+    assert client.get(f"/api/v3/mentor/conversations/{conversation_id}", params={"learner_id": learner_id}).status_code == 404
+
+
 def test_explicit_private_ip_is_allowed_only_for_opted_in_runtime() -> None:
     original = config.LLM_PROVIDER_ALLOW_PRIVATE_NETWORK
     try:

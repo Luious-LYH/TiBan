@@ -26,9 +26,9 @@ export type BankQuestionProgressResponse = components['schemas']['BankQuestionPr
 export type ReviewSummary = components['schemas']['ReviewSummaryPublic']
 export type ReviewItem = components['schemas']['ReviewItemPublic']
 export type ReviewItemDetail = components['schemas']['ReviewItemDetailPublic']
-export type Overview = Omit<Required<components['schemas']['OverviewResponse']>, 'banks' | 'recent_sessions'> & {
+export type Overview = Omit<Required<components['schemas']['OverviewResponse']>, 'banks' | 'recent_bank_activity'> & {
   banks: QuestionBank[]
-  recent_sessions: Array<Required<components['schemas']['RecentSessionPublic']>>
+  recent_bank_activity: Array<Required<components['schemas']['RecentBankActivityPublic']>>
 }
 export type EvaluationArtifact = components['schemas']['EvaluationArtifactResponse'] & {
   metrics: Record<string, unknown>
@@ -89,7 +89,7 @@ async function unwrap<T>(request: Promise<{ data?: T; error?: unknown; response:
 
 export async function getOverview(learnerId = 'demo_learner'): Promise<Overview> {
   const response = await unwrap(api.GET('/api/v3/overview', { params: { query: { learner_id: learnerId } } }))
-  return { ...response, banks: (response.banks ?? []) as QuestionBank[], recent_sessions: (response.recent_sessions ?? []) as Overview['recent_sessions'] } as Overview
+  return { ...response, banks: (response.banks ?? []) as QuestionBank[], recent_bank_activity: (response.recent_bank_activity ?? []) as Overview['recent_bank_activity'] } as Overview
 }
 
 export async function getQuestionBanks(learnerId = 'demo_learner', domainId?: string): Promise<QuestionBank[]> {
@@ -200,7 +200,15 @@ export function resumePracticeSession(sessionId: string, learnerId = 'demo_learn
 }
 
 export async function leavePracticeSession(sessionId: string, learnerId = 'demo_learner', abandon = false): Promise<void> {
-  await unwrap(api.POST('/api/v3/practice/sessions/{session_id}/leave', { params: { path: { session_id: sessionId }, query: { learner_id: learnerId, abandon } } }))
+  // This endpoint intentionally acknowledges a checkpoint/abandon operation
+  // with HTTP 204.  Do not send it through `unwrap`: there is no JSON body to
+  // unwrap on a successful no-content response.
+  const { error, response } = await api.POST('/api/v3/practice/sessions/{session_id}/leave', {
+    params: { path: { session_id: sessionId }, query: { learner_id: learnerId, abandon } },
+  })
+  if (response.ok) return
+  const detail = typeof error === 'object' && error && 'detail' in error ? (error as { detail?: string }).detail : undefined
+  throw new ApiError(detail ?? `请求失败（${response.status}）`, response.status)
 }
 
 export function submitPracticeAnswer(payload: SubmitPayload): Promise<SubmitResult> {
@@ -224,6 +232,11 @@ export async function createMentorConversation(learnerId = 'demo_learner'): Prom
 export async function getMentorConversation(conversationId: string, learnerId = 'demo_learner'): Promise<MentorConversation> {
   const response = await unwrap(api.GET('/api/v3/mentor/conversations/{conversation_id}', { params: { path: { conversation_id: conversationId }, query: { learner_id: learnerId } } }))
   return response.item
+}
+
+export async function deleteMentorConversation(conversationId: string, learnerId = 'demo_learner'): Promise<{ conversation_id: string; deleted: boolean }> {
+  const response = await unwrap(api.DELETE('/api/v3/mentor/conversations/{conversation_id}', { params: { path: { conversation_id: conversationId }, query: { learner_id: learnerId } } }))
+  return { conversation_id: response.conversation_id, deleted: response.deleted }
 }
 
 export async function streamMentorMessage(conversationId: string, message: string, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal, learnerId = 'demo_learner'): Promise<void> {

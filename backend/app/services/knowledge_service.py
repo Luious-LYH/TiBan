@@ -12,6 +12,7 @@ import fitz
 from docx import Document
 from sqlalchemy import func, select
 
+from app.core.config import DEFAULT_DOMAIN_ID
 from app.db.database import SessionLocal
 from app.db.models import BackgroundJobModel, DocumentVersionModel, KnowledgeChunkModel, QuestionModel, SourceDocumentModel
 from app.services.rag_service import MODEL_NAME, rag_service
@@ -24,7 +25,11 @@ ALLOWED_TYPES = {
     ".md": "text/markdown",
     ".txt": "text/plain",
 }
-MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+# Knowledge and Factory both use JSON + base64 at the current API boundary.
+# Keep the raw payload below Nginx's 8 MiB request limit with room for base64
+# expansion and JSON metadata. A future multipart contract can raise this
+# independently; until then the UI must not promise 25 MiB.
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 PARSER_VERSION = "v31-section-aware-1"
 LEGACY_PREFIXES = ("stage7-medical-", "stage7-general-")
 
@@ -74,12 +79,12 @@ class KnowledgeService:
             payload["preview"] = [{"section": item.parent_section, "page": item.page, "text": item.content[:700]} for item in chunks]
             return payload
 
-    def upload(self, *, filename: str, content: bytes, content_type: str | None, domain_id: str = "endoscopy") -> dict[str, object]:
+    def upload(self, *, filename: str, content: bytes, content_type: str | None, domain_id: str = DEFAULT_DOMAIN_ID) -> dict[str, object]:
         suffix = Path(filename).suffix.lower()
         if suffix not in ALLOWED_TYPES:
             raise ValueError("仅支持 PDF、DOCX、Markdown 和 TXT 文件。")
         if not content or len(content) > MAX_UPLOAD_BYTES:
-            raise ValueError("资料大小需在 1 B 到 25 MiB 之间。")
+            raise ValueError("资料大小需在 1 B 到 5 MiB 之间。")
         if content_type and content_type not in {ALLOWED_TYPES[suffix], "application/octet-stream", "text/plain"}:
             raise ValueError("文件类型与扩展名不一致。")
         document_id = f"knowledge_{uuid4().hex[:12]}"
@@ -157,7 +162,7 @@ class KnowledgeService:
         sections += [f"## {row.question_id}\n题目：{row.stem}\n解析：{row.explanation}" for row in rows]
         source_path.write_text("\n\n".join(sections), encoding="utf-8")
         return self._index(document_id=document_id, source_path=source_path, title="CMExam 官方解析库", file_name="CMExam 官方解析（当前题库子集）.md",
-                           media_type="text/markdown", scope="qbank_explanations", namespace="qbank_explanations", domain_id="endoscopy",
+                           media_type="text/markdown", scope="qbank_explanations", namespace="qbank_explanations", domain_id=DEFAULT_DOMAIN_ID,
                            attribution="CMExam · 当前学习题库中的上游题目与官方解析", source_uri="https://github.com/williamliujl/CMExam")
 
     def import_openrn_heart_failure_excerpt(self, pdf_path: Path) -> dict[str, object]:
@@ -253,6 +258,8 @@ class KnowledgeService:
         return self.detail(document_id)
 
     def _enqueue_index(self, document_id: str, *, reason: str) -> dict[str, object]:
+        had_existing_chunks = False
+        was_enabled = False
         with SessionLocal() as session:
             row = self._document(session, document_id)
             # A repeated click while an existing job is queued/running is
@@ -272,6 +279,8 @@ class KnowledgeService:
             has_existing_chunks = bool(session.scalar(select(func.count(KnowledgeChunkModel.chunk_id)).where(
                 KnowledgeChunkModel.document_id == document_id,
             )))
+            had_existing_chunks = has_existing_chunks
+            was_enabled = bool(row.enabled)
             # Reindexing is a read-safe replacement: keep a previously ready
             # source eligible while the worker prepares the new version.  A
             # first upload has no usable canonical chunks and remains hidden.
@@ -285,8 +294,19 @@ class KnowledgeService:
             from app.workers.background_worker import process_knowledge_index_actor
 
             process_knowledge_index_actor.send(job.job_id)
-        except Exception:
-            pass
+        except Exception as exc:
+            with SessionLocal() as session:
+                failed_job = session.get(BackgroundJobModel, job.job_id)
+                failed_row = session.get(SourceDocumentModel, document_id)
+                if failed_job is not None:
+                    failed_job.status, failed_job.stage = "failed", "dispatch_failed"
+                    failed_job.error_message = type(exc).__name__
+                    failed_job.completed_at = datetime.utcnow()
+                if failed_row is not None:
+                    if not (had_existing_chunks and was_enabled):
+                        failed_row.status, failed_row.enabled = "failed", False
+                    failed_row.index_stage, failed_row.index_progress, failed_row.index_error = "dispatch_failed", 0, type(exc).__name__
+                session.commit()
         return self.detail(document_id)
 
     def process_index_job(self, job_id: str) -> dict[str, object]:

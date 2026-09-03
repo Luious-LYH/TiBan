@@ -5,6 +5,7 @@ import base64
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.core.config import DEFAULT_DOMAIN_ID
 from app.services.knowledge_service import knowledge_service
 
 
@@ -52,7 +53,7 @@ class KnowledgeUploadRequest(BaseModel):
     filename: str = Field(min_length=1, max_length=300)
     content_base64: str = Field(min_length=1)
     content_type: str | None = None
-    domain_id: str = "endoscopy"
+    domain_id: str = DEFAULT_DOMAIN_ID
 
 
 class KnowledgeEnabledRequest(BaseModel):

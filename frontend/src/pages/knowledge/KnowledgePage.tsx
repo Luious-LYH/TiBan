@@ -8,7 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/shared/As
 type Tab = 'user' | 'system'
 
 const sourceTabs: Array<[Tab, string]> = [['user', '我的资料'], ['system', '系统资料']]
-const maxSize = 25 * 1024 * 1024
+const maxSize = 5 * 1024 * 1024
 
 export function KnowledgePage() {
   const [tab, setTab] = useState<Tab>('user')
@@ -43,7 +43,7 @@ export function KnowledgePage() {
 
   return <div className="knowledge-page" data-testid="knowledge-page">
     <header className="knowledge-header"><div><span>知识</span><h1>知识库</h1><p>管理智能辅导和带教 Agent 可使用的学习资料。</p></div><div><input ref={fileInput} aria-label="上传知识资料" type="file" accept=".pdf,.docx,.md,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain" onChange={(event) => chooseFile(event.target.files?.[0])} /><button className="knowledge-upload" type="button" onClick={() => fileInput.current?.click()} disabled={upload.isPending}>{upload.isPending ? <LoaderCircle className="s1-spin" size={16} /> : <FileUp size={16} />}{upload.isPending ? '正在上传…' : '上传并排队'}</button></div></header>
-    <p className="knowledge-support">支持 PDF、DOCX、Markdown、TXT；上传后会解析、分段、向量索引。单个文件不超过 25 MiB。</p>
+    <p className="knowledge-support">支持 PDF、DOCX、Markdown、TXT；上传后会解析、分段、向量索引。单个文件不超过 5 MiB。</p>
     {upload.isError && <p className="knowledge-error" role="alert">{upload.error.message}</p>}
     <div className="knowledge-tabs" role="tablist">{sourceTabs.map(([value, label]) => <button type="button" role="tab" aria-selected={tab === value} key={value} onClick={() => { setTab(value); setSelectedId(null) }}>{label}</button>)}</div>
     <section className="knowledge-workspace">

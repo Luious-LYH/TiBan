@@ -8,7 +8,11 @@ from collections.abc import Mapping
 TERMINAL_JOB_STATUSES = frozenset({"succeeded", "failed", "cancelled"})
 ACTIVE_JOB_STATUSES = frozenset({"queued", "running", "retrying"})
 _ALLOWED: Mapping[str, frozenset[str]] = {
-    "queued": frozenset({"running", "cancelled"}),
+    # Dispatch itself is an observable failure boundary. A job can be
+    # persisted as queued before Redis is contacted, then truthfully become
+    # failed if the broker rejects the message; enqueueing it again returns it
+    # to queued through the explicit retry path.
+    "queued": frozenset({"running", "cancelled", "failed"}),
     "retrying": frozenset({"queued", "running", "cancelled", "failed"}),
     "running": frozenset({"succeeded", "failed", "cancelled", "retrying"}),
     "failed": frozenset({"queued", "retrying"}),

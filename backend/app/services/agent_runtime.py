@@ -97,7 +97,8 @@ class LocalPolicyModelGateway:
             return _compose_mentor_local(context, observations)
         lowered = context.user_message.lower()
         question = observations.get('current_question', {})
-        domain = get_domain(str(question.get('domain_id', 'endoscopy')))
+        from app.core.config import DEFAULT_DOMAIN_ID
+        domain = get_domain(str(question.get('domain_id', DEFAULT_DOMAIN_ID)))
         answer = observations.get('get_answer_explanation')
         if answer and context.mode == 'study':
             return f"答案是：{answer.get('correct_answer_display', '见解析')}。{answer.get('explanation', '')}"

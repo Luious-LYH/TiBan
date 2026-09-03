@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any, Iterator
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.adapters.tutor_dependencies import configured_tutor_gateway
 from app.db.database import SessionLocal
@@ -80,7 +80,11 @@ def _recent_attempts(context: AgentContext) -> list[dict[str, Any]]:
             select(AttemptModel, QuestionModel, QuestionBankModel)
             .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
             .join(QuestionBankModel, QuestionBankModel.bank_id == QuestionModel.bank_id)
-            .where(AttemptModel.learner_id == context.learner_id)
+            .where(
+                AttemptModel.learner_id == context.learner_id,
+                QuestionModel.business_usage == "user_ready",
+                QuestionBankModel.status == "published",
+            )
             .order_by(AttemptModel.created_at.desc())
             .limit(12)
         ).all())
@@ -112,7 +116,7 @@ def _review_queue(context: AgentContext) -> dict[str, Any]:
 
 
 def _bank_progress(context: AgentContext) -> list[dict[str, Any]]:
-    rows = stage1_service.list_banks(context.learner_id, "endoscopy")
+    rows = stage1_service.list_banks(context.learner_id)
     return [
         {
             "bank_id": row["bank_id"], "name": row["name"], "question_count": row["question_count"],
@@ -125,13 +129,31 @@ def _bank_progress(context: AgentContext) -> list[dict[str, Any]]:
 
 def _learning_memories(context: AgentContext) -> list[dict[str, Any]]:
     with SessionLocal() as session:
-        return semantic_memory_service.retrieve(
-            session,
-            learner_id=context.learner_id,
-            domain_id="endoscopy",
-            query=context.user_message,
-            limit=5,
-        )
+        recent_domains = list(session.scalars(
+            select(QuestionModel.domain_id)
+            .join(AttemptModel, AttemptModel.question_id == QuestionModel.question_id)
+            .where(
+                AttemptModel.learner_id == context.learner_id,
+                QuestionModel.business_usage == "user_ready",
+            )
+            .order_by(AttemptModel.created_at.desc())
+            .limit(12)
+        ))
+        domains: list[str] = []
+        for domain_id in recent_domains:
+            if str(domain_id) not in domains:
+                domains.append(str(domain_id))
+        memories: list[dict[str, Any]] = []
+        for domain_id in domains:
+            memories.extend(semantic_memory_service.retrieve(
+                session,
+                learner_id=context.learner_id,
+                domain_id=domain_id,
+                query=context.user_message,
+                limit=5,
+            ))
+        memories.sort(key=lambda item: float(item.get("confidence", 0.0)), reverse=True)
+        return memories[:5]
 
 
 def _search_knowledge(context: AgentContext) -> list[dict[str, str]]:
@@ -144,7 +166,6 @@ def _search_knowledge(context: AgentContext) -> list[dict[str, str]]:
             context.user_message,
             mode="hybrid",
             limit=4,
-            domain_id="endoscopy",
             namespaces=["system", "user", "qbank_explanations"],
         )
     except Exception:
@@ -200,6 +221,11 @@ class MentorAgentService:
             return self._conversation_payload(row, include_messages=True)
 
     def list_conversations(self, learner_id: str = "demo_learner") -> list[dict[str, Any]]:
+        # Reflection is normally queued at startup and after Practice events;
+        # this lightweight reconciliation also covers a browser that was
+        # closed without sending a final lifecycle signal.
+        from app.services.memory_reflection_service import memory_reflection_service
+        memory_reflection_service.reconcile_inactive(limit=12)
         with SessionLocal() as session:
             rows = list(session.scalars(select(AgentConversationModel).where(
                 AgentConversationModel.learner_id == learner_id, AgentConversationModel.agent_profile == "mentor"
@@ -209,6 +235,16 @@ class MentorAgentService:
     def detail(self, conversation_id: str, learner_id: str = "demo_learner") -> dict[str, Any]:
         with SessionLocal() as session:
             return self._conversation_payload(self._conversation(session, conversation_id, learner_id), include_messages=True, session=session)
+
+    def delete_conversation(self, conversation_id: str, learner_id: str = "demo_learner") -> dict[str, Any]:
+        """Delete one learner-owned Mentor conversation and its durable turns."""
+
+        with SessionLocal() as session:
+            conversation = self._conversation(session, conversation_id, learner_id)
+            session.execute(delete(AgentMessageModel).where(AgentMessageModel.conversation_id == conversation.conversation_id))
+            session.delete(conversation)
+            session.commit()
+        return {"conversation_id": conversation_id, "deleted": True}
 
     def stream_message(self, *, conversation_id: str, learner_id: str, message: str) -> Iterator[AgentEvent]:
         with SessionLocal() as session:

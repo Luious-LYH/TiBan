@@ -2,7 +2,7 @@
 
 # 题伴 TiBan
 
-### 面向消化内镜研修的 Agent-native 自适应题库与学习工作台
+### Agent-native 自适应题库与学习工作台
 
 把题库、刷题、智能辅导、知识检索与复习调度，组织成一条会持续积累的学习路径。
 
@@ -16,7 +16,9 @@
 
 ### 让每一道题都成为下一步学习的起点
 
-TiBan 是一个面向消化内镜研修的智能学习平台。学习者可以从题库选择刷题或考试，在清晰的题目工作区中完成作答，并随时向右侧的智能辅导提问。
+TiBan 是一个按领域组织题库、资料与学习进度的智能学习工作台。学习者可以从题库选择刷题或考试，在清晰的题目工作区中完成作答，并随时向右侧的智能辅导提问。
+
+当前仓库提供的默认演示题库以医学/消化内镜内容为主；核心学习、智能辅导、带教 Agent、RAG、FSRS、学习记忆和题库导入流程按 domain pack 设计，也可接入其他领域题库与知识源。
 
 提交之后，系统会把本次作答沉淀为可继续使用的学习状态：掌握度、复习安排、薄弱主题和学习记忆会沿着同一条路径持续更新。下一次打开 TiBan 时，学习不会从空白开始。
 
@@ -154,7 +156,7 @@ npm run build
 
 ### TiBan in one sentence
 
-TiBan is an agent-native adaptive question-bank and learning workspace for endoscopy education. It turns every answer into a next-step learning signal through contextual tutoring, governed retrieval, review scheduling, and persistent learning memory.
+TiBan is an agent-native adaptive question-bank and learning workspace designed to work across domain packs. It turns every answer into a next-step learning signal through contextual tutoring, governed retrieval, review scheduling, and persistent learning memory.
 
 ### Product experience
 

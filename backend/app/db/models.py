@@ -6,6 +6,8 @@ from typing import Any
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.config import DEFAULT_DOMAIN_ID, DEFAULT_KNOWLEDGE_NAMESPACE
+
 from .database import Base
 
 
@@ -78,7 +80,7 @@ class PracticeSessionModel(Base):
     session_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     bank_id: Mapped[str] = mapped_column(ForeignKey("question_banks.bank_id"), nullable=False, index=True)
-    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default=DEFAULT_DOMAIN_ID, index=True)
     mode: Mapped[str] = mapped_column(String(30), nullable=False, default="practice")
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
     requested_question_count: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
@@ -217,7 +219,7 @@ class ReviewCardModel(Base):
     review_card_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     question_id: Mapped[str] = mapped_column(ForeignKey("questions.question_id"), nullable=False, index=True)
-    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default=DEFAULT_DOMAIN_ID, index=True)
     due_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     interval_days: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     review_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -249,7 +251,7 @@ class SourceDocumentModel(Base):
     license_gate_status: Mapped[str] = mapped_column(String(30), nullable=False, default="needs_review")
     ai_ingestion_allowed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
-    namespace: Mapped[str] = mapped_column(String(80), nullable=False, default="medical_general", index=True)
+    namespace: Mapped[str] = mapped_column(String(80), nullable=False, default=DEFAULT_KNOWLEDGE_NAMESPACE, index=True)
     attribution: Mapped[str | None] = mapped_column(Text, nullable=True)
     # V3.1 knowledge-library metadata. ``name`` remains the learner-visible
     # title; the remaining fields describe the actual indexed source without
@@ -296,7 +298,7 @@ class KnowledgeChunkModel(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    namespace: Mapped[str] = mapped_column(String(80), nullable=False, default="medical_general", index=True)
+    namespace: Mapped[str] = mapped_column(String(80), nullable=False, default=DEFAULT_KNOWLEDGE_NAMESPACE, index=True)
     source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
@@ -307,7 +309,7 @@ class LearnerMasteryModel(Base):
 
     mastery_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default=DEFAULT_DOMAIN_ID, index=True)
     knowledge_point: Mapped[str] = mapped_column(String(160), nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     accuracy: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
@@ -335,7 +337,7 @@ class LearningMemoryItemModel(Base):
 
     memory_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default=DEFAULT_DOMAIN_ID, index=True)
     kind: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
     topic_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     concept_keys: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
@@ -437,7 +439,7 @@ class EvalDatasetModel(Base):
     __tablename__ = "eval_datasets"
 
     dataset_id: Mapped[str] = mapped_column(String(120), primary_key=True)
-    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default=DEFAULT_DOMAIN_ID, index=True)
     name: Mapped[str] = mapped_column(String(240), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     source_dataset: Mapped[str] = mapped_column(String(120), nullable=False)

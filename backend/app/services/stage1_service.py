@@ -264,6 +264,8 @@ class Stage1Service:
             session.close()
 
     def overview(self, learner_id: str = "demo_learner") -> dict[str, Any]:
+        from app.services.memory_reflection_service import memory_reflection_service
+        memory_reflection_service.reconcile_inactive(limit=12)
         session, repository = self._repository()
         try:
             payload = repository.overview(learner_id)

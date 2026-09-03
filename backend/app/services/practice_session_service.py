@@ -108,6 +108,10 @@ class PracticeSessionService:
             return {"tutor_thread_id": row.tutor_thread_id, "practice_session_id": row.practice_session_id, "status": row.status}
 
     def resumable(self, *, learner_id: str) -> dict[str, Any] | None:
+        # A normal Practice entry is also a reconciliation opportunity. This
+        # keeps reflection independent of a browser-close event or a process
+        # restart while limiting the read-side work to a small batch.
+        memory_reflection_service.reconcile_inactive(limit=12)
         with SessionLocal() as session:
             row = session.scalar(select(PracticeSessionModel).where(
                 PracticeSessionModel.learner_id == learner_id,

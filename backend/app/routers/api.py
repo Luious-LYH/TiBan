@@ -8,9 +8,13 @@ from threading import Thread
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy import inspect, text
+from qdrant_client import QdrantClient
+import redis
 
-from app.core.config import APP_NAME, APP_VERSION, SAFETY_NOTICE, UPLOAD_DIR
+from app.core.config import APP_NAME, APP_VERSION, QDRANT_URL, REDIS_URL, SAFETY_NOTICE, UPLOAD_DIR
+from app.db.database import engine
 from app.schemas import (
     ExamSessionRequest,
     FavoriteRequest,
@@ -75,6 +79,52 @@ def health() -> dict[str, object]:
             "qbank_import_validation",
         ],
     }
+
+
+@router.get("/ready")
+def readiness() -> JSONResponse:
+    """Report local service dependencies without probing external LLMs.
+
+    ``/health`` is intentionally a cheap liveness endpoint. Compose and an
+    operator can use this endpoint when they need to know whether the
+    database, Redis queue, Qdrant index service, and schema are usable. Every
+    network probe has a short timeout so an offline derived service cannot
+    hold the request open for the normal client timeout.
+    """
+
+    checks: dict[str, object] = {}
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        checks["database"] = {"status": "ok"}
+    except Exception as exc:
+        checks["database"] = {"status": "error", "error": type(exc).__name__}
+
+    required_tables = {"question_banks", "questions", "attempts", "practice_sessions", "source_documents", "knowledge_chunks"}
+    try:
+        tables = set(inspect(engine).get_table_names())
+        missing = sorted(required_tables - tables)
+        checks["schema"] = {"status": "ok" if not missing else "error", "missing": missing}
+    except Exception as exc:
+        checks["schema"] = {"status": "error", "error": type(exc).__name__}
+
+    try:
+        client = redis.Redis.from_url(REDIS_URL, socket_connect_timeout=0.35, socket_timeout=0.35)
+        client.ping()
+        checks["redis"] = {"status": "ok"}
+    except Exception as exc:
+        checks["redis"] = {"status": "error", "error": type(exc).__name__}
+
+    try:
+        qdrant = QdrantClient(url=QDRANT_URL, timeout=0.8)
+        qdrant.get_collections()
+        checks["qdrant"] = {"status": "ok"}
+    except Exception as exc:
+        checks["qdrant"] = {"status": "error", "error": type(exc).__name__}
+
+    ready = all(isinstance(value, dict) and value.get("status") == "ok" for value in checks.values())
+    payload = {"status": "ready" if ready else "not_ready", "service": APP_NAME, "version": APP_VERSION, "checks": checks}
+    return JSONResponse(payload, status_code=200 if ready else 503)
 
 
 @router.get("/provider/status")

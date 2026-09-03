@@ -7,7 +7,7 @@ from collections import Counter
 from typing import Any
 from uuid import uuid4
 
-from app.core.config import PROJECT_DIR, SAFETY_NOTICE
+from app.core.config import APP_NAME, PROJECT_DIR, SAFETY_NOTICE
 from app.schemas import (
     ExamSessionRequest,
     ReportDraftRequest,
@@ -127,9 +127,9 @@ SOURCE_REPLACEMENTS = {
     "rule": "规则模式",
     ".env": "本地配置",
     "gpt-5.5": "平台当前默认模型",
-    "ARIS v2.0": "消化内镜研修与模型评测平台",
-    "ARIS v3 前端答辩版": "消化内镜研修与模型评测平台",
-    "内镜智训Agent v3": "消化内镜研修与模型评测平台",
+    "ARIS v2.0": APP_NAME,
+    "ARIS v3 前端答辩版": APP_NAME,
+    "内镜智训Agent v3": APP_NAME,
     "v2.0": "v3",
     "调用失败": "暂未完成",
     "未使用": "未纳入",
@@ -143,8 +143,8 @@ class V3FacadeService:
         state = memory_service.training_state()
         return {
             "version": "v3",
-            "product_name": "消化内镜研修与模型评测平台",
-            "positioning": "面向消化道内镜医师的智能研修与模型评测平台",
+            "product_name": APP_NAME,
+            "positioning": "Agent-native 自适应题库与学习工作台",
             "profile": self._profile_payload(profile.model_dump()),
             "readiness": self._readiness_payload(readiness),
             "practice_state": self._practice_state_payload(state),

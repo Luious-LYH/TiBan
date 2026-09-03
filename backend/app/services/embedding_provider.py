@@ -48,16 +48,52 @@ class OpenAICompatibleEmbeddingProvider:
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        payload = self._request({"model": self.model_id, "input": texts, "encoding_format": "float"})
-        data = payload.get("data")
-        if not isinstance(data, list) or len(data) != len(texts):
-            raise RuntimeError("embedding_response_invalid")
-        vectors = [list(map(float, item.get("embedding", []))) for item in data if isinstance(item, dict)]
-        if len(vectors) != len(texts) or not vectors or not vectors[0]:
+        batch_size = max(1, embedding_batch_size())
+        vectors: list[list[float]] = []
+        expected_dimension: int | None = None
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start:start + batch_size]
+            payload = self._request({"model": self.model_id, "input": batch, "encoding_format": "float"})
+            data = payload.get("data")
+            if not isinstance(data, list) or len(data) != len(batch):
+                raise RuntimeError("embedding_response_invalid")
+            items = [item for item in data if isinstance(item, dict)]
+            if len(items) != len(batch):
+                raise RuntimeError("embedding_vectors_invalid")
+            # OpenAI-compatible servers may return an explicit per-batch index;
+            # preserve input order even if the response is not ordered.
+            if all("index" in item for item in items):
+                ordered: list[dict[str, object] | None] = [None] * len(batch)
+                for item in items:
+                    try:
+                        index = int(item["index"])
+                    except (KeyError, TypeError, ValueError) as exc:
+                        raise RuntimeError("embedding_response_invalid") from exc
+                    if index < 0 or index >= len(batch) or ordered[index] is not None:
+                        raise RuntimeError("embedding_response_invalid")
+                    ordered[index] = item
+                if any(item is None for item in ordered):
+                    raise RuntimeError("embedding_response_invalid")
+                items = [item for item in ordered if item is not None]
+            batch_vectors: list[list[float]] = []
+            for item in items:
+                try:
+                    vector = list(map(float, item.get("embedding", [])))
+                except (TypeError, ValueError) as exc:
+                    raise RuntimeError("embedding_vectors_invalid") from exc
+                if not vector:
+                    raise RuntimeError("embedding_vectors_invalid")
+                batch_vectors.append(vector)
+            if len(batch_vectors) != len(batch):
+                raise RuntimeError("embedding_vectors_invalid")
+            if expected_dimension is None:
+                expected_dimension = len(batch_vectors[0])
+            if any(len(vector) != expected_dimension for vector in batch_vectors):
+                raise RuntimeError("embedding_vector_dimensions_inconsistent")
+            vectors.extend(batch_vectors)
+        if len(vectors) != len(texts) or expected_dimension is None:
             raise RuntimeError("embedding_vectors_invalid")
-        if any(len(vector) != len(vectors[0]) for vector in vectors):
-            raise RuntimeError("embedding_vector_dimensions_inconsistent")
-        self._dimension = len(vectors[0])
+        self._dimension = expected_dimension
         return vectors
 
     def embed_query(self, text: str) -> list[float]:

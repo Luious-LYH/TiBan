@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from app.core.config import DEFAULT_DOMAIN_ID
 from app.domains import get_domain
 from app.application.errors import normalize_provider_error
 from app.services.agent_runtime import AgentContext
@@ -43,7 +44,7 @@ class OpenAICompatibleTutorGateway:
 
     def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
         question = observations.get("current_question", {})
-        domain = get_domain(str(question.get("domain_id", "endoscopy")))
+        domain = get_domain(str(question.get("domain_id", DEFAULT_DOMAIN_ID)))
         medical_policy = domain.tutor_policy == "medical_education"
         pre_submit_without_explanation = context.phase == "pre_submit" and "get_answer_explanation" not in observations
         answer_boundary = (

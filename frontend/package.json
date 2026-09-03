@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "3.2.0",
+  "version": "3.2.1",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -59,7 +59,7 @@
   },
   "build": {
     "appId": "com.aris.endoscopy.agent",
-    "productName": "消化内镜研修与模型评测平台",
+    "productName": "题伴 TiBan",
     "directories": {
       "output": "release"
     },
@@ -104,7 +104,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "消化内镜研修与模型评测平台"
+      "shortcutName": "题伴 TiBan"
     },
     "portable": {
       "artifactName": "${productName}-${version}-${arch}-Portable.${ext}"
