@@ -565,6 +565,8 @@ class Stage1Repository:
             domain_id=bank.domain_id,
             mode=mode,
             status="active",
+            requested_question_count=selection_size,
+            current_position=0,
         )
         self.session.add(session)
         self.session.flush()
@@ -801,10 +803,27 @@ class Stage1Repository:
     def _question_points(question: QuestionModel) -> set[str]:
         return {str(item).strip() for item in (question.teaching_tags or [question.body_part]) if str(item).strip()}
 
-    def get_or_create_session(self, learner_id: str, bank_id: str, session_id: str | None, mode: str = "practice") -> PracticeSessionModel:
+    def get_or_create_session(
+        self,
+        learner_id: str,
+        bank_id: str,
+        session_id: str | None,
+        mode: str = "practice",
+        question_id: str | None = None,
+    ) -> PracticeSessionModel:
         if session_id:
             current = self.session.get(PracticeSessionModel, session_id)
             if current and current.learner_id == learner_id and current.bank_id == bank_id:
+                if question_id is not None:
+                    member = self.session.scalar(select(PracticeSessionItemModel).where(
+                        PracticeSessionItemModel.practice_session_id == session_id,
+                        PracticeSessionItemModel.question_id == question_id,
+                    ))
+                    if member is None:
+                        # A valid session ID is not permission to submit an
+                        # arbitrary question from the same bank. Session
+                        # membership is the authoritative Practice boundary.
+                        raise KeyError(f"Question is not part of practice session: {question_id}")
                 return current
         # Historical/compatibility submissions may target an archived seed
         # question.  Preserve their immutable Attempt history without letting

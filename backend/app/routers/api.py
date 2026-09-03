@@ -12,7 +12,6 @@ from fastapi.responses import StreamingResponse
 
 from app.core.config import APP_NAME, APP_VERSION, SAFETY_NOTICE, UPLOAD_DIR
 from app.schemas import (
-    ChallengeBenchmarkRequest,
     ExamSessionRequest,
     FavoriteRequest,
     ImageUploadRequest,
@@ -26,16 +25,11 @@ from app.schemas import (
     ProviderSelfTestRequest,
     ReportDraftRequest,
     ReportJudgeRequest,
-    SkillRunRequest,
     SubmissionRequest,
-    TutorChatRequest,
-    TutorExplainRequest,
-    TutorHintRequest,
 )
 from app.services.audit_service import audit_service, now_iso
 from app.services.dashboard_service import dashboard_service
 from app.services.data_store import reset_runtime_data
-from app.services.demo_check_service import demo_check_service
 from app.services.grading_service import grading_service
 from app.services.memory_service import memory_service
 from app.services.model_service import model_service
@@ -45,8 +39,6 @@ from app.services.portfolio_study_service import portfolio_study_service
 from app.services.question_bank_import_service import question_bank_import_service
 from app.services.question_service import question_service
 from app.services.report_service import report_service
-from app.services.skill_registry import skill_registry
-from app.services.tutor_orchestrator import tutor_orchestrator
 from app.services.v3_facade_service import v3_facade_service
 
 router = APIRouter(prefix="/api")
@@ -123,11 +115,6 @@ def platform_readiness() -> dict[str, object]:
 @router.get("/platform/delivery-report")
 def platform_delivery_report() -> dict[str, object]:
     return v3_facade_service._sanitize_value(dashboard_service.get_delivery_report())
-
-
-@router.post("/platform/demo-check")
-def platform_demo_check(learner_id: str = "demo_learner", persist: bool = False) -> dict[str, object]:
-    return v3_facade_service.public_json_payload(demo_check_service.run(learner_id=learner_id, persist=persist))
 
 
 @router.post("/demo/reset")
@@ -365,14 +352,6 @@ def practice_session(request: ExamSessionRequest) -> dict[str, object]:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.post("/practice/tutor")
-def practice_tutor(payload: dict[str, object]) -> dict[str, object]:
-    try:
-        return v3_facade_service.practice_tutor(payload)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
 @router.get("/questions")
 def list_questions(
     question_class: str | None = None,
@@ -412,38 +391,6 @@ def get_question(question_id: str, learner_id: str = "demo_learner") -> dict[str
 def submit_answer(request: SubmissionRequest) -> dict[str, object]:
     try:
         return v3_facade_service.public_json_payload(grading_service.grade(request).model_dump())
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.post("/tutor/hint")
-def tutor_hint(request: TutorHintRequest) -> dict[str, object]:
-    try:
-        return v3_facade_service.public_json_payload(tutor_orchestrator.hint(request))
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.post("/tutor/explain")
-def tutor_explain(request: TutorExplainRequest) -> dict[str, object]:
-    try:
-        return v3_facade_service.public_json_payload(tutor_orchestrator.explain(request))
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.post("/tutor/chat")
-def tutor_chat(request: TutorChatRequest) -> dict[str, object]:
-    try:
-        return v3_facade_service.public_json_payload(tutor_orchestrator.chat(request))
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.post("/tutor/challenge-benchmark")
-def challenge_benchmark(request: ChallengeBenchmarkRequest) -> dict[str, object]:
-    try:
-        return v3_facade_service.public_json_payload(tutor_orchestrator.challenge_benchmark(request))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -733,22 +680,6 @@ def model_admission_test(request: ModelAdmissionTestRequest) -> dict[str, object
 @router.get("/models/admission-state")
 def model_admission_state() -> dict[str, object]:
     return v3_facade_service.public_json_payload({"item": model_service.admission_state(), "safety_notice": SAFETY_NOTICE})
-
-
-@router.get("/skills")
-def list_skills() -> dict[str, object]:
-    skills = skill_registry.list_skills()
-    return v3_facade_service.public_json_payload({"items": [skill.model_dump() for skill in skills], "total": len(skills)})
-
-
-@router.post("/skills/run")
-def run_skill(request: SkillRunRequest) -> dict[str, object]:
-    try:
-        return v3_facade_service.public_json_payload(skill_registry.run(request))
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/audit")

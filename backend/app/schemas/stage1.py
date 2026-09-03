@@ -197,8 +197,11 @@ class PracticeSessionPublic(Stage1Model):
     bank_id: str
     domain_id: str
     mode: Literal["study", "exam", "review", "practice"]
-    status: Literal["active", "completed"]
+    status: Literal["active", "completed", "abandoned"]
     started_at: datetime
+    current_position: int = Field(default=0, ge=0)
+    reflection_status: str = "clean"
+    tutor_thread_id: str | None = None
     question_count: int = Field(ge=0)
     question_ids: list[str] = Field(default_factory=list)
     # This is a projection of the existing Attempt/Mastery/ReviewCard state at
@@ -292,6 +295,25 @@ class PracticeSessionQuestionStatePublic(Stage1Model):
 
 class PracticeSessionDetailPublic(PracticeSessionPublic):
     items: list[PracticeSessionQuestionStatePublic] = Field(default_factory=list)
+
+
+class PracticeResumablePublic(Stage1Model):
+    session_id: str
+    bank_id: str
+    mode: Literal["study", "exam", "review", "practice"]
+    current_position: int = Field(ge=0)
+    last_active_at: datetime
+
+
+class PracticeResumableResponse(Stage1Model):
+    item: PracticeResumablePublic | None = None
+    api_source: Literal["backend"] = "backend"
+
+
+class TutorThreadPublic(Stage1Model):
+    tutor_thread_id: str
+    practice_session_id: str
+    status: Literal["active", "closed"]
 
 
 class PracticeSubmitRequest(Stage1Model):

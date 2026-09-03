@@ -8,7 +8,7 @@ import { PracticePage } from '../pages/practice/PracticePage'
 import { ReviewPage } from '../pages/review/ReviewPage'
 import { SettingsPage } from '../pages/settings/SettingsPage'
 import { KnowledgePage } from '../pages/knowledge/KnowledgePage'
-import { CoachPage } from '../pages/coach/CoachPage'
+import { MentorPage } from '../pages/mentor/MentorPage'
 
 function FactoryPage() {
   return <div data-testid="factory-page"><FactoryStudio /></div>
@@ -24,7 +24,7 @@ export function AppRouter() {
     <Route path="/eval" element={<EvaluationPage />} />
     <Route path="/factory" element={<FactoryPage />} />
     <Route path="/knowledge" element={<KnowledgePage />} />
-    <Route path="/coach" element={<CoachPage />} />
+    <Route path="/mentor" element={<MentorPage />} />
     <Route path="/settings" element={<SettingsPage />} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>

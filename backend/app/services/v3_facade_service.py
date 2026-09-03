@@ -13,9 +13,6 @@ from app.schemas import (
     ReportDraftRequest,
     ReportJudgeRequest,
     SubmissionRequest,
-    TutorChatRequest,
-    TutorExplainRequest,
-    TutorHintRequest,
 )
 from app.services.audit_service import audit_service, now_iso
 from app.services.dashboard_service import dashboard_service
@@ -26,7 +23,6 @@ from app.services.memory_service import memory_service
 from app.services.question_service import question_service
 from app.services.report_service import report_service
 from app.services.safety_service import safety_service
-from app.services.tutor_orchestrator import tutor_orchestrator
 
 
 SOURCE_REPLACEMENTS = {
@@ -263,34 +259,6 @@ class V3FacadeService:
             "safety_notice": SAFETY_NOTICE,
             "created_at": response.created_at,
         }
-
-    def practice_tutor(self, payload: dict[str, Any]) -> dict[str, Any]:
-        mode = str(payload.get("mode") or "hint")
-        question_id = str(payload.get("question_id") or payload.get("questionId") or "")
-        learner_id = str(payload.get("learner_id") or payload.get("learnerId") or "demo_learner")
-        if mode == "chat":
-            response = tutor_orchestrator.chat(
-                TutorChatRequest(
-                    question_id=question_id,
-                    learner_id=learner_id,
-                    message=str(payload.get("message") or "请帮我复盘这道题的观察证据。"),
-                    selected_answer=str(payload.get("selected_answer") or payload.get("selectedAnswer") or "").strip() or None,
-                    display_model_name=str(payload.get("display_model_name") or payload.get("displayModelName") or "").strip() or None,
-                    annotated_image_data_url=str(payload.get("annotated_image_data_url") or payload.get("annotatedImageDataUrl") or "").strip() or None,
-                )
-            )
-            return self._tutor_payload(response)
-        if mode == "explain":
-            response = tutor_orchestrator.explain(
-                TutorExplainRequest(
-                    question_id=question_id,
-                    learner_id=learner_id,
-                    selected_answer=payload.get("selected_answer"),
-                )
-            )
-            return self._tutor_payload(response)
-        response = tutor_orchestrator.hint(TutorHintRequest(question_id=question_id, learner_id=learner_id))
-        return self._tutor_payload(response)
 
     def practice_taxonomy(self) -> list[dict[str, Any]]:
         return [
@@ -813,30 +781,6 @@ class V3FacadeService:
         for source, replacement in sorted(SOURCE_REPLACEMENTS.items(), key=lambda item: len(item[0]), reverse=True):
             text = text.replace(source, replacement)
         return text
-
-    def _tutor_payload(self, payload: Any) -> dict[str, Any]:
-        if hasattr(payload, "model_dump"):
-            clean = self._sanitize_value(payload.model_dump())
-        elif isinstance(payload, dict):
-            clean = self._sanitize_value(payload)
-        else:
-            clean = {"reply": self._sanitize_text(payload)}
-        if "hint" in clean:
-            clean["hint"] = self._doctor_hint(clean.get("hint"))
-            clean["follow_up_question"] = self._doctor_hint(clean.get("follow_up_question") or "请指出一个图像证据。")
-        if "explanation" in clean:
-            clean["explanation"] = self._sanitize_text(clean.get("explanation"))
-            clean["atomic_feedback"] = [
-                self._atomic_fact_payload(item) for item in clean.get("atomic_feedback", []) if isinstance(item, dict)
-            ]
-            clean["error_tags"] = [self._sanitize_text(tag) for tag in clean.get("error_tags", [])]
-            clean["next_recommendation"] = self._sanitize_text(clean.get("next_recommendation", "继续完成下一题研修。"))
-        if "reply" in clean:
-            clean["reply"] = self._sanitize_text(clean.get("reply"))
-            clean["assistant_status"] = "智能辅助已回复。"
-        clean["doctor_review_required"] = True
-        clean["safety_notice"] = SAFETY_NOTICE
-        return clean
 
     def _doctor_hint(self, value: Any) -> str:
         text = self._sanitize_text(value)

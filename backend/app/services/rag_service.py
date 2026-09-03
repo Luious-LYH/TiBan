@@ -7,25 +7,23 @@ import os
 import re
 from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from time import perf_counter
-from typing import TYPE_CHECKING, Iterable, Literal
+from typing import Iterable, Literal
 
-from fastembed import TextEmbedding
 from qdrant_client import QdrantClient, models
-from sqlalchemy import select
-
-if TYPE_CHECKING:
-    from sentence_transformers import CrossEncoder
+from sqlalchemy import func, select
 
 from app.db.database import SessionLocal
-from app.db.models import DocumentVersionModel, KnowledgeChunkModel, SourceDocumentModel
-from app.services.runtime_settings_service import runtime_settings_service
+from app.db.models import DocumentVersionModel, KnowledgeChunkModel, SourceDocumentModel, VectorIndexStateModel
+from app.services.embedding_provider import EmbeddingProvider, RerankerProvider, configured_embedding_provider, configured_reranker_provider
 
 
-MODEL_NAME = 'BAAI/bge-small-zh-v1.5'
-RERANK_MODEL = 'cross-encoder/ms-marco-MiniLM-L6-v2'
-COLLECTION = 'endotutor_chunks_v1'
+MODEL_NAME = 'BAAI/bge-m3'
+RERANK_MODEL = 'BAAI/bge-reranker-v2-m3'
+COLLECTION = 'tiban_knowledge_v32'
+KNOWLEDGE_INDEX_KEY = 'knowledge'
 MODEL_CACHE = Path(os.getenv('ENDO_EMBEDDING_CACHE', Path(__file__).resolve().parents[2] / 'runtime' / 'fastembed'))
 
 
@@ -111,15 +109,38 @@ def _meaningful_lexical_overlap(query: str, content: str) -> int:
 
 class RagService:
     def __init__(self) -> None:
-        self._embedder: TextEmbedding | None = None
-        self._reranker: "CrossEncoder | None" = None
+        self._embedding_provider: EmbeddingProvider | None = None
+        self._reranker_provider: RerankerProvider | None = None
+        self._provider_signature: tuple[str, str, str, str] | None = None
+        self._reranker_signature: tuple[str, str, str, str] | None = None
+
+    @staticmethod
+    def _provider_signature_for(provider: object) -> tuple[str, str, str, str]:
+        """Fingerprint all runtime inputs without retaining a secret value.
+
+        Provider/model alone is insufficient: an instance owner can change a
+        compatible endpoint or rotate its key while keeping both names the
+        same. The hash makes the process-local cache follow those changes
+        without putting the key into logs, API payloads, or diagnostics.
+        """
+
+        provider_id = str(getattr(provider, "provider_id", ""))
+        model_id = str(getattr(provider, "model_id", ""))
+        runtime_inputs = "\x00".join(str(getattr(provider, name, "")) for name in (
+            "base_url", "api_key", "timeout_seconds", "cache_dir",
+        ))
+        return (type(provider).__name__, provider_id, model_id, _hash(runtime_inputs))
 
     @property
-    def embedder(self) -> TextEmbedding:
-        if self._embedder is None:
-            MODEL_CACHE.mkdir(parents=True, exist_ok=True)
-            self._embedder = TextEmbedding(model_name=MODEL_NAME, cache_dir=str(MODEL_CACHE))
-        return self._embedder
+    def embedding_provider(self) -> EmbeddingProvider:
+        """Return the active provider, replacing stale process-local adapters."""
+
+        provider = configured_embedding_provider(MODEL_CACHE)
+        signature = self._provider_signature_for(provider)
+        if self._embedding_provider is None or self._provider_signature != signature:
+            self._embedding_provider = provider
+            self._provider_signature = signature
+        return self._embedding_provider
 
     @property
     def qdrant(self) -> QdrantClient:
@@ -131,17 +152,13 @@ class RagService:
         return QdrantClient(url=os.getenv('QDRANT_URL', 'http://127.0.0.1:6333'), timeout=timeout)
 
     @property
-    def reranker(self) -> "CrossEncoder":
-        if self._reranker is None:
-            # Importing sentence-transformers imports the heavyweight torch
-            # runtime. Keep that optional path out of API cold-start; dense
-            # retrieval and the local Tutor policy do not need the reranker.
-            from sentence_transformers import CrossEncoder
-
-            # Apache-2.0 cross encoder; cached inside the repository runtime so
-            # Windows' default temporary cache never requires symlink privilege.
-            self._reranker = CrossEncoder(RERANK_MODEL, cache_dir=str(MODEL_CACHE / 'cross-encoder'))
-        return self._reranker
+    def reranker_provider(self) -> RerankerProvider:
+        provider = configured_reranker_provider(MODEL_CACHE)
+        signature = self._provider_signature_for(provider)
+        if self._reranker_provider is None or self._reranker_signature != signature:
+            self._reranker_provider = provider
+            self._reranker_signature = signature
+        return self._reranker_provider
 
     def prewarm(self) -> dict[str, object]:
         """Initialize the dense embedding path before a Factory actor accepts work.
@@ -152,9 +169,11 @@ class RagService:
         """
 
         started = perf_counter()
-        vector = next(self.embedder.embed(["题伴题目生成服务就绪检查"], batch_size=runtime_settings_service.embedding_batch_size()))
+        provider = self.embedding_provider
+        vector = provider.embed_query("题伴题目生成服务就绪检查")
         return {
-            "model": MODEL_NAME,
+            "provider": provider.provider_id,
+            "model": provider.model_id,
             "vector_size": len(vector),
             "elapsed_ms": round((perf_counter() - started) * 1000),
         }
@@ -228,15 +247,10 @@ class RagService:
                     chunk.namespace = namespace
                     chunk.source_uri = source_uri or str(path.resolve())
             session.commit()
-            rows = list(session.scalars(select(KnowledgeChunkModel).where(KnowledgeChunkModel.version_id == version_id).order_by(KnowledgeChunkModel.ordinal)))
-            document = session.get(SourceDocumentModel, document_id)
-            assert document is not None
-            vectors = list(self.embedder.embed([row.content for row in rows], batch_size=runtime_settings_service.embedding_batch_size()))
-            client = self.qdrant
-            if not client.collection_exists(COLLECTION):
-                client.create_collection(COLLECTION, vectors_config=models.VectorParams(size=len(vectors[0]), distance=models.Distance.COSINE))
-            client.upsert(COLLECTION, points=[models.PointStruct(id=_point_id(row.chunk_id), vector=vector.tolist(), payload={'chunk_id': row.chunk_id, 'document_id': row.document_id, 'version_id': row.version_id, 'domain_id': domain_id, 'namespace': row.namespace, 'document_name': document.name, 'page': row.page, 'section': row.parent_section, 'source_uri': row.source_uri, 'content': row.content}) for row, vector in zip(rows, vectors)])
-            return [row.chunk_id for row in rows]
+        # The document rows are canonical and committed before vector work.
+        # Rebuild all eligible chunks when the active vector signature changed
+        # so an API query never mixes model A documents with a model B query.
+        return self.rebuild_knowledge_index(document_ids=[document_id])
 
     def delete_documents(self, document_ids: list[str]) -> None:
         """Remove only the specified documents' derived vector points."""
@@ -252,6 +266,158 @@ class RagService:
             ),
             wait=True,
         )
+
+    def index_state(self) -> dict[str, object]:
+        provider = self.embedding_provider
+        with SessionLocal() as session:
+            state = session.get(VectorIndexStateModel, KNOWLEDGE_INDEX_KEY)
+            if state is None:
+                return {
+                    "provider": provider.provider_id,
+                    "model": provider.model_id,
+                    "status": "stale",
+                    "vector_dimension": None,
+                    "index_version": 0,
+                }
+            return {
+                "provider": state.provider,
+                "model": state.model_id,
+                "status": state.status,
+                "vector_dimension": state.vector_dimension,
+                "index_version": state.index_version,
+                "indexed_at": state.indexed_at,
+                "error_message": state.error_message,
+            }
+
+    def mark_index_stale(self) -> dict[str, object]:
+        provider = self.embedding_provider
+        with SessionLocal() as session:
+            state = session.get(VectorIndexStateModel, KNOWLEDGE_INDEX_KEY)
+            if state is None:
+                state = VectorIndexStateModel(
+                    index_key=KNOWLEDGE_INDEX_KEY,
+                    provider=provider.provider_id,
+                    model_id=provider.model_id,
+                    status="stale",
+                )
+                session.add(state)
+            else:
+                state.provider = provider.provider_id
+                state.model_id = provider.model_id
+                state.status = "stale"
+                state.error_message = None
+                state.index_version += 1
+            session.commit()
+        return self.index_state()
+
+    def rebuild_knowledge_index(self, *, document_ids: list[str] | None = None) -> list[str]:
+        """Recreate the one active knowledge collection from canonical chunks.
+
+        ``document_ids`` is accepted for the upload call site but a changed
+        provider/model always rebuilds all governed chunks, preserving the
+        one-active-index invariant rather than creating per-model collections.
+        """
+
+        provider = self.embedding_provider
+        try:
+            with SessionLocal() as session:
+                state = session.get(VectorIndexStateModel, KNOWLEDGE_INDEX_KEY)
+                if state is None:
+                    state = VectorIndexStateModel(index_key=KNOWLEDGE_INDEX_KEY, provider=provider.provider_id, model_id=provider.model_id, status="rebuilding")
+                    session.add(state)
+                else:
+                    state.provider, state.model_id, state.status, state.error_message = provider.provider_id, provider.model_id, "rebuilding", None
+                session.commit()
+
+                statement = (
+                    select(KnowledgeChunkModel, SourceDocumentModel, DocumentVersionModel)
+                    .join(SourceDocumentModel, SourceDocumentModel.document_id == KnowledgeChunkModel.document_id)
+                    .join(DocumentVersionModel, DocumentVersionModel.version_id == KnowledgeChunkModel.version_id)
+                    .where(
+                        SourceDocumentModel.business_usage != "benchmark_only",
+                        SourceDocumentModel.business_usage != "excluded",
+                        SourceDocumentModel.ai_ingestion_allowed.is_(True),
+                        SourceDocumentModel.enabled.is_(True),
+                        SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
+                    )
+                    .order_by(KnowledgeChunkModel.document_id, KnowledgeChunkModel.ordinal)
+                )
+                versioned_rows = list(session.execute(statement).all())
+
+            # A source can retain historical versions for audit/retry safety.
+            # The active vector index must contain only the newest canonical
+            # version for each source; otherwise a changed upload would leave
+            # two semantically identical passages competing in retrieval.
+            latest_version: dict[str, tuple[datetime, str]] = {}
+            for chunk, document, version in versioned_rows:
+                candidate = (version.created_at, version.version_id)
+                current = latest_version.get(document.document_id)
+                if current is None or candidate > current:
+                    latest_version[document.document_id] = candidate
+            rows = [
+                (chunk, document)
+                for chunk, document, version in versioned_rows
+                if latest_version.get(document.document_id) == (version.created_at, version.version_id)
+            ]
+
+            if not rows:
+                self._replace_collection(provider, [])
+                self._finish_index_state(provider, 0)
+                return []
+            vectors = provider.embed_documents([chunk.content for chunk, _ in rows])
+            self._replace_collection(provider, vectors)
+            points = [
+                models.PointStruct(
+                    id=_point_id(chunk.chunk_id),
+                    vector=vector,
+                    payload={
+                        "chunk_id": chunk.chunk_id,
+                        "document_id": chunk.document_id,
+                        "version_id": chunk.version_id,
+                        "domain_id": document.domain_id,
+                        "namespace": chunk.namespace,
+                        "document_name": document.name,
+                        "page": chunk.page,
+                        "section": chunk.parent_section,
+                        "source_uri": chunk.source_uri,
+                        "content": chunk.content,
+                    },
+                )
+                for (chunk, document), vector in zip(rows, vectors)
+            ]
+            self.qdrant.upsert(COLLECTION, points=points, wait=True)
+            self._finish_index_state(provider, len(vectors[0]))
+            return [chunk.chunk_id for chunk, _ in rows]
+        except Exception as exc:
+            self._fail_index_state(provider, type(exc).__name__)
+            raise
+
+    def _replace_collection(self, provider: EmbeddingProvider, vectors: list[list[float]]) -> None:
+        client = self.qdrant
+        dimension = len(vectors[0]) if vectors else provider.dimension()
+        if client.collection_exists(COLLECTION):
+            client.delete_collection(COLLECTION)
+        client.create_collection(COLLECTION, vectors_config=models.VectorParams(size=dimension, distance=models.Distance.COSINE))
+
+    def _finish_index_state(self, provider: EmbeddingProvider, dimension: int) -> None:
+        from datetime import datetime
+
+        with SessionLocal() as session:
+            state = session.get(VectorIndexStateModel, KNOWLEDGE_INDEX_KEY)
+            assert state is not None
+            state.provider, state.model_id = provider.provider_id, provider.model_id
+            state.vector_dimension, state.status, state.indexed_at, state.error_message = dimension, "ready", datetime.utcnow(), None
+            session.commit()
+
+    def _fail_index_state(self, provider: EmbeddingProvider, error: str) -> None:
+        with SessionLocal() as session:
+            state = session.get(VectorIndexStateModel, KNOWLEDGE_INDEX_KEY)
+            if state is None:
+                state = VectorIndexStateModel(index_key=KNOWLEDGE_INDEX_KEY, provider=provider.provider_id, model_id=provider.model_id, status="failed", error_message=error)
+                session.add(state)
+            else:
+                state.status, state.error_message = "failed", error
+            session.commit()
 
     def retrieve(
         self,
@@ -297,12 +463,36 @@ class RagService:
             # points at a historical version.  License and ingestion are data
             # policy, not a UI convention.
             statement = statement.join(SourceDocumentModel, SourceDocumentModel.document_id == KnowledgeChunkModel.document_id).where(
+                SourceDocumentModel.business_usage == 'knowledge_base',
                 SourceDocumentModel.business_usage != 'benchmark_only',
                 SourceDocumentModel.business_usage != 'excluded',
                 SourceDocumentModel.ai_ingestion_allowed.is_(True),
                 SourceDocumentModel.enabled.is_(True),
+                # ``ready`` is the current lifecycle value.  ``indexed`` and
+                # ``seed`` are retained for pre-V3.2 canonical sources and
+                # SQLite fixtures whose content is already present in the
+                # relational chunk graph.  Transitional/error states remain
+                # excluded so a queued source cannot become a citation.
+                SourceDocumentModel.status.not_in(['queued', 'rebuilding', 'indexing', 'uploaded', 'failed', 'disabled', 'retired']),
                 SourceDocumentModel.license_gate_status.in_(['allow', 'allow_noncommercial']),
             )
+            if version_id is None and not version_ids:
+                # Historical versions remain in PostgreSQL for audit and
+                # rollback, but product retrieval must describe the current
+                # canonical version.  Without this relational gate, sparse
+                # retrieval could cite an old chunk even though the rebuilt
+                # Qdrant collection contains only the newest version.
+                latest_versions = select(
+                    DocumentVersionModel.version_id,
+                    func.row_number().over(
+                        partition_by=DocumentVersionModel.document_id,
+                        order_by=(DocumentVersionModel.created_at.desc(), DocumentVersionModel.version_id.desc()),
+                    ).label('version_rank'),
+                ).subquery('latest_retrievable_versions')
+                statement = statement.join(
+                    latest_versions,
+                    KnowledgeChunkModel.version_id == latest_versions.c.version_id,
+                ).where(latest_versions.c.version_rank == 1)
             if domain_id:
                 statement = statement.where(SourceDocumentModel.domain_id == domain_id)
             rows = list(session.scalars(statement))
@@ -312,8 +502,16 @@ class RagService:
         eligible_document_ids = sorted({row.document_id for row in rows})
         sparse = {row.chunk_id: _sparse_score(query, row.content) for row in rows}
         dense: dict[str, float] = {}
-        if mode != 'sparse':
-            vector = next(self.embedder.query_embed(query)).tolist()
+        state = self.index_state()
+        active_provider = self.embedding_provider
+        dense_allowed = (
+            mode != "sparse"
+            and state.get("status") == "ready"
+            and state.get("provider") == active_provider.provider_id
+            and state.get("model") == active_provider.model_id
+        )
+        if dense_allowed:
+            vector = active_provider.embed_query(query)
             conditions = []
             if version_id:
                 conditions.append(models.FieldCondition(key='version_id', match=models.MatchValue(value=version_id)))
@@ -332,13 +530,16 @@ class RagService:
             # occupy dense-retrieval result slots.
             conditions.append(models.FieldCondition(key='document_id', match=models.MatchAny(any=eligible_document_ids)))
             query_filter = models.Filter(must=conditions) if conditions else None
-            result = self.qdrant.query_points(COLLECTION, query=vector, limit=max(limit * 3, 10), with_payload=True, query_filter=query_filter).points
-            dense = {str(point.payload['chunk_id']): float(point.score) for point in result}
+            try:
+                result = self.qdrant.query_points(COLLECTION, query=vector, limit=max(limit * 3, 10), with_payload=True, query_filter=query_filter).points
+                dense = {str(point.payload['chunk_id']): float(point.score) for point in result}
+            except Exception:
+                dense = {}
         scores: dict[str, float] = {}
         for row in rows:
             if mode == 'sparse':
                 scores[row.chunk_id] = sparse[row.chunk_id]
-            elif mode == 'dense':
+            elif mode == 'dense' and dense_allowed:
                 scores[row.chunk_id] = dense.get(row.chunk_id, 0.0)
             else:
                 scores[row.chunk_id] = _rrf_rank(sparse, row.chunk_id) + _rrf_rank(dense, row.chunk_id)
@@ -357,9 +558,12 @@ class RagService:
         if mode == 'hybrid_rerank' and candidates:
             # This is a learned cross-encoder inference, not a lexical score
             # boost.  Its score only orders candidate passages after hybrid RRF.
-            rerank_scores = self.reranker.predict([(query, row.content) for row in candidates], show_progress_bar=False)
-            selected = [row for _, row in sorted(zip(rerank_scores, candidates), key=lambda item: float(item[0]), reverse=True)[:limit]]
-            scores = {**scores, **{row.chunk_id: float(score) for score, row in zip(rerank_scores, candidates)}}
+            try:
+                rerank_scores = self.reranker_provider.score(query, [row.content for row in candidates])
+                selected = [row for _, row in sorted(zip(rerank_scores, candidates), key=lambda item: float(item[0]), reverse=True)[:limit]]
+                scores = {**scores, **{row.chunk_id: float(score) for score, row in zip(rerank_scores, candidates)}}
+            except Exception:
+                selected = candidates[:limit]
         else:
             selected = candidates[:limit]
         # Adjacent chunks from the same document/section seldom add evidence

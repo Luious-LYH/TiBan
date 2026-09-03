@@ -26,7 +26,6 @@ export type BankQuestionProgressResponse = components['schemas']['BankQuestionPr
 export type ReviewSummary = components['schemas']['ReviewSummaryPublic']
 export type ReviewItem = components['schemas']['ReviewItemPublic']
 export type ReviewItemDetail = components['schemas']['ReviewItemDetailPublic']
-export type TutorHint = components['schemas']['TutorHintResponseV3']
 export type Overview = Omit<Required<components['schemas']['OverviewResponse']>, 'banks' | 'recent_sessions'> & {
   banks: QuestionBank[]
   recent_sessions: Array<Required<components['schemas']['RecentSessionPublic']>>
@@ -41,12 +40,14 @@ export type EvaluationDataset = components['schemas']['EvaluationDatasetPublic']
 export type EvaluationConnection = components['schemas']['EvaluationConnectionResponse']
 export type EvaluationRun = components['schemas']['EvaluationRunResponse']
 export type TutorStreamRequest = components['schemas']['TutorStreamRequest']
+export type PracticeResumable = components['schemas']['PracticeResumablePublic']
+export type TutorThread = components['schemas']['TutorThreadPublic']
 export type TutorStreamEvent = {
   event: 'agent_start' | 'activity' | 'message_start' | 'reasoning' | 'token' | 'tool_start' | 'tool_end' | 'source' | 'done' | 'message_end' | 'error'
   data: Record<string, unknown>
 }
-export type CoachConversation = components['schemas']['CoachConversationPublic']
-export type CoachMessage = components['schemas']['CoachMessagePublic']
+export type MentorConversation = components['schemas']['MentorConversationPublic']
+export type MentorMessage = components['schemas']['MentorMessagePublic']
 // API payload contracts are generated from FastAPI/OpenAPI. Components may
 // add purely presentational state around them, but not response schemas.
 export type FactoryDocument = components['schemas']['FactoryDocumentPublic']
@@ -60,9 +61,11 @@ export type ClearLearningMemoryResponse = components['schemas']['ClearLearningMe
 export type InstanceSettings = components['schemas']['SettingsResponse']
 export type LLMSettingsPayload = components['schemas']['LLMSettingsRequest']
 export type EmbeddingSettingsPayload = components['schemas']['EmbeddingSettingsRequest']
+export type EmbeddingConnectionTestPayload = components['schemas']['EmbeddingConnectionTestRequest']
 export type LLMConnectionTestPayload = components['schemas']['LLMConnectionTestRequest']
 export type InstanceLLMTestResult = components['schemas']['LLMTestResponse']
 export type InstanceEmbeddingTestResult = components['schemas']['EmbeddingTestResponse']
+export type IndexRebuildResult = components['schemas']['IndexRebuildResponse']
 export type KnowledgeSource = components['schemas']['KnowledgeSourcePublic']
 export type KnowledgeSourceDetail = components['schemas']['KnowledgeSourceDetailPublic']
 export type QBankValidation = { format: string; accepted_count: number; rejected_count: number; ready_to_publish: boolean; items: Array<{ title: string; question: string; question_type: string }>; issues: Array<{ row: number; code: string; message: string }>; summary: { question_type_counts: Record<string, number> } }
@@ -187,35 +190,44 @@ export function getPracticeSession(sessionId: string): Promise<SessionDetailResp
   return unwrap(api.GET('/api/v3/practice/sessions/{session_id}', { params: { path: { session_id: sessionId } } }))
 }
 
-export function submitPracticeAnswer(payload: SubmitPayload): Promise<SubmitResult> {
-  return unwrap(api.POST('/api/v3/practice/submit', { body: { ...payload, learner_id: payload.learner_id ?? 'demo_learner', hint_count: payload.hint_count ?? 0 } }))
+export async function getResumablePracticeSession(learnerId = 'demo_learner'): Promise<PracticeResumable | null> {
+  const response = await unwrap(api.GET('/api/v3/practice/sessions/resumable', { params: { query: { learner_id: learnerId } } }))
+  return response.item ?? null
 }
 
-export function getTutorHint(questionId: string, learnerId = 'demo_learner'): Promise<TutorHint> {
-  return unwrap(api.POST('/api/v3/tutor/hint', { body: { question_id: questionId, learner_id: learnerId } }))
+export function resumePracticeSession(sessionId: string, learnerId = 'demo_learner'): Promise<TutorThread> {
+  return unwrap(api.POST('/api/v3/practice/sessions/{session_id}/resume', { params: { path: { session_id: sessionId }, query: { learner_id: learnerId } } }))
+}
+
+export async function leavePracticeSession(sessionId: string, learnerId = 'demo_learner', abandon = false): Promise<void> {
+  await unwrap(api.POST('/api/v3/practice/sessions/{session_id}/leave', { params: { path: { session_id: sessionId }, query: { learner_id: learnerId, abandon } } }))
+}
+
+export function submitPracticeAnswer(payload: SubmitPayload): Promise<SubmitResult> {
+  return unwrap(api.POST('/api/v3/practice/submit', { body: { ...payload, learner_id: payload.learner_id ?? 'demo_learner', hint_count: payload.hint_count ?? 0 } }))
 }
 
 export async function streamTutor(request: TutorStreamRequest, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal): Promise<void> {
   await streamSse(`${API_BASE}/api/v3/tutor/stream`, request, onEvent, signal, '智能辅导请求失败')
 }
 
-export async function listCoachConversations(learnerId = 'demo_learner'): Promise<CoachConversation[]> {
-  const response = await unwrap(api.GET('/api/v3/coach/conversations', { params: { query: { learner_id: learnerId } } }))
+export async function listMentorConversations(learnerId = 'demo_learner'): Promise<MentorConversation[]> {
+  const response = await unwrap(api.GET('/api/v3/mentor/conversations', { params: { query: { learner_id: learnerId } } }))
   return response.items
 }
 
-export async function createCoachConversation(learnerId = 'demo_learner'): Promise<CoachConversation> {
-  const response = await unwrap(api.POST('/api/v3/coach/conversations', { params: { query: { learner_id: learnerId } } }))
+export async function createMentorConversation(learnerId = 'demo_learner'): Promise<MentorConversation> {
+  const response = await unwrap(api.POST('/api/v3/mentor/conversations', { params: { query: { learner_id: learnerId } } }))
   return response.item
 }
 
-export async function getCoachConversation(conversationId: string, learnerId = 'demo_learner'): Promise<CoachConversation> {
-  const response = await unwrap(api.GET('/api/v3/coach/conversations/{conversation_id}', { params: { path: { conversation_id: conversationId }, query: { learner_id: learnerId } } }))
+export async function getMentorConversation(conversationId: string, learnerId = 'demo_learner'): Promise<MentorConversation> {
+  const response = await unwrap(api.GET('/api/v3/mentor/conversations/{conversation_id}', { params: { path: { conversation_id: conversationId }, query: { learner_id: learnerId } } }))
   return response.item
 }
 
-export async function streamCoachMessage(conversationId: string, message: string, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal, learnerId = 'demo_learner'): Promise<void> {
-  await streamSse(`${API_BASE}/api/v3/coach/conversations/${encodeURIComponent(conversationId)}/stream`, { learner_id: learnerId, message }, onEvent, signal, '带教 Agent 请求失败')
+export async function streamMentorMessage(conversationId: string, message: string, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal, learnerId = 'demo_learner'): Promise<void> {
+  await streamSse(`${API_BASE}/api/v3/mentor/conversations/${encodeURIComponent(conversationId)}/stream`, { learner_id: learnerId, message }, onEvent, signal, '带教 Agent 请求失败')
 }
 
 async function streamSse(url: string, body: unknown, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal, failure: string): Promise<void> {
@@ -306,7 +318,8 @@ export function getInstanceSettings(): Promise<InstanceSettings> { return unwrap
 export function testInstanceLLM(payload: LLMConnectionTestPayload): Promise<InstanceLLMTestResult> { return unwrap(api.POST('/api/v3/settings/llm/test', { body: payload })) }
 export function applyInstanceLLM(payload: LLMSettingsPayload) { return unwrap(api.POST('/api/v3/settings/llm/apply', { body: payload })) }
 export function restoreInstanceLLM() { return unwrap(api.POST('/api/v3/settings/llm/restore')) }
-export function testInstanceEmbedding(): Promise<InstanceEmbeddingTestResult> { return unwrap(api.POST('/api/v3/settings/embedding/test')) }
+export function testInstanceEmbedding(payload: EmbeddingConnectionTestPayload = {}): Promise<InstanceEmbeddingTestResult> { return unwrap(api.POST('/api/v3/settings/embedding/test', { body: payload })) }
 export function applyInstanceEmbedding(payload: EmbeddingSettingsPayload) { return unwrap(api.POST('/api/v3/settings/embedding/apply', { body: payload })) }
 export function restoreInstanceEmbedding() { return unwrap(api.POST('/api/v3/settings/embedding/restore')) }
+export function rebuildInstanceIndexes(): Promise<IndexRebuildResult> { return unwrap(api.POST('/api/v3/settings/indexes/rebuild')) }
 export function validateQuestionBankImport(payload: { format: 'csv' | 'jsonl' | 'markdown'; content: string; source_name?: string }): Promise<QBankValidation> { return unwrap(api.POST('/api/question-banks/import/validate', { body: payload })) as Promise<QBankValidation> }

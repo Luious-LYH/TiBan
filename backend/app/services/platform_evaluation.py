@@ -18,7 +18,9 @@ from app.services.agent_runtime import AgentContext, LocalPolicyModelGateway
 EVALUATED_TOOLS = (
     "get_question_context",
     "retrieve_knowledge",
-    "get_learning_memory",
+    "get_learning_summary",
+    "get_learning_memories",
+    "get_recent_attempts",
     "get_grading_result",
     "get_answer_explanation",
 )
@@ -56,11 +58,11 @@ TOOL_SELECTION_CASES = (
     ),
     ToolSelectionCase(
         "memory-needed",
-        "should read learning memory",
+        "should read bounded long-term learning state",
         "我最近的错误模式是什么？",
         "pre_submit",
         "study",
-        frozenset({"get_learning_memory"}),
+        frozenset({"get_recent_attempts", "get_learning_summary", "get_learning_memories"}),
         frozenset({"retrieve_knowledge", "get_grading_result", "get_answer_explanation"}),
     ),
     ToolSelectionCase(
@@ -116,6 +118,7 @@ def evaluate_tool_selection(gateway: LocalPolicyModelGateway | None = None) -> d
             user_message=case.user_message,
             phase=case.phase,  # type: ignore[arg-type]
             mode=case.mode,  # type: ignore[arg-type]
+            metadata={"agent_profile": "mentor"} if case.case_id == "memory-needed" else {},
         )
         selected = set(resolved_gateway.select_tools(context, allowed))
         expected = set(case.expected_selected)

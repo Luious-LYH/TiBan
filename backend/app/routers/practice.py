@@ -13,8 +13,10 @@ from app.schemas import (
     PracticeSessionCreateRequest,
     PracticeSessionDetailPublic,
     PracticeSessionPublic,
+    PracticeResumableResponse,
     PracticeSubmitRequest,
     PracticeSubmitResponse,
+    TutorThreadPublic,
 )
 from app.services.stage1_service import stage1_service, submit_timing_context
 
@@ -93,6 +95,13 @@ def create_session_v3(request: PracticeSessionCreateRequest) -> dict[str, object
         raise HTTPException(status_code=404, detail="Question bank not found.") from exc
 
 
+@canonical_router.get("/practice/sessions/resumable", response_model=PracticeResumableResponse)
+def resumable_session_v3(learner_id: str = "demo_learner") -> dict[str, object]:
+    from app.services.practice_session_service import practice_session_service
+
+    return {"item": practice_session_service.resumable(learner_id=learner_id), "api_source": "backend"}
+
+
 @canonical_router.get("/practice/sessions/{session_id}", response_model=PracticeSessionDetailPublic)
 def get_session_v3(
     session_id: str,
@@ -100,6 +109,26 @@ def get_session_v3(
 ) -> dict[str, object]:
     try:
         return stage1_service.session_detail(session_id, state)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Practice session not found.") from exc
+
+
+@canonical_router.post("/practice/sessions/{session_id}/resume", response_model=TutorThreadPublic)
+def resume_session_v3(session_id: str, learner_id: str = "demo_learner") -> dict[str, str]:
+    from app.services.practice_session_service import practice_session_service
+
+    try:
+        return practice_session_service.resume(session_id=session_id, learner_id=learner_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Practice session not found.") from exc
+
+
+@canonical_router.post("/practice/sessions/{session_id}/leave", status_code=204)
+def leave_session_v3(session_id: str, learner_id: str = "demo_learner", abandon: bool = False) -> None:
+    from app.services.practice_session_service import practice_session_service
+
+    try:
+        practice_session_service.leave(session_id=session_id, learner_id=learner_id, abandon=abandon)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Practice session not found.") from exc
 

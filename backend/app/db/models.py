@@ -81,8 +81,20 @@ class PracticeSessionModel(Base):
     domain_id: Mapped[str] = mapped_column(String(100), nullable=False, default="endoscopy", index=True)
     mode: Mapped[str] = mapped_column(String(30), nullable=False, default="practice")
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
+    requested_question_count: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    current_position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     last_active_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    # Reflection is derived from immutable Attempts and retained session
+    # evidence.  These fields only coordinate idempotent asynchronous work;
+    # they are never the canonical learning state.
+    reflection_dirty: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    reflection_status: Mapped[str] = mapped_column(String(32), nullable=False, default="clean", index=True)
+    reflection_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_reflected_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_reflection_event_id: Mapped[str | None] = mapped_column(String(160), nullable=True)
 
 
 class PracticeSessionItemModel(Base):
@@ -135,10 +147,10 @@ class QuestionMarkModel(Base):
 
 
 class AgentConversationModel(Base):
-    """Minimal durable history for the global learning coach only.
+    """Minimal durable history for the global Mentor only.
 
     Practice-side intelligent-assistant turns are deliberately scoped to the
-    active question and remain ephemeral; the coach is the cross-session
+    active question and remain ephemeral; Mentor is the cross-session
     learning surface that needs a truthful, learner-owned history.
     """
 
@@ -146,7 +158,7 @@ class AgentConversationModel(Base):
 
     conversation_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    agent_profile: Mapped[str] = mapped_column(String(40), nullable=False, default="coach", index=True)
+    agent_profile: Mapped[str] = mapped_column(String(40), nullable=False, default="mentor", index=True)
     title: Mapped[str] = mapped_column(String(240), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False, index=True)
@@ -161,6 +173,40 @@ class AgentMessageModel(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     activity: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
     sources: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False, index=True)
+
+
+class TutorThreadModel(Base):
+    """Auditable, session-scoped Tutor conversation identity.
+
+    A persisted thread supplies evidence for Reflection but is never reused as
+    prompt context outside this particular browser usage of a Practice session.
+    """
+
+    __tablename__ = "tutor_threads"
+
+    tutor_thread_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    practice_session_id: Mapped[str] = mapped_column(ForeignKey("practice_sessions.session_id"), nullable=False, index=True)
+    learner_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="active", index=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    last_active_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False, index=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class TutorMessageModel(Base):
+    """Current-session Tutor evidence, intentionally separate from Mentor chat."""
+
+    __tablename__ = "tutor_messages"
+
+    tutor_message_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    tutor_thread_id: Mapped[str] = mapped_column(ForeignKey("tutor_threads.tutor_thread_id"), nullable=False, index=True)
+    practice_session_id: Mapped[str] = mapped_column(ForeignKey("practice_sessions.session_id"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    activity: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    sources: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    run_id: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False, index=True)
 
 
@@ -214,6 +260,13 @@ class SourceDocumentModel(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
     parser_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
     embedding_model: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    embedding_provider: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    embedding_dimension: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    index_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    index_job_id: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    index_stage: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    index_progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    index_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
@@ -296,6 +349,47 @@ class LearningMemoryItemModel(Base):
     first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class VectorIndexStateModel(Base):
+    """One active, rebuildable vector representation per logical index."""
+
+    __tablename__ = "vector_index_states"
+
+    index_key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(80), nullable=False)
+    model_id: Mapped[str] = mapped_column(String(180), nullable=False)
+    vector_dimension: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    index_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="stale", index=True)
+    indexed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class BackgroundJobModel(Base):
+    """Shared durable job record for Knowledge indexing and Reflection.
+
+    Factory retains its dedicated trace model.  This slim generic record uses
+    the same Redis/Dramatiq operational model for non-Factory heavy work.
+    """
+
+    __tablename__ = "background_jobs"
+    __table_args__ = (UniqueConstraint("idempotency_key", name="uq_background_job_idempotency"),)
+
+    job_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    job_type: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    target_id: Mapped[str] = mapped_column(String(150), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", index=True)
+    stage: Mapped[str] = mapped_column(String(48), nullable=False, default="queued")
+    progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    idempotency_key: Mapped[str] = mapped_column(String(180), nullable=False)
+    detail: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
 

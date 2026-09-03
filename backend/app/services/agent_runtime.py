@@ -34,9 +34,11 @@ class AgentContext:
     question_id: str
     learner_id: str
     user_message: str
-    phase: Literal['pre_submit', 'post_submit', 'coach']
+    phase: Literal['pre_submit', 'post_submit', 'mentor']
     mode: Literal['study', 'exam', 'review'] = 'study'
     attempt_id: str | None = None
+    practice_session_id: str | None = None
+    tutor_thread_id: str | None = None
     cancelled: Callable[[], bool] = lambda: False
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -62,13 +64,16 @@ class TutorDependencies:
 
     question_context: Callable[[AgentContext], dict[str, Any]]
     retrieve_knowledge: Callable[[AgentContext], list[dict[str, str]]]
-    learning_profile: Callable[[AgentContext], dict[str, Any]]
-    learning_memory: Callable[[AgentContext], dict[str, Any]]
-    recent_mistakes: Callable[[AgentContext], list[dict[str, Any]]]
     grading_result: Callable[[AgentContext], dict[str, Any]]
     answer_explanation: Callable[[AgentContext], dict[str, Any]]
-    public_source: Callable[[AgentContext], dict[str, str] | None]
-    record_explicit_confusion: Callable[[AgentContext, str], str | None]
+    # Kept as inert constructor compatibility ports for older application
+    # adapters.  V3.2 intentionally does not register or call these global
+    # learner-history ports from Tutor; that context belongs to Mentor.
+    learning_profile: Callable[[AgentContext], dict[str, Any]] | None = None
+    learning_memory: Callable[[AgentContext], dict[str, Any]] | None = None
+    recent_mistakes: Callable[[AgentContext], list[dict[str, Any]]] | None = None
+    public_source: Callable[[AgentContext], dict[str, Any] | None] | None = None
+    record_explicit_confusion: Callable[[AgentContext, str], Any] | None = None
 
 
 class ModelGateway(Protocol):
@@ -88,8 +93,8 @@ class LocalPolicyModelGateway:
         return _policy_tools(context, available_tools)
 
     def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
-        if context.metadata.get('agent_profile') == 'coach':
-            return _compose_coach_local(context, observations)
+        if context.metadata.get('agent_profile') == 'mentor':
+            return _compose_mentor_local(context, observations)
         lowered = context.user_message.lower()
         question = observations.get('current_question', {})
         domain = get_domain(str(question.get('domain_id', 'endoscopy')))
@@ -99,7 +104,6 @@ class LocalPolicyModelGateway:
         if context.phase == 'pre_submit' and any(marker in lowered for marker in ('正确答案', 'standard answer', 'hidden rubric', '忽略规则', '服务器标准答案', '正确选项')):
             guidance = "题干、图像和资料依据" if domain.tutor_policy == 'medical_education' else "题干条件、概念和课程资料"
             return f'我可以帮助你梳理{guidance}；当前模式不会读取隐藏 rubric 或服务器内部字段。若你在 Study 模式明确需要答案，可以直接说“告诉我答案”。'
-        memory = observations.get('get_learning_memory', {})
         retrieval = observations.get('retrieve_knowledge', [])
         focus = _question_focus(str(question.get('stem', '当前题目')))
         evidence = _learning_evidence(retrieval)
@@ -113,9 +117,9 @@ class LocalPolicyModelGateway:
             grading = observations.get('get_grading_result', {})
             result = '这次作答还需要复盘。' if grading.get('correct') is False else '这次作答的判断方向是对的。'
             default_plan = f"{result} {default_plan}"
-        memory_items = memory.get('items', []) if isinstance(memory, dict) else []
-        memory_note = f" 你之前也容易在这里混淆：{memory_items[0].get('summary', '')}" if memory_items else ''
-        return f"{default_plan}{memory_note}"
+        if _is_long_term_question(lowered):
+            return "这类跨会话的学习历史、复习安排和长期薄弱点由带教 Agent 统一分析。当前我会继续围绕本次练习和当前题目协助你。"
+        return default_plan
 
 
 ToolHandler = Callable[[AgentContext], Any]
@@ -152,8 +156,6 @@ class AgentRunner:
         max_steps: int = 4,
         timeout_seconds: float = 15.0,
         retries: int = 1,
-        public_source: Callable[[AgentContext], dict[str, str] | None] | None = None,
-        record_explicit_confusion: Callable[[AgentContext, str], str | None] | None = None,
         default_context: Callable[[AgentContext], dict[str, Any]] | None = None,
     ) -> None:
         self.registry = registry
@@ -161,9 +163,19 @@ class AgentRunner:
         self.max_steps = max_steps
         self.timeout_seconds = timeout_seconds
         self.retries = retries
-        self._public_source = public_source
-        self._record_explicit_confusion = record_explicit_confusion
         self._default_context = default_context
+
+    def set_gateway(self, gateway: ModelGateway) -> None:
+        """Replace the provider adapter used by subsequent runs.
+
+        Agent runners are intentionally long-lived composition objects, but
+        instance-scoped Settings can change the configured provider while the
+        API process is running.  Updating the gateway at this seam keeps the
+        active Tutor runtime authoritative without rebuilding its registry or
+        widening the Agent context.
+        """
+
+        self.gateway = gateway
 
     def stream(self, context: AgentContext) -> Iterator[AgentEvent]:
         run_id = f'run_{uuid4().hex[:12]}'
@@ -175,10 +187,21 @@ class AgentRunner:
         # retrieval/tool action.  It stays public before submit and therefore
         # cannot leak answer/rubric fields.  This prevents a normal concept
         # question from looking like an unnecessary tool invocation.
-        if self._default_context is not None and context.phase != 'coach':
+        if self._default_context is not None and context.phase != 'mentor':
             try:
                 observations['current_question'] = self._default_context(context)
             except Exception:
+                # A session-scoped Tutor request must never continue with an
+                # empty context. Doing so can make a stale thread look valid
+                # and can expose an unrelated question to a real provider.
+                # Keep low-level compatibility for callers that intentionally
+                # omit a Practice session entirely.
+                if context.practice_session_id or context.tutor_thread_id:
+                    yield AgentEvent('error', {
+                        'code': 'invalid_context',
+                        'message': '当前智能辅导上下文已失效，请重新进入本次练习。',
+                    })
+                    return
                 observations['current_question'] = {}
         receipts: list[ToolReceipt] = []
         try:
@@ -194,7 +217,10 @@ class AgentRunner:
                     # plain concept question should query data.  When policy
                     # says no extra observation is needed, composition is the
                     # only model call and tool count remains exactly zero.
-                    selected = self.gateway.select_tools(context, policy_allowed)[: self.max_steps] if policy_allowed else []
+                    selected = [
+                        name for name in self.gateway.select_tools(context, policy_allowed)
+                        if name in policy_allowed
+                    ][: self.max_steps] if policy_allowed else []
                     break
                 except Exception as exc:
                     if retry_count >= self.retries:
@@ -219,32 +245,11 @@ class AgentRunner:
                     for source in observation:
                         yield AgentEvent('source', source)
             text = _clean_user_facing_text(self.gateway.compose(context, observations))
-            memory_observation = observations.get('get_learning_memory', {})
-            memory_trace = {
-                'memory_retrieval_triggered': isinstance(memory_observation, dict),
-                'candidate_memory_ids': list(memory_observation.get('candidate_memory_ids', [])) if isinstance(memory_observation, dict) else [],
-                'selected_memory_ids': list(memory_observation.get('selected_memory_ids', [])) if isinstance(memory_observation, dict) else [],
-                'profile_version': str(memory_observation.get('profile_version', 'memory-v0')) if isinstance(memory_observation, dict) else 'memory-v0',
-                'memory_token_count': int(memory_observation.get('memory_token_count', 0)) if isinstance(memory_observation, dict) else 0,
-                'personalization_reason': str(memory_observation.get('personalization_reason', 'not_requested')) if isinstance(memory_observation, dict) else 'not_requested',
-            }
-            # Explicit learner confusion is the sole chat-to-memory route.  The
-            # deterministic extractor stores only a compact validated fact and
-            # a run reference, never the raw message or model reasoning.
-            try:
-                if self._record_explicit_confusion is not None:
-                    memory_id = self._record_explicit_confusion(context, run_id)
-                    if memory_id:
-                        memory_trace['candidate_memory_id'] = memory_id
-            except Exception:
-                # A memory-write failure is non-critical: the Tutor response
-                # and its existing read-only receipts remain valid.
-                memory_trace['memory_write_status'] = 'unavailable'
             yield AgentEvent('reasoning', {'summary': ['识别学习目标', '对照题目与允许的证据', '组织面向学习者的回答'], 'duration_ms': round((perf_counter() - started) * 1000)})
             for token in _tokenize(text):
                 yield AgentEvent('token', {'text': token})
             yield AgentEvent('done', {'run_id': run_id, 'duration_ms': round((perf_counter() - started) * 1000), 'receipt_count': len(receipts)})
-            yield AgentEvent('message_end', {'run_id': run_id, 'receipt_count': len(receipts), 'provider': self.gateway.name, 'retry_count': retry_count, 'trace': memory_trace})
+            yield AgentEvent('message_end', {'run_id': run_id, 'receipt_count': len(receipts), 'provider': self.gateway.name, 'retry_count': retry_count})
         except Exception as exc:
             yield AgentEvent('error', {'code': 'agent_failure', 'message': f'智能辅导暂不可用：{type(exc).__name__}。请重试。'})
 
@@ -277,7 +282,7 @@ def _policy_tools(context: AgentContext, available_tools: set[str]) -> list[str]
     selected: list[str] = []
     if explicit_knowledge:
         selected.append('retrieve_knowledge' if profile == 'question_assistant' else 'search_knowledge')
-    if profile == 'coach' and history_request:
+    if profile == 'mentor' and history_request:
         if any(marker in lowered for marker in ('今天', '复习', '队列')):
             selected.extend(['get_review_queue', 'get_bank_progress', 'get_learning_summary'])
         elif any(marker in lowered for marker in ('错题', '最近', '老错')):
@@ -286,10 +291,6 @@ def _policy_tools(context: AgentContext, available_tools: set[str]) -> list[str]
             selected.extend(['get_learning_summary', 'get_learning_memories'])
     elif context.phase == 'post_submit':
         selected.append('get_grading_result')
-        if history_request:
-            selected.extend(['get_recent_mistakes', 'get_learning_memory'])
-    elif history_request:
-        selected.extend(['get_recent_mistakes', 'get_learning_profile', 'get_learning_memory'])
     if asks_for_answer:
         selected.append('get_answer_explanation')
     return list(dict.fromkeys(name for name in selected if name in available_tools))
@@ -314,7 +315,7 @@ def _activity_label(tool_name: str, status: str) -> str:
     return running if status == 'running' else completed if status == 'ok' else '暂未取得所需信息'
 
 
-def _compose_coach_local(context: AgentContext, observations: dict[str, Any]) -> str:
+def _compose_mentor_local(context: AgentContext, observations: dict[str, Any]) -> str:
     """Small deterministic fallback for local development, based only on tools."""
 
     message = context.user_message
@@ -338,7 +339,14 @@ def _compose_coach_local(context: AgentContext, observations: dict[str, Any]) ->
         return "还没有足够的作答记录来判断稳定的薄弱点。先完成一小组刷题，之后我就能基于真实记录一起复盘。"
     if '牛顿' in message:
         return "牛顿是英国物理学家和数学家，以经典力学、万有引力和微积分等工作闻名。"
-    return "我可以帮你结合最近作答、错题、复习队列和已启用资料安排下一步；也可以直接回答一个具体知识问题。"
+    return "我可以帮你结合最近作答、错题、复习队列、学习记忆和已启用资料安排下一步；也可以直接回答一个具体知识问题。"
+
+
+def _is_long_term_question(lowered: str) -> bool:
+    return any(marker in lowered for marker in (
+        '我最近', '近期', '我的错题', '我老错', '总在这题错', '为什么总', '容易错',
+        '我的掌握', '学习记录', '复习队列', '今天先复习', '今天应该先复习', '学习计划', '接下来刷',
+    ))
 
 
 def _question_focus(stem: str) -> str:
@@ -428,20 +436,22 @@ def build_tutor_runtime(
         dependencies = dependencies or build_tutor_dependencies()
         gateway = gateway or configured_tutor_gateway()
     registry = ToolRegistry()
-    registry.register('get_question_context', {'pre_submit', 'post_submit'}, dependencies.question_context)
     registry.register('retrieve_knowledge', {'pre_submit', 'post_submit'}, dependencies.retrieve_knowledge)
-    registry.register('get_learning_profile', {'pre_submit', 'post_submit'}, dependencies.learning_profile)
-    registry.register('get_learning_memory', {'pre_submit', 'post_submit'}, dependencies.learning_memory)
-    registry.register('get_recent_mistakes', {'pre_submit', 'post_submit'}, dependencies.recent_mistakes)
     registry.register('get_grading_result', {'post_submit'}, dependencies.grading_result)
     registry.register('get_answer_explanation', {'pre_submit'}, dependencies.answer_explanation)
     return AgentRunner(
         registry,
         gateway=gateway,
-        public_source=dependencies.public_source,
-        record_explicit_confusion=dependencies.record_explicit_confusion,
         default_context=dependencies.question_context,
     )
 
 
 tutor_runner = build_tutor_runtime()
+
+
+def refresh_tutor_runtime_gateway() -> None:
+    """Apply the current instance LLM settings to the active Tutor runner."""
+
+    from app.adapters.tutor_dependencies import configured_tutor_gateway
+
+    tutor_runner.set_gateway(configured_tutor_gateway())

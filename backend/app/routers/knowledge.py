@@ -23,6 +23,12 @@ class KnowledgeSourcePublic(BaseModel):
     enabled: bool
     parser_version: str | None = None
     embedding_model: str | None = None
+    embedding_provider: str | None = None
+    index_version: int = 0
+    index_job_id: str | None = None
+    index_stage: str | None = None
+    index_progress: int = 0
+    index_error: str | None = None
     attribution: str | None = None
     created_at: object
     updated_at: object | None = None

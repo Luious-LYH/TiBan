@@ -1,25 +1,25 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearLearningMemory, createCoachConversation, createEvaluationRun, createPracticeSession, createReviewSession, deleteKnowledgeSource, getCoachConversation, getDomains, getEvaluationDatasets, getEvaluationRun, getKnowledgeSource, getKnowledgeSources, getLatestEvaluation, getLearningMemory, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getReviewItem, getReviewItems, getReviewSummary, listCoachConversations, reindexKnowledgeSource, setKnowledgeSourceEnabled, streamCoachMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection, uploadKnowledgeSource } from '../api/client'
+import { clearLearningMemory, createEvaluationRun, createMentorConversation, createPracticeSession, createReviewSession, deleteKnowledgeSource, getDomains, getEvaluationDatasets, getEvaluationRun, getKnowledgeSource, getKnowledgeSources, getLatestEvaluation, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection, uploadKnowledgeSource } from '../api/client'
 import type { EvaluationRun, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
 import { PracticePage } from '../pages/practice/PracticePage'
 import { EvaluationPage } from '../pages/evaluation/EvaluationPage'
-import { CoachPage } from '../pages/coach/CoachPage'
+import { MentorPage } from '../pages/mentor/MentorPage'
 import { KnowledgePage } from '../pages/knowledge/KnowledgePage'
 import { ReviewPage } from '../pages/review/ReviewPage'
 
 vi.mock('../api/client', () => ({
-  createCoachConversation: vi.fn(),
+  createMentorConversation: vi.fn(),
   createPracticeSession: vi.fn(),
   createReviewSession: vi.fn(),
   deleteKnowledgeSource: vi.fn(),
-  getCoachConversation: vi.fn(),
+  getMentorConversation: vi.fn(),
   getDomains: vi.fn(),
   clearLearningMemory: vi.fn(),
   createEvaluationRun: vi.fn(),
@@ -33,15 +33,18 @@ vi.mock('../api/client', () => ({
   getPracticeSession: vi.fn(),
   getQuestionBanks: vi.fn(),
   getQuestions: vi.fn(),
+  getResumablePracticeSession: vi.fn(),
   getReviewItem: vi.fn(),
   getReviewItems: vi.fn(),
   getReviewSummary: vi.fn(),
-  listCoachConversations: vi.fn(),
+  listMentorConversations: vi.fn(),
+  leavePracticeSession: vi.fn(),
   reindexKnowledgeSource: vi.fn(),
+  resumePracticeSession: vi.fn(),
   setKnowledgeSourceEnabled: vi.fn(),
   getMentorPlan: vi.fn(),
   streamTutor: vi.fn(),
-  streamCoachMessage: vi.fn(),
+  streamMentorMessage: vi.fn(),
   submitFsrsReview: vi.fn(),
   submitPracticeAnswer: vi.fn(),
   testEvaluationConnection: vi.fn(),
@@ -49,16 +52,16 @@ vi.mock('../api/client', () => ({
 }))
 
 const mockedGetOverview = vi.mocked(getOverview)
-const mockedCreateCoachConversation = vi.mocked(createCoachConversation)
-const mockedGetCoachConversation = vi.mocked(getCoachConversation)
+const mockedCreateMentorConversation = vi.mocked(createMentorConversation)
+const mockedGetMentorConversation = vi.mocked(getMentorConversation)
 const mockedGetKnowledgeSources = vi.mocked(getKnowledgeSources)
 const mockedGetKnowledgeSource = vi.mocked(getKnowledgeSource)
 const mockedUploadKnowledgeSource = vi.mocked(uploadKnowledgeSource)
 const mockedSetKnowledgeSourceEnabled = vi.mocked(setKnowledgeSourceEnabled)
 const mockedReindexKnowledgeSource = vi.mocked(reindexKnowledgeSource)
 const mockedDeleteKnowledgeSource = vi.mocked(deleteKnowledgeSource)
-const mockedListCoachConversations = vi.mocked(listCoachConversations)
-const mockedStreamCoachMessage = vi.mocked(streamCoachMessage)
+const mockedListMentorConversations = vi.mocked(listMentorConversations)
+const mockedStreamMentorMessage = vi.mocked(streamMentorMessage)
 const mockedGetLearningMemory = vi.mocked(getLearningMemory)
 const mockedClearLearningMemory = vi.mocked(clearLearningMemory)
 const mockedCreateSession = vi.mocked(createPracticeSession)
@@ -66,6 +69,8 @@ const mockedCreateReviewSession = vi.mocked(createReviewSession)
 const mockedGetPracticeSession = vi.mocked(getPracticeSession)
 const mockedGetQuestionBanks = vi.mocked(getQuestionBanks)
 const mockedGetQuestions = vi.mocked(getQuestions)
+const mockedGetResumablePracticeSession = vi.mocked(getResumablePracticeSession)
+const mockedResumePracticeSession = vi.mocked(resumePracticeSession)
 const mockedGetReviewSummary = vi.mocked(getReviewSummary)
 const mockedGetReviewItems = vi.mocked(getReviewItems)
 const mockedGetReviewItem = vi.mocked(getReviewItem)
@@ -80,6 +85,9 @@ const mockedGetEvaluationRun = vi.mocked(getEvaluationRun)
 const mockedTestEvaluationConnection = vi.mocked(testEvaluationConnection)
 
 const safety = '仅供教学研修或医生复核前辅助，不作为独立诊断依据。'
+const v32KnowledgeIndex = { index_version: 1, index_progress: 100, index_stage: '完成', index_job_id: null, index_error: null }
+const v32SessionState = { current_position: 0, reflection_status: 'clean', tutor_thread_id: 'tutor-thread-test' }
+const practicePath = '/practice?session_id=session-test&tutor_thread_id=tutor-thread-test'
 const baseQuestion = { id: 'q-1', bank_id: 'bank-a', domain_id: 'endoscopy', title: '胃部观察练习', stem: '请根据当前证据选择答案。', case_summary: '稳定的测试病例摘要。', modality: 'image' as const, image_url: '/assets/real_samples/endo_image_0.jpg', image_alt: '测试内镜图像', difficulty: 'easy' as const, tags: ['胃'], body_part: '胃', source_dataset: 'test', citation_note: 'test seed', doctor_review_required: true, safety_notice: safety, business_usage: 'user_ready' as const, official_explanation_available: true }
 const questionVariants: Question[] = [
   { ...baseQuestion, id: 'single', question_type: 'single_choice', options: [{ id: 'opt_01', text: '选项一' }, { id: 'opt_02', text: '选项二' }] },
@@ -120,16 +128,19 @@ function LocationProbe() {
 beforeEach(() => {
   vi.clearAllMocks()
   mockedGetOverview.mockResolvedValue(overview)
-  mockedListCoachConversations.mockResolvedValue([])
-  mockedGetKnowledgeSources.mockResolvedValue([{ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }])
-  mockedGetKnowledgeSource.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', preview: [] })
-  mockedUploadKnowledgeSource.mockResolvedValue({ id: 'source-user', title: '学习资料', file_name: 'note.md', scope: 'user', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 1, size_bytes: 10, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', preview: [] })
-  mockedSetKnowledgeSourceEnabled.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', preview: [] })
-  mockedReindexKnowledgeSource.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', preview: [] })
+  mockedGetResumablePracticeSession.mockResolvedValue(null)
+  mockedResumePracticeSession.mockResolvedValue({ tutor_thread_id: 'tutor-thread-resumed', practice_session_id: 'session-test', status: 'active' })
+  vi.mocked(leavePracticeSession).mockResolvedValue(undefined)
+  mockedListMentorConversations.mockResolvedValue([])
+  mockedGetKnowledgeSources.mockResolvedValue([{ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }])
+  mockedGetKnowledgeSource.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex, preview: [] })
+  mockedUploadKnowledgeSource.mockResolvedValue({ id: 'source-user', title: '学习资料', file_name: 'note.md', scope: 'user', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 1, size_bytes: 10, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex, preview: [] })
+  mockedSetKnowledgeSourceEnabled.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex, preview: [] })
+  mockedReindexKnowledgeSource.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex, preview: [] })
   mockedDeleteKnowledgeSource.mockResolvedValue({ status: 'deleted', api_source: 'backend' })
-  mockedCreateCoachConversation.mockResolvedValue({ id: 'coach-test', title: '新的带教对话', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', messages: [] })
-  mockedGetCoachConversation.mockResolvedValue({ id: 'coach-test', title: '今日复习', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', messages: [] })
-  mockedStreamCoachMessage.mockImplementation(async (_id, _message, onEvent) => {
+  mockedCreateMentorConversation.mockResolvedValue({ id: 'mentor-test', title: '新的带教对话', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', messages: [] })
+  mockedGetMentorConversation.mockResolvedValue({ id: 'mentor-test', title: '今日复习', created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', messages: [] })
+  mockedStreamMentorMessage.mockImplementation(async (_id, _message, onEvent) => {
     onEvent({ event: 'activity', data: { label: '已读取复习队列', status: 'completed' } })
     onEvent({ event: 'token', data: { text: '先处理 2 道到期复习，再完成一组短练习。' } })
   })
@@ -141,9 +152,9 @@ beforeEach(() => {
   mockedClearLearningMemory.mockResolvedValue({ learner_id: 'demo_learner', superseded_count: 0, preserved_attempt_history: true, preserved_review_history: true, api_source: 'backend' })
   mockedGetQuestionBanks.mockResolvedValue(banks)
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
-  mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'] })
-  mockedCreateReviewSession.mockResolvedValue({ session_id: 'session-review', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'review', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 1, question_ids: ['single'], selection_strategy: 'due_review', selection_reason: '复习队列', selection_evidence: [] })
-  mockedGetPracticeSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'], items: [] })
+  mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', ...v32SessionState, question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'] })
+  mockedCreateReviewSession.mockResolvedValue({ session_id: 'session-review', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'review', status: 'active', started_at: '2026-08-28T00:00:00Z', ...v32SessionState, question_count: 1, question_ids: ['single'], selection_strategy: 'due_review', selection_reason: '复习队列', selection_evidence: [] })
+  mockedGetPracticeSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', ...v32SessionState, question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'], items: [] })
   mockedSubmit.mockResolvedValue(submitResult('single'))
   mockedMentor.mockResolvedValue({ learner_id: 'demo_learner', domain_id: 'endoscopy', study_goal: '复盘', due_review_count: 1, focus: '胃', weak_areas: ['胃'], recent_errors: [], steps: [{ kind: 'review', title: '完成复习', question_ids: [] }] })
   mockedReview.mockResolvedValue({ review_card_id: 'review-test', question_id: 'single', domain_id: 'endoscopy', due_at: '2026-08-29T00:00:00Z', interval_days: 1, difficulty: 2, stability: 1, retrievability: .9, state: 'Learning', review_count: 1 })
@@ -214,7 +225,7 @@ describe('Stage 1 page contracts', () => {
     await user.click(screen.getByRole('button', { name: '自定义' }))
     await user.type(screen.getByLabelText('自定义题量'), '37')
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '开始练习' }))
-    expect(await screen.findByTestId('location-probe')).toHaveTextContent('/practice?bank_id=bank-b&count=37&mode=exam&session_id=session-test')
+    expect(await screen.findByTestId('location-probe')).toHaveTextContent('/practice?bank_id=bank-b&count=37&mode=exam&session_id=session-test&tutor_thread_id=tutor-thread-test')
   })
 
   it('supports all four discriminated question controls and typed submit payloads', async () => {
@@ -222,7 +233,7 @@ describe('Stage 1 page contracts', () => {
     for (const question of questionVariants) {
       mockedGetQuestions.mockResolvedValueOnce(questionsResponse([question]))
       mockedSubmit.mockResolvedValueOnce(submitResult(question.id))
-      const view = renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+      const view = renderPage(<PracticePage />, [practicePath])
       expect(await screen.findByTestId('practice-page')).toBeInTheDocument()
 
       if (question.question_type === 'single_choice') {
@@ -258,7 +269,7 @@ describe('Stage 1 page contracts', () => {
       orderedQuestions.find((question) => question.id === 'single')!,
     ]
     mockedGetQuestions.mockResolvedValue(questionsResponse(sessionQuestions))
-    mockedCreateSession.mockResolvedValueOnce({
+    mockedGetPracticeSession.mockResolvedValueOnce({
       session_id: 'session-adaptive',
       bank_id: 'bank-a',
       domain_id: 'endoscopy',
@@ -266,6 +277,7 @@ describe('Stage 1 page contracts', () => {
       mode: 'study',
       status: 'active',
       started_at: '2026-08-28T00:00:00Z',
+      ...v32SessionState,
       question_count: 2,
       question_ids: ['short', 'single'],
       selection_strategy: 'weak_topic',
@@ -273,7 +285,7 @@ describe('Stage 1 page contracts', () => {
       selection_evidence: ['「胃」当前掌握度 40.0%。'],
     })
 
-    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    renderPage(<PracticePage />, ['/practice?session_id=session-adaptive&tutor_thread_id=tutor-thread-test'])
     await screen.findByTestId('question-card')
     expect(screen.getByText('题干-short')).toBeInTheDocument()
     expect(screen.queryByText('本次按未练题与题库覆盖安排练习。')).not.toBeInTheDocument()
@@ -282,16 +294,30 @@ describe('Stage 1 page contracts', () => {
     expect(mockedGetQuestions).toHaveBeenLastCalledWith({ bankId: 'bank-a', sessionId: 'session-adaptive' })
   })
 
-  it('does not duplicate a server session under React StrictMode', async () => {
-    renderStrictPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+  it('does not create a new server session under React StrictMode', async () => {
+    renderStrictPage(<PracticePage />, [practicePath])
     await screen.findByTestId('question-card')
-    expect(mockedCreateSession).toHaveBeenCalledTimes(1)
+    expect(mockedCreateSession).not.toHaveBeenCalled()
+  })
+
+  it('uses page lifecycle events only as a best-effort practice checkpoint', async () => {
+    const view = renderPage(<PracticePage />, [practicePath])
+    await screen.findByTestId('practice-page')
+
+    fireEvent(window, new Event('pagehide'))
+    expect(leavePracticeSession).toHaveBeenCalledWith('session-test')
+
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+    fireEvent(document, new Event('visibilitychange'))
+    expect(leavePracticeSession).toHaveBeenCalledTimes(2)
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+    view.unmount()
   })
 
   it('opens a lightweight question map and navigates by real question position', async () => {
     const user = userEvent.setup()
     mockedGetQuestions.mockResolvedValueOnce(questionsResponse(questionVariants.slice(0, 2)))
-    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    renderPage(<PracticePage />, [practicePath])
     await screen.findByTestId('practice-page')
     await user.click(screen.getByRole('button', { name: '题单' }))
     expect(screen.getByRole('region', { name: '题单' })).toBeInTheDocument()
@@ -302,11 +328,11 @@ describe('Stage 1 page contracts', () => {
   it('resumes at the first unanswered item and keeps position and completion semantics separate', async () => {
     mockedGetQuestions.mockResolvedValueOnce(questionsResponse(questionVariants.slice(0, 3)))
     mockedGetPracticeSession.mockResolvedValueOnce({
-      session_id: 'session-resumed', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', question_count: 3, question_ids: ['single', 'multi', 'judge'], selection_strategy: 'coverage', selection_reason: '服务端会话。', selection_evidence: [],
+      session_id: 'session-resumed', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', ...v32SessionState, question_count: 3, question_ids: ['single', 'multi', 'judge'], selection_strategy: 'coverage', selection_reason: '服务端会话。', selection_evidence: [],
       items: [{ question_id: 'single', ordinal: 0, state: 'correct' }, { question_id: 'multi', ordinal: 1, state: 'incorrect' }, { question_id: 'judge', ordinal: 2, state: 'unanswered' }],
     })
 
-    renderPage(<PracticePage />, ['/practice?bank_id=bank-a&session_id=session-resumed'])
+    renderPage(<PracticePage />, ['/practice?session_id=session-resumed'])
     expect(await screen.findByText('第 3 / 3 题')).toBeInTheDocument()
     expect(screen.getByLabelText('已完成 2 / 3，67%')).toBeInTheDocument()
   })
@@ -315,7 +341,7 @@ describe('Stage 1 page contracts', () => {
     const user = userEvent.setup()
     mockedGetQuestions.mockResolvedValueOnce(questionsResponse([questionVariants[0]]))
     mockedSubmit.mockResolvedValueOnce({ ...submitResult('single'), official_explanation_available: false, explanation: '' })
-    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    renderPage(<PracticePage />, [practicePath])
     await screen.findByTestId('practice-page')
     await user.click(screen.getByRole('button', { name: /选项一/ }))
     await user.click(screen.getByTestId('submit-answer'))
@@ -400,7 +426,7 @@ describe('Stage 1 page contracts', () => {
 
   it('renders a continuous Tutor chat with real tool and source parts', async () => {
     const user = userEvent.setup()
-    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    renderPage(<PracticePage />, [practicePath])
     await screen.findByTestId('practice-page')
     await user.type(screen.getByLabelText('向智能辅导提问'), '请帮助我观察')
     await user.click(screen.getByLabelText('发送给智能辅导'))
@@ -408,17 +434,17 @@ describe('Stage 1 page contracts', () => {
     expect(screen.getByTestId('tutor-sources')).toHaveTextContent('test source')
   })
 
-  it('creates a persistent Coach conversation and renders real activity output', async () => {
+  it('creates a persistent Mentor conversation and renders real activity output', async () => {
     const user = userEvent.setup()
-    renderPage(<CoachPage />, ['/coach'])
-    expect(await screen.findByTestId('coach-page')).toBeInTheDocument()
+    renderPage(<MentorPage />, ['/mentor'])
+    expect(await screen.findByTestId('mentor-page')).toBeInTheDocument()
     expect(await screen.findByText('CMExam 官方解析库')).toBeInTheDocument()
     await user.type(screen.getByLabelText('向带教 Agent 提问'), '我今天应该先复习什么？')
     await user.click(screen.getByLabelText('发送给带教 Agent'))
     expect(await screen.findByText('先处理 2 道到期复习，再完成一组短练习。')).toBeInTheDocument()
     expect(screen.getByText('已读取复习队列')).toBeInTheDocument()
-    expect(mockedCreateCoachConversation).toHaveBeenCalledTimes(1)
-    expect(mockedStreamCoachMessage).toHaveBeenCalledWith('coach-test', '我今天应该先复习什么？', expect.any(Function), expect.any(AbortSignal))
+    expect(mockedCreateMentorConversation).toHaveBeenCalledTimes(1)
+    expect(mockedStreamMentorMessage).toHaveBeenCalledWith('mentor-test', '我今天应该先复习什么？', expect.any(Function), expect.any(AbortSignal))
   })
 
   it('deduplicates repeated citations and keeps extra sources collapsed by default', async () => {
@@ -430,7 +456,7 @@ describe('Stage 1 page contracts', () => {
       onEvent({ event: 'source', data: { document_name: '资料 C', section: '第三节', snippet: '第三条资料' } })
       onEvent({ event: 'token', data: { text: '已结合资料说明。' } })
     })
-    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    renderPage(<PracticePage />, [practicePath])
     await screen.findByTestId('practice-page')
     await user.type(screen.getByLabelText('向智能辅导提问'), '请解释')
     await user.click(screen.getByLabelText('发送给智能辅导'))
@@ -444,7 +470,7 @@ describe('Stage 1 page contracts', () => {
 
   it('uses a full-width text-only question layout and hides importer provenance copy', async () => {
     mockedGetQuestions.mockResolvedValueOnce(questionsResponse([textOnlyQuestion]))
-    renderPage(<PracticePage />, ['/practice?bank_id=bank-a'])
+    renderPage(<PracticePage />, [practicePath])
     expect(await screen.findByTestId('practice-page')).toBeInTheDocument()
     const questionCard = screen.getByTestId('question-card')
     expect(questionCard).toHaveClass('is-text-only')

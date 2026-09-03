@@ -28,7 +28,7 @@ const navGroups: NavGroup[] = [
     { to: '/practice', label: '刷题', icon: ClipboardCheck },
     { to: '/review', label: '错题与复习', icon: CircleAlert },
   ] },
-  { label: 'Agent', items: [{ to: '/coach', label: '带教 Agent', icon: GraduationCap }] },
+  { label: 'Agent', items: [{ to: '/mentor', label: '带教 Agent', icon: GraduationCap }] },
   { label: '题库工具', items: [{ to: '/factory', label: '题库导入', icon: Sparkles }] },
   { label: '知识', items: [{ to: '/knowledge', label: '知识库', icon: LibraryBig }] },
   { label: '模型', items: [{ to: '/eval', label: '模型评测', icon: FlaskConical }] },

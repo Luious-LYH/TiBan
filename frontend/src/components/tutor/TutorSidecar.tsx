@@ -10,7 +10,7 @@ type Turn = { id: string; role: 'user' | 'assistant'; text: string; sources?: So
 
 const starterPrompts = ['给我一点提示', '解释这道题', '为什么我这个选项错了？']
 
-export function TutorSidecar({ questionId, attemptId, learnerId = 'demo_learner', mode, open, onClose, contextLabel }: { questionId: string; attemptId?: string; learnerId?: string; mode: TutorMode; open: boolean; onClose: () => void; contextLabel?: string }) {
+export function TutorSidecar({ questionId, practiceSessionId, tutorThreadId, attemptId, learnerId = 'demo_learner', mode, open, onClose, contextLabel }: { questionId: string; practiceSessionId: string; tutorThreadId: string; attemptId?: string; learnerId?: string; mode: TutorMode; open: boolean; onClose: () => void; contextLabel?: string }) {
   const controller = useRef<AbortController | null>(null)
   const [message, setMessage] = useState('')
   const [turns, setTurns] = useState<Turn[]>([])
@@ -18,6 +18,12 @@ export function TutorSidecar({ questionId, attemptId, learnerId = 'demo_learner'
   const [activity, setActivity] = useState<string | null>(null)
   const [followTranscript, setFollowTranscript] = useState(true)
   const transcript = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    // A resumed or newly-created Practice Session deliberately starts a fresh
+    // Tutor thread. Do not let old prompt history leak into that workspace.
+    reset()
+  }, [practiceSessionId, tutorThreadId])
 
   useEffect(() => {
     const node = transcript.current
@@ -32,7 +38,6 @@ export function TutorSidecar({ questionId, attemptId, learnerId = 'demo_learner'
     const userTurn: Turn = { id: `user-${Date.now()}`, role: 'user', text }
     const assistantId = `assistant-${Date.now()}`
     const assistantTurn: Turn = { id: assistantId, role: 'assistant', text: '', sources: [], reasoning: [], activities: [] }
-    const conversation = [...turns, userTurn].slice(-12).map((turn) => ({ role: turn.role, content: turn.text }))
     const next = new AbortController()
     controller.current?.abort()
     controller.current = next
@@ -42,7 +47,7 @@ export function TutorSidecar({ questionId, attemptId, learnerId = 'demo_learner'
     setRunning(true)
     setActivity('正在整理回答…')
     try {
-      await streamTutor({ question_id: questionId, learner_id: learnerId, message: text, attempt_id: attemptId ?? null, mode, conversation }, (event) => handleEvent(event, assistantId), next.signal)
+      await streamTutor({ practice_session_id: practiceSessionId, tutor_thread_id: tutorThreadId, question_id: questionId, learner_id: learnerId, message: text, attempt_id: attemptId ?? null, mode }, (event) => handleEvent(event, assistantId), next.signal)
     } catch (reason) {
       if ((reason as Error).name !== 'AbortError') setTurns((current) => current.map((turn) => turn.id === assistantId ? { ...turn, error: (reason as Error).message } : turn))
     } finally { setRunning(false); setActivity(null) }

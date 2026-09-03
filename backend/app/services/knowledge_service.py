@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from datetime import datetime
 from uuid import uuid4
 
 import fitz
@@ -12,7 +13,7 @@ from docx import Document
 from sqlalchemy import func, select
 
 from app.db.database import SessionLocal
-from app.db.models import DocumentVersionModel, KnowledgeChunkModel, QuestionModel, SourceDocumentModel
+from app.db.models import BackgroundJobModel, DocumentVersionModel, KnowledgeChunkModel, QuestionModel, SourceDocumentModel
 from app.services.rag_service import MODEL_NAME, rag_service
 
 
@@ -43,9 +44,11 @@ class KnowledgeService:
             rows = list(session.scalars(statement.order_by(SourceDocumentModel.created_at.desc())))
             if not rows:
                 return []
+            latest_versions = self._latest_versions(session, [row.document_id for row in rows])
             counts = dict(session.execute(
                 select(KnowledgeChunkModel.document_id, func.count(KnowledgeChunkModel.chunk_id))
-                .where(KnowledgeChunkModel.document_id.in_([row.document_id for row in rows]))
+                .join(latest_versions, KnowledgeChunkModel.version_id == latest_versions.c.version_id)
+                .where(latest_versions.c.version_rank == 1)
                 .group_by(KnowledgeChunkModel.document_id)
             ).all())
             return [self._public(row, int(counts.get(row.document_id, 0))) for row in rows]
@@ -53,12 +56,21 @@ class KnowledgeService:
     def detail(self, document_id: str) -> dict[str, object]:
         with SessionLocal() as session:
             row = self._document(session, document_id)
+            latest_versions = self._latest_versions(session, [document_id])
+            latest_version_ids = select(latest_versions.c.version_id).where(latest_versions.c.version_rank == 1)
             chunks = list(session.scalars(select(KnowledgeChunkModel).where(
-                KnowledgeChunkModel.document_id == document_id
+                KnowledgeChunkModel.document_id == document_id,
+                KnowledgeChunkModel.version_id.in_(latest_version_ids),
             ).order_by(KnowledgeChunkModel.ordinal).limit(6)))
-            payload = self._public(row, int(session.scalar(select(func.count(KnowledgeChunkModel.chunk_id)).where(
-                KnowledgeChunkModel.document_id == document_id
-            )) or 0))
+            chunk_count = session.scalar(
+                select(func.count(KnowledgeChunkModel.chunk_id))
+                .join(latest_versions, KnowledgeChunkModel.version_id == latest_versions.c.version_id)
+                .where(
+                    latest_versions.c.version_rank == 1,
+                    KnowledgeChunkModel.document_id == document_id,
+                )
+            )
+            payload = self._public(row, int(chunk_count or 0))
             payload["preview"] = [{"section": item.parent_section, "page": item.page, "text": item.content[:700]} for item in chunks]
             return payload
 
@@ -75,11 +87,20 @@ class KnowledgeService:
         KNOWLEDGE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
         source_path = KNOWLEDGE_UPLOAD_DIR / f"{document_id}_{safe_name}"
         source_path.write_bytes(content)
-        return self._index(
-            document_id=document_id, source_path=source_path, title=Path(filename).name, file_name=Path(filename).name,
-            media_type=ALLOWED_TYPES[suffix], scope="user", namespace="user", domain_id=domain_id,
-            attribution=None, source_uri=None,
-        )
+        with SessionLocal() as session:
+            session.add(SourceDocumentModel(
+                document_id=document_id, domain_id=domain_id, bank_id=None, name=Path(filename).name,
+                media_type=ALLOWED_TYPES[suffix], content_hash="pending", status="queued", source_id=document_id,
+                business_usage="knowledge_base", license_gate_status="allow", ai_ingestion_allowed=True,
+                source_uri=str(source_path.resolve()), namespace="user", source_scope="user", file_name=Path(filename).name,
+                size_bytes=len(content), enabled=False, parser_version=None, index_stage="uploaded", index_progress=5,
+            ))
+            session.add(DocumentVersionModel(
+                version_id=f"{document_id}-pending", document_id=document_id, version_label="pending",
+                source_path=str(source_path.resolve()), content_hash="pending", parser="pending", status="queued",
+            ))
+            session.commit()
+        return self._enqueue_index(document_id, reason="upload")
 
     def set_enabled(self, document_id: str, enabled: bool) -> dict[str, object]:
         with SessionLocal() as session:
@@ -95,18 +116,25 @@ class KnowledgeService:
             version = session.scalar(select(DocumentVersionModel).where(DocumentVersionModel.document_id == document_id).order_by(DocumentVersionModel.created_at.desc()))
             if version is None or not Path(version.source_path).is_file():
                 raise ValueError("原始资料文件已不可用，无法重新索引。")
-            args = dict(document_id=document_id, source_path=Path(version.source_path), title=row.name, file_name=row.file_name or row.name,
-                        media_type=row.media_type, scope=row.source_scope, namespace=row.namespace, domain_id=row.domain_id,
-                        attribution=row.attribution, source_uri=row.source_uri)
-        self._purge(document_id, remove_document=False)
-        return self._index(**args)
+        return self._enqueue_index(document_id, reason="reindex")
 
     def delete(self, document_id: str) -> None:
         with SessionLocal() as session:
             row = self._document(session, document_id)
             versions = list(session.scalars(select(DocumentVersionModel).where(DocumentVersionModel.document_id == document_id)))
             paths = [Path(item.source_path) for item in versions]
-        self._purge(document_id, remove_document=True)
+        try:
+            self._purge(document_id, remove_document=True)
+        except Exception:
+            # Deleting canonical source metadata must remain possible while the
+            # derived vector service is offline; next rebuild drops old points.
+            with SessionLocal() as session:
+                session.query(KnowledgeChunkModel).filter_by(document_id=document_id).delete(synchronize_session=False)
+                session.query(DocumentVersionModel).filter_by(document_id=document_id).delete(synchronize_session=False)
+                row = session.get(SourceDocumentModel, document_id)
+                if row:
+                    session.delete(row)
+                session.commit()
         for path in paths:
             if KNOWLEDGE_UPLOAD_DIR in path.parents:
                 path.unlink(missing_ok=True)
@@ -187,6 +215,23 @@ class KnowledgeService:
 
     def _index(self, *, document_id: str, source_path: Path, title: str, file_name: str, media_type: str, scope: str, namespace: str, domain_id: str, attribution: str | None, source_uri: str | None) -> dict[str, object]:
         markdown, parser = self._parse(source_path)
+        # Include this canonical source in the worker's global rebuild while
+        # keeping its public status non-retrievable until the final commit.
+        with SessionLocal() as session:
+            pending = session.get(SourceDocumentModel, document_id)
+            if pending is not None:
+                # During a reindex, the previous canonical chunks and the
+                # currently active Qdrant representation remain valid until a
+                # complete replacement succeeds.  A new upload has no chunks
+                # yet and therefore stays non-retrievable while it is built.
+                has_existing_chunks = bool(session.scalar(select(func.count(KnowledgeChunkModel.chunk_id)).where(
+                    KnowledgeChunkModel.document_id == document_id,
+                )))
+                pending.enabled = True
+                pending.status = "ready" if has_existing_chunks else "indexing"
+                pending.business_usage = "knowledge_base"
+                pending.license_gate_status, pending.ai_ingestion_allowed = "allow", True
+                session.commit()
         rag_service.index_markdown(markdown, document_id=document_id, document_name=title, domain_id=domain_id, child_size=700,
                                    namespace=namespace, source_id=document_id, source_uri=source_uri, business_usage="knowledge_base",
                                    license_gate_status="allow", ai_ingestion_allowed=True, version_label=f"{PARSER_VERSION}-700")
@@ -195,12 +240,136 @@ class KnowledgeService:
             assert row is not None
             row.name, row.file_name, row.media_type = title, file_name, media_type
             row.source_scope, row.namespace, row.domain_id = scope, namespace, domain_id
+            state = rag_service.index_state()
             row.status, row.enabled, row.business_usage = "ready", True, "knowledge_base"
             row.license_gate_status, row.ai_ingestion_allowed = "allow", True
             row.attribution, row.source_uri = attribution, source_uri or str(source_path.resolve())
-            row.size_bytes, row.parser_version, row.embedding_model = source_path.stat().st_size, parser, MODEL_NAME
+            row.size_bytes, row.parser_version, row.embedding_model = source_path.stat().st_size, parser, str(state.get("model") or MODEL_NAME)
+            row.embedding_provider = str(state.get("provider") or "") or None
+            row.embedding_dimension = int(state["vector_dimension"]) if isinstance(state.get("vector_dimension"), int) else None
+            row.index_version = int(state.get("index_version") or 0)
+            row.index_stage, row.index_progress, row.index_error = "completed", 100, None
             session.commit()
         return self.detail(document_id)
+
+    def _enqueue_index(self, document_id: str, *, reason: str) -> dict[str, object]:
+        with SessionLocal() as session:
+            row = self._document(session, document_id)
+            # A repeated click while an existing job is queued/running is
+            # idempotent and returns the same truthful visible state.
+            existing = session.scalar(select(BackgroundJobModel).where(
+                BackgroundJobModel.target_id == document_id,
+                BackgroundJobModel.job_type == "knowledge_index",
+                BackgroundJobModel.status.in_(["queued", "running"]),
+            ).order_by(BackgroundJobModel.created_at.desc()))
+            if existing:
+                return self.detail(document_id)
+            job = BackgroundJobModel(
+                job_id=f"knowledge_index_{uuid4().hex[:12]}", job_type="knowledge_index", target_id=document_id,
+                status="queued", stage="queued", progress=0, idempotency_key=f"knowledge:{document_id}:{uuid4().hex[:10]}", detail={"reason": reason},
+            )
+            session.add(job)
+            has_existing_chunks = bool(session.scalar(select(func.count(KnowledgeChunkModel.chunk_id)).where(
+                KnowledgeChunkModel.document_id == document_id,
+            )))
+            # Reindexing is a read-safe replacement: keep a previously ready
+            # source eligible while the worker prepares the new version.  A
+            # first upload has no usable canonical chunks and remains hidden.
+            if reason == "reindex" and has_existing_chunks and row.enabled:
+                row.status, row.enabled = "ready", True
+            else:
+                row.status, row.enabled = ("rebuilding" if reason == "reindex" else "queued"), False
+            row.index_job_id, row.index_stage, row.index_progress, row.index_error = job.job_id, "queued", 0, None
+            session.commit()
+        try:
+            from app.workers.background_worker import process_knowledge_index_actor
+
+            process_knowledge_index_actor.send(job.job_id)
+        except Exception:
+            pass
+        return self.detail(document_id)
+
+    def process_index_job(self, job_id: str) -> dict[str, object]:
+        previous_state: dict[str, object] = {}
+        had_previous_chunks = False
+        with SessionLocal() as session:
+            job = session.get(BackgroundJobModel, job_id)
+            if job is None or job.job_type != "knowledge_index":
+                raise KeyError(job_id)
+            if job.status == "completed":
+                return {"job_id": job_id, "status": "completed"}
+            row = self._document(session, job.target_id)
+            version = session.scalar(select(DocumentVersionModel).where(DocumentVersionModel.document_id == row.document_id).order_by(DocumentVersionModel.created_at.desc()))
+            if version is None or not Path(version.source_path).is_file():
+                raise ValueError("原始资料文件已不可用，无法索引。")
+            had_previous_chunks = bool(session.scalar(select(func.count(KnowledgeChunkModel.chunk_id)).where(
+                KnowledgeChunkModel.document_id == row.document_id,
+            )))
+            previous_state = {
+                name: getattr(row, name)
+                for name in (
+                    "status", "enabled", "index_stage", "index_progress", "index_error",
+                    "embedding_model", "embedding_provider", "embedding_dimension", "index_version",
+                )
+            }
+            args = dict(document_id=row.document_id, source_path=Path(version.source_path), title=row.name, file_name=row.file_name or row.name,
+                        media_type=row.media_type, scope=row.source_scope, namespace=row.namespace, domain_id=row.domain_id,
+                        attribution=row.attribution, source_uri=row.source_uri)
+            job.status, job.stage, job.progress, job.started_at = "running", "解析文档", 15, datetime.utcnow()
+            # A ready source continues to serve its old complete index during
+            # replacement. New uploads with no chunks are hidden until ready.
+            if not had_previous_chunks:
+                row.status = "indexing"
+                row.enabled = False
+            row.index_stage, row.index_progress = "解析文档", 15
+            session.commit()
+        try:
+            with SessionLocal() as session:
+                job = session.get(BackgroundJobModel, job_id)
+                row = self._document(session, job.target_id) if job else None
+                assert job is not None and row is not None
+                job.stage, job.progress = "文本切分", 35
+                row.index_stage, row.index_progress = "文本切分", 35
+                # Do not delete the previous canonical version here.  The
+                # worker may still fail during parsing, embedding, or Qdrant
+                # replacement; retaining old chunks makes retry and recovery
+                # lossless.  The derived-index rebuild selects only the newest
+                # successful version for retrieval.
+                session.commit()
+            with SessionLocal() as session:
+                job = session.get(BackgroundJobModel, job_id)
+                row = self._document(session, job.target_id) if job else None
+                assert job is not None and row is not None
+                job.stage, job.progress = "生成向量", 65
+                row.index_stage, row.index_progress = "生成向量", 65
+                session.commit()
+            self._index(**args)
+            with SessionLocal() as session:
+                job = session.get(BackgroundJobModel, job_id)
+                row = self._document(session, job.target_id) if job else None
+                assert job is not None and row is not None
+                job.status, job.stage, job.progress, job.completed_at = "completed", "完成", 100, datetime.utcnow()
+                row.index_job_id, row.index_stage, row.index_progress, row.index_error = job_id, "完成", 100, None
+                session.commit()
+            return {"job_id": job_id, "status": "completed"}
+        except Exception as exc:
+            with SessionLocal() as session:
+                job = session.get(BackgroundJobModel, job_id)
+                row = self._document(session, job.target_id) if job else None
+                if job:
+                    job.status, job.stage, job.error_message, job.completed_at = "failed", "failed", type(exc).__name__, datetime.utcnow()
+                if row:
+                    if had_previous_chunks:
+                        # The old source/index remains usable. Surface the
+                        # failed replacement separately without downgrading a
+                        # truthful ready state or hiding the old evidence.
+                        for name, value in previous_state.items():
+                            setattr(row, name, value)
+                        row.index_stage, row.index_error = "failed", type(exc).__name__
+                    else:
+                        row.status, row.enabled, row.index_stage, row.index_error = "failed", False, "failed", type(exc).__name__
+                session.commit()
+            raise
 
     def _parse(self, source_path: Path) -> tuple[Path, str]:
         suffix = source_path.suffix.lower()
@@ -231,10 +400,30 @@ class KnowledgeService:
         return row
 
     @staticmethod
+    def _latest_versions(session: object, document_ids: list[str]):
+        """Return a ranked subquery selecting the newest version per source.
+
+        Version rows are retained for rollback and audit.  Learner-facing
+        counts/previews must describe the current canonical version only, so
+        historical chunks cannot inflate the visible inventory.
+        """
+
+        return select(
+            DocumentVersionModel.version_id,
+            DocumentVersionModel.document_id,
+            func.row_number().over(
+                partition_by=DocumentVersionModel.document_id,
+                order_by=(DocumentVersionModel.created_at.desc(), DocumentVersionModel.version_id.desc()),
+            ).label("version_rank"),
+        ).where(DocumentVersionModel.document_id.in_(document_ids)).subquery("latest_document_versions")
+
+    @staticmethod
     def _public(row: SourceDocumentModel, chunk_count: int) -> dict[str, object]:
         return {"id": row.document_id, "title": row.name, "file_name": row.file_name or row.name, "media_type": row.media_type,
                 "scope": row.source_scope, "status": row.status, "size_bytes": row.size_bytes, "chunk_count": chunk_count,
                 "enabled": row.enabled, "parser_version": row.parser_version, "embedding_model": row.embedding_model,
+                "embedding_provider": row.embedding_provider, "index_version": row.index_version, "index_job_id": row.index_job_id,
+                "index_stage": row.index_stage, "index_progress": row.index_progress, "index_error": row.index_error,
                 "attribution": row.attribution, "created_at": row.created_at, "updated_at": row.updated_at}
 
     @staticmethod

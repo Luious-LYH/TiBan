@@ -2,14 +2,18 @@
 
 ```text
 Allowed Markdown/PDF → heading-aware parse → PostgreSQL SourceDocument / DocumentVersion / KnowledgeChunk
-  → FastEmbed BAAI/bge-small-zh-v1.5 (512, L2) → Qdrant 1.13.2
+  → SiliconFlow/OpenAI-compatible BGE-M3 Embedding Provider → Qdrant
   → sparse | dense | RRF hybrid | hybrid + learned cross-encoder rerank
   → Citation(document, page, section, chunk)
 ```
 
-PostgreSQL is the canonical relational source for hashes, parser/version lineage and citations. Qdrant stores retrieval vectors only. The Tutor product path pins the frozen 180-character benchmarked document version; historical index versions remain available for reproducible benchmarks but cannot mix into user citations.
+PostgreSQL is the canonical relational source for hashes, parser/version lineage and citations. Qdrant stores retrieval vectors only. The Tutor product path pins the frozen 180-character benchmarked document version when a benchmark version is explicitly requested; ordinary product retrieval is filtered to the newest canonical version of each enabled source. Historical versions remain available for audit/reproducibility but cannot mix into current user citations.
 
-Sparse scoring uses Chinese character bigram overlap. Dense scoring uses the real `BAAI/bge-small-zh-v1.5` embedding model through FastEmbed. Hybrid applies RRF. The fourth benchmark chain uses the learned Apache-2.0 `cross-encoder/ms-marco-MiniLM-L6-v2`, not a lexical boost.
+Sparse scoring uses Chinese character bigram overlap. The online/default dense path
+uses `BAAI/bge-m3` through the configured SiliconFlow/OpenAI-compatible Embedding
+Provider. Self-hosted installations can explicitly use the lazy local FastEmbed
+fallback. Hybrid applies RRF; the optional reranking path uses the configured
+`BAAI/bge-reranker-v2-m3` Provider boundary and is not a lexical boost.
 
 The frozen `retrieval-eval-v2` benchmark contains 90 candidates (30
 development and 60 held-out test). On the held-out set, sparse reached
@@ -20,7 +24,7 @@ The English-trained cross-encoder is retained as a measured comparison/high-
 value path. These are portfolio benchmark results, not clinical effectiveness
 claims.
 
-User-facing source cards expose only source name, page and section plus a short snippet. Internal vector IDs and scores do not appear in the UI. Generated questions reuse the same SourceDocument/KnowledgeChunk relation.
+User-facing source cards expose only source name, page and section plus a short snippet. Internal vector IDs and scores do not appear in the UI. Generated questions reuse the same SourceDocument/KnowledgeChunk relation. The product retrieval query applies the same relational eligibility and latest-version gate before dense Qdrant filtering, so stale vector points cannot re-enter through sparse retrieval.
 
 ## Curated corpus boundary
 

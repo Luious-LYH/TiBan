@@ -131,21 +131,36 @@ class LLMProvider:
             and self._is_usable_api_key(config.LLM_FALLBACK_API_KEY)
             and config.LLM_FALLBACK_PROVIDER != "mock"
         )
-        configured = demo_configured or primary_configured or fallback_configured
-        active_provider = demo_attempts[0]["provider"] if demo_configured else config.LLM_PROVIDER if primary_configured else config.LLM_FALLBACK_PROVIDER
-        active_model = demo_attempts[0]["model"] if demo_configured else config.LLM_MODEL if primary_configured else config.LLM_FALLBACK_MODEL
+        final_fallback_configured = bool(
+            config.LLM_FINAL_FALLBACK_BASE_URL
+            and self._is_usable_api_key(config.LLM_FINAL_FALLBACK_API_KEY)
+            and config.LLM_FINAL_FALLBACK_PROVIDER != "mock"
+        )
+        configured = demo_configured or primary_configured or fallback_configured or final_fallback_configured
+        active_provider = demo_attempts[0]["provider"] if demo_configured else (
+            config.LLM_PROVIDER if primary_configured else (
+                config.LLM_FALLBACK_PROVIDER if fallback_configured else config.LLM_FINAL_FALLBACK_PROVIDER
+            )
+        )
+        active_model = demo_attempts[0]["model"] if demo_configured else (
+            config.LLM_MODEL if primary_configured else (
+                config.LLM_FALLBACK_MODEL if fallback_configured else config.LLM_FINAL_FALLBACK_MODEL
+            )
+        )
         return {
             "configured": configured,
             "provider": active_provider,
-            "base_url_configured": bool(demo_configured or config.LLM_BASE_URL or config.LLM_FALLBACK_BASE_URL),
+            "base_url_configured": bool(demo_configured or config.LLM_BASE_URL or config.LLM_FALLBACK_BASE_URL or config.LLM_FINAL_FALLBACK_BASE_URL),
             "api_key_configured": bool(
                 demo_configured
                 or self._is_usable_api_key(config.LLM_API_KEY)
                 or self._is_usable_api_key(config.LLM_FALLBACK_API_KEY)
+                or self._is_usable_api_key(config.LLM_FINAL_FALLBACK_API_KEY)
             ),
             "model": active_model,
             "mode": "provider" if configured else "rule",
             "fallback_provider_configured": fallback_configured,
+            "final_fallback_provider_configured": final_fallback_configured,
             "private_host_allowlist_configured": bool(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
             "private_host_allowlist_count": len(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
             "safety_notice": "真实 provider 仅用于公开教学样例和医生审核前辅助，不上传真实患者身份信息。",
@@ -376,6 +391,14 @@ class LLMProvider:
                     "base_url": self._normalize_base_url(config.LLM_FALLBACK_BASE_URL),
                     "api_key": config.LLM_FALLBACK_API_KEY,
                     "model": config.LLM_FALLBACK_MODEL,
+                }
+            )
+            candidates.append(
+                {
+                    "provider": config.LLM_FINAL_FALLBACK_PROVIDER,
+                    "base_url": self._normalize_base_url(config.LLM_FINAL_FALLBACK_BASE_URL),
+                    "api_key": config.LLM_FINAL_FALLBACK_API_KEY,
+                    "model": config.LLM_FINAL_FALLBACK_MODEL,
                 }
             )
         attempts: list[dict[str, str]] = []

@@ -35,6 +35,26 @@ class LLMConnectionTestRequest(BaseModel):
 
 class EmbeddingSettingsRequest(BaseModel):
     batch_size: int = Field(ge=1, le=64)
+    mode: str = Field(default="api", pattern="^(api|local)$")
+    provider: str = Field(default="siliconflow", min_length=1, max_length=80)
+    base_url: str = Field(default="", max_length=512)
+    api_key: str | None = Field(default=None, max_length=512)
+    model: str = Field(default="BAAI/bge-m3", min_length=1, max_length=180)
+    local_model: str = Field(default="BAAI/bge-small-zh-v1.5", min_length=1, max_length=180)
+    reranker_mode: str = Field(default="api", pattern="^(api|local)$")
+    reranker_provider: str = Field(default="siliconflow", min_length=1, max_length=80)
+    reranker_base_url: str = Field(default="", max_length=512)
+    reranker_api_key: str | None = Field(default=None, max_length=512)
+    reranker_model: str = Field(default="BAAI/bge-reranker-v2-m3", min_length=1, max_length=180)
+
+
+class EmbeddingConnectionTestRequest(BaseModel):
+    mode: str | None = Field(default=None, pattern="^(api|local)$")
+    provider: str | None = Field(default=None, min_length=1, max_length=80)
+    base_url: str | None = Field(default=None, max_length=512)
+    api_key: str | None = Field(default=None, max_length=512)
+    model: str | None = Field(default=None, min_length=1, max_length=180)
+    local_model: str | None = Field(default=None, min_length=1, max_length=180)
 
 
 class LLMSettingsPublic(BaseModel):
@@ -50,11 +70,22 @@ class LLMSettingsPublic(BaseModel):
 
 class EmbeddingSettingsPublic(BaseModel):
     mode: str
+    provider: str
+    base_url_configured: bool
+    api_key_configured: bool
     model: str
+    local_model: str
+    active_provider: str
+    active_model: str
+    reranker_mode: str
+    reranker_provider: str
+    reranker_model: str
     batch_size: int
     runtime_override: bool
     restores_default_on_restart: bool
     model_switch_supported: bool
+    knowledge_index_status: str
+    memory_index_status: str
 
 
 class SettingsResponse(BaseModel):
@@ -86,6 +117,14 @@ class EmbeddingTestResponse(BaseModel):
     ok: bool
     message: str | None = None
     result: dict[str, object] | None = None
+    api_source: str
+
+
+class IndexRebuildResponse(BaseModel):
+    job_id: str
+    status: str
+    stage: str
+    progress: int
     api_source: str
 
 
@@ -138,18 +177,18 @@ def restore_llm() -> dict[str, object]:
 
 
 @router.post("/embedding/test", response_model=EmbeddingTestResponse)
-def test_embedding() -> dict[str, object]:
+def test_embedding(request: EmbeddingConnectionTestRequest) -> dict[str, object]:
     try:
-        result = rag_service.prewarm()
+        result = runtime_settings_service.test_embedding_config(**request.model_dump())
         return {"ok": True, "result": result, "api_source": "backend"}
-    except Exception:
-        return {"ok": False, "message": "本地 Embedding 服务暂不可用，请检查模型缓存与运行环境。", "api_source": "backend"}
+    except Exception as exc:
+        return {"ok": False, "message": "Embedding 服务暂不可用，请检查当前实例配置与网络。", "result": {"error_type": type(exc).__name__}, "api_source": "backend"}
 
 
 @router.post("/embedding/apply", response_model=EmbeddingActionResponse)
 def apply_embedding(request: EmbeddingSettingsRequest) -> dict[str, object]:
     try:
-        embedding = runtime_settings_service.apply_embedding(batch_size=request.batch_size)
+        embedding = runtime_settings_service.apply_embedding(**request.model_dump())
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     return {"embedding": embedding, "api_source": "backend"}
@@ -158,3 +197,12 @@ def apply_embedding(request: EmbeddingSettingsRequest) -> dict[str, object]:
 @router.post("/embedding/restore", response_model=EmbeddingActionResponse)
 def restore_embedding() -> dict[str, object]:
     return {"embedding": runtime_settings_service.restore_embedding(), "api_source": "backend"}
+
+
+@router.post('/indexes/rebuild', response_model=IndexRebuildResponse)
+def rebuild_indexes() -> dict[str, object]:
+    try:
+        result = runtime_settings_service.enqueue_index_rebuild()
+        return {**result, 'api_source': 'backend'}
+    except Exception as exc:
+        raise HTTPException(503, '无法创建索引重建任务。') from exc

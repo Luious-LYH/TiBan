@@ -6,8 +6,10 @@ from time import perf_counter
 from contextvars import ContextVar
 from typing import Any
 
+from sqlalchemy import select
+
 from app.db.database import SessionLocal
-from app.db.models import PracticeSessionModel
+from app.db.models import PracticeSessionModel, TutorThreadModel
 from app.db.repositories import Stage1Repository
 from app.db.serializers import grading_question_payload, public_bank_payload, public_question_payload
 from app.domains import get_domain
@@ -116,6 +118,9 @@ class Stage1Service:
         try:
             created, selection = repository.create_session(learner_id, bank_id, mode, question_count, shuffle_seed, question_scope)
             items = repository.session_items(created.session_id)
+            from app.services.practice_session_service import practice_session_service
+            practice_session_service.abandon_other_active(learner_id=learner_id, except_session_id=created.session_id)
+            tutor_thread = practice_session_service.create_tutor_thread(session_id=created.session_id, learner_id=learner_id)
             return {
                 "session_id": created.session_id,
                 "learner_id": created.learner_id,
@@ -124,6 +129,9 @@ class Stage1Service:
                 "mode": created.mode,
                 "status": created.status,
                 "started_at": created.started_at,
+                "current_position": created.current_position,
+                "reflection_status": created.reflection_status,
+                "tutor_thread_id": tutor_thread["tutor_thread_id"],
                 "question_count": len(items),
                 "question_ids": [str(item["question_id"]) for item in items],
                 **selection,
@@ -140,6 +148,11 @@ class Stage1Service:
             items = repository.session_items(session_id)
             if state is not None:
                 items = [item for item in items if item["state"] == state]
+            active_thread = session.scalar(select(TutorThreadModel).where(
+                TutorThreadModel.practice_session_id == created.session_id,
+                TutorThreadModel.learner_id == created.learner_id,
+                TutorThreadModel.status == "active",
+            ).order_by(TutorThreadModel.last_active_at.desc()))
             return {
                 "session_id": created.session_id,
                 "learner_id": created.learner_id,
@@ -148,6 +161,9 @@ class Stage1Service:
                 "mode": created.mode,
                 "status": created.status,
                 "started_at": created.started_at,
+                "current_position": created.current_position,
+                "reflection_status": created.reflection_status,
+                "tutor_thread_id": active_thread.tutor_thread_id if active_thread else None,
                 "question_count": len(items),
                 "question_ids": [str(item["question_id"]) for item in items],
                 "items": items,
@@ -170,6 +186,7 @@ class Stage1Service:
                 bank_id,
                 request.session_id,
                 request.mode,
+                question_id=request.question_id,
             )
             timings["session_load_ms"] = round((perf_counter() - mark) * 1000, 3)
             mark = perf_counter()
@@ -190,6 +207,16 @@ class Stage1Service:
                 timings=timings,
             )
             timings["attempt_workflow_ms"] = round((perf_counter() - mark) * 1000, 3)
+            # Reflection only observes already committed deterministic state.
+            # This tiny lifecycle write/queue handoff never invokes LLM, RAG or
+            # embeddings on the submit path.
+            from app.services.practice_session_service import practice_session_service
+            practice_session_service.after_submission(session_id=practice_session.session_id, question_id=question.question_id)
+            # Long-term memory is deliberately not written on the objective
+            # submit path. Keep the timing contract explicit with a zero-cost
+            # phase so callers can distinguish "not run" from a missing
+            # measurement; Reflection observes the committed state later.
+            timings["memory_update_ms"] = 0.0
             mark = perf_counter()
             facts = list(question.expected_keywords or question.teaching_tags or [])[:4]
             feedback = [

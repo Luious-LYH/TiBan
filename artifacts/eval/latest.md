@@ -18,16 +18,16 @@
 | 安全边界判定准确率 | 100% |
 | 结构化输出率 | 100% |
 | 平均事实 F1 | 100% |
-| P50 / P95 | 4.236 / 5.786 ms |
+| P50 / P95 | 5.171 / 7.151 ms |
 
 ## 病例明细
 
 | 病例 | 分数 | 检索条数 | 上下文估算 Token | 延迟(ms) |
 |---|---:|---:|---:|---:|
-| case_esophagus_landmark | 100 | 5 | 126 | 4.353 |
-| case_polyp_followup | 100 | 5 | 128 | 4.236 |
-| case_negative_findings | 100 | 5 | 101 | 6.144 |
-| case_instrument_field | 100 | 5 | 128 | 4.119 |
-| case_capsule_anatomy | 100 | 3 | 83 | 2.606 |
+| case_esophagus_landmark | 100 | 5 | 126 | 4.504 |
+| case_polyp_followup | 100 | 5 | 128 | 4.036 |
+| case_negative_findings | 100 | 5 | 101 | 5.218 |
+| case_instrument_field | 100 | 5 | 128 | 7.634 |
+| case_capsule_anatomy | 100 | 3 | 83 | 5.171 |
 
 > Recall@K 使用“病例标题 + 标准事实标签 + 首个同义表达”的固定查询，衡量 19 条事实语料上的确定性检索回归，不代表开放问法或生产 RAG；毫秒级延迟不代表 VLM 推理速度。

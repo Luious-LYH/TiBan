@@ -14,12 +14,16 @@ from .models import (  # noqa: F401
     QuestionModel,
     AgentConversationModel,
     AgentMessageModel,
+    TutorThreadModel,
+    TutorMessageModel,
     ReviewCardModel,
     SourceDocumentModel,
     DocumentVersionModel,
     KnowledgeChunkModel,
     LearnerMasteryModel,
     LearningMemoryItemModel,
+    VectorIndexStateModel,
+    BackgroundJobModel,
     FactoryJobModel,
     QuestionRevisionModel,
     EvalDatasetModel,
@@ -166,6 +170,7 @@ def _upgrade_local_sqlite_domain_scope() -> None:
         inspector = inspect(connection)
         _upgrade_local_sqlite_factory_jobs(connection, inspector)
         _upgrade_local_sqlite_knowledge_sources(connection, inspector)
+        _upgrade_local_sqlite_v32_state(connection, inspector)
         for table_name in domain_tables:
             columns = {column["name"] for column in inspector.get_columns(table_name)}
             if "domain_id" not in columns:
@@ -246,6 +251,13 @@ def _upgrade_local_sqlite_knowledge_sources(connection: object, inspector: objec
         "enabled": "BOOLEAN NOT NULL DEFAULT 1",
         "parser_version": "VARCHAR(80)",
         "embedding_model": "VARCHAR(180)",
+        "embedding_provider": "VARCHAR(80)",
+        "embedding_dimension": "INTEGER",
+        "index_version": "INTEGER NOT NULL DEFAULT 0",
+        "index_job_id": "VARCHAR(150)",
+        "index_stage": "VARCHAR(48)",
+        "index_progress": "INTEGER NOT NULL DEFAULT 0",
+        "index_error": "TEXT",
         "updated_at": "DATETIME",
     }
     for name, definition in definitions.items():
@@ -257,6 +269,29 @@ def _upgrade_local_sqlite_knowledge_sources(connection: object, inspector: objec
     connection.execute(text("UPDATE source_documents SET updated_at = created_at WHERE updated_at IS NULL"))
     connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_source_scope ON source_documents (source_scope)"))
     connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_enabled ON source_documents (enabled)"))
+    connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_index_job_id ON source_documents (index_job_id)"))
+
+
+def _upgrade_local_sqlite_v32_state(connection: object, inspector: object) -> None:
+    """Non-destructively add V3.2 lifecycle fields for existing local data."""
+
+    session_columns = {column["name"] for column in inspector.get_columns("practice_sessions")}
+    session_definitions = {
+        "requested_question_count": "INTEGER NOT NULL DEFAULT 20",
+        "current_position": "INTEGER NOT NULL DEFAULT 0",
+        "completed_at": "DATETIME",
+        "updated_at": "DATETIME",
+        "reflection_dirty": "BOOLEAN NOT NULL DEFAULT 0",
+        "reflection_status": "VARCHAR(32) NOT NULL DEFAULT 'clean'",
+        "reflection_version": "INTEGER NOT NULL DEFAULT 0",
+        "last_reflected_at": "DATETIME",
+        "last_reflection_event_id": "VARCHAR(160)",
+    }
+    for name, definition in session_definitions.items():
+        if name not in session_columns:
+            connection.execute(text(f"ALTER TABLE practice_sessions ADD COLUMN {name} {definition}"))
+    connection.execute(text("UPDATE practice_sessions SET updated_at = last_active_at WHERE updated_at IS NULL"))
+    connection.execute(text("UPDATE agent_conversations SET agent_profile = 'mentor' WHERE agent_profile = 'coach'"))
 
 
 def _rebuild_sqlite_unique_scope(connection: object, table_name: str, expected_constraint: str) -> None:

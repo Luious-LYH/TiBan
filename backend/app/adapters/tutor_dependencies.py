@@ -14,7 +14,7 @@ from sqlalchemy import select
 from app.core import config
 from app.domains import get_domain
 from app.db.database import SessionLocal
-from app.db.models import AttemptModel, QuestionModel
+from app.db.models import AttemptModel, PracticeSessionItemModel, PracticeSessionModel, QuestionModel, TutorThreadModel
 from app.db.repositories import Stage1Repository
 from app.db.serializers import grading_question_payload
 from app.services.agent_runtime import (
@@ -24,28 +24,42 @@ from app.services.agent_runtime import (
     TutorDependencies,
 )
 from app.adapters.tutor_gateway import OpenAICompatibleTutorGateway
-from app.services.learning_memory_service import learning_memory_service
 from app.services.stage1_service import stage1_service
 
 
 def _question_context(context: AgentContext) -> dict[str, Any]:
-    # Public projection is deliberate: no grading payload reaches pre-submit tools.
-    return stage1_service.public_question(context.question_id)
+    """Build only current-session Tutor context; never learner history."""
 
-
-def _public_source(context: AgentContext) -> dict[str, str] | None:
-    try:
-        question = _question_context(context)
-    except Exception:
-        return None
-    return {
-        "document_name": str(question.get("source_dataset", "题目来源")),
-        "page": "题目来源",
-        "section": str(question.get("body_part", "观察要点")),
-        "snippet": str(question.get("citation_note", "当前题目的公开来源信息。")),
-        "source_uri": "",
-        "namespace": "question_source",
-    }
+    if not context.practice_session_id:
+        raise ValueError("practice_session_id required for Tutor")
+    with SessionLocal() as session:
+        practice = session.get(PracticeSessionModel, context.practice_session_id)
+        if practice is None or practice.learner_id != context.learner_id:
+            raise ValueError("practice session not found")
+        member = session.scalar(select(PracticeSessionItemModel).where(
+            PracticeSessionItemModel.practice_session_id == practice.session_id,
+            PracticeSessionItemModel.question_id == context.question_id,
+        ))
+        if member is None:
+            raise ValueError("question is not part of current practice session")
+        if not context.tutor_thread_id:
+            raise ValueError("tutor_thread_id required for Tutor")
+        thread = session.get(TutorThreadModel, context.tutor_thread_id)
+        if (
+            thread is None
+            or thread.practice_session_id != practice.session_id
+            or thread.learner_id != context.learner_id
+            or thread.status != "active"
+        ):
+            raise ValueError("Tutor thread is not an active thread for current practice session")
+        payload = stage1_service.public_question(context.question_id)
+        payload["practice_session"] = {
+            "session_id": practice.session_id,
+            "mode": practice.mode,
+            "question_count": int(practice.requested_question_count),
+            "current_position": int(practice.current_position),
+        }
+        return payload
 
 
 def _retrieve_knowledge(context: AgentContext) -> list[dict[str, str]]:
@@ -89,52 +103,12 @@ def _retrieve_knowledge(context: AgentContext) -> list[dict[str, str]]:
     return []
 
 
-def _learning_profile(context: AgentContext) -> dict[str, Any]:
-    overview = stage1_service.overview(context.learner_id)
-    return {
-        "attempt_count": overview["completed_today"],
-        "due_review_count": overview["due_review_count"],
-        "weak_areas": overview["weak_areas"],
-    }
-
-
-def _learning_memory(context: AgentContext) -> dict[str, Any]:
-    with SessionLocal() as session:
-        return learning_memory_service.retrieve_relevant(
-            session,
-            learner_id=context.learner_id,
-            question_id=context.question_id,
-            user_message=context.user_message,
-        )
-
-
-def _recent_mistakes(context: AgentContext) -> list[dict[str, Any]]:
-    with SessionLocal() as session:
-        rows = session.execute(
-            select(AttemptModel, QuestionModel)
-            .join(QuestionModel, QuestionModel.question_id == AttemptModel.question_id)
-            .where(AttemptModel.learner_id == context.learner_id, AttemptModel.correct.is_(False))
-            .order_by(AttemptModel.created_at.desc())
-            .limit(5)
-        ).all()
-    return [
-        {
-            "question_id": attempt.question_id,
-            "title": question.title,
-            "tags": list(question.teaching_tags or [question.body_part]),
-            "error_tags": list(attempt.error_tags or []),
-            "created_at": attempt.created_at.isoformat(),
-        }
-        for attempt, question in rows
-    ]
-
-
 def _grading_result(context: AgentContext) -> dict[str, Any]:
     if not context.attempt_id:
         raise ValueError("attempt_id required post submit")
     with SessionLocal() as session:
         attempt = session.get(AttemptModel, context.attempt_id)
-        if not attempt or attempt.learner_id != context.learner_id:
+        if not attempt or attempt.learner_id != context.learner_id or attempt.practice_session_id != context.practice_session_id:
             raise ValueError("attempt not found")
         return {"score": attempt.score, "correct": attempt.correct, "error_tags": attempt.error_tags}
 
@@ -158,43 +132,22 @@ def _answer_explanation(context: AgentContext) -> dict[str, Any]:
         }
 
 
-def _record_explicit_confusion(context: AgentContext, run_id: str) -> str | None:
-    with SessionLocal() as session:
-        question = session.get(QuestionModel, context.question_id)
-        if question is None:
-            return None
-        item = learning_memory_service.record_explicit_confusion(
-            session,
-            learner_id=context.learner_id,
-            question=question,
-            message=context.user_message,
-            tutor_run_id=run_id,
-        )
-        if item is None:
-            return None
-        session.commit()
-        return item.memory_id
-
-
 def build_tutor_dependencies() -> TutorDependencies:
     return TutorDependencies(
         question_context=_question_context,
         retrieve_knowledge=_retrieve_knowledge,
-        learning_profile=_learning_profile,
-        learning_memory=_learning_memory,
-        recent_mistakes=_recent_mistakes,
         grading_result=_grading_result,
         answer_explanation=_answer_explanation,
-        public_source=_public_source,
-        record_explicit_confusion=_record_explicit_confusion,
     )
 
 
 def configured_tutor_gateway() -> ModelGateway:
     from app.services.runtime_settings_service import runtime_settings_service
+    from app.services.llm_provider import llm_provider
 
     runtime_settings_service.sync()
     runtime_override = bool(runtime_settings_service.llm_public()["runtime_override"])
-    if (os.getenv("TUTOR_PROVIDER_ENABLED", "").strip().lower() == "true" or runtime_override) and config.LLM_BASE_URL and config.LLM_API_KEY:
+    provider_ready = bool(llm_provider.status().get("configured"))
+    if (os.getenv("TUTOR_PROVIDER_ENABLED", "").strip().lower() == "true" or runtime_override) and provider_ready:
         return OpenAICompatibleTutorGateway()
     return LocalPolicyModelGateway()

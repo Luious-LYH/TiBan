@@ -53,15 +53,41 @@ services:
       ENDO_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       # Read local provider configuration from the ignored root .env without
       # baking a gateway address or credential into the compose file.
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai_compatible}
+      LLM_PROVIDER: ${LLM_PROVIDER:-cloudflare_workers_ai}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-gpt-5.6-sol}
+      LLM_MODEL: ${LLM_MODEL:-@cf/qwen/qwen3-30b-a3b-fp8}
+      LLM_FALLBACK_PROVIDER: ${LLM_FALLBACK_PROVIDER:-openrouter}
+      LLM_FALLBACK_BASE_URL: ${LLM_FALLBACK_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_FALLBACK_API_KEY: ${LLM_FALLBACK_API_KEY:-}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-minimax/minimax-m3:free}
+      LLM_FINAL_FALLBACK_PROVIDER: ${LLM_FINAL_FALLBACK_PROVIDER:-bigmodel}
+      LLM_FINAL_FALLBACK_BASE_URL: ${LLM_FINAL_FALLBACK_BASE_URL:-https://open.bigmodel.cn/api/paas/v4}
+      LLM_FINAL_FALLBACK_API_KEY: ${LLM_FINAL_FALLBACK_API_KEY:-}
+      LLM_FINAL_FALLBACK_MODEL: ${LLM_FINAL_FALLBACK_MODEL:-GLM-5.3-Flash}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      BIGMODEL_API_KEY: ${BIGMODEL_API_KEY:-}
       model_reasoning_effort: ${model_reasoning_effort:-}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-25}
-      TUTOR_PROVIDER_ENABLED: ${TUTOR_PROVIDER_ENABLED:-false}
+      TUTOR_PROVIDER_ENABLED: ${TUTOR_PROVIDER_ENABLED:-true}
       LLM_PROVIDER_ALLOW_PRIVATE_NETWORK: ${LLM_PROVIDER_ALLOW_PRIVATE_NETWORK:-false}
       LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST: ${LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST:-}
+      FACTORY_PROVIDER_ENABLED: ${FACTORY_PROVIDER_ENABLED:-false}
+      EMBEDDING_MODE: ${EMBEDDING_MODE:-api}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-siliconflow}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-https://api.siliconflow.cn/v1}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-m3}
+      EMBEDDING_LOCAL_MODEL: ${EMBEDDING_LOCAL_MODEL:-BAAI/bge-small-zh-v1.5}
+      EMBEDDING_TIMEOUT_SECONDS: ${EMBEDDING_TIMEOUT_SECONDS:-30}
+      RERANKER_MODE: ${RERANKER_MODE:-api}
+      RERANKER_PROVIDER: ${RERANKER_PROVIDER:-siliconflow}
+      RERANKER_BASE_URL: ${RERANKER_BASE_URL:-https://api.siliconflow.cn/v1}
+      RERANKER_API_KEY: ${RERANKER_API_KEY:-}
+      RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
     volumes:
       # User-uploaded Factory sources must be visible to the separate
       # Dramatiq worker.  A named volume keeps the job's durable database row
@@ -88,6 +114,12 @@ services:
       - type: volume
         source: endotutor_embedding_cache
         target: /app/runtime/fastembed
+      # Instance-scoped Settings are runtime-only.  This small shared volume
+      # lets the API and Dramatiq worker observe an applied provider/key while
+      # keeping it outside PostgreSQL, browser state and the repository.
+      - type: volume
+        source: endotutor_runtime_state
+        target: /app/runtime/data
     ports:
       - "127.0.0.1:8000:8000"
     healthcheck:
@@ -106,7 +138,7 @@ services:
 
   worker:
     build: ./backend
-    command: ["dramatiq", "app.workers.factory_worker"]
+    command: ["dramatiq", "app.workers.factory_worker", "app.workers.background_worker"]
     environment:
       ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1
       ENDO_PROJECT_DATA_ROOT: /app/data
@@ -117,14 +149,40 @@ services:
       QDRANT_URL: http://qdrant:6333
       REDIS_URL: redis://redis:6379/0
       # Factory uses the same local-only provider configuration as the API.
-      LLM_PROVIDER: ${LLM_PROVIDER:-openai_compatible}
+      LLM_PROVIDER: ${LLM_PROVIDER:-cloudflare_workers_ai}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-gpt-5.6-sol}
+      LLM_MODEL: ${LLM_MODEL:-@cf/qwen/qwen3-30b-a3b-fp8}
+      LLM_FALLBACK_PROVIDER: ${LLM_FALLBACK_PROVIDER:-openrouter}
+      LLM_FALLBACK_BASE_URL: ${LLM_FALLBACK_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_FALLBACK_API_KEY: ${LLM_FALLBACK_API_KEY:-}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-minimax/minimax-m3:free}
+      LLM_FINAL_FALLBACK_PROVIDER: ${LLM_FINAL_FALLBACK_PROVIDER:-bigmodel}
+      LLM_FINAL_FALLBACK_BASE_URL: ${LLM_FINAL_FALLBACK_BASE_URL:-https://open.bigmodel.cn/api/paas/v4}
+      LLM_FINAL_FALLBACK_API_KEY: ${LLM_FINAL_FALLBACK_API_KEY:-}
+      LLM_FINAL_FALLBACK_MODEL: ${LLM_FINAL_FALLBACK_MODEL:-GLM-5.3-Flash}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      BIGMODEL_API_KEY: ${BIGMODEL_API_KEY:-}
       model_reasoning_effort: ${model_reasoning_effort:-}
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-25}
       LLM_PROVIDER_ALLOW_PRIVATE_NETWORK: ${LLM_PROVIDER_ALLOW_PRIVATE_NETWORK:-false}
       LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST: ${LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST:-}
+      FACTORY_PROVIDER_ENABLED: ${FACTORY_PROVIDER_ENABLED:-false}
+      EMBEDDING_MODE: ${EMBEDDING_MODE:-api}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-siliconflow}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-https://api.siliconflow.cn/v1}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      SILICONFLOW_API_KEY: ${SILICONFLOW_API_KEY:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-m3}
+      EMBEDDING_LOCAL_MODEL: ${EMBEDDING_LOCAL_MODEL:-BAAI/bge-small-zh-v1.5}
+      EMBEDDING_TIMEOUT_SECONDS: ${EMBEDDING_TIMEOUT_SECONDS:-30}
+      RERANKER_MODE: ${RERANKER_MODE:-api}
+      RERANKER_PROVIDER: ${RERANKER_PROVIDER:-siliconflow}
+      RERANKER_BASE_URL: ${RERANKER_BASE_URL:-https://api.siliconflow.cn/v1}
+      RERANKER_API_KEY: ${RERANKER_API_KEY:-}
+      RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
     volumes:
       - type: volume
         source: endotutor_factory_uploads
@@ -144,6 +202,9 @@ services:
       - type: volume
         source: endotutor_embedding_cache
         target: /app/runtime/fastembed
+      - type: volume
+        source: endotutor_runtime_state
+        target: /app/runtime/data
     depends_on:
       backend:
         condition: service_healthy
@@ -173,3 +234,4 @@ volumes:
   endotutor_redis_data:
   endotutor_factory_uploads:
   endotutor_embedding_cache:
+  endotutor_runtime_state:

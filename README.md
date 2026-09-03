@@ -47,7 +47,7 @@ TiBan 是一个面向消化内镜研修的智能学习平台。学习者可以�
 | 智能辅导 | 围绕当前题目提示、追问和讲解；回答需要资料时显示清晰出处 | 受控工具路由、语义检索、Citation、SSE 流式交互 |
 | 带教 Agent | 跨题库查看最近作答、复习队列、题库进度和学习记忆，帮助安排下一步 | 持久化对话、只读学习工具、跨会话上下文 |
 | 题库导入 | 校验已有 CSV / JSONL / Markdown，或从教学资料生成可审核题目 | 解析、来源绑定、Gate、Judge、Repair、Review / Publish |
-| 知识库 | 管理 PDF、DOCX、Markdown、TXT，查看解析片段并控制是否参与检索 | 文档版本、分段索引、FastEmbed、Qdrant |
+| 知识库 | 管理 PDF、DOCX、Markdown、TXT，查看解析片段并控制是否参与检索 | 文档版本、分段索引、BGE-M3 Provider、Qdrant |
 | 模型评测 | 查看检索与辅导评测中的案例、指标和证据关系 | Typed OpenAPI、离线评测 artifact、模型调用隔离 |
 
 ### 产品界面
@@ -61,7 +61,7 @@ TiBan 是一个面向消化内镜研修的智能学习平台。学习者可以�
   </tr>
   <tr>
     <td width="50%"><strong>题库详情与状态浏览</strong><br><img src="./docs/v3/evidence/readme/03-bank-detail-1440.png" alt="题库详情与题目状态" width="100%"></td>
-    <td width="50%"><strong>带教 Agent</strong><br><img src="./docs/v3/evidence/readme/05-coach-agent-1440.png" alt="带教 Agent 工作区" width="100%"></td>
+    <td width="50%"><strong>带教 Agent</strong><br><img src="./docs/v3/evidence/readme/05-mentor-agent-1440.png" alt="带教 Agent 工作区" width="100%"></td>
   </tr>
   <tr>
     <td width="50%"><strong>知识库</strong><br><img src="./docs/v3/evidence/readme/08-knowledge-library-1440.png" alt="知识库管理页面" width="100%"></td>
@@ -89,8 +89,8 @@ React 19 + TypeScript + Vite
         ▼
 FastAPI + Pydantic + SQLAlchemy
         ├─ PostgreSQL：题库、作答、复习、知识源和任务状态
-        ├─ Qdrant + FastEmbed：受治理知识检索
-        ├─ Redis + Dramatiq：可恢复的题库导入任务
+        ├─ Qdrant + BGE-M3 Provider：受治理知识检索与长期记忆语义索引
+        ├─ Redis + Dramatiq：可恢复的导入、索引与记忆整理任务
         ├─ py-fsrs：复习调度
         └─ OpenAI-compatible Provider：受安全边界约束的模型调用
 ```
@@ -160,13 +160,13 @@ TiBan is an agent-native adaptive question-bank and learning workspace for endos
 
 Learners choose a question bank, enter Practice or Exam, answer in a focused workspace, and ask the persistent learning assistant for hints or explanations. After submission, the platform records the attempt, updates mastery and FSRS scheduling, and keeps the result available for future review.
 
-The learning assistant understands the current question and learning mode. When an answer genuinely needs supporting material, it retrieves enabled sources and presents readable citations alongside the explanation. The Coach Agent extends that context across question banks and sessions so learners can ask what to review next, revisit recent mistakes, or explore a knowledge topic.
+The learning assistant understands the current question and learning mode. When an answer genuinely needs supporting material, it retrieves enabled sources and presents readable citations alongside the explanation. The Mentor Agent extends that context across question banks and sessions so learners can ask what to review next, revisit recent mistakes, or explore a knowledge topic.
 
 ### Core capabilities
 
 - **Question banks and Practice** — browse question states, start a focused session, submit answers, and continue through a durable learning loop.
 - **Contextual learning assistant** — controlled tools, mode-aware permissions, SSE streaming, retrieval status, and inline citations.
-- **Coach Agent** — cross-session view of recent attempts, review scheduling, bank progress, learning memory, and enabled knowledge sources.
+- **Mentor Agent** — cross-session view of recent attempts, review scheduling, bank progress, learning memory, and enabled knowledge sources.
 - **Question import** — validate CSV / JSONL / Markdown banks or generate reviewable drafts from teaching documents through a durable workflow.
 - **Knowledge library** — parse, index, enable, disable, reindex, and preview PDF, DOCX, Markdown, and TXT sources.
 - **Model evaluation** — inspect retrieval and tutoring cases through typed projections of existing evaluation artifacts.
@@ -178,8 +178,8 @@ React 19 + TypeScript + Vite
         │  generated OpenAPI client / SSE
         ▼
 FastAPI + PostgreSQL
-        ├─ Qdrant + FastEmbed for governed retrieval
-        ├─ Redis + Dramatiq for durable import jobs
+        ├─ Qdrant + BGE-M3 provider boundary for governed retrieval and semantic memory
+        ├─ Redis + Dramatiq for durable import, indexing, and reflection jobs
         ├─ FSRS for review scheduling
         └─ OpenAI-compatible providers behind a controlled boundary
 ```
@@ -202,7 +202,7 @@ Open `http://127.0.0.1:5173/` and follow:
 /banks → bank details → Practice → submit → Review
 ```
 
-See the [Demo Flow](./docs/v3/portfolio/V3_DEMO_FLOW.md), [tutoring and Coach Agent architecture](./docs/architecture/tutor-agent.md), and [data attribution policy](./THIRD_PARTY_DATA.md) for more details.
+See the [Demo Flow](./docs/v3/portfolio/V3_DEMO_FLOW.md), [Tutor and Mentor Agent architecture](./docs/architecture/tutor-agent.md), and [data attribution policy](./THIRD_PARTY_DATA.md) for more details.
 
 ### License and safety
 

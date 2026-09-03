@@ -123,6 +123,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/practice/sessions/resumable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resumable Session V3 */
+        get: operations["resumable_session_v3_api_v3_practice_sessions_resumable_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/practice/sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -134,6 +151,40 @@ export interface paths {
         get: operations["get_session_v3_api_v3_practice_sessions__session_id__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/practice/sessions/{session_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Session V3 */
+        post: operations["resume_session_v3_api_v3_practice_sessions__session_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/practice/sessions/{session_id}/leave": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Leave Session V3 */
+        post: operations["leave_session_v3_api_v3_practice_sessions__session_id__leave_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -219,23 +270,6 @@ export interface paths {
         put?: never;
         /** Practice Submit */
         post: operations["practice_submit_api_practice_submit_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v3/tutor/hint": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Rule Hint */
-        post: operations["rule_hint_api_v3_tutor_hint_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -466,7 +500,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v3/coach/conversations": {
+    "/api/v3/mentor/conversations": {
         parameters: {
             query?: never;
             header?: never;
@@ -474,17 +508,17 @@ export interface paths {
             cookie?: never;
         };
         /** List Conversations */
-        get: operations["list_conversations_api_v3_coach_conversations_get"];
+        get: operations["list_conversations_api_v3_mentor_conversations_get"];
         put?: never;
         /** Create Conversation */
-        post: operations["create_conversation_api_v3_coach_conversations_post"];
+        post: operations["create_conversation_api_v3_mentor_conversations_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v3/coach/conversations/{conversation_id}": {
+    "/api/v3/mentor/conversations/{conversation_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -492,7 +526,7 @@ export interface paths {
             cookie?: never;
         };
         /** Conversation Detail */
-        get: operations["conversation_detail_api_v3_coach_conversations__conversation_id__get"];
+        get: operations["conversation_detail_api_v3_mentor_conversations__conversation_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -501,7 +535,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v3/coach/conversations/{conversation_id}/stream": {
+    "/api/v3/mentor/conversations/{conversation_id}/stream": {
         parameters: {
             query?: never;
             header?: never;
@@ -511,7 +545,7 @@ export interface paths {
         get?: never;
         put?: never;
         /** Stream Message */
-        post: operations["stream_message_api_v3_coach_conversations__conversation_id__stream_post"];
+        post: operations["stream_message_api_v3_mentor_conversations__conversation_id__stream_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -756,6 +790,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/settings/indexes/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rebuild Indexes */
+        post: operations["rebuild_indexes_api_v3_settings_indexes_rebuild_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/evaluation/latest": {
         parameters: {
             query?: never;
@@ -988,23 +1039,6 @@ export interface paths {
         get: operations["platform_delivery_report_api_platform_delivery_report_get"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/platform/demo-check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Platform Demo Check */
-        post: operations["platform_demo_check_api_platform_demo_check_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1312,23 +1346,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/practice/tutor": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Practice Tutor */
-        post: operations["practice_tutor_api_practice_tutor_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/questions": {
         parameters: {
             query?: never;
@@ -1374,74 +1391,6 @@ export interface paths {
         put?: never;
         /** Submit Answer */
         post: operations["submit_answer_api_submit_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tutor/hint": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tutor Hint */
-        post: operations["tutor_hint_api_tutor_hint_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tutor/explain": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tutor Explain */
-        post: operations["tutor_explain_api_tutor_explain_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tutor/chat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Tutor Chat */
-        post: operations["tutor_chat_api_tutor_chat_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/tutor/challenge-benchmark": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Challenge Benchmark */
-        post: operations["challenge_benchmark_api_tutor_challenge_benchmark_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1839,40 +1788,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/skills": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Skills */
-        get: operations["list_skills_api_skills_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/skills/run": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Run Skill */
-        post: operations["run_skill_api_skills_run_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/audit": {
         parameters: {
             query?: never;
@@ -1959,18 +1874,6 @@ export interface components {
              */
             api_source: "backend";
         };
-        /** ChallengeBenchmarkRequest */
-        ChallengeBenchmarkRequest: {
-            /** Question Id */
-            question_id: string;
-            /** Selected Answer */
-            selected_answer: string;
-            /**
-             * Learner Id
-             * @default demo_learner
-             */
-            learner_id: string;
-        };
         /** ClearLearningMemoryRequest */
         ClearLearningMemoryRequest: {
             /**
@@ -1999,70 +1902,6 @@ export interface components {
             preserved_review_history: boolean;
             /** Api Source */
             api_source: string;
-        };
-        /** CoachConversationListResponse */
-        CoachConversationListResponse: {
-            /** Items */
-            items: components["schemas"]["CoachConversationPublic"][];
-            /**
-             * Api Source
-             * @default backend
-             */
-            api_source: string;
-        };
-        /** CoachConversationPublic */
-        CoachConversationPublic: {
-            /** Id */
-            id: string;
-            /** Title */
-            title: string;
-            /** Created At */
-            created_at: string;
-            /** Updated At */
-            updated_at: string;
-            /** Messages */
-            messages?: components["schemas"]["CoachMessagePublic"][];
-        };
-        /** CoachConversationResponse */
-        CoachConversationResponse: {
-            item: components["schemas"]["CoachConversationPublic"];
-            /**
-             * Api Source
-             * @default backend
-             */
-            api_source: string;
-        };
-        /** CoachMessagePublic */
-        CoachMessagePublic: {
-            /** Id */
-            id: string;
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "user" | "assistant";
-            /** Content */
-            content: string;
-            /** Activity */
-            activity?: {
-                [key: string]: unknown;
-            }[];
-            /** Sources */
-            sources?: {
-                [key: string]: unknown;
-            }[];
-            /** Created At */
-            created_at: string;
-        };
-        /** CoachMessageRequest */
-        CoachMessageRequest: {
-            /**
-             * Learner Id
-             * @default demo_learner
-             */
-            learner_id: string;
-            /** Message */
-            message: string;
         };
         /** DocumentUploadRequest */
         DocumentUploadRequest: {
@@ -2107,12 +1946,45 @@ export interface components {
             /** Api Source */
             api_source: string;
         };
+        /** EmbeddingConnectionTestRequest */
+        EmbeddingConnectionTestRequest: {
+            /** Mode */
+            mode?: string | null;
+            /** Provider */
+            provider?: string | null;
+            /** Base Url */
+            base_url?: string | null;
+            /** Api Key */
+            api_key?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Local Model */
+            local_model?: string | null;
+        };
         /** EmbeddingSettingsPublic */
         EmbeddingSettingsPublic: {
             /** Mode */
             mode: string;
+            /** Provider */
+            provider: string;
+            /** Base Url Configured */
+            base_url_configured: boolean;
+            /** Api Key Configured */
+            api_key_configured: boolean;
             /** Model */
             model: string;
+            /** Local Model */
+            local_model: string;
+            /** Active Provider */
+            active_provider: string;
+            /** Active Model */
+            active_model: string;
+            /** Reranker Mode */
+            reranker_mode: string;
+            /** Reranker Provider */
+            reranker_provider: string;
+            /** Reranker Model */
+            reranker_model: string;
             /** Batch Size */
             batch_size: number;
             /** Runtime Override */
@@ -2121,11 +1993,64 @@ export interface components {
             restores_default_on_restart: boolean;
             /** Model Switch Supported */
             model_switch_supported: boolean;
+            /** Knowledge Index Status */
+            knowledge_index_status: string;
+            /** Memory Index Status */
+            memory_index_status: string;
         };
         /** EmbeddingSettingsRequest */
         EmbeddingSettingsRequest: {
             /** Batch Size */
             batch_size: number;
+            /**
+             * Mode
+             * @default api
+             */
+            mode: string;
+            /**
+             * Provider
+             * @default siliconflow
+             */
+            provider: string;
+            /**
+             * Base Url
+             * @default
+             */
+            base_url: string;
+            /** Api Key */
+            api_key?: string | null;
+            /**
+             * Model
+             * @default BAAI/bge-m3
+             */
+            model: string;
+            /**
+             * Local Model
+             * @default BAAI/bge-small-zh-v1.5
+             */
+            local_model: string;
+            /**
+             * Reranker Mode
+             * @default api
+             */
+            reranker_mode: string;
+            /**
+             * Reranker Provider
+             * @default siliconflow
+             */
+            reranker_provider: string;
+            /**
+             * Reranker Base Url
+             * @default
+             */
+            reranker_base_url: string;
+            /** Reranker Api Key */
+            reranker_api_key?: string | null;
+            /**
+             * Reranker Model
+             * @default BAAI/bge-reranker-v2-m3
+             */
+            reranker_model: string;
         };
         /** EmbeddingTestResponse */
         EmbeddingTestResponse: {
@@ -2605,6 +2530,19 @@ export interface components {
              */
             learner_id: string;
         };
+        /** IndexRebuildResponse */
+        IndexRebuildResponse: {
+            /** Job Id */
+            job_id: string;
+            /** Status */
+            status: string;
+            /** Stage */
+            stage: string;
+            /** Progress */
+            progress: number;
+            /** Api Source */
+            api_source: string;
+        };
         /** JobRequest */
         JobRequest: {
             /** Document Id */
@@ -2658,6 +2596,24 @@ export interface components {
             parser_version?: string | null;
             /** Embedding Model */
             embedding_model?: string | null;
+            /** Embedding Provider */
+            embedding_provider?: string | null;
+            /**
+             * Index Version
+             * @default 0
+             */
+            index_version: number;
+            /** Index Job Id */
+            index_job_id?: string | null;
+            /** Index Stage */
+            index_stage?: string | null;
+            /**
+             * Index Progress
+             * @default 0
+             */
+            index_progress: number;
+            /** Index Error */
+            index_error?: string | null;
             /** Attribution */
             attribution?: string | null;
             /** Created At */
@@ -2693,6 +2649,24 @@ export interface components {
             parser_version?: string | null;
             /** Embedding Model */
             embedding_model?: string | null;
+            /** Embedding Provider */
+            embedding_provider?: string | null;
+            /**
+             * Index Version
+             * @default 0
+             */
+            index_version: number;
+            /** Index Job Id */
+            index_job_id?: string | null;
+            /** Index Stage */
+            index_stage?: string | null;
+            /**
+             * Index Progress
+             * @default 0
+             */
+            index_progress: number;
+            /** Index Error */
+            index_error?: string | null;
             /** Attribution */
             attribution?: string | null;
             /** Created At */
@@ -2816,6 +2790,70 @@ export interface components {
             items: components["schemas"]["LearningMemoryPublic"][];
             /** Api Source */
             api_source: string;
+        };
+        /** MentorConversationListResponse */
+        MentorConversationListResponse: {
+            /** Items */
+            items: components["schemas"]["MentorConversationPublic"][];
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** MentorConversationPublic */
+        MentorConversationPublic: {
+            /** Id */
+            id: string;
+            /** Title */
+            title: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+            /** Messages */
+            messages?: components["schemas"]["MentorMessagePublic"][];
+        };
+        /** MentorConversationResponse */
+        MentorConversationResponse: {
+            item: components["schemas"]["MentorConversationPublic"];
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** MentorMessagePublic */
+        MentorMessagePublic: {
+            /** Id */
+            id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant";
+            /** Content */
+            content: string;
+            /** Activity */
+            activity?: {
+                [key: string]: unknown;
+            }[];
+            /** Sources */
+            sources?: {
+                [key: string]: unknown;
+            }[];
+            /** Created At */
+            created_at: string;
+        };
+        /** MentorMessageRequest */
+        MentorMessageRequest: {
+            /**
+             * Learner Id
+             * @default demo_learner
+             */
+            learner_id: string;
+            /** Message */
+            message: string;
         };
         /** MentorPlanPublic */
         MentorPlanPublic: {
@@ -3053,6 +3091,35 @@ export interface components {
              */
             api_source: "backend";
         };
+        /** PracticeResumablePublic */
+        PracticeResumablePublic: {
+            /** Session Id */
+            session_id: string;
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "study" | "exam" | "review" | "practice";
+            /** Current Position */
+            current_position: number;
+            /**
+             * Last Active At
+             * Format: date-time
+             */
+            last_active_at: string;
+        };
+        /** PracticeResumableResponse */
+        PracticeResumableResponse: {
+            item?: components["schemas"]["PracticeResumablePublic"] | null;
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
         /** PracticeSessionCreateRequest */
         PracticeSessionCreateRequest: {
             /**
@@ -3101,12 +3168,24 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "active" | "completed";
+            status: "active" | "completed" | "abandoned";
             /**
              * Started At
              * Format: date-time
              */
             started_at: string;
+            /**
+             * Current Position
+             * @default 0
+             */
+            current_position: number;
+            /**
+             * Reflection Status
+             * @default clean
+             */
+            reflection_status: string;
+            /** Tutor Thread Id */
+            tutor_thread_id?: string | null;
             /** Question Count */
             question_count: number;
             /** Question Ids */
@@ -3146,12 +3225,24 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "active" | "completed";
+            status: "active" | "completed" | "abandoned";
             /**
              * Started At
              * Format: date-time
              */
             started_at: string;
+            /**
+             * Current Position
+             * @default 0
+             */
+            current_position: number;
+            /**
+             * Reflection Status
+             * @default clean
+             */
+            reflection_status: string;
+            /** Tutor Thread Id */
+            tutor_thread_id?: string | null;
             /** Question Count */
             question_count: number;
             /** Question Ids */
@@ -3858,20 +3949,6 @@ export interface components {
             /** Options */
             options: components["schemas"]["QuestionOptionPublic"][];
         };
-        /** SkillRunRequest */
-        SkillRunRequest: {
-            /** Skill Id */
-            skill_id: string;
-            /** Payload */
-            payload?: {
-                [key: string]: unknown;
-            };
-            /**
-             * Learner Id
-             * @default demo_learner
-             */
-            learner_id: string;
-        };
         /** SubmissionRequest */
         SubmissionRequest: {
             /** Question Id */
@@ -3955,87 +4032,12 @@ export interface components {
              */
             question_type: "true_false";
         };
-        /** TutorChatRequest */
-        TutorChatRequest: {
-            /** Question Id */
-            question_id: string;
-            /** Message */
-            message: string;
-            /**
-             * Learner Id
-             * @default demo_learner
-             */
-            learner_id: string;
-            /** Selected Answer */
-            selected_answer?: string | null;
-            /** Display Model Name */
-            display_model_name?: string | null;
-            /** Annotated Image Data Url */
-            annotated_image_data_url?: string | null;
-        };
-        /** TutorExplainRequest */
-        TutorExplainRequest: {
-            /** Question Id */
-            question_id: string;
-            /**
-             * Learner Id
-             * @default demo_learner
-             */
-            learner_id: string;
-            /** Selected Answer */
-            selected_answer?: string | null;
-        };
-        /** TutorHintRequest */
-        TutorHintRequest: {
-            /** Question Id */
-            question_id: string;
-            /**
-             * Learner Id
-             * @default demo_learner
-             */
-            learner_id: string;
-        };
-        /** TutorHintRequestV3 */
-        TutorHintRequestV3: {
-            /** Question Id */
-            question_id: string;
-            /**
-             * Learner Id
-             * @default demo_learner
-             */
-            learner_id: string;
-        };
-        /** TutorHintResponseV3 */
-        TutorHintResponseV3: {
-            /** Message */
-            message: string;
-            /**
-             * Mode
-             * @default rule
-             * @constant
-             */
-            mode: "rule";
-            /** Sources */
-            sources?: string[];
-            /**
-             * Event
-             * @default rule_hint
-             * @constant
-             */
-            event: "rule_hint";
-            /**
-             * Doctor Review Required
-             * @default true
-             */
-            doctor_review_required: boolean;
-            /**
-             * Safety Notice
-             * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
-             */
-            safety_notice: string;
-        };
         /** TutorStreamRequest */
         TutorStreamRequest: {
+            /** Practice Session Id */
+            practice_session_id: string;
+            /** Tutor Thread Id */
+            tutor_thread_id: string;
             /** Question Id */
             question_id: string;
             /**
@@ -4053,10 +4055,18 @@ export interface components {
              * @enum {string}
              */
             mode: "study" | "exam" | "review";
-            /** Conversation */
-            conversation?: {
-                [key: string]: string;
-            }[];
+        };
+        /** TutorThreadPublic */
+        TutorThreadPublic: {
+            /** Tutor Thread Id */
+            tutor_thread_id: string;
+            /** Practice Session Id */
+            practice_session_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "closed";
         };
         /** ValidationError */
         ValidationError: {
@@ -4316,6 +4326,37 @@ export interface operations {
             };
         };
     };
+    resumable_session_v3_api_v3_practice_sessions_resumable_get: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PracticeResumableResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_session_v3_api_v3_practice_sessions__session_id__get: {
         parameters: {
             query?: {
@@ -4337,6 +4378,71 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PracticeSessionDetailPublic"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_session_v3_api_v3_practice_sessions__session_id__resume_post: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TutorThreadPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leave_session_v3_api_v3_practice_sessions__session_id__leave_post: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+                abandon?: boolean;
+            };
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -4514,39 +4620,6 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    rule_hint_api_v3_tutor_hint_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TutorHintRequestV3"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TutorHintResponseV3"];
                 };
             };
             /** @description Validation Error */
@@ -5085,7 +5158,7 @@ export interface operations {
             };
         };
     };
-    list_conversations_api_v3_coach_conversations_get: {
+    list_conversations_api_v3_mentor_conversations_get: {
         parameters: {
             query?: {
                 learner_id?: string;
@@ -5102,7 +5175,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CoachConversationListResponse"];
+                    "application/json": components["schemas"]["MentorConversationListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5116,7 +5189,7 @@ export interface operations {
             };
         };
     };
-    create_conversation_api_v3_coach_conversations_post: {
+    create_conversation_api_v3_mentor_conversations_post: {
         parameters: {
             query?: {
                 learner_id?: string;
@@ -5133,7 +5206,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CoachConversationResponse"];
+                    "application/json": components["schemas"]["MentorConversationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5147,7 +5220,7 @@ export interface operations {
             };
         };
     };
-    conversation_detail_api_v3_coach_conversations__conversation_id__get: {
+    conversation_detail_api_v3_mentor_conversations__conversation_id__get: {
         parameters: {
             query?: {
                 learner_id?: string;
@@ -5166,7 +5239,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CoachConversationResponse"];
+                    "application/json": components["schemas"]["MentorConversationResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5180,7 +5253,7 @@ export interface operations {
             };
         };
     };
-    stream_message_api_v3_coach_conversations__conversation_id__stream_post: {
+    stream_message_api_v3_mentor_conversations__conversation_id__stream_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -5191,7 +5264,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CoachMessageRequest"];
+                "application/json": components["schemas"]["MentorMessageRequest"];
             };
         };
         responses: {
@@ -5543,7 +5616,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmbeddingConnectionTestRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -5552,6 +5629,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmbeddingTestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5605,6 +5691,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EmbeddingActionResponse"];
+                };
+            };
+        };
+    };
+    rebuild_indexes_api_v3_settings_indexes_rebuild_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexRebuildResponse"];
                 };
             };
         };
@@ -5981,40 +6087,6 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
-                };
-            };
-        };
-    };
-    platform_demo_check_api_platform_demo_check_post: {
-        parameters: {
-            query?: {
-                learner_id?: string;
-                persist?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -6518,43 +6590,6 @@ export interface operations {
             };
         };
     };
-    practice_tutor_api_practice_tutor_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_questions_api_questions_get: {
         parameters: {
             query?: {
@@ -6641,146 +6676,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SubmissionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    tutor_hint_api_tutor_hint_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TutorHintRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    tutor_explain_api_tutor_explain_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TutorExplainRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    tutor_chat_api_tutor_chat_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TutorChatRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    challenge_benchmark_api_tutor_challenge_benchmark_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChallengeBenchmarkRequest"];
             };
         };
         responses: {
@@ -7483,63 +7378,6 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
-                };
-            };
-        };
-    };
-    list_skills_api_skills_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    run_skill_api_skills_run_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SkillRunRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

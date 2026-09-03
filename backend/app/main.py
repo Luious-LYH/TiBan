@@ -7,12 +7,11 @@ from app.routers.banks import router as stage1_banks_router
 from app.routers.evaluation import router as stage1_evaluation_router
 from app.routers.practice import canonical_router as stage1_practice_router
 from app.routers.practice import legacy_router as stage1_practice_compat_router
-from app.routers.tutor import router as stage1_tutor_router
 from app.routers.tutor_agent import router as stage2_tutor_router
 from app.routers.learning import router as stage2_learning_router
 from app.routers.review import router as v31_review_router
 from app.routers.knowledge import router as v31_knowledge_router
-from app.routers.coach import router as v31_coach_router
+from app.routers.mentor import router as v32_mentor_router
 from app.routers.factory import router as stage2_factory_router
 from app.routers.assets import router as stage25_assets_router
 from app.routers.domains import router as domains_router
@@ -47,12 +46,11 @@ app.add_middleware(
 app.include_router(stage1_banks_router)
 app.include_router(stage1_practice_router)
 app.include_router(stage1_practice_compat_router)
-app.include_router(stage1_tutor_router)
 app.include_router(stage2_tutor_router)
 app.include_router(stage2_learning_router)
 app.include_router(v31_review_router)
 app.include_router(v31_knowledge_router)
-app.include_router(v31_coach_router)
+app.include_router(v32_mentor_router)
 app.include_router(stage2_factory_router)
 app.include_router(stage25_assets_router)
 app.include_router(domains_router)
@@ -72,6 +70,10 @@ def startup_database() -> None:
     # restart restores the Compose/.env defaults instead of retaining a key.
     from app.services.runtime_settings_service import runtime_settings_service
     runtime_settings_service.reset_shared()
+    # Requeue only durable pending evidence; a browser-close signal is never
+    # relied upon as the sole trigger for Reflection.
+    from app.services.memory_reflection_service import memory_reflection_service
+    memory_reflection_service.reconcile_inactive()
 
 
 @app.get("/")

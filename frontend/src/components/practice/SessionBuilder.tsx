@@ -31,6 +31,7 @@ export function SessionBuilder({ bankId, bankName, triggerClassName = 'bank-star
       if (mode === 'exam') params.set('mode', 'exam')
       if (scope !== 'all') params.set('scope', scope)
       params.set('session_id', session.session_id)
+      if (session.tutor_thread_id) params.set('tutor_thread_id', session.tutor_thread_id)
       navigate(`/practice?${params.toString()}`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : '暂时无法创建练习，请重试。')

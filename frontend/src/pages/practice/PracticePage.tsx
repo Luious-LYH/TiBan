@@ -1,9 +1,9 @@
 import { ArrowLeft, Bookmark, Check, CheckCircle2, ChevronRight, ImageIcon, ListChecks, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { createPracticeSession, getBankQuestionProgress, getPracticeSession, getQuestionBanks, getQuestions, setQuestionMark, submitFsrsReview, submitPracticeAnswer, type AnswerValue, type Question, type ReviewCard, type SessionResponse, type SubmitResult } from '../../api/client'
+import { getBankQuestionProgress, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, leavePracticeSession, resumePracticeSession, setQuestionMark, submitFsrsReview, submitPracticeAnswer, type AnswerValue, type PracticeResumable, type Question, type ReviewCard, type SubmitResult, type TutorThread } from '../../api/client'
 import { EmptyState, ErrorState, LoadingState } from '../../components/shared/AsyncState'
 import { TutorPanel } from '../../components/tutor/TutorPanel'
 
@@ -14,57 +14,60 @@ const modeLabels: Record<Mode, string> = { study: '刷题', exam: '考试', revi
 
 export function PracticePage() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const mode = normalizeMode(searchParams.get('mode'))
-  const bankId = searchParams.get('bank_id') ?? undefined
   const sessionId = searchParams.get('session_id') ?? undefined
+  const routeTutorThreadId = searchParams.get('tutor_thread_id') ?? undefined
   const [activeIndex, setActiveIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, AnswerValue | null>>({})
   const [results, setResults] = useState<Record<string, SubmitResult>>({})
   const [markOverrides, setMarkOverrides] = useState<Record<string, boolean>>({})
-  const questionCount = normalizeCount(searchParams.get('count'))
   const [tutorOpen, setTutorOpen] = useState(true)
   const [questionMapOpen, setQuestionMapOpen] = useState(false)
-  const [session, setSession] = useState<SessionResponse | null>(null)
-  const [sessionError, setSessionError] = useState<string | null>(null)
-  const sessionRequest = useRef<{ key: string; promise: Promise<SessionResponse> } | null>(null)
+  const [resumedThread, setResumedThread] = useState<TutorThread | null>(null)
+  const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | null>(null)
   const restoredPosition = useRef<string | null>(null)
   const queryClient = useQueryClient()
 
   const banksQuery = useQuery({ queryKey: ['question-banks'], queryFn: () => getQuestionBanks() })
   const restoredSessionQuery = useQuery({ queryKey: ['practice-session', sessionId], queryFn: () => getPracticeSession(sessionId ?? ''), enabled: Boolean(sessionId), retry: false })
+  const resumableQuery = useQuery({ queryKey: ['practice-session-resumable'], queryFn: () => getResumablePracticeSession(), enabled: !sessionId, retry: false })
   const restoredSession = restoredSessionQuery.data ?? null
-  const selectedBankId = bankId ?? restoredSession?.bank_id ?? banksQuery.data?.[0]?.bank_id
-  const activeSession = restoredSession ?? (session && session.bank_id === selectedBankId && session.mode === mode ? session : null)
+  const activeSession = restoredSession
+  const selectedBankId = restoredSession?.bank_id
+  const tutorThreadId = routeTutorThreadId ?? resumedThread?.tutor_thread_id
+  const resumeMutation = useMutation({ mutationFn: (targetSessionId: string) => resumePracticeSession(targetSessionId) })
   const questionsQuery = useQuery({
-    queryKey: ['practice-questions', selectedBankId, activeSession?.session_id ?? 'catalog-fallback'],
+    queryKey: ['practice-questions', selectedBankId, activeSession?.session_id],
     queryFn: () => getQuestions({ bankId: selectedBankId, sessionId: activeSession?.session_id }),
-    enabled: Boolean(selectedBankId) && Boolean(activeSession || sessionError),
+    enabled: Boolean(selectedBankId && activeSession?.session_id),
   })
   const marksQuery = useQuery({ queryKey: ['bank-question-progress', selectedBankId, 'marked'], queryFn: () => getBankQuestionProgress(selectedBankId ?? '', 'marked'), enabled: Boolean(selectedBankId) })
 
   useEffect(() => {
-    if (sessionId) return
-    if (!selectedBankId) return
-    const key = `${selectedBankId}:${mode}:${questionCount}`
-    let current = true
-    const activeRequest = sessionRequest.current?.key === key
-      ? sessionRequest.current.promise
-      : createPracticeSession(selectedBankId, 'demo_learner', mode, questionCount)
-    sessionRequest.current = { key, promise: activeRequest }
-    activeRequest
-      .then((nextSession) => { if (current) setSession(nextSession) })
-      .catch((error: unknown) => {
-        if (!current) return
-        if (sessionRequest.current?.key === key) sessionRequest.current = null
-        setSessionError(error instanceof Error ? error.message : '无法创建服务端练习 session。')
-      })
-    return () => { current = false }
-  }, [mode, questionCount, selectedBankId, sessionId])
+    // A direct session URL without an issued thread is a genuine resume.
+    // Resume preserves position while deliberately creating a fresh Tutor
+    // context; a new builder session already supplies its thread in the URL.
+    if (!sessionId || routeTutorThreadId || resumedThread || !restoredSession || resumeMutation.isPending) return
+    resumeMutation.mutate(sessionId, { onSuccess: setResumedThread })
+  }, [resumeMutation, resumedThread, restoredSession, routeTutorThreadId, sessionId])
+
+  useEffect(() => {
+    if (!activeSession?.session_id) return
+    const checkpoint = () => { void leavePracticeSession(activeSession.session_id).catch(() => undefined) }
+    const onVisibility = () => { if (document.visibilityState === 'hidden') checkpoint() }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', checkpoint)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', checkpoint)
+    }
+  }, [activeSession?.session_id])
 
   const questions = useMemo(() => {
     const items = questionsQuery.data?.items ?? []
-    return activeSession ? items : items.slice(0, questionCount)
-  }, [activeSession, questionCount, questionsQuery.data?.items])
+    return items
+  }, [questionsQuery.data?.items])
   const currentIndex = Math.min(activeIndex, Math.max(questions.length - 1, 0))
   const question = questions[currentIndex]
   const answer = question ? answers[question.id] ?? null : null
@@ -75,8 +78,9 @@ export function PracticePage() {
   useEffect(() => {
     if (!restoredSession || questions.length === 0 || restoredPosition.current === restoredSession.session_id) return
     const states = new Map((restoredSession.items ?? []).map((item) => [item.question_id, item.state]))
-    const firstUnanswered = questions.findIndex((item) => (states.get(item.id) ?? 'unanswered') === 'unanswered')
-    setActiveIndex(firstUnanswered >= 0 ? firstUnanswered : 0)
+    const savedPosition = Math.min(Math.max(restoredSession.current_position, 0), questions.length - 1)
+    const firstUnanswered = questions.findIndex((item, index) => index >= savedPosition && (states.get(item.id) ?? 'unanswered') === 'unanswered')
+    setActiveIndex(firstUnanswered >= 0 ? firstUnanswered : savedPosition)
     restoredPosition.current = restoredSession.session_id
   }, [questions, restoredSession])
 
@@ -87,6 +91,7 @@ export function PracticePage() {
 
   const submitMutation = useMutation({
     mutationFn: (payload: { question: Question; answer: AnswerValue }) => submitPracticeAnswer({ question_id: payload.question.id, selected_answer: payload.answer, session_id: activeSession?.session_id, mode, learner_id: learnerId }),
+    onMutate: () => setSaveStatus('saving'),
     onSuccess: (data, variables) => {
       setResults((current) => ({ ...current, [variables.question.id]: data }))
       void queryClient.invalidateQueries({ queryKey: ['overview'] })
@@ -95,7 +100,9 @@ export function PracticePage() {
       void queryClient.invalidateQueries({ queryKey: ['review-items'] })
       void queryClient.invalidateQueries({ queryKey: ['review-item'] })
       if (activeSession?.session_id) void queryClient.invalidateQueries({ queryKey: ['practice-session', activeSession.session_id] })
+      setSaveStatus('saved')
     },
+    onError: () => setSaveStatus(null),
   })
   const reviewMutation = useMutation({
     mutationFn: (payload: { questionId: string; rating: 'Again' | 'Hard' | 'Good' | 'Easy' }) => submitFsrsReview(payload.questionId, payload.rating),
@@ -110,9 +117,22 @@ export function PracticePage() {
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['question-banks'] }); void queryClient.invalidateQueries({ queryKey: ['bank-question-progress'] }); void queryClient.invalidateQueries({ queryKey: ['review-summary'] }); void queryClient.invalidateQueries({ queryKey: ['review-items'] }); void queryClient.invalidateQueries({ queryKey: ['review-item'] }) },
   })
 
-  if (banksQuery.isPending || (Boolean(sessionId) && restoredSessionQuery.isPending) || !selectedBankId || (!activeSession && !sessionError) || questionsQuery.isPending) return <LoadingState label="正在准备本次练习…" />
+  if (!sessionId) {
+    if (resumableQuery.isPending) return <LoadingState label="正在检查未完成练习…" />
+    if (resumableQuery.isError) return <ErrorState message={resumableQuery.error.message} onRetry={() => void resumableQuery.refetch()} />
+    return <PracticeEntryGate resumable={resumableQuery.data} onContinue={async (item) => {
+      const thread = await resumePracticeSession(item.session_id)
+      const params = new URLSearchParams({ session_id: item.session_id, tutor_thread_id: thread.tutor_thread_id, mode: item.mode === 'exam' ? 'exam' : item.mode === 'review' ? 'review' : 'study' })
+      navigate(`/practice?${params.toString()}`, { replace: true })
+    }} onChooseBank={async () => {
+      if (resumableQuery.data) await leavePracticeSession(resumableQuery.data.session_id, 'demo_learner', true)
+      navigate('/banks')
+    }} />
+  }
+  if (banksQuery.isPending || restoredSessionQuery.isPending || !selectedBankId || !activeSession || questionsQuery.isPending || (!routeTutorThreadId && resumeMutation.isPending)) return <LoadingState label="正在恢复本次练习…" />
   if (banksQuery.isError) return <ErrorState message={banksQuery.error.message} onRetry={() => void banksQuery.refetch()} />
   if (restoredSessionQuery.isError) return <ErrorState message="无法恢复本次练习 session。" onRetry={() => void restoredSessionQuery.refetch()} />
+  if (resumeMutation.isError) return <ErrorState message={resumeMutation.error.message} onRetry={() => { setResumedThread(null); resumeMutation.reset() }} />
   if (questionsQuery.isError) return <ErrorState message={questionsQuery.error.message} onRetry={() => void questionsQuery.refetch()} />
 
   function setAnswer(value: AnswerValue) {
@@ -137,7 +157,6 @@ export function PracticePage() {
 
   return <div className="practice-workspace" data-testid="practice-page">
     <main className="practice-main">
-      {sessionError && <div className="practice-session-note" role="status">本次练习暂时按题库内容展示：{sessionError}</div>}
       {questions.length === 0 ? <div className="practice-empty"><EmptyState title="当前题库还没有可用题目" detail="返回题库目录选择其他题库。" /></div> : question && <div className="practice-content">
         <Link className="practice-back" to="/banks"><ArrowLeft size={16} />返回题库</Link>
         <header className="practice-progress-bar">
@@ -154,16 +173,24 @@ export function PracticePage() {
           <AnswerControl question={question} answer={answer} disabled={Boolean(result)} result={result} onChoose={chooseOption} onText={setAnswer} />
           {submitMutation.isError && <div className="practice-inline-error" role="alert">提交失败：{submitMutation.error.message}</div>}
           {result && <ResultPanel question={question} result={result} mode={mode} reviewCard={reviewMutation.data?.question_id === question.id ? reviewMutation.data : undefined} reviewPending={reviewMutation.isPending} reviewError={reviewMutation.isError ? reviewMutation.error.message : undefined} onReview={(rating) => reviewMutation.mutate({ questionId: question.id, rating })} />}
-          <div className="practice-actions"><span /><button className="practice-submit" data-testid="submit-answer" onClick={submit} disabled={!isAnswered(answer) || submitMutation.isPending || Boolean(result)}>{submitMutation.isPending ? '正在记录…' : <><Check size={16} />提交答案</>}</button><button className="practice-next" data-testid="next-question" onClick={() => setActiveIndex((index) => Math.min(index + 1, questions.length - 1))} disabled={!result || currentIndex >= questions.length - 1}>下一题 <ChevronRight size={16} /></button></div>
+          <div className="practice-actions"><span className="practice-save-status" aria-live="polite">{saveStatus === 'saving' ? '正在保存学习进度…' : saveStatus === 'saved' ? (restoredSession?.reflection_status === 'completed' ? '学习记忆已更新' : '学习进度已保存') : ''}</span><button className="practice-submit" data-testid="submit-answer" onClick={submit} disabled={!isAnswered(answer) || submitMutation.isPending || Boolean(result)}>{submitMutation.isPending ? '正在记录…' : <><Check size={16} />提交答案</>}</button><button className="practice-next" data-testid="next-question" onClick={() => setActiveIndex((index) => Math.min(index + 1, questions.length - 1))} disabled={!result || currentIndex >= questions.length - 1}>下一题 <ChevronRight size={16} /></button></div>
         </section>
       </div>}
     </main>
-    {question && <TutorPanel questionId={question.id} attemptId={result?.attempt_id} learnerId={learnerId} mode={mode} open={tutorOpen} onClose={() => setTutorOpen(false)} contextLabel={learnerTopic(question.topic) ?? question.subject ?? displayBankName(selectedBank?.name) ?? '当前题目'} />}
+    {question && tutorThreadId && <TutorPanel questionId={question.id} practiceSessionId={activeSession.session_id} tutorThreadId={tutorThreadId} attemptId={result?.attempt_id} learnerId={learnerId} mode={mode} open={tutorOpen} onClose={() => setTutorOpen(false)} contextLabel={learnerTopic(question.topic) ?? question.subject ?? displayBankName(selectedBank?.name) ?? '当前题目'} />}
   </div>
 }
 
+function PracticeEntryGate({ resumable, onContinue, onChooseBank }: { resumable: PracticeResumable | null; onContinue: (item: PracticeResumable) => Promise<void>; onChooseBank: () => Promise<void> }) {
+  const [continuing, setContinuing] = useState(false)
+  const [choosing, setChoosing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (!resumable) return <div className="practice-empty"><EmptyState title="先从题库开始一组练习" detail="选择题库、题目范围和题量后，即可进入专注刷题。" /><button type="button" className="practice-submit" disabled={choosing} onClick={() => { setChoosing(true); void onChooseBank().catch((reason: unknown) => { setError(reason instanceof Error ? reason.message : '无法打开题库。'); setChoosing(false) }) }}>{choosing ? '正在打开…' : '选择题库'}</button>{error && <p role="alert">{error}</p>}</div>
+  const label = resumable.mode === 'exam' ? '考试' : resumable.mode === 'review' ? '错题复习' : '刷题'
+  return <div className="practice-resume-gate" role="dialog" aria-label="继续上次练习"><span>未完成练习</span><h1>继续上次{label}？</h1><p>会恢复到上次题目位置，并为智能辅导开启一段新的本次会话。</p>{error && <p role="alert">{error}</p>}<div><button type="button" className="practice-submit" disabled={continuing || choosing} onClick={() => { setContinuing(true); setError(null); void onContinue(resumable).catch((reason: unknown) => { setError(reason instanceof Error ? reason.message : '无法恢复上次练习。'); setContinuing(false) }) }}>{continuing ? '正在恢复…' : '继续上次练习'}</button><button type="button" className="practice-next" disabled={continuing || choosing} onClick={() => { setChoosing(true); setError(null); void onChooseBank().catch((reason: unknown) => { setError(reason instanceof Error ? reason.message : '无法重新选择题库。'); setChoosing(false) }) }}>{choosing ? '正在打开…' : '重新选择题库'}</button></div></div>
+}
+
 function normalizeMode(value: string | null): Mode { return value === 'exam' || value === 'review' ? value : 'study' }
-function normalizeCount(value: string | null) { const count = Number(value); return Number.isInteger(count) && count >= 1 && count <= 100 ? count : 20 }
 function isAnswered(value: AnswerValue | null): value is AnswerValue { return value !== null && (!(Array.isArray(value)) || value.length > 0) && (typeof value !== 'string' || value.trim().length > 0) }
 function learnerCaseSummary(value: string): string | null { const summary = value.trim(); return !summary || summary.includes('本地导入') || (summary.startsWith('来自 ') && summary.includes('真实题目') && summary.includes('上游来源与授权边界')) ? null : summary }
 function displayBankName(name?: string) { return name?.replace(/医疗\s*\/\s*消化内镜\s*·\s*Factory\s*生成题草稿库/g, '医疗 / 消化内镜 · 资料生成题库').replace(/\s*[（(]本地导入[）)]/g, '').trim() }

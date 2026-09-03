@@ -77,13 +77,9 @@ def apply_learning_outcome(session: Session, *, attempt: AttemptModel, question:
     mastery_started = datetime.utcnow()
     _rebuild_mastery(session, attempt.learner_id, question)
     timings["mastery_update_ms"] = round((datetime.utcnow() - mastery_started).total_seconds() * 1000, 3)
-    # Memory is a compact derived fact built only after the immutable attempt,
-    # mastery and FSRS state are already staged in this same transaction.
-    from app.services.learning_memory_service import learning_memory_service
-
-    memory_started = datetime.utcnow()
-    learning_memory_service.consolidate_attempt(session, attempt=attempt, question=question)
-    timings["memory_update_ms"] = round((datetime.utcnow() - memory_started).total_seconds() * 1000, 3)
+    # Long-term Learning Memory is intentionally not updated on this latency
+    # sensitive path. A later Reflection job may synthesize a typed candidate
+    # from the already committed Attempt/Mastery/FSRS evidence.
     return card_model
 
 
