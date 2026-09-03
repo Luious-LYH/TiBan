@@ -4,7 +4,7 @@ from pathlib import Path
 
 from sqlalchemy import func, inspect, select, text
 
-from app.core.config import DEMO_QBANK_BOOTSTRAP
+from app.core.config import DEMO_QBANK_BOOTSTRAP, DESKTOP_CMEXAM_BUNDLE
 
 from .database import Base, SessionLocal, engine
 from .models import (  # noqa: F401
@@ -130,6 +130,35 @@ def bootstrap_demo_qbank() -> dict[str, object]:
     return {"imported": imported, "counts": after, "status": "complete"}
 
 
+def bootstrap_desktop_cmexam() -> dict[str, object]:
+    """Populate the release-only desktop demo with the approved CMExam slice.
+
+    The desktop bundle intentionally imports only CMExam.  It must not require
+    the larger local CMB or Kvasir sources that are used by developer/acceptance
+    environments, and it remains idempotent on every subsequent launch.
+    """
+
+    expected = DEMO_QBANK_EXPECTATIONS["bank-cmexam-real"]
+    before = demo_qbank_counts()["bank-cmexam-real"]
+    if before >= expected:
+        return {"imported": 0, "counts": {"bank-cmexam-real": before}, "status": "complete"}
+
+    from app.services.qbank_import_service import CMEXAM_ROOT, import_cmexam
+
+    source_path = CMEXAM_ROOT / "data" / "test_with_annotations.csv"
+    if not source_path.is_file():
+        raise RuntimeError(
+            "TiBan 桌面版缺少内置 CMExam 数据资源，请重新下载完整 Windows 发布包。"
+        )
+    imported = int(import_cmexam(limit=expected))
+    after = demo_qbank_counts()["bank-cmexam-real"]
+    if after < expected:
+        raise RuntimeError(
+            f"TiBan 桌面版 CMExam 数据未达到预期题量：expected={expected}, found={after}"
+        )
+    return {"imported": imported, "counts": {"bank-cmexam-real": after}, "status": "complete"}
+
+
 def initialize_database() -> int:
     """Create the local schema and idempotently seed the catalog.
 
@@ -142,6 +171,9 @@ def initialize_database() -> int:
     _upgrade_local_sqlite_domain_scope()
     with SessionLocal() as session:
         seeded = seed_database(session)
+    if DESKTOP_CMEXAM_BUNDLE:
+        result = bootstrap_desktop_cmexam()
+        return seeded + int(result["imported"])
     if DEMO_QBANK_BOOTSTRAP:
         result = bootstrap_demo_qbank()
         return seeded + int(result["imported"])

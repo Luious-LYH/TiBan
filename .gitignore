@@ -9,6 +9,7 @@ backend/app/data/*.tmp
 backend/runtime/
 runtime_logs/
 frontend/release/
+frontend/desktop-data/
 frontend/artifacts/
 *.lnk
 data/external/

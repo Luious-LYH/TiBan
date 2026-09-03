@@ -16,15 +16,6 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
 BACKEND_DIR = BASE_DIR.parent
 PROJECT_DIR = BACKEND_DIR.parent
-UPLOAD_DIR = BACKEND_DIR / "runtime" / "uploads"
-RUNTIME_DATA_DIR = BACKEND_DIR / "runtime" / "data"
-
-# A clean clone deliberately excludes mutable runtime state.  Create the
-# local-only directories before constructing the default SQLite URL so a fresh
-# checkout can run the application and its regression suite without relying on
-# a developer's existing database folder.
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-RUNTIME_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 load_dotenv(PROJECT_DIR / ".env")
 load_dotenv(BACKEND_DIR / ".env")
@@ -35,6 +26,18 @@ def _env_first(*names: str, default: str = "") -> str:
         if value is not None and value.strip():
             return value.strip()
     return default
+
+
+RUNTIME_ROOT = Path(_env_first("TIBAN_RUNTIME_ROOT", "ENDO_RUNTIME_ROOT", default=str(BACKEND_DIR / "runtime")))
+UPLOAD_DIR = RUNTIME_ROOT / "uploads"
+RUNTIME_DATA_DIR = RUNTIME_ROOT / "data"
+
+# A clean clone deliberately excludes mutable runtime state.  Create the
+# local-only directories before constructing the default SQLite URL so a fresh
+# checkout can run the application and its regression suite without relying on
+# a developer's existing database folder.
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+RUNTIME_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 LOCAL_VQA_ROOT = Path(_env_first("ENDO_LOCAL_VQA_ROOT", default=str(PROJECT_DIR / "data" / "vqa")))
@@ -119,6 +122,12 @@ RERANKER_MODEL = _env_first("RERANKER_MODEL", default="BAAI/bge-reranker-v2-m3")
 # a redistributed product catalogue. Keep their bootstrap opt-in; public
 # clean-start and user-owned upload flows use the compact teaching seed.
 DEMO_QBANK_BOOTSTRAP = _env_first("ENDO_DEMO_QBANK_BOOTSTRAP", default="false").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+DESKTOP_CMEXAM_BUNDLE = _env_first("TIBAN_DESKTOP_CMEXAM_BUNDLE", default="false").lower() in {
     "1",
     "true",
     "yes",

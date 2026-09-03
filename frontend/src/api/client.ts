@@ -2,7 +2,14 @@ import createClient from 'openapi-fetch'
 
 import type { components, paths } from './generated'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+declare global {
+  interface Window {
+    __TIBAN_API_BASE__?: string
+  }
+}
+
+const runtimeApiBase = typeof window !== 'undefined' ? window.__TIBAN_API_BASE__ : undefined
+const API_BASE = runtimeApiBase ?? (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
 const api = createClient<paths>({ baseUrl: API_BASE })
 
 export type Question =

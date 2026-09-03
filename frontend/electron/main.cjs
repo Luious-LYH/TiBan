@@ -15,6 +15,34 @@ const distRoot = isPackaged ? path.join(process.resourcesPath, 'dist') : path.jo
 let backendProcess = null
 let staticServer = null
 let mainWindow = null
+let desktopDataRoot = null
+let desktopRuntimeRoot = null
+
+function ensureDesktopRuntime() {
+  if (!isPackaged) return
+  const fs = require('fs')
+  const userDataRoot = app.getPath('userData')
+  desktopDataRoot = path.join(userDataRoot, 'data')
+  desktopRuntimeRoot = path.join(userDataRoot, 'runtime')
+  fs.mkdirSync(desktopDataRoot, { recursive: true })
+  fs.mkdirSync(desktopRuntimeRoot, { recursive: true })
+
+  const bundledCmexamRoot = path.join(process.resourcesPath, 'desktop-data', 'external', 'CMExam')
+  const installedCmexamRoot = path.join(desktopDataRoot, 'external', 'CMExam')
+  const bundledCsv = path.join(bundledCmexamRoot, 'data', 'test_with_annotations.csv')
+  const installedCsv = path.join(installedCmexamRoot, 'data', 'test_with_annotations.csv')
+  if (!fs.existsSync(installedCsv)) {
+    if (!fs.existsSync(bundledCsv)) {
+      throw new Error('安装包缺少内置 CMExam 题库资源，请重新下载完整安装包。')
+    }
+    fs.mkdirSync(path.dirname(installedCsv), { recursive: true })
+    fs.copyFileSync(bundledCsv, installedCsv)
+    for (const fileName of ['LICENSE', 'README.md']) {
+      const source = path.join(bundledCmexamRoot, fileName)
+      if (fs.existsSync(source)) fs.copyFileSync(source, path.join(installedCmexamRoot, fileName))
+    }
+  }
+}
 
 function requestOk(url) {
   return new Promise((resolve) => {
@@ -40,6 +68,21 @@ async function waitFor(url, timeoutMs = 45000) {
 }
 
 function spawnBackend() {
+  const environment = {
+    ...process.env,
+    PYTHONUNBUFFERED: '1',
+    PYTHONDONTWRITEBYTECODE: '1',
+  }
+  if (isPackaged) {
+    environment.TIBAN_DESKTOP_CMEXAM_BUNDLE = 'true'
+    environment.ENDO_DEMO_QBANK_BOOTSTRAP = 'false'
+    environment.ENDO_PROJECT_DATA_ROOT = desktopDataRoot
+    environment.TIBAN_RUNTIME_ROOT = desktopRuntimeRoot
+    environment.ENDO_DATABASE_URL = `sqlite:///${path.join(desktopRuntimeRoot, 'data', 'stage1.sqlite3').replace(/\\/g, '/')}`
+  } else {
+    environment.ENDO_DEMO_QBANK_BOOTSTRAP = process.env.ENDO_DEMO_QBANK_BOOTSTRAP || 'true'
+    environment.ENDO_PROJECT_DATA_ROOT = process.env.ENDO_PROJECT_DATA_ROOT || path.join(codeRoot, 'data')
+  }
   backendProcess = spawn(
     'python',
     ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', backendPort],
@@ -47,12 +90,7 @@ function spawnBackend() {
       cwd: backendRoot,
       windowsHide: true,
       stdio: 'ignore',
-      env: {
-        ...process.env,
-        PYTHONUNBUFFERED: '1',
-        ENDO_DEMO_QBANK_BOOTSTRAP: process.env.ENDO_DEMO_QBANK_BOOTSTRAP || 'true',
-        ENDO_PROJECT_DATA_ROOT: process.env.ENDO_PROJECT_DATA_ROOT || path.join(codeRoot, 'data'),
-      },
+      env: environment,
     },
   )
 }
@@ -87,6 +125,7 @@ function safeJoin(root, requestPath) {
 
 function createStaticServer() {
   const fs = require('fs')
+  const indexPath = path.join(distRoot, 'index.html')
   return new Promise((resolve, reject) => {
     const server = http.createServer((req, res) => {
       const filePath = safeJoin(distRoot, req.url || '/')
@@ -100,8 +139,13 @@ function createStaticServer() {
           res.end('桌面页面资源读取失败。')
           return
         }
+        let responseData = data
+        if (isPackaged && targetPath === indexPath) {
+          const apiBaseScript = `<script>window.__TIBAN_API_BASE__=${JSON.stringify(`http://127.0.0.1:${backendPort}`)}</script>`
+          responseData = Buffer.from(data.toString('utf8').replace('</head>', `${apiBaseScript}</head>`), 'utf8')
+        }
         res.writeHead(200, { 'Content-Type': contentType(targetPath) })
-        res.end(data)
+        res.end(responseData)
       })
     })
     server.listen(0, '127.0.0.1', () => {
@@ -113,6 +157,7 @@ function createStaticServer() {
 }
 
 async function createWindow() {
+  ensureDesktopRuntime()
   await ensureBackend()
 
   const fs = require('fs')
