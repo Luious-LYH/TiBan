@@ -6,13 +6,11 @@
 
 把题库、刷题、智能辅导、知识检索与复习调度，组织成一条会持续积累的学习路径。
 
-[中文](#中文) · [English](#english)
+[English](./README.en.md)
 
 </div>
 
 ![TiBan 学习首页](./docs/v3/evidence/readme/01-overview-1440.png)
-
-## 中文
 
 ### 让每一道题都成为下一步学习的起点
 
@@ -151,67 +149,3 @@ npm run build
 - [知识检索管线](./docs/architecture/rag-pipeline.md)
 - [领域包与共享核心](./docs/architecture/domain-packs-v2.md)
 - [数据来源与许可边界](./THIRD_PARTY_DATA.md)
-
-## English
-
-### TiBan in one sentence
-
-TiBan is an agent-native adaptive question-bank and learning workspace designed to work across domain packs. It turns every answer into a next-step learning signal through contextual tutoring, governed retrieval, review scheduling, and persistent learning memory.
-
-### Product experience
-
-Learners choose a question bank, enter Practice or Exam, answer in a focused workspace, and ask the persistent learning assistant for hints or explanations. After submission, the platform records the attempt, updates mastery and FSRS scheduling, and keeps the result available for future review.
-
-The learning assistant understands the current question and learning mode. When an answer genuinely needs supporting material, it retrieves enabled sources and presents readable citations alongside the explanation. The Mentor Agent extends that context across question banks and sessions so learners can ask what to review next, revisit recent mistakes, or explore a knowledge topic.
-
-### Core capabilities
-
-- **Question banks and Practice** — browse question states, start a focused session, submit answers, and continue through a durable learning loop.
-- **Contextual learning assistant** — controlled tools, mode-aware permissions, SSE streaming, retrieval status, and inline citations.
-- **Mentor Agent** — cross-session view of recent attempts, review scheduling, bank progress, learning memory, and enabled knowledge sources.
-- **Question import** — validate CSV / JSONL / Markdown banks or generate reviewable drafts from teaching documents through a durable workflow.
-- **Knowledge library** — parse, index, enable, disable, reindex, and preview PDF, DOCX, Markdown, and TXT sources.
-- **Model evaluation** — inspect retrieval and tutoring cases through typed projections of existing evaluation artifacts.
-
-### Architecture
-
-```text
-React 19 + TypeScript + Vite
-        │  generated OpenAPI client / SSE
-        ▼
-FastAPI + PostgreSQL
-        ├─ Qdrant + BGE-M3 provider boundary for governed retrieval and semantic memory
-        ├─ Redis + Dramatiq for durable import, indexing, and reflection jobs
-        ├─ FSRS for review scheduling
-        └─ OpenAI-compatible providers behind a controlled boundary
-```
-
-The platform is designed for educational training and physician-review-before-use support. It does not replace clinical diagnosis or treatment decisions. Large third-party datasets and user uploads stay outside the public repository, with attribution and reuse boundaries documented in [`THIRD_PARTY_DATA.md`](./THIRD_PARTY_DATA.md).
-
-### Quick start
-
-Requirements: Python 3.12+, Node.js 22+, npm, and Docker Desktop.
-
-```bash
-git clone https://github.com/Luious-LYH/TiBan.git
-cd TiBan
-docker compose up --build
-```
-
-Open `http://127.0.0.1:5173/` and follow:
-
-```text
-/banks → bank details → Practice → submit → Review
-```
-
-See the [Demo Flow](./docs/v3/portfolio/V3_DEMO_FLOW.md), [Tutor and Mentor Agent architecture](./docs/architecture/tutor-agent.md), and [data attribution policy](./THIRD_PARTY_DATA.md) for more details.
-
-### License and safety
-
-Code follows the repository license. Third-party datasets and teaching sources retain their own attribution and reuse restrictions. TiBan is intended for educational training and physician-review-before-use support; it is not an independent diagnostic or treatment system.
-
-### 支持 TiBan | Support TiBan
-
-TiBan 由独立开发者持续维护。如果这个项目对你的学习或体验有帮助，欢迎通过[爱发电](https://afdian.com/a/tiban)支持后续改进与长期维护。
-
-TiBan is independently maintained. If it helps your learning or project experience, you can support its continued development on [Afdian](https://afdian.com/a/tiban).
