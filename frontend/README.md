@@ -7,7 +7,7 @@ The current shell exposes four product surfaces:
 - `/` — learning overview
 - `/banks` — question bank catalog
 - `/practice` — Practice with the persistent right-side Tutor
-- `/eval` — model evaluation
+- `/eval` — 评测实验室（模型评测与 RAG 评测）
 
 ## Development
 

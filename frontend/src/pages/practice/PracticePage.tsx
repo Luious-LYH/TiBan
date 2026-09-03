@@ -170,7 +170,7 @@ export function PracticePage() {
           <div className="practice-progress-track" aria-label={`已完成 ${completeCount} / ${questions.length}，${progress}%`}><i style={{ width: `${progress}%` }} /></div>
           <span className="practice-progress-percent">已完成 {progress}%</span>
           <div className="question-map-wrap"><button type="button" className="question-map-trigger" aria-expanded={questionMapOpen} aria-controls="question-map" onClick={() => setQuestionMapOpen((value) => !value)}><ListChecks size={15} />题单</button>{questionMapOpen && <QuestionMap questions={questions} currentIndex={currentIndex} results={results} marked={marked} sessionItems={restoredSession?.items} onJump={(index) => { setActiveIndex(index); setQuestionMapOpen(false) }} />}</div>
-          <button type="button" className={marked[question.id] ? 'practice-mark is-marked' : 'practice-mark'} onClick={() => { const next = !marked[question.id]; setMarkOverrides((current) => ({ ...current, [question.id]: next })); markMutation.mutate({ questionId: question.id, marked: next }) }}><Bookmark size={15} />{marked[question.id] ? '已标记' : '标记'}</button>
+          <button type="button" className={marked[question.id] ? 'practice-mark is-marked' : 'practice-mark'} onClick={() => { const next = !marked[question.id]; setMarkOverrides((current) => ({ ...current, [question.id]: next })); markMutation.mutate({ questionId: question.id, marked: next }) }}><Bookmark size={15} fill={marked[question.id] ? 'currentColor' : 'none'} />{marked[question.id] ? '已标记' : '标记'}</button>
         </header>
 
         <section className={`practice-question ${question.image_url ? 'has-image' : 'is-text-only'}`} data-testid="question-card" data-question-layout={question.image_url ? 'image' : 'text-only'}>

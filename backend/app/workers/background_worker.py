@@ -26,3 +26,11 @@ def rebuild_vector_indexes_actor(job_id: str) -> dict[str, object]:
     from app.services.runtime_settings_service import runtime_settings_service
 
     return runtime_settings_service.process_index_rebuild(job_id)
+
+
+@dramatiq.actor(max_retries=1, time_limit=1_800_000)
+def process_evaluation_lab_actor(run_id: str) -> dict[str, object]:
+    """Run one frozen Evaluation Lab candidate through the configured runtime."""
+    from app.services.evaluation_lab_service import evaluation_lab_service
+
+    return evaluation_lab_service.process_run(run_id)

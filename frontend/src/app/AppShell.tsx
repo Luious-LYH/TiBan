@@ -30,7 +30,7 @@ const navGroups: NavGroup[] = [
   { label: 'Agent', items: [{ to: '/mentor', label: '带教 Agent', icon: GraduationCap }] },
   { label: '题库工具', items: [{ to: '/factory', label: '题库导入', icon: Sparkles }] },
   { label: '知识', items: [{ to: '/knowledge', label: '知识库', icon: LibraryBig }] },
-  { label: '模型', items: [{ to: '/eval', label: '模型评测', icon: FlaskConical }] },
+  { label: '模型', items: [{ to: '/eval', label: '评测实验室', icon: FlaskConical }] },
   { label: '系统', items: [{ to: '/settings', label: '设置', icon: Settings }] },
 ]
 

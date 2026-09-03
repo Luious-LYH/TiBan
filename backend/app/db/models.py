@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.config import DEFAULT_DOMAIN_ID, DEFAULT_KNOWLEDGE_NAMESPACE
@@ -508,4 +508,108 @@ class EvalArtifactModel(Base):
     eval_run_id: Mapped[str] = mapped_column(ForeignKey("eval_runs.eval_run_id"), nullable=False, index=True)
     artifact_path: Mapped[str] = mapped_column(Text, nullable=False)
     artifact_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+# V3.3 Evaluation Lab intentionally has its own compact persistence graph.
+# The earlier ``Eval*`` tables remain the developer/CI portfolio regression
+# record; mixing those artifact-oriented runs into a learner-visible
+# leaderboard would make a frozen experiment impossible to reason about.
+class EvalSuiteModel(Base):
+    __tablename__ = "eval_suites"
+
+    suite_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    bank_id: Mapped[str] = mapped_column(ForeignKey("question_banks.bank_id"), nullable=False, index=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    bank_version: Mapped[str] = mapped_column(String(80), nullable=False)
+    bank_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    question_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    sample_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    seed: Mapped[int] = mapped_column(Integer, nullable=False)
+    suite_hash: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    prompt_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class EvalRagProfileModel(Base):
+    """An instance-scoped, reusable RAG comparison profile.
+
+    Profiles are deliberately separate from an experiment.  An experiment
+    stores the exact profile snapshot it ran with, while this table stores the
+    small set of configurations a user may want to reuse for a bank.
+    """
+
+    __tablename__ = "eval_rag_profiles"
+
+    profile_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    bank_id: Mapped[str] = mapped_column(ForeignKey("question_banks.bank_id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    mode: Mapped[str] = mapped_column(String(12), nullable=False, default="hybrid")
+    top_k: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    candidate_pool: Mapped[int] = mapped_column(Integer, nullable=False, default=20)
+    rerank_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    rrf_k: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    section_dedupe: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class EvalExperimentModel(Base):
+    __tablename__ = "eval_experiments"
+
+    experiment_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    experiment_type: Mapped[str] = mapped_column(String(24), nullable=False, index=True)
+    suite_id: Mapped[str] = mapped_column(ForeignKey("eval_suites.suite_id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", index=True)
+    fixed_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class EvalLabRunModel(Base):
+    __tablename__ = "eval_lab_runs"
+    __table_args__ = (
+        # Fresh local databases are bootstrapped with create_all rather than
+        # Alembic. Keep the same model-candidate guard in both paths. RAG
+        # baseline/variants have a non-null retrieval profile and intentionally
+        # do not collide on their shared answer model.
+        Index(
+            "uq_eval_lab_run_endpoint_model",
+            "experiment_id",
+            "provider_base_url",
+            "model",
+            unique=True,
+            sqlite_where=text("retrieval_profile IS NULL OR retrieval_profile = 'null'"),
+            postgresql_where=text("retrieval_profile IS NULL OR retrieval_profile = 'null'::json"),
+        ),
+    )
+
+    run_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    experiment_id: Mapped[str] = mapped_column(ForeignKey("eval_experiments.experiment_id"), nullable=False, index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("background_jobs.job_id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(180), nullable=False)
+    provider: Mapped[str] = mapped_column(String(120), nullable=False)
+    provider_base_url: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    model: Mapped[str] = mapped_column(String(180), nullable=False)
+    retrieval_profile: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued", index=True)
+    aggregate: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class EvalLabCaseModel(Base):
+    __tablename__ = "eval_lab_cases"
+
+    case_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("eval_lab_runs.run_id"), nullable=False, index=True)
+    question_id: Mapped[str] = mapped_column(ForeignKey("questions.question_id"), nullable=False, index=True)
+    valid_response: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    provider_success: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    context_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    retrieved_chunk_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    gold_chunk_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)

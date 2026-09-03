@@ -39,7 +39,20 @@ Practice / 智能辅导                         带教 Agent
 - `/mentor`: 带教 Agent；
 - `/knowledge`: 知识库；
 - `/factory`: 题库导入与题目生成；
-- `/eval`: 模型评测；
+- `/eval`: 评测实验室（模型评测与 RAG 评测）；
+
+## 评测实验室
+
+`/eval` 是与学习者作答状态隔离的工程评测工作区。每次创建 `EvalSuite`
+会冻结题库版本、随机种子、题目 ID 与 Prompt 版本；同一实验中的每个候选
+共享这一 Suite。模型实验使用实例当前运行时 Provider，固定 `temperature=0`
+和 `no-fallback`，不会接收或持久化请求级 API Key。
+
+RAG 实验额外冻结知识库快照、Embedding/index 版本、回答模型与 Prompt；
+Baseline 是当前 TiBan 默认 `RetrievalProfile`，最多可添加两个 Variant。
+所有 Variant 调用同一个 `RagService.retrieve(profile=...)`，因此评测不会
+产生第二套检索器。耗时 Run 使用 Redis + Dramatiq 和 `BackgroundJobModel`
+报告真实进度；无真实 gold chunk 标注时 `Recall@K` 保持为空，不推断指标。
 - `/settings`: 实例级智能服务设置。
 
 ## 数据与后台任务

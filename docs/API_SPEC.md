@@ -2,6 +2,30 @@
 
 Base URL: `http://127.0.0.1:8000/api`
 
+## V3.3 评测实验室
+
+用户评测入口是 `/api/v3/evaluation/lab`，只保留模型评测与 RAG 评测。
+`POST /suites` 会持久化冻结的 `bank_id`、题库版本哈希、题目 ID、样本量、
+seed、suite hash 与 Prompt 版本。页面通过 `GET /suites/latest?bank_id=...`
+读取最近保存的评测集；打开页面不会自动抽样，只有显式调用 `POST /suites`
+才会创建新评测集。模型实验固定 `temperature=0`、`allow_fallback=false`。
+
+`POST /experiments/model` 可在同一评测集下启动多个候选 Run，支持项目默认连接或
+一次性自定义 OpenAI-compatible `base_url`、`provider` 与 `api_key`。API Key 只存在
+于本次后台任务的运行时临时文件，不写入数据库、artifact、日志、trace 或 Redis/
+Dramatiq 消息。一个模型实验内，规范化后的 endpoint URL + 模型名构成候选唯一身份；
+`run_id` 仍是物理记录 ID，因此新的评测集可以再次评测同一候选。模型主表仅返回
+Accuracy、Valid Response Rate、Provider Success Rate、P50 Latency 与 Avg Tokens /
+Question。`POST /experiments/rag` 自动冻结默认基线，并最多接受两个
+`RetrievalProfile` 对比方案；知识库快照、Embedding/index 版本、回答模型、Prompt
+保持不变。RAG 主表仅返回 Answer Accuracy、P50 Latency、Avg Context Tokens 和最后
+一列 Recall@K；没有真实 Gold Evidence/chunk 标注时该值是 `null`。RAG 基线与对比
+方案可以共享回答模型，因为检索方案本身是它们的比较维度。
+
+耗时 Run 通过 Redis + Dramatiq 的 `BackgroundJobModel` 执行。前端轮询
+`GET /experiments/{experiment_id}` 获取持久化的真实状态、stage 与 progress；不会
+投射旧 portfolio artifact，也不会把密钥、原始推理或原始模型输出写入实验记录。
+
 本机 `8000` 被占用时，可以把后端启动到 `8001`。前端会优先连接具备 v3 能力的后端。
 
 ## v3 设计口径

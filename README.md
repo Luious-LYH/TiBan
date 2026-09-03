@@ -48,7 +48,7 @@ TiBan 是一个按领域组织题库、资料与学习进度的智能学习工�
 | 带教 Agent | 跨题库查看最近作答、复习队列、题库进度和学习记忆，帮助安排下一步 | 持久化对话、只读学习工具、跨会话上下文 |
 | 题库导入 | 校验已有 CSV / JSONL / Markdown，或从教学资料生成可审核题目 | 解析、来源绑定、Gate、Judge、Repair、Review / Publish |
 | 知识库 | 管理 PDF、DOCX、Markdown、TXT，查看解析片段并控制是否参与检索 | 文档版本、分段索引、BGE-M3 Provider、Qdrant |
-| 模型评测 | 查看检索与辅导评测中的案例、指标和证据关系 | Typed OpenAPI、离线评测 artifact、模型调用隔离 |
+| 评测实验室 | 冻结同一批题目与运行条件，对比候选模型和 RAG 检索方案 | EvalSuite、Durable Job、版本化 RetrievalProfile、Typed Output |
 
 ### 产品界面
 
@@ -78,7 +78,7 @@ TiBan 把 Agent 能力放在真实学习流程中：
 - **Persistent Learning Memory**：学习记忆来自真实作答与复盘事实，帮助系统理解近期薄弱点和下一步训练方向。
 - **FSRS 复习调度**：每次提交都会进入持续计算的复习链路，形成下一次练习的时间依据。
 - **Durable Question Factory**：资料解析、题目生成、质量门禁、Judge、修订、人工审核和发布都有明确状态，任务可以被追踪和恢复。
-- **Typed Model Evaluation**：模型评测与学习状态隔离，用案例和指标观察检索、辅导和模型调用的实际表现。
+- **Reproducible Evaluation Lab**：每次实验把题库版本、抽样题目、Prompt 与运行条件冻结为 EvalSuite；模型评测固定 temperature=0 和 no-fallback，RAG 评测只切换可版本化的 RetrievalProfile，并复用 Tutor/Mentor 的同一 RagService。
 - **Domain Pack 架构**：内容、术语与安全策略由领域包承载，学习引擎与 Agent 能力保持跨领域复用；仓库以 Medical / Endoscopy 和 General Science 展示这一扩展能力。
 
 ### 技术栈
@@ -113,7 +113,7 @@ docker compose up --build
 /banks → 题库详情 → 开始刷题 → Practice → 提交答案 → 错题与复习
 ```
 
-题库导入、知识库、带教 Agent、模型评测和设置，构成从资料到学习反馈的完整平台体验。
+题库导入、知识库、带教 Agent、评测实验室和设置，构成从资料到学习反馈的完整平台体验。
 
 本地回归：
 

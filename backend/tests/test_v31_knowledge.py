@@ -4,6 +4,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import fitz
+import pytest
 from docx import Document
 
 from app.db.database import SessionLocal
@@ -118,6 +119,32 @@ def test_knowledge_parser_supports_pdf_docx_markdown_and_txt(tmp_path: Path) -> 
         parsers.append(parser)
 
     assert parsers == ["heading-aware-markdown", "utf8-text", "python-docx", "pymupdf-page-aware"]
+
+
+def test_system_knowledge_sources_are_not_deletable() -> None:
+    token = uuid4().hex[:10]
+    document_id = f"v31-system-delete-{token}"
+    with SessionLocal() as session:
+        session.add(SourceDocumentModel(
+            document_id=document_id, domain_id="endoscopy", bank_id=None,
+            name="只读系统资料", media_type="text/markdown", content_hash=token,
+            status="ready", business_usage="knowledge_base", license_gate_status="allow",
+            ai_ingestion_allowed=True, namespace="system", source_scope="system", enabled=True,
+        ))
+        session.commit()
+    try:
+        with pytest.raises(PermissionError):
+            knowledge_service.delete(document_id)
+        with SessionLocal() as session:
+            source = session.get(SourceDocumentModel, document_id)
+            assert source is not None
+            assert source.enabled is True
+    finally:
+        with SessionLocal() as session:
+            source = session.get(SourceDocumentModel, document_id)
+            if source is not None:
+                session.delete(source)
+            session.commit()
 
 
 def test_listing_sources_never_requires_qdrant_and_legacy_retirement_is_logical(monkeypatch) -> None:

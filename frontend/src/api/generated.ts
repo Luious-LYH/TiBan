@@ -808,15 +808,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v3/evaluation/latest": {
+    "/api/v3/evaluation/lab/catalog": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Latest Evaluation */
-        get: operations["latest_evaluation_api_v3_evaluation_latest_get"];
+        /** Evaluation Lab Catalog */
+        get: operations["evaluation_lab_catalog_api_v3_evaluation_lab_catalog_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -825,15 +825,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v3/evaluation/datasets": {
+    "/api/v3/evaluation/lab/suites": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Evaluation Datasets */
-        get: operations["evaluation_datasets_api_v3_evaluation_datasets_get"];
+        get?: never;
+        put?: never;
+        /** Create Eval Suite */
+        post: operations["create_eval_suite_api_v3_evaluation_lab_suites_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/evaluation/lab/suites/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest Eval Suite */
+        get: operations["latest_eval_suite_api_v3_evaluation_lab_suites_latest_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -842,7 +859,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v3/evaluation/connection-test": {
+    "/api/v3/evaluation/lab/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rag Profiles */
+        get: operations["list_rag_profiles_api_v3_evaluation_lab_profiles_get"];
+        put?: never;
+        /** Save Rag Profile */
+        post: operations["save_rag_profile_api_v3_evaluation_lab_profiles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/evaluation/lab/profiles/{profile_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -851,15 +886,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Evaluation Connection Test */
-        post: operations["evaluation_connection_test_api_v3_evaluation_connection_test_post"];
-        delete?: never;
+        post?: never;
+        /** Delete Rag Profile */
+        delete: operations["delete_rag_profile_api_v3_evaluation_lab_profiles__profile_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v3/evaluation/runs": {
+    "/api/v3/evaluation/lab/experiments/model": {
         parameters: {
             query?: never;
             header?: never;
@@ -868,23 +903,74 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Evaluation Run */
-        post: operations["create_evaluation_run_api_v3_evaluation_runs_post"];
+        /** Create Model Experiment */
+        post: operations["create_model_experiment_api_v3_evaluation_lab_experiments_model_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v3/evaluation/runs/{eval_run_id}": {
+    "/api/v3/evaluation/lab/experiments/rag": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Read Evaluation Run */
-        get: operations["read_evaluation_run_api_v3_evaluation_runs__eval_run_id__get"];
+        get?: never;
+        put?: never;
+        /** Create Rag Experiment */
+        post: operations["create_rag_experiment_api_v3_evaluation_lab_experiments_rag_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/evaluation/lab/experiments/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest Evaluation Experiment */
+        get: operations["latest_evaluation_experiment_api_v3_evaluation_lab_experiments_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/evaluation/lab/experiments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Evaluation Experiments */
+        delete: operations["delete_evaluation_experiments_api_v3_evaluation_lab_experiments_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/evaluation/lab/experiments/{experiment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Evaluation Experiment */
+        get: operations["get_evaluation_experiment_api_v3_evaluation_lab_experiments__experiment_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2092,238 +2178,117 @@ export interface components {
             /** Api Source */
             api_source: string;
         };
-        /** EvaluationArtifactResponse */
-        EvaluationArtifactResponse: {
-            /** Artifact Available */
-            artifact_available: boolean;
-            /** Artifact Path */
-            artifact_path?: string | null;
-            /** Mode */
-            mode: string;
-            /** Metric Version */
-            metric_version?: string | null;
-            /**
-             * Sample Count
-             * @default 0
-             */
-            sample_count: number;
-            /** Metrics */
-            metrics?: {
-                [key: string]: unknown;
-            };
-            /** Cases */
-            cases?: {
-                [key: string]: unknown;
-            }[];
-            /** Probes */
-            probes?: components["schemas"]["EvaluationProbePublic"][];
-            /** Strategy Comparison */
-            strategy_comparison?: components["schemas"]["EvaluationStrategyPublic"][];
-            /** Created At */
-            created_at?: string | null;
-            /** Notice */
-            notice: string;
-            /**
-             * Safety Notice
-             * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
-             */
-            safety_notice: string;
-        };
-        /** EvaluationConnectionRequest */
-        EvaluationConnectionRequest: {
-            /** Base Url */
-            base_url: string;
-            /** Model */
-            model: string;
-            /** Api Key */
-            api_key: string;
-        };
-        /** EvaluationConnectionResponse */
-        EvaluationConnectionResponse: {
-            /** Ok */
-            ok: boolean;
-            /** Provider */
-            provider: string;
-            /** Model */
-            model: string;
-            /** Latency Ms */
-            latency_ms?: number | null;
-            /** Error */
-            error?: string | null;
-            /**
-             * Fallback
-             * @default false
-             */
-            fallback: boolean;
-            /**
-             * Key Persisted
-             * @default false
-             */
-            key_persisted: boolean;
-        };
-        /** EvaluationDatasetListResponse */
-        EvaluationDatasetListResponse: {
-            /** Items */
-            items: components["schemas"]["EvaluationDatasetPublic"][];
-            /**
-             * Api Source
-             * @default backend
-             */
-            api_source: string;
-        };
-        /** EvaluationDatasetPublic */
-        EvaluationDatasetPublic: {
-            /** Dataset Id */
-            dataset_id: string;
+        /** EvalBankPublic */
+        EvalBankPublic: {
+            /** Bank Id */
+            bank_id: string;
             /** Domain Id */
             domain_id: string;
             /** Name */
             name: string;
-            /** Description */
-            description: string;
-            /** Source Dataset */
-            source_dataset: string;
-            /** Modality */
-            modality: string;
             /** Version */
             version: string;
-            /** Dataset Hash */
-            dataset_hash: string;
-            /** Sample Count */
-            sample_count: number;
-            /** Supports Vision */
-            supports_vision: boolean;
-            /** Tutor Indexed */
-            tutor_indexed: boolean;
+            /** Eligible Question Count */
+            eligible_question_count: number;
         };
-        /** EvaluationEvidencePublic */
-        EvaluationEvidencePublic: {
-            /** Evidence Id */
-            evidence_id: string;
-            /** Label */
-            label: string;
-            /** Source Title */
-            source_title: string;
-            /** Section */
-            section: string;
-            /** Snippet */
-            snippet: string;
+        /** EvalSuitePublic */
+        EvalSuitePublic: {
+            /** Suite Id */
+            suite_id: string;
+            /** Bank Id */
+            bank_id: string;
+            /** Bank Name */
+            bank_name: string;
+            /** Sample Size */
+            sample_size: number;
+            /** Seed */
+            seed: number;
+            /** Suite Hash */
+            suite_hash: string;
+            /** Suite Short */
+            suite_short: string;
+            /** Bank Version */
+            bank_version: string;
+            /** Prompt Version */
+            prompt_version: string;
+            /** Created At */
+            created_at: string;
         };
-        /** EvaluationProbePublic */
-        EvaluationProbePublic: {
-            /** Id */
-            id: string;
-            /** Query */
-            query: string;
-            expected_evidence: components["schemas"]["EvaluationEvidencePublic"];
-            /** Retrieved */
-            retrieved?: components["schemas"]["EvaluationRetrievedEvidencePublic"][];
-            /** Hit At 1 */
-            hit_at_1: boolean;
-            /** Hit At 3 */
-            hit_at_3: boolean;
+        /** EvalSuiteRequest */
+        EvalSuiteRequest: {
+            /** Bank Id */
+            bank_id: string;
+            /**
+             * Sample Size
+             * @default 30
+             */
+            sample_size: number;
+            /** Seed */
+            seed?: number | null;
         };
-        /** EvaluationRetrievedEvidencePublic */
-        EvaluationRetrievedEvidencePublic: {
-            /** Evidence Id */
-            evidence_id: string;
-            /** Label */
-            label: string;
-            /** Source Title */
-            source_title: string;
-            /** Section */
-            section: string;
-            /** Snippet */
-            snippet: string;
-            /** Rank */
-            rank: number;
-            /** Score */
-            score?: number | null;
+        /** EvaluationCatalogResponse */
+        EvaluationCatalogResponse: {
+            /** Banks */
+            banks: components["schemas"]["EvalBankPublic"][];
+            /** Runtime Models */
+            runtime_models: string[];
+            default_profile: components["schemas"]["RetrievalProfilePublic"];
+            /** Prompt Version */
+            prompt_version: string;
         };
-        /** EvaluationRunRequest */
-        EvaluationRunRequest: {
+        /** EvaluationDeleteResponse */
+        EvaluationDeleteResponse: {
+            /** Deleted Experiment Count */
+            deleted_experiment_count: number;
+            /** Deleted Run Count */
+            deleted_run_count: number;
+        };
+        /** EvaluationExperimentResponse */
+        EvaluationExperimentResponse: {
+            /** Experiment Id */
+            experiment_id: string;
+            /**
+             * Experiment Type
+             * @enum {string}
+             */
+            experiment_type: "model" | "rag";
+            /** Status */
+            status: string;
+            suite: components["schemas"]["EvalSuitePublic"];
+            /** Fixed Snapshot */
+            fixed_snapshot: {
+                [key: string]: unknown;
+            };
+            /** Runs */
+            runs: components["schemas"]["EvaluationRunPublic"][];
+            /** Created At */
+            created_at: string;
+        };
+        /** EvaluationRunPublic */
+        EvaluationRunPublic: {
+            /** Run Id */
+            run_id: string;
+            /** Name */
+            name: string;
+            /** Provider */
+            provider: string;
             /** Base Url */
             base_url: string;
             /** Model */
             model: string;
-            /** Api Key */
-            api_key: string;
-            /** Dataset Id */
-            dataset_id: string;
-            /**
-             * Sample Count
-             * @default 10
-             */
-            sample_count: number;
-        };
-        /** EvaluationRunResponse */
-        EvaluationRunResponse: {
-            /** Eval Run Id */
-            eval_run_id: string;
-            /** Dataset Id */
-            dataset_id: string;
-            /** Dataset Version */
-            dataset_version: string;
-            /** Dataset Hash */
-            dataset_hash: string;
-            /** Provider */
-            provider: string;
-            /** Model */
-            model: string;
-            /** Prompt Version */
-            prompt_version: string;
+            retrieval_profile?: components["schemas"]["RetrievalProfilePublic"] | null;
             /** Status */
             status: string;
-            /** Sample Count */
-            sample_count: number;
             /** Aggregate */
             aggregate: {
                 [key: string]: unknown;
             };
-            /** Usage */
-            usage: {
-                [key: string]: unknown;
-            };
-            /** Errors */
-            errors: {
-                [key: string]: unknown;
-            }[];
-            /** Created At */
-            created_at: string;
-            /** Completed At */
-            completed_at?: string | null;
-            /** Artifact Path */
-            artifact_path?: string | null;
-            /** Cases */
-            cases: {
-                [key: string]: unknown;
-            }[];
-            /**
-             * Gold Revealed
-             * @default false
-             */
-            gold_revealed: boolean;
-            /**
-             * Fallback
-             * @default false
-             */
-            fallback: boolean;
-            /**
-             * Safety Notice
-             * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
-             */
-            safety_notice: string;
-        };
-        /** EvaluationStrategyPublic */
-        EvaluationStrategyPublic: {
-            /** Name */
-            name: string;
-            /** Metrics */
-            metrics?: {
-                [key: string]: number;
-            };
-            /** Artifact Path */
-            artifact_path: string;
+            /** Progress */
+            progress: number;
+            /** Stage */
+            stage: string;
+            /** Error */
+            error?: string | null;
         };
         /** ExamSessionAttempt */
         ExamSessionAttempt: {
@@ -2954,6 +2919,19 @@ export interface components {
             /** Test Focus */
             test_focus?: string[];
         };
+        /** ModelExperimentRequest */
+        ModelExperimentRequest: {
+            /** Suite Id */
+            suite_id: string;
+            /** Models */
+            models?: string[];
+            /** Base Url */
+            base_url?: string | null;
+            /** Api Key */
+            api_key?: string | null;
+            /** Provider */
+            provider?: string | null;
+        };
         /** ModelSelectRequest */
         ModelSelectRequest: {
             /** Model Id */
@@ -3571,6 +3549,25 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** RagExperimentRequest */
+        RagExperimentRequest: {
+            /** Suite Id */
+            suite_id: string;
+            /** Model */
+            model?: string | null;
+            /** Variants */
+            variants?: components["schemas"]["RetrievalProfileRequest"][];
+        };
+        /** RagProfileDeleteResponse */
+        RagProfileDeleteResponse: {
+            /** Profile Id */
+            profile_id: string;
+            /**
+             * Deleted
+             * @default true
+             */
+            deleted: boolean;
+        };
         /** RecentBankActivityPublic */
         RecentBankActivityPublic: {
             /** Bank Id */
@@ -3650,6 +3647,65 @@ export interface components {
             api_key?: string | null;
             /** Model */
             model?: string | null;
+        };
+        /** RetrievalProfilePublic */
+        RetrievalProfilePublic: {
+            /** Name */
+            name: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "sparse" | "dense" | "hybrid";
+            /** Top K */
+            top_k: number;
+            /** Candidate Pool */
+            candidate_pool: number;
+            /** Rerank Enabled */
+            rerank_enabled: boolean;
+            /** Rrf K */
+            rrf_k: number;
+            /** Section Dedupe */
+            section_dedupe: boolean;
+        };
+        /** RetrievalProfileRequest */
+        RetrievalProfileRequest: {
+            /**
+             * Name
+             * @default 对比方案
+             */
+            name: string;
+            /**
+             * Mode
+             * @default hybrid
+             * @enum {string}
+             */
+            mode: "sparse" | "dense" | "hybrid";
+            /**
+             * Top K
+             * @default 5
+             */
+            top_k: number;
+            /**
+             * Candidate Pool
+             * @default 20
+             */
+            candidate_pool: number;
+            /**
+             * Rerank Enabled
+             * @default false
+             */
+            rerank_enabled: boolean;
+            /**
+             * Rrf K
+             * @default 60
+             */
+            rrf_k: number;
+            /**
+             * Section Dedupe
+             * @default true
+             */
+            section_dedupe: boolean;
         };
         /** ReviewAttemptPublic */
         ReviewAttemptPublic: {
@@ -3847,6 +3903,77 @@ export interface components {
             incorrect_count: number;
             /** Marked Count */
             marked_count: number;
+        };
+        /** SavedRagProfilePublic */
+        SavedRagProfilePublic: {
+            /** Name */
+            name: string;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "sparse" | "dense" | "hybrid";
+            /** Top K */
+            top_k: number;
+            /** Candidate Pool */
+            candidate_pool: number;
+            /** Rerank Enabled */
+            rerank_enabled: boolean;
+            /** Rrf K */
+            rrf_k: number;
+            /** Section Dedupe */
+            section_dedupe: boolean;
+            /** Profile Id */
+            profile_id: string;
+            /** Bank Id */
+            bank_id: string;
+            /** Created At */
+            created_at: string;
+            /** Updated At */
+            updated_at: string;
+        };
+        /** SavedRagProfileRequest */
+        SavedRagProfileRequest: {
+            /**
+             * Name
+             * @default 对比方案
+             */
+            name: string;
+            /**
+             * Mode
+             * @default hybrid
+             * @enum {string}
+             */
+            mode: "sparse" | "dense" | "hybrid";
+            /**
+             * Top K
+             * @default 5
+             */
+            top_k: number;
+            /**
+             * Candidate Pool
+             * @default 20
+             */
+            candidate_pool: number;
+            /**
+             * Rerank Enabled
+             * @default false
+             */
+            rerank_enabled: boolean;
+            /**
+             * Rrf K
+             * @default 60
+             */
+            rrf_k: number;
+            /**
+             * Section Dedupe
+             * @default true
+             */
+            section_dedupe: boolean;
+            /** Bank Id */
+            bank_id: string;
+            /** Profile Id */
+            profile_id?: string | null;
         };
         /** SettingsResponse */
         SettingsResponse: {
@@ -5798,7 +5925,7 @@ export interface operations {
             };
         };
     };
-    latest_evaluation_api_v3_evaluation_latest_get: {
+    evaluation_lab_catalog_api_v3_evaluation_lab_catalog_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -5813,14 +5940,49 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EvaluationArtifactResponse"];
+                    "application/json": components["schemas"]["EvaluationCatalogResponse"];
                 };
             };
         };
     };
-    evaluation_datasets_api_v3_evaluation_datasets_get: {
+    create_eval_suite_api_v3_evaluation_lab_suites_post: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EvalSuiteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvalSuitePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    latest_eval_suite_api_v3_evaluation_lab_suites_latest_get: {
+        parameters: {
+            query: {
+                bank_id: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5833,31 +5995,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EvaluationDatasetListResponse"];
-                };
-            };
-        };
-    };
-    evaluation_connection_test_api_v3_evaluation_connection_test_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EvaluationConnectionRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EvaluationConnectionResponse"];
+                    "application/json": components["schemas"]["EvalSuitePublic"] | null;
                 };
             };
             /** @description Validation Error */
@@ -5871,18 +6009,16 @@ export interface operations {
             };
         };
     };
-    create_evaluation_run_api_v3_evaluation_runs_post: {
+    list_rag_profiles_api_v3_evaluation_lab_profiles_get: {
         parameters: {
-            query?: never;
+            query: {
+                bank_id: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EvaluationRunRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -5890,7 +6026,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EvaluationRunResponse"];
+                    "application/json": components["schemas"]["SavedRagProfilePublic"][];
                 };
             };
             /** @description Validation Error */
@@ -5904,14 +6040,47 @@ export interface operations {
             };
         };
     };
-    read_evaluation_run_api_v3_evaluation_runs__eval_run_id__get: {
+    save_rag_profile_api_v3_evaluation_lab_profiles_post: {
         parameters: {
-            query?: {
-                reveal_gold?: boolean;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedRagProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedRagProfilePublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_rag_profile_api_v3_evaluation_lab_profiles__profile_id__delete: {
+        parameters: {
+            query: {
+                bank_id: string;
             };
             header?: never;
             path: {
-                eval_run_id: string;
+                profile_id: string;
             };
             cookie?: never;
         };
@@ -5923,7 +6092,168 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["EvaluationRunResponse"];
+                    "application/json": components["schemas"]["RagProfileDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_model_experiment_api_v3_evaluation_lab_experiments_model_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelExperimentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationExperimentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_rag_experiment_api_v3_evaluation_lab_experiments_rag_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RagExperimentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationExperimentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    latest_evaluation_experiment_api_v3_evaluation_lab_experiments_latest_get: {
+        parameters: {
+            query: {
+                bank_id: string;
+                experiment_type: "model" | "rag";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationExperimentResponse"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_evaluation_experiments_api_v3_evaluation_lab_experiments_delete: {
+        parameters: {
+            query: {
+                bank_id: string;
+                experiment_type: "model" | "rag";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_evaluation_experiment_api_v3_evaluation_lab_experiments__experiment_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                experiment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluationExperimentResponse"];
                 };
             };
             /** @description Validation Error */

@@ -134,12 +134,20 @@ def test_cross_domain_rag_retrieval_isolated() -> None:
                 ordinal=0, content=content, content_hash=suffix, token_count=len(content), namespace=namespace,
             ))
         session.commit()
-    citations = rag_service.retrieve(
-        f"{marker}general {second_marker}general", mode="sparse", limit=5, domain_id="general_science", namespaces=["general_science"],
-    )
-    assert citations
-    assert {citation.namespace for citation in citations} == {"general_science"}
-    assert {citation.document_id for citation in citations} == {general_document}
+    try:
+        citations = rag_service.retrieve(
+            f"{marker}general {second_marker}general", mode="sparse", limit=5, domain_id="general_science", namespaces=["general_science"],
+        )
+        assert citations
+        assert {citation.namespace for citation in citations} == {"general_science"}
+        assert {citation.document_id for citation in citations} == {general_document}
+    finally:
+        with SessionLocal() as session:
+            session.query(KnowledgeChunkModel).filter_by(document_id=medical_document).delete(synchronize_session=False)
+            session.query(KnowledgeChunkModel).filter_by(document_id=general_document).delete(synchronize_session=False)
+            session.query(DocumentVersionModel).filter(DocumentVersionModel.document_id.in_([medical_document, general_document])).delete(synchronize_session=False)
+            session.query(SourceDocumentModel).filter(SourceDocumentModel.document_id.in_([medical_document, general_document])).delete(synchronize_session=False)
+            session.commit()
 
 
 def test_arc_easy_local_import_keeps_source_out_of_ai_ingestion(tmp_path: Path) -> None:

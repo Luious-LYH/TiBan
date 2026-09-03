@@ -106,5 +106,7 @@ def delete_source(document_id: str) -> dict[str, str]:
     try:
         knowledge_service.delete(document_id)
         return {"status": "deleted", "api_source": "backend"}
+    except PermissionError as exc:
+        raise HTTPException(403, "系统资料不可删除。") from exc
     except KeyError as exc:
         raise HTTPException(404, "Knowledge source not found.") from exc

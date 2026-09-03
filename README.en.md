@@ -50,8 +50,8 @@ learners can decide what to review next, revisit mistakes, and explore a topic.
   reviewable drafts from teaching documents through a durable workflow.
 - **Knowledge library** — parse, index, enable, disable, reindex, and preview
   PDF, DOCX, Markdown, and TXT sources.
-- **Model evaluation** — inspect retrieval and tutoring cases through typed
-  projections of existing evaluation artifacts.
+- **Evaluation Lab** — freezes an EvalSuite before comparing runtime models or
+  versioned RetrievalProfiles through durable background experiments.
 
 ## A connected learning path
 
@@ -103,8 +103,9 @@ TiBan places Agent capabilities inside a real learning workflow:
   schedule.
 - **Durable Question Factory** — parsing, generation, quality gates, revision,
   human review, and publishing remain traceable and recoverable.
-- **Typed model evaluation** — retrieval, tutoring, and model behavior are
-  evaluated separately from learner state.
+- **Reproducible Evaluation Lab** — freezes question samples, prompt and runtime
+  conditions in an EvalSuite. Model runs use temperature=0 and no fallback;
+  RAG runs share the product RagService and only change a versioned RetrievalProfile.
 - **Domain Pack architecture** — content, terminology, and policy stay in a
   domain pack while the learning engine and Agent capabilities remain reusable.
 

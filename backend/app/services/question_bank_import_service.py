@@ -14,7 +14,7 @@ from app.services.question_service import question_service
 
 
 SUPPORTED_FORMATS = ("jsonl", "csv", "markdown")
-REQUIRED_FIELDS = ("question", "question_type", "answer", "explanation")
+REQUIRED_FIELDS = ("question", "question_type", "answer")
 OBJECTIVE_TYPES = {"单选", "多选", "判断", "报告修改"}
 ALL_TYPES = OBJECTIVE_TYPES | {"问答评分"}
 
@@ -194,7 +194,7 @@ class QuestionBankImportService:
         options = self._split_list(clean.get("options"))
         answer = self._clean(clean.get("answer"))
         question = self._clean(clean.get("question") or clean.get("stem"))
-        explanation = self._clean(clean.get("explanation") or clean.get("解析"))
+        explanation = self._clean(clean.get("explanation") or clean.get("解析")) or "无"
         issues: list[dict[str, Any]] = []
         if not question:
             issues.append(self._issue(index, "missing_question", "缺少题干 question。"))
@@ -202,8 +202,6 @@ class QuestionBankImportService:
             issues.append(self._issue(index, "invalid_question_type", "题型必须是单选、多选、判断、问答评分或报告修改。"))
         if not answer:
             issues.append(self._issue(index, "missing_answer", "缺少参考答案 answer。"))
-        if not explanation:
-            issues.append(self._issue(index, "missing_explanation", "缺少解析 explanation。"))
         if question_type in OBJECTIVE_TYPES and len(options) < 2:
             issues.append(self._issue(index, "missing_options", "客观题至少需要 2 个选项。"))
         if question_type == "单选" and answer and options and answer not in options:

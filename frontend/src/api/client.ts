@@ -30,15 +30,13 @@ export type Overview = Omit<Required<components['schemas']['OverviewResponse']>,
   banks: QuestionBank[]
   recent_bank_activity: Array<Required<components['schemas']['RecentBankActivityPublic']>>
 }
-export type EvaluationArtifact = components['schemas']['EvaluationArtifactResponse'] & {
-  metrics: Record<string, unknown>
-  cases: Array<Record<string, unknown>>
-  probes: components['schemas']['EvaluationProbePublic'][]
-  strategy_comparison: components['schemas']['EvaluationStrategyPublic'][]
-}
-export type EvaluationDataset = components['schemas']['EvaluationDatasetPublic']
-export type EvaluationConnection = components['schemas']['EvaluationConnectionResponse']
-export type EvaluationRun = components['schemas']['EvaluationRunResponse']
+export type EvaluationBank = { bank_id: string; domain_id: string; name: string; version: string; eligible_question_count: number }
+export type RetrievalProfile = { name: string; mode: 'sparse' | 'dense' | 'hybrid'; top_k: number; candidate_pool: number; rerank_enabled: boolean; rrf_k: number; section_dedupe: boolean }
+export type SavedRagProfile = RetrievalProfile & { profile_id: string; bank_id: string; created_at: string; updated_at: string }
+export type EvalSuite = { suite_id: string; bank_id: string; bank_name: string; sample_size: number; seed: number; suite_hash: string; suite_short: string; bank_version: string; prompt_version: string; created_at: string }
+export type EvaluationLabRun = { run_id: string; name: string; provider: string; base_url: string; model: string; retrieval_profile: RetrievalProfile | null; status: string; aggregate: Record<string, unknown>; progress: number; stage: string; error: string | null }
+export type EvaluationExperiment = { experiment_id: string; experiment_type: 'model' | 'rag'; status: string; suite: EvalSuite; fixed_snapshot: Record<string, unknown>; runs: EvaluationLabRun[]; created_at: string }
+export type EvaluationCatalog = { banks: EvaluationBank[]; runtime_models: string[]; default_profile: RetrievalProfile; prompt_version: string }
 export type TutorStreamRequest = components['schemas']['TutorStreamRequest']
 export type PracticeResumable = components['schemas']['PracticeResumablePublic']
 export type TutorThread = components['schemas']['TutorThreadPublic']
@@ -265,28 +263,60 @@ async function streamSse(url: string, body: unknown, onEvent: (event: TutorStrea
   }
 }
 
-export async function getLatestEvaluation(): Promise<EvaluationArtifact> {
-  const response = await unwrap(api.GET('/api/v3/evaluation/latest'))
-  return { ...response, metrics: response.metrics ?? {}, cases: response.cases ?? [], probes: response.probes ?? [], strategy_comparison: response.strategy_comparison ?? [] }
+export function getEvaluationCatalog(): Promise<EvaluationCatalog> {
+  return unwrap(api.GET('/api/v3/evaluation/lab/catalog')) as Promise<EvaluationCatalog>
 }
 
-export async function getEvaluationDatasets(): Promise<EvaluationDataset[]> {
-  const response = await unwrap(api.GET('/api/v3/evaluation/datasets'))
-  return response.items
+export function createEvaluationSuite(payload: components['schemas']['EvalSuiteRequest']): Promise<EvalSuite> {
+  return unwrap(api.POST('/api/v3/evaluation/lab/suites', { body: payload })) as Promise<EvalSuite>
 }
 
-export function testEvaluationConnection(payload: components['schemas']['EvaluationConnectionRequest']): Promise<EvaluationConnection> {
-  return unwrap(api.POST('/api/v3/evaluation/connection-test', { body: payload }))
+export function getLatestEvaluationSuite(bankId: string): Promise<EvalSuite | null> {
+  return unwrap(api.GET('/api/v3/evaluation/lab/suites/latest', { params: { query: { bank_id: bankId } } })) as Promise<EvalSuite | null>
 }
 
-export function createEvaluationRun(payload: components['schemas']['EvaluationRunRequest']): Promise<EvaluationRun> {
-  return unwrap(api.POST('/api/v3/evaluation/runs', { body: payload }))
+export function getSavedRagProfiles(bankId: string): Promise<SavedRagProfile[]> {
+  return unwrap(api.GET('/api/v3/evaluation/lab/profiles', { params: { query: { bank_id: bankId } } })) as Promise<SavedRagProfile[]>
 }
 
-export function getEvaluationRun(evalRunId: string, revealGold = false): Promise<EvaluationRun> {
-  return unwrap(api.GET('/api/v3/evaluation/runs/{eval_run_id}', {
-    params: { path: { eval_run_id: evalRunId }, query: { reveal_gold: revealGold } },
-  }))
+export function saveRagProfile(bankId: string, profile: RetrievalProfile, profileId?: string): Promise<SavedRagProfile> {
+  return unwrap(api.POST('/api/v3/evaluation/lab/profiles', {
+    body: {
+      bank_id: bankId,
+      profile_id: profileId,
+      name: profile.name,
+      mode: profile.mode,
+      top_k: profile.top_k,
+      candidate_pool: profile.candidate_pool,
+      rerank_enabled: profile.rerank_enabled,
+      rrf_k: profile.rrf_k,
+      section_dedupe: profile.section_dedupe,
+    },
+  })) as Promise<SavedRagProfile>
+}
+
+export function deleteSavedRagProfile(bankId: string, profileId: string): Promise<{ profile_id: string; deleted: boolean }> {
+  return unwrap(api.DELETE('/api/v3/evaluation/lab/profiles/{profile_id}', { params: { path: { profile_id: profileId }, query: { bank_id: bankId } } })) as Promise<{ profile_id: string; deleted: boolean }>
+}
+
+export function createModelEvaluation(payload: components['schemas']['ModelExperimentRequest']): Promise<EvaluationExperiment> {
+  return unwrap(api.POST('/api/v3/evaluation/lab/experiments/model', { body: payload })) as Promise<EvaluationExperiment>
+}
+
+export function createRagEvaluation(payload: components['schemas']['RagExperimentRequest']): Promise<EvaluationExperiment> {
+  return unwrap(api.POST('/api/v3/evaluation/lab/experiments/rag', { body: payload })) as Promise<EvaluationExperiment>
+}
+
+export function getEvaluationExperiment(experimentId: string): Promise<EvaluationExperiment> {
+  return unwrap(api.GET('/api/v3/evaluation/lab/experiments/{experiment_id}', { params: { path: { experiment_id: experimentId } } })) as Promise<EvaluationExperiment>
+}
+
+export function getLatestEvaluationExperiment(bankId: string, experimentType: 'model' | 'rag'): Promise<EvaluationExperiment | null> {
+  return unwrap(api.GET('/api/v3/evaluation/lab/experiments/latest', { params: { query: { bank_id: bankId, experiment_type: experimentType } } })) as Promise<EvaluationExperiment | null>
+}
+
+export function deleteEvaluationExperiments(bankId: string, experimentType: 'model' | 'rag'): Promise<{ deleted_experiment_count: number; deleted_run_count: number }> {
+  return unwrap(api.DELETE('/api/v3/evaluation/lab/experiments', { params: { query: { bank_id: bankId, experiment_type: experimentType } } })) as Promise<{ deleted_experiment_count: number; deleted_run_count: number }>
 }
 
 export async function uploadFactoryDocument(filename: string, contentBase64: string, contentType?: string, domainId = 'endoscopy'): Promise<FactoryDocument> {

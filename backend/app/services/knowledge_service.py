@@ -126,6 +126,8 @@ class KnowledgeService:
     def delete(self, document_id: str) -> None:
         with SessionLocal() as session:
             row = self._document(session, document_id)
+            if row.source_scope != "user":
+                raise PermissionError(document_id)
             versions = list(session.scalars(select(DocumentVersionModel).where(DocumentVersionModel.document_id == document_id)))
             paths = [Path(item.source_path) for item in versions]
         try:

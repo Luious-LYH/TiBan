@@ -1,230 +1,237 @@
+"""Public Evaluation Lab API.
+
+Legacy portfolio evaluation remains a developer/CI service. The learner-facing
+contract starts here and never accepts a request-level provider credential.
+"""
+
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field, field_validator
 
-from app.core.config import SAFETY_NOTICE
-from app.schemas import EvaluationArtifactResponse
-from app.services.model_eval_service import get_run, list_datasets, run_evaluation, test_connection
-from app.services.portfolio_agent_runtime import portfolio_agent_runtime
+from app.services.evaluation_lab_service import evaluation_lab_service
 
 
-router = APIRouter(prefix="/api/v3/evaluation", tags=["stage1-evaluation"])
-_HOST_PROJECT_ROOT = Path(__file__).resolve().parents[3]
-_COMPOSE_ARTIFACT_ROOT = Path("/app/artifacts")
-# Backend source is the Docker build context, while evaluation artifacts stay
-# at the repository root.  Compose mounts that existing, read-only artifact
-# folder at /app/artifacts; host runs continue to resolve ../artifacts.
-ARTIFACT_ROOT = _COMPOSE_ARTIFACT_ROOT if _COMPOSE_ARTIFACT_ROOT.exists() else _HOST_PROJECT_ROOT / "artifacts"
-ARTIFACT_PATH = ARTIFACT_ROOT / "eval" / "latest.json"
+router = APIRouter(prefix="/api/v3/evaluation", tags=["evaluation-lab"])
 
 
-def _artifact() -> dict[str, Any]:
-    path = ARTIFACT_PATH.resolve()
-    if not path.exists():
-        return {
-            "artifact_available": False,
-            "artifact_path": None,
-            "mode": "not_run",
-            "sample_count": 0,
-            "metrics": {},
-            "cases": [],
-            "notice": "尚未运行",
-            "safety_notice": SAFETY_NOTICE,
-        }
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    return {
-        "artifact_available": True,
-        "artifact_path": "artifacts/eval/latest.json",
-        "mode": str(payload.get("conditions", {}).get("mode", "offline_artifact")),
-        "metric_version": payload.get("metric_version"),
-        "sample_count": int(payload.get("metrics", {}).get("case_count", len(payload.get("cases", [])))),
-        "metrics": payload.get("metrics", {}),
-        "cases": payload.get("cases", []),
-        "probes": _public_probes(payload),
-        # The current artifact contains one sparse retrieval replay only.
-        # Do not invent Dense/Hybrid/Rerank rows merely to fill a comparison.
-        "strategy_comparison": _public_strategies(payload),
-        "created_at": payload.get("created_at"),
-        "notice": "离线确定性 artifact；不代表真实候选模型或临床性能。",
-        "safety_notice": SAFETY_NOTICE,
-    }
+class EvalSuiteRequest(BaseModel):
+    bank_id: str = Field(min_length=1, max_length=100)
+    sample_size: int = Field(default=30, ge=1, le=100)
+    seed: int | None = Field(default=None, ge=1, le=2_147_483_647)
 
 
-def _evidence_catalog() -> dict[str, dict[str, str]]:
-    catalog: dict[str, dict[str, str]] = {}
-    for case in portfolio_agent_runtime.list_cases():
-        for fact in case.get("facts", []):
-            evidence_id = str(fact.get("id", ""))
-            if evidence_id:
-                catalog[evidence_id] = {
-                    "evidence_id": evidence_id,
-                    "label": str(fact.get("label", "教学证据")),
-                    "source_title": str(case.get("source_dataset", "公开教学样例")),
-                    "section": str(fact.get("dimension", "事实依据")),
-                    "snippet": str(fact.get("evidence", "")),
-                    "query_context": f"{case.get('title', '')} {fact.get('label', '')} {(fact.get('aliases') or [''])[0]}",
-                }
-    return catalog
-
-
-def _public_probes(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    catalog = _evidence_catalog()
-    raw_probes = payload.get("retrieval_eval", {}).get("probes", [])
-    items: list[dict[str, Any]] = []
-    for raw in raw_probes:
-        if not isinstance(raw, dict):
-            continue
-        expected_id = str(raw.get("expected_evidence_id", ""))
-        expected = catalog.get(expected_id)
-        if expected is None:
-            continue
-        retrieved = []
-        for rank, evidence_id in enumerate(raw.get("ranked_evidence_ids", []), start=1):
-            evidence = catalog.get(str(evidence_id))
-            if evidence is not None:
-                retrieved.append({**{key: value for key, value in evidence.items() if key != "query_context"}, "rank": rank})
-        items.append({
-            "id": str(raw.get("query_id", expected_id)),
-            "query": expected["query_context"],
-            "expected_evidence": {key: value for key, value in expected.items() if key != "query_context"},
-            "retrieved": retrieved,
-            "hit_at_1": bool(raw.get("hit_at_1")),
-            "hit_at_3": bool(raw.get("hit_at_3")),
-        })
-    return items
-
-
-def _public_strategies(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    comparison = payload.get("strategy_comparison")
-    if not isinstance(comparison, list):
-        return []
-    rows = []
-    for item in comparison:
-        if not isinstance(item, dict) or not isinstance(item.get("metrics"), dict):
-            continue
-        rows.append({
-            "name": str(item.get("name", "未命名策略")),
-            "metrics": {str(key): float(value) for key, value in item["metrics"].items() if isinstance(value, (int, float))},
-            "artifact_path": str(item.get("artifact_path", "artifacts/eval/latest.json")),
-        })
-    return rows
-
-
-@router.get("/latest", response_model=EvaluationArtifactResponse)
-def latest_evaluation() -> dict[str, Any]:
-    return _artifact()
-
-
-class EvaluationDatasetPublic(BaseModel):
-    dataset_id: str
+class EvalBankPublic(BaseModel):
+    bank_id: str
     domain_id: str
     name: str
-    description: str
-    source_dataset: str
-    modality: str
     version: str
-    dataset_hash: str
-    sample_count: int = Field(ge=0)
-    supports_vision: bool
-    tutor_indexed: bool
+    eligible_question_count: int
 
 
-class EvaluationDatasetListResponse(BaseModel):
-    items: list[EvaluationDatasetPublic]
-    api_source: str = "backend"
+class RetrievalProfilePublic(BaseModel):
+    name: str
+    mode: Literal["sparse", "dense", "hybrid"]
+    top_k: int
+    candidate_pool: int
+    rerank_enabled: bool
+    rrf_k: int
+    section_dedupe: bool
 
 
-class EvaluationConnectionRequest(BaseModel):
-    base_url: str = Field(min_length=1, max_length=500)
-    model: str = Field(min_length=1, max_length=180)
-    api_key: str = Field(min_length=1, max_length=1000)
-
-
-class EvaluationConnectionResponse(BaseModel):
-    ok: bool
-    provider: str
-    model: str
-    latency_ms: int | None = None
-    error: str | None = None
-    fallback: bool = False
-    key_persisted: bool = False
-
-
-class EvaluationRunRequest(EvaluationConnectionRequest):
-    dataset_id: str
-    sample_count: int = Field(default=10, ge=1, le=300)
-
-
-class EvaluationRunResponse(BaseModel):
-    eval_run_id: str
-    dataset_id: str
-    dataset_version: str
-    dataset_hash: str
-    provider: str
-    model: str
-    prompt_version: str
-    status: str
-    sample_count: int
-    aggregate: dict[str, Any]
-    usage: dict[str, Any]
-    errors: list[dict[str, Any]]
+class SavedRagProfilePublic(RetrievalProfilePublic):
+    profile_id: str
+    bank_id: str
     created_at: str
-    completed_at: str | None = None
-    artifact_path: str | None = None
-    cases: list[dict[str, Any]]
-    gold_revealed: bool = False
-    fallback: bool = False
-    safety_notice: str = SAFETY_NOTICE
+    updated_at: str
 
 
-@router.get("/datasets", response_model=EvaluationDatasetListResponse)
-def evaluation_datasets() -> dict[str, Any]:
-    # Keep the public contract stable for pre-Stage-7 local cache/test
-    # providers that predate domain scoping.  The canonical dataset registry
-    # already emits this field; this boundary normalization prevents a stale
-    # cache from breaking the whole evaluation catalog response.
-    items = []
-    for item in list_datasets():
-        normalized = dict(item)
-        normalized.setdefault(
-            "domain_id",
-            "general_science" if normalized.get("dataset_id") == "general-science-text-eval-v1" else "endoscopy",
-        )
-        items.append(normalized)
-    return {"items": items, "api_source": "backend"}
+class EvaluationCatalogResponse(BaseModel):
+    banks: list[EvalBankPublic]
+    runtime_models: list[str]
+    default_profile: RetrievalProfilePublic
+    prompt_version: str
 
 
-@router.post("/connection-test", response_model=EvaluationConnectionResponse)
-def evaluation_connection_test(request: EvaluationConnectionRequest) -> dict[str, Any]:
+class EvalSuitePublic(BaseModel):
+    suite_id: str
+    bank_id: str
+    bank_name: str
+    sample_size: int
+    seed: int
+    suite_hash: str
+    suite_short: str
+    bank_version: str
+    prompt_version: str
+    created_at: str
+
+
+class EvaluationRunPublic(BaseModel):
+    run_id: str
+    name: str
+    provider: str
+    base_url: str
+    model: str
+    retrieval_profile: RetrievalProfilePublic | None = None
+    status: str
+    aggregate: dict[str, Any]
+    progress: int
+    stage: str
+    error: str | None = None
+
+
+class EvaluationExperimentResponse(BaseModel):
+    experiment_id: str
+    experiment_type: Literal["model", "rag"]
+    status: str
+    suite: EvalSuitePublic
+    fixed_snapshot: dict[str, Any]
+    runs: list[EvaluationRunPublic]
+    created_at: str
+
+
+class EvaluationDeleteResponse(BaseModel):
+    deleted_experiment_count: int
+    deleted_run_count: int
+
+
+class ModelExperimentRequest(BaseModel):
+    suite_id: str = Field(min_length=1, max_length=150)
+    models: list[str] = Field(default_factory=list, max_length=6)
+    base_url: str | None = Field(default=None, max_length=512)
+    api_key: str | None = Field(default=None, max_length=512)
+    provider: str | None = Field(default=None, max_length=120)
+
+    @field_validator("models")
+    @classmethod
+    def clean_models(cls, value: list[str]) -> list[str]:
+        return [item.strip() for item in value if item and item.strip()]
+
+
+class RetrievalProfileRequest(BaseModel):
+    name: str = Field(default="对比方案", min_length=1, max_length=80)
+    mode: Literal["sparse", "dense", "hybrid"] = "hybrid"
+    top_k: int = Field(default=5, ge=1, le=12)
+    candidate_pool: int = Field(default=20, ge=1, le=80)
+    rerank_enabled: bool = False
+    rrf_k: int = Field(default=60, ge=1, le=240)
+    section_dedupe: bool = True
+
+
+class SavedRagProfileRequest(RetrievalProfileRequest):
+    bank_id: str = Field(min_length=1, max_length=100)
+    profile_id: str | None = Field(default=None, max_length=150)
+
+
+class RagProfileDeleteResponse(BaseModel):
+    profile_id: str
+    deleted: bool = True
+
+
+class RagExperimentRequest(BaseModel):
+    suite_id: str = Field(min_length=1, max_length=150)
+    model: str | None = Field(default=None, max_length=180)
+    variants: list[RetrievalProfileRequest] = Field(default_factory=list, max_length=2)
+
+
+@router.get("/lab/catalog", response_model=EvaluationCatalogResponse)
+def evaluation_lab_catalog() -> dict[str, Any]:
+    return evaluation_lab_service.catalog()
+
+
+@router.post("/lab/suites", response_model=EvalSuitePublic)
+def create_eval_suite(request: EvalSuiteRequest) -> dict[str, Any]:
     try:
-        # The key is used only inside this call and is intentionally absent
-        # from both the response and any persistence layer.
-        return test_connection(base_url=request.base_url, api_key=request.api_key, model=request.model)
-    except Exception as exc:
-        return {"ok": False, "provider": "byok_openai_compatible", "model": request.model, "error": type(exc).__name__, "fallback": False, "key_persisted": False}
-
-
-@router.post("/runs", response_model=EvaluationRunResponse)
-def create_evaluation_run(request: EvaluationRunRequest) -> dict[str, Any]:
-    try:
-        return run_evaluation(dataset_id=request.dataset_id, base_url=request.base_url, api_key=request.api_key, model=request.model, sample_count=request.sample_count)
+        return evaluation_lab_service.create_suite(bank_id=request.bank_id, sample_size=request.sample_size, seed=request.seed)
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Evaluation dataset not found.") from exc
-    except (ValueError, FileNotFoundError) as exc:
+        raise HTTPException(status_code=404, detail="Question bank not found.") from exc
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.get("/runs/{eval_run_id}", response_model=EvaluationRunResponse)
-def read_evaluation_run(eval_run_id: str, reveal_gold: bool = False) -> dict[str, Any]:
+@router.get("/lab/suites/latest", response_model=EvalSuitePublic | None)
+def latest_eval_suite(bank_id: str = Query(min_length=1, max_length=100)) -> dict[str, Any] | None:
+    return evaluation_lab_service.latest_suite(bank_id=bank_id)
+
+
+@router.get("/lab/profiles", response_model=list[SavedRagProfilePublic])
+def list_rag_profiles(bank_id: str = Query(min_length=1, max_length=100)) -> list[dict[str, Any]]:
+    return evaluation_lab_service.list_rag_profiles(bank_id=bank_id)
+
+
+@router.post("/lab/profiles", response_model=SavedRagProfilePublic)
+def save_rag_profile(request: SavedRagProfileRequest) -> dict[str, Any]:
     try:
-        # Gold answers are withheld unless the user makes the explicit reveal
-        # request; normal result views still show parsed answer and correctness
-        # only after reveal.
-        return get_run(eval_run_id, reveal_gold=reveal_gold)
+        return evaluation_lab_service.save_rag_profile(
+            bank_id=request.bank_id,
+            profile=request.model_dump(exclude={"bank_id", "profile_id"}),
+            profile_id=request.profile_id,
+        )
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Evaluation run not found.") from exc
+        raise HTTPException(status_code=404, detail="RAG 对比方案不存在或题库不存在。") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/lab/profiles/{profile_id}", response_model=RagProfileDeleteResponse)
+def delete_rag_profile(
+    profile_id: str,
+    bank_id: str = Query(min_length=1, max_length=100),
+) -> dict[str, Any]:
+    try:
+        evaluation_lab_service.delete_rag_profile(bank_id=bank_id, profile_id=profile_id)
+        return {"profile_id": profile_id, "deleted": True}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="RAG 对比方案不存在。") from exc
+
+
+@router.post("/lab/experiments/model", response_model=EvaluationExperimentResponse)
+def create_model_experiment(request: ModelExperimentRequest) -> dict[str, Any]:
+    try:
+        return evaluation_lab_service.create_model_experiment(
+            suite_id=request.suite_id, models=request.models, base_url=request.base_url,
+            api_key=request.api_key, provider=request.provider,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="评测集不存在。") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/lab/experiments/rag", response_model=EvaluationExperimentResponse)
+def create_rag_experiment(request: RagExperimentRequest) -> dict[str, Any]:
+    try:
+        return evaluation_lab_service.create_rag_experiment(
+            suite_id=request.suite_id, model=request.model,
+            variants=[item.model_dump() for item in request.variants],
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="评测集不存在。") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/lab/experiments/latest", response_model=EvaluationExperimentResponse | None)
+def latest_evaluation_experiment(
+    bank_id: str = Query(min_length=1, max_length=100),
+    experiment_type: Literal["model", "rag"] = Query(...),
+) -> dict[str, Any] | None:
+    return evaluation_lab_service.latest_experiment(bank_id=bank_id, experiment_type=experiment_type)
+
+
+@router.delete("/lab/experiments", response_model=EvaluationDeleteResponse)
+def delete_evaluation_experiments(
+    bank_id: str = Query(min_length=1, max_length=100),
+    experiment_type: Literal["model", "rag"] = Query(...),
+) -> dict[str, int]:
+    return evaluation_lab_service.delete_experiments(bank_id=bank_id, experiment_type=experiment_type)
+
+
+@router.get("/lab/experiments/{experiment_id}", response_model=EvaluationExperimentResponse)
+def get_evaluation_experiment(experiment_id: str) -> dict[str, Any]:
+    try:
+        return evaluation_lab_service.experiment(experiment_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Evaluation experiment not found.") from exc

@@ -41,6 +41,51 @@ class Citation:
     source_uri: str | None = None
 
 
+@dataclass(frozen=True)
+class RetrievalProfile:
+    """A serialisable, small retrieval contract shared by product and Eval Lab.
+
+    Keeping this data object beside ``RagService`` is deliberate: an evaluation
+    profile changes the same code path used by Tutor and Mentor rather than a
+    look-alike evaluator retriever.  Values are bounded here so a persisted
+    experiment cannot ask a worker to perform an accidental exhaustive search.
+    """
+
+    name: str = "TiBan Default"
+    mode: Literal['sparse', 'dense', 'hybrid'] = 'hybrid'
+    top_k: int = 5
+    candidate_pool: int = 20
+    rerank_enabled: bool = False
+    rrf_k: int = 60
+    section_dedupe: bool = True
+
+    @classmethod
+    def from_value(cls, value: "RetrievalProfile | dict[str, object] | None", *, fallback_mode: str, fallback_limit: int) -> "RetrievalProfile":
+        if isinstance(value, cls):
+            return value
+        raw = value or {}
+        legacy_rerank = fallback_mode == 'hybrid_rerank'
+        mode = str(raw.get('mode', 'hybrid' if legacy_rerank else fallback_mode))
+        if mode not in {'sparse', 'dense', 'hybrid'}:
+            mode = 'hybrid'
+        return cls(
+            name=str(raw.get('name') or 'TiBan Default')[:80],
+            mode=mode,  # type: ignore[arg-type]
+            top_k=max(1, min(12, int(raw.get('top_k', fallback_limit)))),
+            candidate_pool=max(1, min(80, int(raw.get('candidate_pool', max(fallback_limit * 4, 20))))),
+            rerank_enabled=bool(raw.get('rerank_enabled', legacy_rerank)),
+            rrf_k=max(1, min(240, int(raw.get('rrf_k', 60)))),
+            section_dedupe=bool(raw.get('section_dedupe', True)),
+        )
+
+    def public(self) -> dict[str, object]:
+        return {
+            'name': self.name, 'mode': self.mode, 'top_k': self.top_k,
+            'candidate_pool': self.candidate_pool, 'rerank_enabled': self.rerank_enabled,
+            'rrf_k': self.rrf_k, 'section_dedupe': self.section_dedupe,
+        }
+
+
 def _hash(value: str) -> str:
     return hashlib.sha256(value.encode('utf-8')).hexdigest()
 
@@ -496,6 +541,7 @@ class RagService:
         mode: Literal['sparse', 'dense', 'hybrid', 'hybrid_rerank'] = 'hybrid',
         limit: int = 5,
         *,
+        profile: RetrievalProfile | dict[str, object] | None = None,
         version_id: str | None = None,
         version_ids: list[str] | None = None,
         document_ids: list[str] | None = None,
@@ -503,6 +549,9 @@ class RagService:
         namespace: str | None = None,
         namespaces: list[str] | None = None,
     ) -> list[Citation]:
+        active_profile = RetrievalProfile.from_value(profile, fallback_mode=mode, fallback_limit=limit)
+        mode = active_profile.mode
+        limit = active_profile.top_k
         started = perf_counter()
         with SessionLocal() as session:
             # Product retrieval intentionally uses one frozen, benchmarked
@@ -602,7 +651,7 @@ class RagService:
             conditions.append(models.FieldCondition(key='document_id', match=models.MatchAny(any=eligible_document_ids)))
             query_filter = models.Filter(must=conditions) if conditions else None
             try:
-                result = self.qdrant.query_points(COLLECTION, query=vector, limit=max(limit * 3, 10), with_payload=True, query_filter=query_filter).points
+                result = self.qdrant.query_points(COLLECTION, query=vector, limit=active_profile.candidate_pool, with_payload=True, query_filter=query_filter).points
                 dense = {str(point.payload['chunk_id']): float(point.score) for point in result}
             except Exception:
                 dense = {}
@@ -613,7 +662,7 @@ class RagService:
             elif mode == 'dense' and dense_allowed:
                 scores[row.chunk_id] = dense.get(row.chunk_id, 0.0)
             else:
-                scores[row.chunk_id] = _rrf_rank(sparse, row.chunk_id) + _rrf_rank(dense, row.chunk_id)
+                scores[row.chunk_id] = _rrf_rank(sparse, row.chunk_id, active_profile.rrf_k) + _rrf_rank(dense, row.chunk_id, active_profile.rrf_k)
         # RRF always gives every dense candidate a small positive score. That
         # is useful for ranking, but it is not evidence of relevance: without
         # this gate an unrelated query still received several citations from a
@@ -625,8 +674,8 @@ class RagService:
             row
             for row in sorted(rows, key=lambda row: scores[row.chunk_id], reverse=True)
             if _meaningful_lexical_overlap(query, row.content) >= 2
-        ][:max(limit * 4, 20)]
-        if mode == 'hybrid_rerank' and candidates:
+        ][:active_profile.candidate_pool]
+        if active_profile.rerank_enabled and candidates:
             # This is a learned cross-encoder inference, not a lexical score
             # boost.  Its score only orders candidate passages after hybrid RRF.
             try:
@@ -639,14 +688,15 @@ class RagService:
             selected = candidates[:limit]
         # Adjacent chunks from the same document/section seldom add evidence
         # value. Keep one best passage per section so citations remain compact.
-        deduped: list[KnowledgeChunkModel] = []
-        seen_sections: set[tuple[str, str]] = set()
-        for row in selected:
-            key = (row.document_id, row.parent_section)
-            if key not in seen_sections:
-                seen_sections.add(key)
-                deduped.append(row)
-        selected = deduped[:limit]
+        if active_profile.section_dedupe:
+            deduped: list[KnowledgeChunkModel] = []
+            seen_sections: set[tuple[str, str]] = set()
+            for row in selected:
+                key = (row.document_id, row.parent_section)
+                if key not in seen_sections:
+                    seen_sections.add(key)
+                    deduped.append(row)
+            selected = deduped[:limit]
         _ = perf_counter() - started
         return [Citation(chunk_id=row.chunk_id, document_name=docs.get(row.document_id).name if row.document_id in docs else '教学资料', page=row.page, section=row.parent_section, snippet=row.content[:220], score=round(scores[row.chunk_id], 5), document_id=row.document_id, namespace=row.namespace, source_uri=docs.get(row.document_id).source_uri if row.document_id in docs else row.source_uri) for row in selected if scores[row.chunk_id] > 0]
 

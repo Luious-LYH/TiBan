@@ -31,6 +31,10 @@ from .models import (  # noqa: F401
     EvalRunModel,
     EvalCaseModel,
     EvalArtifactModel,
+    EvalSuiteModel,
+    EvalExperimentModel,
+    EvalLabRunModel,
+    EvalLabCaseModel,
 )
 from .seed import seed_database
 

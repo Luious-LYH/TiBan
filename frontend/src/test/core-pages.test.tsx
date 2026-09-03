@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearLearningMemory, createEvaluationRun, createMentorConversation, createPracticeSession, createReviewSession, deleteKnowledgeSource, deleteMentorConversation, getDomains, getEvaluationDatasets, getEvaluationRun, getKnowledgeSource, getKnowledgeSources, getLatestEvaluation, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, testEvaluationConnection, uploadKnowledgeSource } from '../api/client'
-import type { EvaluationRun, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult } from '../api/client'
+import { clearLearningMemory, createEvaluationSuite, createMentorConversation, createModelEvaluation, createPracticeSession, createReviewSession, createRagEvaluation, deleteEvaluationExperiments, deleteKnowledgeSource, deleteMentorConversation, deleteSavedRagProfile, getDomains, getEvaluationCatalog, getEvaluationExperiment, getLatestEvaluationExperiment, getKnowledgeSource, getKnowledgeSources, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, getLatestEvaluationSuite, getSavedRagProfiles, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, saveRagProfile, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, uploadKnowledgeSource } from '../api/client'
+import type { EvaluationExperiment, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult, SavedRagProfile } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
 import { PracticePage } from '../pages/practice/PracticePage'
@@ -23,12 +23,18 @@ vi.mock('../api/client', () => ({
   getMentorConversation: vi.fn(),
   getDomains: vi.fn(),
   clearLearningMemory: vi.fn(),
-  createEvaluationRun: vi.fn(),
-  getEvaluationDatasets: vi.fn(),
-  getEvaluationRun: vi.fn(),
+  createEvaluationSuite: vi.fn(),
+  getLatestEvaluationSuite: vi.fn(),
+  getLatestEvaluationExperiment: vi.fn(),
+  deleteEvaluationExperiments: vi.fn(),
+  createModelEvaluation: vi.fn(),
+  createRagEvaluation: vi.fn(),
+  deleteSavedRagProfile: vi.fn(),
+  getEvaluationCatalog: vi.fn(),
+  getEvaluationExperiment: vi.fn(),
+  getSavedRagProfiles: vi.fn(),
   getKnowledgeSource: vi.fn(),
   getKnowledgeSources: vi.fn(),
-  getLatestEvaluation: vi.fn(),
   getLearningMemory: vi.fn(),
   getOverview: vi.fn(),
   getPracticeSession: vi.fn(),
@@ -42,13 +48,13 @@ vi.mock('../api/client', () => ({
   leavePracticeSession: vi.fn(),
   reindexKnowledgeSource: vi.fn(),
   resumePracticeSession: vi.fn(),
+  saveRagProfile: vi.fn(),
   setKnowledgeSourceEnabled: vi.fn(),
   getMentorPlan: vi.fn(),
   streamTutor: vi.fn(),
   streamMentorMessage: vi.fn(),
   submitFsrsReview: vi.fn(),
   submitPracticeAnswer: vi.fn(),
-  testEvaluationConnection: vi.fn(),
   uploadKnowledgeSource: vi.fn(),
 }))
 
@@ -80,11 +86,17 @@ const mockedSubmit = vi.mocked(submitPracticeAnswer)
 const mockedStreamTutor = vi.mocked(streamTutor)
 const mockedMentor = vi.mocked(getMentorPlan)
 const mockedReview = vi.mocked(submitFsrsReview)
-const mockedEvaluation = vi.mocked(getLatestEvaluation)
-const mockedEvaluationDatasets = vi.mocked(getEvaluationDatasets)
-const mockedCreateEvaluationRun = vi.mocked(createEvaluationRun)
-const mockedGetEvaluationRun = vi.mocked(getEvaluationRun)
-const mockedTestEvaluationConnection = vi.mocked(testEvaluationConnection)
+const mockedEvaluationCatalog = vi.mocked(getEvaluationCatalog)
+const mockedCreateEvaluationSuite = vi.mocked(createEvaluationSuite)
+const mockedGetLatestEvaluationSuite = vi.mocked(getLatestEvaluationSuite)
+const mockedGetLatestEvaluationExperiment = vi.mocked(getLatestEvaluationExperiment)
+const mockedDeleteEvaluationExperiments = vi.mocked(deleteEvaluationExperiments)
+const mockedCreateModelEvaluation = vi.mocked(createModelEvaluation)
+const mockedCreateRagEvaluation = vi.mocked(createRagEvaluation)
+const mockedGetEvaluationExperiment = vi.mocked(getEvaluationExperiment)
+const mockedGetSavedRagProfiles = vi.mocked(getSavedRagProfiles)
+const mockedSaveRagProfile = vi.mocked(saveRagProfile)
+const mockedDeleteSavedRagProfile = vi.mocked(deleteSavedRagProfile)
 
 const safety = '仅供教学研修或医生复核前辅助，不作为独立诊断依据。'
 const v32KnowledgeIndex = { index_version: 1, index_progress: 100, index_stage: '完成', index_job_id: null, index_error: null }
@@ -173,12 +185,19 @@ beforeEach(() => {
     onEvent({ event: 'token', data: { text: '先观察可支持事实。' } })
     onEvent({ event: 'message_end', data: { run_id: 'run-test' } })
   })
-  mockedEvaluation.mockResolvedValue({ artifact_available: false, artifact_path: null, mode: 'not_run', sample_count: 0, metrics: {}, cases: [], probes: [], strategy_comparison: [], notice: '尚未运行', safety_notice: safety })
-  mockedEvaluationDatasets.mockResolvedValue([{ dataset_id: 'cmexam-text-eval-v1', domain_id: 'endoscopy', name: 'CMExam 文本评测', description: '冻结评测集', source_dataset: 'CMExam', modality: 'text', version: 'cmexam-text-eval-v1', dataset_hash: 'hash', sample_count: 5, supports_vision: false, tutor_indexed: false }])
-  mockedTestEvaluationConnection.mockResolvedValue({ ok: true, provider: 'byok_openai_compatible', model: 'candidate-model', latency_ms: 12, error: null, fallback: false, key_persisted: false })
-  const evaluationRun: EvaluationRun = { eval_run_id: 'evalrun-test', dataset_id: 'cmexam-text-eval-v1', dataset_version: 'cmexam-text-eval-v1', dataset_hash: 'hash', provider: 'byok_openai_compatible', model: 'candidate-model', prompt_version: 'model-eval-answer-json-v1', status: 'completed', sample_count: 1, aggregate: { accuracy: 1, valid_parse_rate: 1, latency_p50_ms: 12, latency_p95_ms: 12 }, usage: { total_tokens: 12 }, errors: [], created_at: '2026-08-28T00:00:00Z', completed_at: '2026-08-28T00:00:12Z', artifact_path: 'artifacts/eval/model-runs/evalrun-test.json', cases: [{ eval_case_id: 'case-1', question: 'Which option is correct?', candidate_output: '{"answer":"B"}', parsed_answer: 'B', gold_answer: null, correct: null, valid_parse: true, latency_ms: 12, error_category: null, task: 'text_single_choice', topic: 'fixture' }], gold_revealed: false, fallback: false, safety_notice: safety }
-  mockedCreateEvaluationRun.mockResolvedValue(evaluationRun)
-  mockedGetEvaluationRun.mockResolvedValue({ ...evaluationRun, gold_revealed: true, cases: [{ ...evaluationRun.cases[0], gold_answer: 'B', correct: true }] })
+  const evalSuite = { suite_id: 'suite-test', bank_id: 'bank-a', bank_name: '胃部观察题库', sample_size: 5, seed: 11, suite_hash: 'a83f0000', suite_short: 'A83F00', bank_version: 'test-v1', prompt_version: 'evaluation-lab-typed-answer-v1', created_at: '2026-08-28T00:00:00Z' }
+  const evaluationExperiment: EvaluationExperiment = { experiment_id: 'evalexp-test', experiment_type: 'model', status: 'completed', suite: evalSuite, fixed_snapshot: { temperature: 0, allow_fallback: false }, created_at: '2026-08-28T00:00:00Z', runs: [{ run_id: 'evalrun-test', name: 'candidate-model', provider: 'runtime', base_url: '', model: 'candidate-model', retrieval_profile: null, status: 'completed', aggregate: { accuracy: 1, valid_response_rate: 1, provider_success_rate: 1, p50_latency_ms: 12, avg_tokens_per_question: 12 }, progress: 100, stage: 'completed', error: null }] }
+  mockedEvaluationCatalog.mockResolvedValue({ banks: [{ bank_id: 'bank-a', domain_id: 'endoscopy', name: '胃部观察题库', version: 'test-v1', eligible_question_count: 5 }], runtime_models: ['candidate-model'], default_profile: { name: 'TiBan Default', mode: 'hybrid', top_k: 5, candidate_pool: 20, rerank_enabled: false, rrf_k: 60, section_dedupe: true }, prompt_version: 'evaluation-lab-typed-answer-v1' })
+  mockedCreateEvaluationSuite.mockResolvedValue(evalSuite)
+  mockedGetLatestEvaluationSuite.mockResolvedValue(evalSuite)
+  mockedGetLatestEvaluationExperiment.mockResolvedValue(null)
+  mockedDeleteEvaluationExperiments.mockResolvedValue({ deleted_experiment_count: 1, deleted_run_count: 1 })
+  mockedCreateModelEvaluation.mockResolvedValue(evaluationExperiment)
+  mockedCreateRagEvaluation.mockResolvedValue({ ...evaluationExperiment, experiment_type: 'rag', runs: [{ ...evaluationExperiment.runs[0], name: 'TiBan Default', retrieval_profile: { name: 'TiBan Default', mode: 'hybrid', top_k: 5, candidate_pool: 20, rerank_enabled: false, rrf_k: 60, section_dedupe: true }, aggregate: { answer_accuracy: 1, p50_latency_ms: 12, avg_context_tokens: 42, recall_at_k: null } }] })
+  mockedGetEvaluationExperiment.mockResolvedValue(evaluationExperiment)
+  mockedGetSavedRagProfiles.mockResolvedValue([])
+  mockedSaveRagProfile.mockImplementation(async (bankId, profile, profileId) => ({ ...profile, profile_id: profileId ?? 'ragprofile-test', bank_id: bankId, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }))
+  mockedDeleteSavedRagProfile.mockResolvedValue({ profile_id: 'ragprofile-test', deleted: true })
 })
 
 describe('Stage 1 page contracts', () => {
@@ -392,6 +411,35 @@ describe('Stage 1 page contracts', () => {
     expect(screen.getByRole('heading', { name: '知识库' })).toBeInTheDocument()
   })
 
+  it('offers deletion beside learner资料 and never offers it for system sources', async () => {
+    const user = userEvent.setup()
+    const learnerSource = { id: 'source-user', title: '我的学习笔记', file_name: 'note.md', scope: 'user', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 2, size_bytes: 1200, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }
+    const systemSource = { id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }
+    mockedGetKnowledgeSources.mockResolvedValueOnce([learnerSource, systemSource])
+    mockedGetKnowledgeSource.mockImplementation(async (id) => ({ ...(id === learnerSource.id ? learnerSource : systemSource), preview: [] }))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    renderPage(<KnowledgePage />, ['/knowledge'])
+    expect(await screen.findByRole('button', { name: '删除我的学习笔记' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '删除CMExam 官方解析库' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '删除我的学习笔记' }))
+    await waitFor(() => expect(mockedDeleteKnowledgeSource.mock.calls[0]?.[0]).toBe(learnerSource.id))
+  })
+
+  it('uses the current review tab semantics for item icons', async () => {
+    const user = userEvent.setup()
+    renderPage(<ReviewPage />, ['/review'])
+    const selected = await screen.findByRole('button', { name: /请根据当前证据选择答案/ })
+    expect(selected.querySelector('svg')).toHaveClass('lucide-calendar-clock')
+    await user.click(screen.getByRole('tab', { name: '已标记' }))
+    const marked = await screen.findByRole('button', { name: /请根据当前证据选择答案/ })
+    const bookmark = marked.querySelector('svg')
+    expect(bookmark).toHaveClass('lucide-bookmark')
+    expect(bookmark).toHaveAttribute('fill', 'currentColor')
+    expect(marked).toHaveTextContent('已标记')
+  })
+
   it('keeps review navigation visible while only the active list and detail are loading', async () => {
     const user = userEvent.setup()
     let resolveWrong: ((value: { tab: string; total: number; items: Array<Record<string, unknown>> }) => void) | undefined
@@ -410,33 +458,122 @@ describe('Stage 1 page contracts', () => {
     expect(screen.getByRole('heading', { name: '错题与复习' })).toBeInTheDocument()
   })
 
-  it('renders the evaluation not-run state without inventing metrics', async () => {
+  it('renders the two-tab Evaluation Lab with a saved evaluation set and does not resample on mount', async () => {
     renderPage(<EvaluationPage />, ['/eval'])
     expect(await screen.findByTestId('evaluation-page')).toBeInTheDocument()
-    expect(screen.getByText('新建评测')).toBeInTheDocument()
-    expect(screen.getByText('5 道题 · 文本输入 · 冻结评测集')).toBeInTheDocument()
-    expect(screen.getByText('本次抽样题量')).toBeInTheDocument()
-    expect(screen.queryByText('100')).not.toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: '模型评测' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'RAG 评测' })).toBeInTheDocument()
+    expect(screen.queryByText('检索评测')).not.toBeInTheDocument()
+    expect(await screen.findByText('评测集编号 A83F00')).toBeInTheDocument()
+    expect(screen.queryByText(/Suite/)).not.toBeInTheDocument()
+    expect(mockedCreateEvaluationSuite).not.toHaveBeenCalled()
   })
 
-  it('runs a real-state BYOK evaluation and reveals gold only on explicit action', async () => {
+  it('starts a runtime-backed model experiment without collecting an API key in the default mode', async () => {
     const user = userEvent.setup()
     renderPage(<EvaluationPage />, ['/eval'])
     await screen.findByTestId('evaluation-page')
-    await user.type(screen.getByLabelText('连接地址'), 'https://provider.example/v1')
-    await user.type(screen.getByLabelText('模型名称'), 'candidate-model')
-    await user.type(screen.getByLabelText(/API Key/), 'secret-not-persisted')
-    await user.click(screen.getByRole('button', { name: '测试连接' }))
-    expect(await screen.findByText('模型连接成功')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '开始评测' }))
-    expect(await screen.findByText('评测完成')).toBeInTheDocument()
-    expect(screen.getByText('查看对照答案')).toBeInTheDocument()
-    expect(screen.queryByText('Gold', { exact: true })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '查看对照答案' }))
-    expect(await screen.findByText('参考答案已展示')).toBeInTheDocument()
-    expect(screen.getByText('B', { exact: true })).toBeInTheDocument()
-    expect(mockedCreateEvaluationRun.mock.calls[0]?.[0].api_key).toBe('secret-not-persisted')
-    expect(mockedGetEvaluationRun).toHaveBeenCalledWith('evalrun-test', true)
+    await user.click(await screen.findByRole('button', { name: '开始模型评测' }))
+    expect(await screen.findByText('模型排行榜')).toBeInTheDocument()
+    expect(screen.getByText('Avg Tokens / 题')).toBeInTheDocument()
+    expect(mockedCreateModelEvaluation).toHaveBeenCalledWith({ suite_id: 'suite-test', models: ['candidate-model'], base_url: undefined, api_key: undefined, provider: undefined })
+    expect(screen.queryByLabelText(/API Key/)).not.toBeInTheDocument()
+  })
+
+  it('shows custom model connection inputs only when requested and keeps the key masked', async () => {
+    const user = userEvent.setup()
+    renderPage(<EvaluationPage />, ['/eval'])
+    await screen.findByTestId('evaluation-page')
+    await user.click(await screen.findByRole('button', { name: '自定义 API' }))
+    const key = screen.getByLabelText('评测 API Key')
+    expect(key).toHaveAttribute('type', 'password')
+    await user.type(key, 'secret-for-test')
+    await user.click(screen.getByRole('button', { name: '显示评测 API Key' }))
+    expect(key).toHaveAttribute('type', 'text')
+    expect(screen.getByLabelText('评测 Base URL')).toBeInTheDocument()
+  })
+
+  it('caps RAG variants at two and renders absent Recall@K as an em dash', async () => {
+    const user = userEvent.setup()
+    renderPage(<EvaluationPage />, ['/eval'])
+    await user.click(await screen.findByRole('tab', { name: 'RAG 评测' }))
+    await user.click(await screen.findByRole('button', { name: '添加方案' }))
+    await user.click(screen.getByRole('button', { name: '添加方案' }))
+    expect(screen.getByRole('button', { name: '添加方案' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: '开始 RAG 评测' }))
+    expect(await screen.findByText('RAG 评测结果')).toBeInTheDocument()
+    expect(screen.getByText('Recall@K')).toBeInTheDocument()
+    expect(mockedCreateRagEvaluation).toHaveBeenCalled()
+  })
+
+  it('uses a custom RAG evaluation-set size when creating the set', async () => {
+    const user = userEvent.setup()
+    renderPage(<EvaluationPage />, ['/eval'])
+    await user.click(await screen.findByRole('tab', { name: 'RAG 评测' }))
+    const size = screen.getByLabelText('评测题量')
+    fireEvent.change(size, { target: { value: '16' } })
+    await user.click(await screen.findByRole('button', { name: '重新抽样' }))
+    await user.click(screen.getByRole('button', { name: '确认重新抽样' }))
+    await waitFor(() => expect(mockedCreateEvaluationSuite).toHaveBeenCalledWith({ bank_id: 'bank-a', sample_size: 16 }))
+  })
+
+  it('persists a RAG comparison profile and marks it saved in the editor', async () => {
+    const user = userEvent.setup()
+    renderPage(<EvaluationPage />, ['/eval?tab=rag'])
+    await screen.findByTestId('evaluation-page')
+    await user.click(await screen.findByRole('button', { name: '添加方案' }))
+    await user.clear(screen.getByLabelText('方案名称'))
+    await user.type(screen.getByLabelText('方案名称'), '低候选池')
+    await user.click(screen.getByRole('button', { name: '保存方案' }))
+    await waitFor(() => expect(mockedSaveRagProfile).toHaveBeenCalledWith('bank-a', expect.objectContaining({ name: '低候选池' }), undefined))
+    expect(await screen.findByText('已保存')).toBeInTheDocument()
+  })
+
+  it('restores and deletes persisted RAG comparison profiles for the active bank', async () => {
+    const saved: SavedRagProfile = { profile_id: 'ragprofile-saved', bank_id: 'bank-a', name: '已保存方案', mode: 'dense', top_k: 6, candidate_pool: 40, rerank_enabled: true, rrf_k: 60, section_dedupe: false, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }
+    mockedGetSavedRagProfiles.mockResolvedValueOnce([saved])
+    const user = userEvent.setup()
+    renderPage(<EvaluationPage />, ['/eval?tab=rag'])
+    expect(await screen.findByDisplayValue('已保存方案')).toBeInTheDocument()
+    expect(screen.getByText('已保存')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '删除方案' }))
+    await waitFor(() => expect(mockedDeleteSavedRagProfile).toHaveBeenCalledWith('bank-a', 'ragprofile-saved'))
+    await waitFor(() => expect(screen.queryByDisplayValue('已保存方案')).not.toBeInTheDocument())
+  })
+
+  it('restores the latest model result from the backend after entering the lab', async () => {
+    const savedSuite = { suite_id: 'suite-saved', bank_id: 'bank-a', bank_name: '胃部观察题库', sample_size: 5, seed: 11, suite_hash: 'a83f0000', suite_short: 'A83F00', bank_version: 'test-v1', prompt_version: 'evaluation-lab-typed-answer-v1', created_at: '2026-08-28T00:00:00Z' }
+    mockedGetLatestEvaluationExperiment.mockResolvedValue({ experiment_id: 'evalexp-saved', experiment_type: 'model', status: 'completed', suite: savedSuite, fixed_snapshot: { temperature: 0, allow_fallback: false }, created_at: '2026-08-28T00:00:00Z', runs: [{ run_id: 'evalrun-saved', name: 'candidate-model', provider: 'runtime', base_url: '', model: 'candidate-model', retrieval_profile: null, status: 'completed', aggregate: { accuracy: 1, valid_response_rate: 1, provider_success_rate: 1, p50_latency_ms: 12, avg_tokens_per_question: 12 }, progress: 100, stage: 'completed', error: null }] })
+    renderPage(<EvaluationPage />, ['/eval'])
+    expect(await screen.findByText('模型排行榜')).toBeInTheDocument()
+    expect(mockedGetLatestEvaluationExperiment).toHaveBeenCalledWith('bank-a', 'model')
+    expect(screen.getByText('评测集编号 A83F00')).toBeInTheDocument()
+  })
+
+  it('asks before resampling and leaves the current result untouched when cancelled', async () => {
+    const user = userEvent.setup()
+    renderPage(<EvaluationPage />, ['/eval'])
+    await user.click(await screen.findByRole('button', { name: '重新抽样' }))
+    expect(screen.getByRole('dialog', { name: '重新抽样评测集？' })).toBeInTheDocument()
+    expect(screen.getByText(/其它题库和另一种评测类型/)).toBeInTheDocument()
+    expect(screen.queryByText(/Suite/)).not.toBeInTheDocument()
+    expect(mockedDeleteEvaluationExperiments).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: '取消' }))
+    expect(screen.queryByRole('dialog', { name: '重新抽样评测集？' })).not.toBeInTheDocument()
+    expect(mockedDeleteEvaluationExperiments).not.toHaveBeenCalled()
+  })
+
+  it('deletes only the selected tab results after resampling confirmation', async () => {
+    const user = userEvent.setup()
+    const nextSuite = { suite_id: 'suite-next', bank_id: 'bank-a', bank_name: '胃部观察题库', sample_size: 10, seed: 12, suite_hash: 'b93f0000', suite_short: 'B93F00', bank_version: 'test-v1', prompt_version: 'evaluation-lab-typed-answer-v1', created_at: '2026-08-28T00:00:00Z' }
+    mockedCreateEvaluationSuite.mockResolvedValueOnce(nextSuite)
+    renderPage(<EvaluationPage />, ['/eval'])
+    await user.click(await screen.findByRole('button', { name: '重新抽样' }))
+    await user.click(screen.getByRole('button', { name: '确认重新抽样' }))
+    await waitFor(() => expect(mockedDeleteEvaluationExperiments).toHaveBeenCalledWith('bank-a', 'model'))
+    await waitFor(() => expect(mockedCreateEvaluationSuite).toHaveBeenCalledWith({ bank_id: 'bank-a', sample_size: 10 }))
+    expect(screen.queryByRole('dialog', { name: '重新抽样评测集？' })).not.toBeInTheDocument()
+    expect(await screen.findByText('评测集编号 B93F00')).toBeInTheDocument()
   })
 
   it('renders a continuous Tutor chat with real tool and source parts', async () => {

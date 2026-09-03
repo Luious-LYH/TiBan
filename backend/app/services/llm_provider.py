@@ -282,6 +282,27 @@ class LLMProvider:
             "key_persisted": False,
         }
 
+    def runtime_request_config(self, *, model: str | None = None) -> dict[str, str] | None:
+        """Return the active instance connection without exposing it publicly.
+
+        Evaluation workers need to pin the selected runtime endpoint while the
+        model name remains a per-candidate value.  The returned key is used
+        only in the process-local/runtime-only evaluation secret handoff; it
+        is never a database, artifact, log, trace, or broker field.
+        """
+        from app.services.runtime_settings_service import runtime_settings_service
+
+        runtime_settings_service.sync()
+        attempts = self._provider_attempts(
+            base_url=None, api_key=None, model=model, provider=None, allow_fallback=False,
+        )
+        if not attempts:
+            return None
+        selected = dict(attempts[0])
+        if model:
+            selected["model"] = model
+        return {key: str(value) for key, value in selected.items()}
+
     def _request_json(self, endpoint: str, body: dict[str, Any], api_key: str) -> tuple[int, bytes]:
         parsed = urllib.parse.urlsplit(endpoint)
         self._validate_base_url(parsed)

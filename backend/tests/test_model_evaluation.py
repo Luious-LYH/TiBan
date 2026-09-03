@@ -109,26 +109,13 @@ def test_provider_failure_is_recorded_without_fallback_or_secret(monkeypatch, tm
     assert "secret-for-test-only" not in json.dumps(result, ensure_ascii=False)
 
 
-def test_evaluation_dataset_endpoint_keeps_endobench_out_of_tutor(monkeypatch) -> None:
+def test_legacy_portfolio_packs_are_not_exposed_by_evaluation_lab(monkeypatch) -> None:
     monkeypatch.setattr(
-        "app.routers.evaluation.list_datasets",
-        lambda: [
-            {
-                "dataset_id": "endobench-vlm-eval-v1",
-                "name": "EndoBench VLM 评测",
-                "description": "Evaluation-only",
-                "source_dataset": "EndoBench",
-                "modality": "image",
-                "version": "endobench-vlm-eval-v1",
-                "dataset_hash": "hash",
-                "sample_count": 1,
-                "supports_vision": True,
-                "tutor_indexed": False,
-            },
-        ],
+        "app.routers.evaluation.evaluation_lab_service.catalog",
+        lambda: {"banks": [], "runtime_models": ["runtime-model"], "default_profile": {"name": "TiBan Default", "mode": "hybrid", "top_k": 5, "candidate_pool": 20, "rerank_enabled": False, "rrf_k": 60, "section_dedupe": True}, "prompt_version": "evaluation-lab-typed-answer-v1"},
     )
-    response = TestClient(app).get("/api/v3/evaluation/datasets")
+    response = TestClient(app).get("/api/v3/evaluation/lab/catalog")
     assert response.status_code == 200
-    item = response.json()["items"][0]
-    assert item["source_dataset"] == "EndoBench"
-    assert item["tutor_indexed"] is False
+    payload = response.json()
+    assert payload["banks"] == []
+    assert "EndoBench" not in str(payload)

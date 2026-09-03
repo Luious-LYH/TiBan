@@ -5,8 +5,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-APP_NAME = "TiBan 学习与模型评测平台"
-APP_VERSION = "3.2.2"
+APP_NAME = "TiBan 学习与评测实验室"
+APP_VERSION = "3.3.0"
 SAFETY_NOTICE = "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
 DEMO_LEARNER_ID = "demo_learner"
 DEFAULT_DOMAIN_ID = "endoscopy"
