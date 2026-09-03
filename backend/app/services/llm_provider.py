@@ -8,6 +8,7 @@ import ssl
 import time
 import urllib.error
 import urllib.parse
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -59,9 +60,25 @@ class _PinnedHTTPSConnection(http.client.HTTPSConnection):
         self.sock = self._context.wrap_socket(raw_sock, server_hostname=self.host)
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req: urllib.request.Request, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:  # type: ignore[override]
+        return None
+
+
 class LLMProvider:
     _TRANSIENT_HTTP_STATUSES = {408, 425, 429, 500, 502, 503, 504}
     _CHAT_RETRIES = 2
+    # Some managed development networks intentionally map public domains to
+    # RFC 2544 benchmark addresses and rely on the system HTTPS proxy.  Keep
+    # the SSRF checks strict for every other hostname, but allow this exact
+    # set of provider domains to use urllib's configured proxy when the
+    # resolution is only that synthetic 198.18.0.0/15 mapping.
+    _PUBLIC_PROVIDER_HOSTS = frozenset({
+        "api.cloudflare.com",
+        "api.siliconflow.cn",
+        "open.bigmodel.cn",
+        "openrouter.ai",
+    })
 
     def _local_demo_provider_paths(self) -> list[Path]:
         return [
@@ -273,6 +290,27 @@ class LLMProvider:
             raise ValueError("unsafe_base_url")
         scheme = parsed.scheme.lower()
         port = parsed.port or (443 if scheme == "https" else 80)
+        # Use the standard opener for the explicitly allowlisted public
+        # providers. It preserves the hostname for TLS and respects the
+        # machine's configured HTTPS proxy, which is required in environments
+        # whose DNS maps public hosts to 198.18/15. Redirects remain blocked.
+        if scheme == "https" and hostname in self._PUBLIC_PROVIDER_HOSTS:
+            request = urllib.request.Request(
+                endpoint,
+                data=json.dumps(body).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                method="POST",
+            )
+            opener = urllib.request.build_opener(_NoRedirectHandler)
+            try:
+                with opener.open(request, timeout=config.LLM_TIMEOUT_SECONDS) as response:
+                    return response.status, response.read()
+            except urllib.error.HTTPError as exc:
+                return exc.code, exc.read()
         connect_host = self._resolve_connection_host(hostname, port)
         payload = json.dumps(body).encode("utf-8")
         path = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
@@ -472,6 +510,20 @@ class LLMProvider:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
+        # Qwen3 on Workers AI may place the final short answer in
+        # ``reasoning_content`` unless its chat template is explicitly told to
+        # disable thinking.  Keep the public Tutor path answer-only; raw
+        # private reasoning must never be surfaced to the learner.
+        cloudflare_thinking_disabled = False
+        try:
+            cloudflare_thinking_disabled = (
+                self._canonical_hostname(urllib.parse.urlsplit(effective_base_url).hostname or "")
+                == "api.cloudflare.com"
+            )
+        except ValueError:
+            pass
+        if cloudflare_thinking_disabled:
+            body["chat_template_kwargs"] = {"enable_thinking": False}
         if config.LLM_MODEL_REASONING_EFFORT:
             body["model_reasoning_effort"] = config.LLM_MODEL_REASONING_EFFORT
         try:
@@ -491,9 +543,25 @@ class LLMProvider:
                     return LLMResult(False, "", "provider", effective_provider, effective_model, last_error, image_attached=image_attached)
                 payload = json.loads(response_body.decode("utf-8"))
                 latency_ms = round((time.perf_counter() - started) * 1000)
-                text = payload.get("choices", [{}])[0].get("message", {}).get("content", "")
+                message = payload.get("choices", [{}])[0].get("message", {}) or {}
+                raw_content = message.get("content")
+                if isinstance(raw_content, str):
+                    text = raw_content
+                elif isinstance(raw_content, list):
+                    text = "".join(
+                        str(part.get("text", ""))
+                        for part in raw_content
+                        if isinstance(part, dict) and isinstance(part.get("text"), str)
+                    )
+                else:
+                    # Cloudflare's OpenAI-compatible adapter currently emits
+                    # the answer in reasoning_content when the Qwen chat
+                    # template is in answer-only mode.  This branch is tightly
+                    # scoped to that request shape, so a real private CoT from
+                    # another provider can never leak into the UI.
+                    text = message.get("reasoning_content", "") if cloudflare_thinking_disabled else ""
                 text = self._clean_text(str(text))
-                if not text:
+                if not text or text.lower() == "none":
                     return LLMResult(False, "", "provider", effective_provider, effective_model, "empty_response", latency_ms, image_attached)
                 raw_usage = payload.get("usage")
                 usage = {
@@ -574,8 +642,31 @@ class LLMProvider:
             if resolution == "blocked":
                 return "resolves_to_private_or_reserved_ip"
             if resolution == "private_allowlisted" and not self._private_host_allowed(hostname):
-                return "resolves_to_private_or_reserved_ip"
+                if not self._is_synthetic_public_provider_resolution(hostname, port):
+                    return "resolves_to_private_or_reserved_ip"
         return None
+
+    def _is_synthetic_public_provider_resolution(self, hostname: str, port: int | None) -> bool:
+        """Return true only for the known-provider RFC 2544 DNS mapping."""
+
+        if self._canonical_hostname(hostname) not in self._PUBLIC_PROVIDER_HOSTS:
+            return False
+        try:
+            resolved = socket.getaddrinfo(hostname, port or 443, type=socket.SOCK_STREAM)
+        except socket.gaierror:
+            return False
+        addresses = []
+        for item in resolved:
+            sockaddr = item[4]
+            if sockaddr:
+                try:
+                    addresses.append(ipaddress.ip_address(sockaddr[0]))
+                except ValueError:
+                    return False
+        return bool(addresses) and all(
+            ipaddress.ip_address("198.18.0.0") <= address <= ipaddress.ip_address("198.19.255.255")
+            for address in addresses
+        )
 
     def _safe_preflight_preview(self, parsed: urllib.parse.SplitResult, source: str) -> str:
         path = parsed.path.rstrip("/")

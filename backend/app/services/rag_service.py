@@ -280,10 +280,21 @@ class RagService:
                     "vector_dimension": None,
                     "index_version": 0,
                 }
+            status = state.status
+            # A ready marker is only valid for the exact active vector space.
+            # This prevents an old test/local index (or a previous model) from
+            # being queried with the current provider and from being reported
+            # as ready in Settings.
+            if status == "ready" and (
+                state.provider != provider.provider_id
+                or state.model_id != provider.model_id
+                or not state.vector_dimension
+            ):
+                status = "stale"
             return {
                 "provider": state.provider,
                 "model": state.model_id,
-                "status": state.status,
+                "status": status,
                 "vector_dimension": state.vector_dimension,
                 "index_version": state.index_version,
                 "indexed_at": state.indexed_at,

@@ -34,7 +34,7 @@ export function BanksPage() {
       <span className="catalog-row-icon"><BookOpen size={18} /></span>
       <div className="catalog-row-copy"><Link to={`/banks/${encodeURIComponent(bank.bank_id)}`}><h2>{displayName(bank.name)}</h2></Link><p>{learnerBankDescription(bank.bank_id, bank.description)}</p><div><span>{bank.question_count} 题</span><span>已做 {bank.completed_count}</span><span>错题 {bank.incorrect_count}</span><span>标记 {bank.marked_count}</span>{Object.entries(bank.question_type_counts).map(([key, count]) => <span key={key}>{count} {typeLabels[key] ?? key}</span>)}</div></div>
       <div className="catalog-row-progress"><span>{bank.completed_count} / {bank.question_count}</span><i><b style={{ width: `${Math.round(bank.progress * 100)}%` }} /></i></div>
-      <div className="catalog-row-actions"><Link to={`/banks/${encodeURIComponent(bank.bank_id)}`}>查看题目 <ArrowRight size={14} /></Link><SessionBuilder bankId={bank.bank_id} bankName={displayName(bank.name)} /></div>
+      <div className="catalog-row-actions"><Link to={`/banks/${encodeURIComponent(bank.bank_id)}`}>查看题目 <ArrowRight size={14} /></Link><SessionBuilder bankId={bank.bank_id} bankName={displayName(bank.name)} availableCounts={bank} /></div>
     </article>)}</section>}
   </div>
 }

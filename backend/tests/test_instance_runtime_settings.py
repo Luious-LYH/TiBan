@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from app.core import config
 from app.main import app
@@ -36,6 +37,19 @@ def test_embedding_batch_setting_is_bounded_and_restorable() -> None:
     restored = client.post("/api/v3/settings/embedding/restore")
     assert restored.status_code == 200
     assert restored.json()["embedding"]["batch_size"] == 32
+
+
+def test_restoring_already_default_embedding_does_not_invalidate_indexes() -> None:
+    client = TestClient(app)
+    with patch("app.services.rag_service.rag_service.mark_index_stale") as mark_knowledge, patch(
+        "app.services.semantic_memory_service.semantic_memory_service.mark_index_stale"
+    ) as mark_memory:
+        restored = client.post("/api/v3/settings/embedding/restore")
+
+    assert restored.status_code == 200
+    assert restored.json()["embedding"]["runtime_override"] is False
+    mark_knowledge.assert_not_called()
+    mark_memory.assert_not_called()
 
 
 def test_mentor_conversation_delete_is_learner_scoped_and_removes_the_history() -> None:

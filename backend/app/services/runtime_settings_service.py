@@ -229,13 +229,21 @@ class RuntimeSettingsService:
         return bool(value and len(value.strip()) >= 6 and value.strip().lower() not in {"none", "placeholder", "your_api_key"})
 
     def llm_public(self) -> dict[str, Any]:
+        from app.services.llm_provider import llm_provider
+
         self.sync()
+        provider_status = llm_provider.status()
         with self._lock:
             return {
-                "provider": config.LLM_PROVIDER,
-                "base_url_configured": bool(config.LLM_BASE_URL),
-                "api_key_configured": self._key_configured(config.LLM_API_KEY),
-                "model": config.LLM_MODEL,
+                # The public Settings page should describe the effective
+                # chain entry, not the first configured slot. In a normal
+                # deployment Cloudflare may be intentionally unavailable
+                # while OpenRouter or BigModel is already the real active
+                # provider.
+                "provider": provider_status["provider"],
+                "base_url_configured": bool(provider_status["base_url_configured"]),
+                "api_key_configured": bool(provider_status["api_key_configured"]),
+                "model": provider_status["model"],
                 "reasoning_effort": config.LLM_MODEL_REASONING_EFFORT or None,
                 "runtime_override": self._llm_override,
                 "restores_default_on_restart": True,
@@ -270,7 +278,8 @@ class RuntimeSettingsService:
         from app.services.rag_service import rag_service
         from app.services.semantic_memory_service import MEMORY_INDEX_KEY
         from app.db.database import SessionLocal
-        from app.db.models import VectorIndexStateModel
+        from app.db.models import KnowledgeChunkModel, LearningMemoryItemModel, SourceDocumentModel, VectorIndexStateModel
+        from sqlalchemy import func, select
 
         self.sync()
         with self._lock:
@@ -278,8 +287,33 @@ class RuntimeSettingsService:
             with SessionLocal() as session:
                 states = {
                     row.index_key: row
-                    for row in session.scalars(__import__("sqlalchemy").select(VectorIndexStateModel).where(VectorIndexStateModel.index_key.in_(["knowledge", MEMORY_INDEX_KEY])))
+                    for row in session.scalars(select(VectorIndexStateModel).where(VectorIndexStateModel.index_key.in_(["knowledge", MEMORY_INDEX_KEY])))
                 }
+                knowledge_count = session.scalar(select(func.count()).select_from(KnowledgeChunkModel).join(
+                    SourceDocumentModel,
+                    SourceDocumentModel.document_id == KnowledgeChunkModel.document_id,
+                ).where(
+                    SourceDocumentModel.business_usage == "knowledge_base",
+                    SourceDocumentModel.enabled.is_(True),
+                    SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "disabled", "retired"]),
+                    SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
+                )) or 0
+                memory_count = session.scalar(select(func.count()).select_from(LearningMemoryItemModel).where(LearningMemoryItemModel.status == "active")) or 0
+
+            def public_index_status(index_key: str, source_count: int) -> str:
+                state = states.get(index_key)
+                if source_count == 0:
+                    return "empty"
+                if state is None:
+                    return "stale"
+                if state.status == "ready" and (
+                    state.provider != provider.provider_id
+                    or state.model_id != provider.model_id
+                    or not state.vector_dimension
+                ):
+                    return "stale"
+                return state.status
+
             return {
                 "mode": config.EMBEDDING_MODE,
                 "provider": config.EMBEDDING_PROVIDER,
@@ -296,8 +330,8 @@ class RuntimeSettingsService:
                 "runtime_override": self._embedding_override,
                 "restores_default_on_restart": True,
                 "model_switch_supported": True,
-                "knowledge_index_status": states.get("knowledge").status if states.get("knowledge") else "stale",
-                "memory_index_status": states.get(MEMORY_INDEX_KEY).status if states.get(MEMORY_INDEX_KEY) else "stale",
+                "knowledge_index_status": public_index_status("knowledge", int(knowledge_count)),
+                "memory_index_status": public_index_status(MEMORY_INDEX_KEY, int(memory_count)),
             }
 
     def embedding_batch_size(self) -> int:
@@ -368,6 +402,7 @@ class RuntimeSettingsService:
 
     def restore_embedding(self) -> dict[str, Any]:
         with self._lock:
+            was_runtime_override = self._embedding_override
             self._embedding_batch_size = 32
             for name in (
                 "EMBEDDING_MODE", "EMBEDDING_PROVIDER", "EMBEDDING_BASE_URL", "EMBEDDING_API_KEY",
@@ -377,11 +412,12 @@ class RuntimeSettingsService:
                 setattr(config, name, self._defaults[name])
             self._embedding_override = False
             self._publish()
-        from app.services.rag_service import rag_service
-        from app.services.semantic_memory_service import semantic_memory_service
+        if was_runtime_override:
+            from app.services.rag_service import rag_service
+            from app.services.semantic_memory_service import semantic_memory_service
 
-        rag_service.mark_index_stale()
-        semantic_memory_service.mark_index_stale()
+            rag_service.mark_index_stale()
+            semantic_memory_service.mark_index_stale()
         return self.embedding_public()
 
     def test_embedding_config(

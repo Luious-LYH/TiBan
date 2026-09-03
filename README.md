@@ -209,3 +209,9 @@ See the [Demo Flow](./docs/v3/portfolio/V3_DEMO_FLOW.md), [Tutor and Mentor Agen
 ### License and safety
 
 Code follows the repository license. Third-party datasets and teaching sources retain their own attribution and reuse restrictions. TiBan is intended for educational training and physician-review-before-use support; it is not an independent diagnostic or treatment system.
+
+### 支持 TiBan | Support TiBan
+
+TiBan 由独立开发者持续维护。如果这个项目对你的学习或体验有帮助，欢迎通过[爱发电](https://afdian.com/a/tiban)支持后续改进与长期维护。
+
+TiBan is independently maintained. If it helps your learning or project experience, you can support its continued development on [Afdian](https://afdian.com/a/tiban).

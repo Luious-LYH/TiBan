@@ -349,6 +349,7 @@ describe('Stage 1 page contracts', () => {
     renderPage(<PracticePage />, ['/practice?session_id=session-resumed'])
     expect(await screen.findByText('第 3 / 3 题')).toBeInTheDocument()
     expect(screen.getByLabelText('已完成 2 / 3，67%')).toBeInTheDocument()
+    expect(screen.getByText('已完成 67%')).toBeInTheDocument()
   })
 
   it('uses an honest missing-explanation state without adding an AI grading fallback', async () => {

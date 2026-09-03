@@ -249,3 +249,31 @@ def test_provider_chain_uses_bigmodel_only_after_cloudflare_and_openrouter_fail(
     assert result.ok is True
     assert result.provider == 'bigmodel'
     assert seen == ['cloudflare_workers_ai'] * 3 + ['openrouter'] * 3 + ['bigmodel']
+
+
+def test_cloudflare_qwen_answer_only_maps_compat_reasoning_field(monkeypatch) -> None:
+    provider = LLMProvider()
+    captured: dict[str, object] = {}
+
+    def fake_request(endpoint, body, api_key):
+        captured.update(body)
+        return 200, b'{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":null,"reasoning_content":"\\u7b54\\u6848\\u6b63\\u6587"}}]}'
+
+    monkeypatch.setattr(provider, '_chat_completion_endpoints', lambda _base_url: ['https://api.cloudflare.com/client/v4/accounts/test/ai/v1/chat/completions'])
+    monkeypatch.setattr(provider, '_request_json', fake_request)
+    result = provider._chat_once(
+        system_prompt='system',
+        user_prompt='user',
+        image_data=None,
+        image_attached=False,
+        temperature=0.1,
+        max_tokens=160,
+        effective_provider='cloudflare_workers_ai',
+        effective_base_url='https://api.cloudflare.com/client/v4/accounts/test/ai/v1',
+        effective_api_key='cloudflare-test-key',
+        effective_model='@cf/qwen/qwen3-30b-a3b-fp8',
+    )
+
+    assert result.ok is True
+    assert result.text == '答案正文'
+    assert captured['chat_template_kwargs'] == {'enable_thinking': False}

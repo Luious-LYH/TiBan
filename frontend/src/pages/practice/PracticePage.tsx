@@ -29,6 +29,12 @@ export function PracticePage() {
   const restoredPosition = useRef<string | null>(null)
   const queryClient = useQueryClient()
 
+  useEffect(() => {
+    if (saveStatus !== 'saved') return
+    const timer = window.setTimeout(() => setSaveStatus(null), 1600)
+    return () => window.clearTimeout(timer)
+  }, [saveStatus])
+
   const banksQuery = useQuery({ queryKey: ['question-banks'], queryFn: () => getQuestionBanks() })
   const restoredSessionQuery = useQuery({ queryKey: ['practice-session', sessionId], queryFn: () => getPracticeSession(sessionId ?? ''), enabled: Boolean(sessionId), retry: false })
   const resumableQuery = useQuery({ queryKey: ['practice-session-resumable'], queryFn: () => getResumablePracticeSession(), enabled: !sessionId, retry: false })
@@ -162,7 +168,7 @@ export function PracticePage() {
         <header className="practice-progress-bar">
           <div className="s1-practice-progress practice-progress-copy"><span>{displayBankName(selectedBank?.name) ?? '当前题库'}</span><strong>第 {currentIndex + 1} / {questions.length} 题</strong><small>{modeLabels[mode]}</small></div>
           <div className="practice-progress-track" aria-label={`已完成 ${completeCount} / ${questions.length}，${progress}%`}><i style={{ width: `${progress}%` }} /></div>
-          <span className="practice-progress-percent">已完成 {completeCount} / {questions.length} · {progress}%</span>
+          <span className="practice-progress-percent">已完成 {progress}%</span>
           <div className="question-map-wrap"><button type="button" className="question-map-trigger" aria-expanded={questionMapOpen} aria-controls="question-map" onClick={() => setQuestionMapOpen((value) => !value)}><ListChecks size={15} />题单</button>{questionMapOpen && <QuestionMap questions={questions} currentIndex={currentIndex} results={results} marked={marked} sessionItems={restoredSession?.items} onJump={(index) => { setActiveIndex(index); setQuestionMapOpen(false) }} />}</div>
           <button type="button" className={marked[question.id] ? 'practice-mark is-marked' : 'practice-mark'} onClick={() => { const next = !marked[question.id]; setMarkOverrides((current) => ({ ...current, [question.id]: next })); markMutation.mutate({ questionId: question.id, marked: next }) }}><Bookmark size={15} />{marked[question.id] ? '已标记' : '标记'}</button>
         </header>

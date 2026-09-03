@@ -39,6 +39,7 @@ frontend/test-results/
 # Generated/local audit material that should not enter the public repository.
 /frontend/openapi.json
 /前端视觉目标/
+/前端视觉目标_old/
 /docs/ARCHIVE_MANIFEST.md
 /docs/V2_RELEASE_REPORT.md
 /docs/portfolio/evidence/current-v2/

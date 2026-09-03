@@ -32,7 +32,11 @@ class OpenAICompatibleTutorGateway:
             ),
             user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "mode": context.mode, "allowed_tools": sorted(available_tools)}, ensure_ascii=False),
             temperature=0,
-            max_tokens=120,
+            # GLM-5.3-Flash may spend a short internal reasoning budget before
+            # returning the JSON tool plan. Keep enough output budget for the
+            # plan so a real provider call is not misclassified as empty and
+            # silently replaced by the local policy adapter.
+            max_tokens=420,
         )
         if not result.ok:
             raise normalize_provider_error(result.error)

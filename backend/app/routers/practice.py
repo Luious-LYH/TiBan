@@ -93,6 +93,8 @@ def create_session_v3(request: PracticeSessionCreateRequest) -> dict[str, object
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Question bank not found.") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @canonical_router.get("/practice/sessions/resumable", response_model=PracticeResumableResponse)

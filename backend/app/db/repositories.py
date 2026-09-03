@@ -550,6 +550,9 @@ class Stage1Repository:
         questions = self._filter_questions_for_scope(questions, learner_id=learner_id, scope=question_scope)
         if not questions:
             raise KeyError(f"No learner-ready questions in bank: {bank_id}")
+        if question_scope in {"uncompleted", "incorrect", "marked", "due"} and question_count > len(questions):
+            scope_labels = {"uncompleted": "未做题", "incorrect": "错题", "marked": "已标记题", "due": "待复习题"}
+            raise ValueError(f"当前范围「{scope_labels[question_scope]}」只有 {len(questions)} 道题，请选择不超过 {len(questions)} 题。")
         selection_size = min(max(question_count, 1), len(questions))
         selected_ids, selection = self._select_adaptive_session_questions(
             learner_id=learner_id,

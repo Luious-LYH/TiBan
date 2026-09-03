@@ -1,5 +1,4 @@
 import {
-  Activity,
   BookOpen,
   ClipboardCheck,
   CircleAlert,
@@ -50,12 +49,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className={`app-shell ${collapsed ? 'is-collapsed' : ''}`}>
+    <div className={`app-shell ${collapsed ? 'is-collapsed' : ''} ${location.pathname === '/practice' ? 'is-practice-shell' : ''}`}>
       <button className={`app-sidebar-backdrop ${sidebarOpen ? 'is-visible' : ''}`} type="button" aria-label="关闭导航" onClick={() => setSidebarOpen(false)} />
       <aside className={`app-sidebar ${sidebarOpen ? 'is-open' : ''}`} aria-label="应用导航">
         <div className="app-brand-row">
           <Link className="app-brand" to="/" aria-label="题伴 TiBan 学习首页">
-            <span className="app-brand-mark"><Activity size={18} /></span>
+            <span className="app-brand-mark"><img className="app-brand-logo" src="/favicon.svg" alt="" aria-hidden="true" /></span>
             <span className="app-brand-copy"><strong>题伴</strong><small>TiBan · AI 题库与学习工作台</small></span>
           </Link>
           <button className="app-mobile-close" type="button" aria-label="关闭导航" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
