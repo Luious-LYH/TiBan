@@ -1,4 +1,4 @@
-"""Persistent cross-session learning coach built on the existing Agent runtime."""
+"""Persistent cross-session Mentor Agent on the shared controlled runtime."""
 
 from __future__ import annotations
 
@@ -16,16 +16,17 @@ from app.db.models import AgentConversationModel, AgentMessageModel, AttemptMode
 from app.db.repositories import Stage1Repository
 from app.services.agent_runtime import AgentContext, AgentEvent, AgentRunner, LocalPolicyModelGateway, ToolRegistry
 from app.services.learning_memory_service import learning_memory_service
+from app.services.semantic_memory_service import semantic_memory_service
 from app.services.stage1_service import stage1_service
 
 
-COACH_PROMPT = (Path(__file__).resolve().parents[1] / "agents" / "prompts" / "coach_agent.md").read_text(encoding="utf-8")
+MENTOR_PROMPT = (Path(__file__).resolve().parents[1] / "agents" / "prompts" / "mentor_agent.md").read_text(encoding="utf-8")
 
 
-class CoachGateway:
-    """The coach shares the installed Provider but carries a separate prompt."""
+class MentorGateway:
+    """Mentor shares the installed Provider but has a long-term prompt boundary."""
 
-    name = "local-learning-coach"
+    name = "local-learning-mentor"
 
     def __init__(self) -> None:
         self._provider_enabled = False
@@ -35,7 +36,7 @@ class CoachGateway:
         except Exception:
             self._provider_enabled = False
         if self._provider_enabled:
-            self.name = "openai-compatible-learning-coach"
+            self.name = "openai-compatible-learning-mentor"
 
     def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
         # AgentRunner has already applied the shared policy gate.  Returning
@@ -49,9 +50,10 @@ class CoachGateway:
         from app.services.llm_provider import llm_provider
 
         result = llm_provider.chat(
-            system_prompt=COACH_PROMPT + "\n\nUse only supplied learning observations. Do not invent a history or a source. Do not output tool names, JSON, internal IDs, hidden reasoning, diagnosis, or treatment advice.",
+            system_prompt=MENTOR_PROMPT + "\n\nUse only supplied deterministic learning state, semantic memory, tool observations, and real citations. Do not invent history or sources. Do not output tool names, JSON, internal IDs, hidden reasoning, diagnosis, or treatment advice.",
             user_prompt=(
                 f"用户问题：{context.user_message}\n\n"
+                f"已构建的长期学习上下文：{context.metadata.get('mentor_context', {})}\n\n"
                 f"允许的学习观察：{observations}\n\n"
                 f"最近对话：{context.metadata.get('conversation', [])[-12:]}"
             ),
@@ -103,7 +105,7 @@ def _review_queue(context: AgentContext) -> dict[str, Any]:
     return {
         "due_count": int(summary["due_count"]),
         # Review cards deliberately expose a learner-facing question_summary,
-        # not a QuestionModel title.  Keep the Coach on the same public DTO so
+        # not a QuestionModel title. Keep Mentor on the same public DTO so
         # it can read the real queue without depending on a hidden field.
         "items": [{"question_id": item["question_id"], "bank_name": item["bank_name"], "title": item.get("question_summary", item.get("title", "")), "due_at": item.get("due_at")} for item in items],
     }
@@ -123,7 +125,13 @@ def _bank_progress(context: AgentContext) -> list[dict[str, Any]]:
 
 def _learning_memories(context: AgentContext) -> list[dict[str, Any]]:
     with SessionLocal() as session:
-        return learning_memory_service.list_for_learner(session, learner_id=context.learner_id, domain_id="endoscopy", limit=5)
+        return semantic_memory_service.retrieve(
+            session,
+            learner_id=context.learner_id,
+            domain_id="endoscopy",
+            query=context.user_message,
+            limit=5,
+        )
 
 
 def _search_knowledge(context: AgentContext) -> list[dict[str, str]]:
@@ -152,22 +160,39 @@ def _search_knowledge(context: AgentContext) -> list[dict[str, str]]:
 
 def _runner() -> AgentRunner:
     registry = ToolRegistry()
-    registry.register("get_learning_summary", {"coach"}, _learning_summary)
-    registry.register("get_recent_attempts", {"coach"}, _recent_attempts)
-    registry.register("get_review_queue", {"coach"}, _review_queue)
-    registry.register("get_bank_progress", {"coach"}, _bank_progress)
-    registry.register("get_learning_memories", {"coach"}, _learning_memories)
-    registry.register("search_knowledge", {"coach"}, _search_knowledge)
-    return AgentRunner(registry, gateway=CoachGateway(), max_steps=4, timeout_seconds=20.0, retries=1)
+    registry.register("get_learning_summary", {"mentor"}, _learning_summary)
+    registry.register("get_recent_attempts", {"mentor"}, _recent_attempts)
+    registry.register("get_review_queue", {"mentor"}, _review_queue)
+    registry.register("get_bank_progress", {"mentor"}, _bank_progress)
+    registry.register("get_learning_memories", {"mentor"}, _learning_memories)
+    registry.register("search_knowledge", {"mentor"}, _search_knowledge)
+    return AgentRunner(registry, gateway=MentorGateway(), max_steps=4, timeout_seconds=20.0, retries=1)
 
 
-coach_runner = _runner()
+mentor_runner = _runner()
 
 
-class CoachAgentService:
+def refresh_mentor_runtime_gateway() -> None:
+    """Apply the current instance LLM settings to the active Mentor runner."""
+
+    mentor_runner.set_gateway(MentorGateway())
+
+
+class MentorContextBuilder:
+    """Small, explicit context projection for the persistent Mentor only."""
+
+    def build(self, *, learner_id: str, message: str) -> dict[str, Any]:
+        context = AgentContext(question_id="", learner_id=learner_id, user_message=message, phase="mentor", metadata={"agent_profile": "mentor"})
+        return {
+            "learning_summary": _learning_summary(context),
+            "semantic_memories": _learning_memories(context)[:3],
+        }
+
+
+class MentorAgentService:
     def create_conversation(self, learner_id: str = "demo_learner") -> dict[str, Any]:
         row = AgentConversationModel(
-            conversation_id=f"coach_{uuid4().hex[:12]}", learner_id=learner_id, agent_profile="coach", title="新的带教对话"
+            conversation_id=f"mentor_{uuid4().hex[:12]}", learner_id=learner_id, agent_profile="mentor", title="新的带教对话"
         )
         with SessionLocal() as session:
             session.add(row)
@@ -177,7 +202,7 @@ class CoachAgentService:
     def list_conversations(self, learner_id: str = "demo_learner") -> list[dict[str, Any]]:
         with SessionLocal() as session:
             rows = list(session.scalars(select(AgentConversationModel).where(
-                AgentConversationModel.learner_id == learner_id, AgentConversationModel.agent_profile == "coach"
+                AgentConversationModel.learner_id == learner_id, AgentConversationModel.agent_profile == "mentor"
             ).order_by(AgentConversationModel.updated_at.desc()).limit(40)))
             return [self._conversation_payload(row, include_messages=False) for row in rows]
 
@@ -192,7 +217,7 @@ class CoachAgentService:
                 AgentMessageModel.conversation_id == conversation_id
             ).order_by(AgentMessageModel.created_at.desc()).limit(12)))
             history.reverse()
-            user = AgentMessageModel(message_id=f"coachmsg_{uuid4().hex[:12]}", conversation_id=conversation_id, role="user", content=message)
+            user = AgentMessageModel(message_id=f"mentormsg_{uuid4().hex[:12]}", conversation_id=conversation_id, role="user", content=message)
             session.add(user)
             if conversation.title == "新的带教对话":
                 conversation.title = message.strip().replace("\n", " ")[:32] or conversation.title
@@ -200,13 +225,13 @@ class CoachAgentService:
             prior = [{"role": item.role, "content": item.content} for item in history]
 
         context = AgentContext(
-            question_id="", learner_id=learner_id, user_message=message, phase="coach", mode="study",
-            metadata={"agent_profile": "coach", "conversation": prior},
+            question_id="", learner_id=learner_id, user_message=message, phase="mentor", mode="study",
+            metadata={"agent_profile": "mentor", "conversation": prior, "mentor_context": MentorContextBuilder().build(learner_id=learner_id, message=message)},
         )
         answer: list[str] = []
         activities: list[dict[str, Any]] = []
         sources: list[dict[str, Any]] = []
-        for event in coach_runner.stream(context):
+        for event in mentor_runner.stream(context):
             if event.event == "token":
                 answer.append(str(event.data.get("text", "")))
             elif event.event == "activity":
@@ -219,7 +244,7 @@ class CoachAgentService:
             with SessionLocal() as session:
                 conversation = self._conversation(session, conversation_id, learner_id)
                 session.add(AgentMessageModel(
-                    message_id=f"coachmsg_{uuid4().hex[:12]}", conversation_id=conversation_id, role="assistant", content=content,
+                    message_id=f"mentormsg_{uuid4().hex[:12]}", conversation_id=conversation_id, role="assistant", content=content,
                     activity=activities, sources=sources,
                 ))
                 conversation.updated_at = datetime.utcnow()
@@ -228,7 +253,7 @@ class CoachAgentService:
     @staticmethod
     def _conversation(session: Any, conversation_id: str, learner_id: str) -> AgentConversationModel:
         row = session.get(AgentConversationModel, conversation_id)
-        if row is None or row.learner_id != learner_id or row.agent_profile != "coach":
+        if row is None or row.learner_id != learner_id or row.agent_profile != "mentor":
             raise KeyError(conversation_id)
         return row
 
@@ -251,4 +276,4 @@ class CoachAgentService:
         return payload
 
 
-coach_agent_service = CoachAgentService()
+mentor_agent_service = MentorAgentService()

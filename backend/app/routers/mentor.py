@@ -7,13 +7,13 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.services.coach_agent_service import coach_agent_service
+from app.services.mentor_agent_service import mentor_agent_service
 
 
-router = APIRouter(prefix="/api/v3/coach", tags=["v31-coach-agent"])
+router = APIRouter(prefix="/api/v3/mentor", tags=["v32-mentor-agent"])
 
 
-class CoachMessagePublic(BaseModel):
+class MentorMessagePublic(BaseModel):
     id: str
     role: Literal["user", "assistant"]
     content: str
@@ -22,52 +22,52 @@ class CoachMessagePublic(BaseModel):
     created_at: str
 
 
-class CoachConversationPublic(BaseModel):
+class MentorConversationPublic(BaseModel):
     id: str
     title: str
     created_at: str
     updated_at: str
-    messages: list[CoachMessagePublic] = Field(default_factory=list)
+    messages: list[MentorMessagePublic] = Field(default_factory=list)
 
 
-class CoachConversationListResponse(BaseModel):
-    items: list[CoachConversationPublic]
+class MentorConversationListResponse(BaseModel):
+    items: list[MentorConversationPublic]
     api_source: str = "backend"
 
 
-class CoachConversationResponse(BaseModel):
-    item: CoachConversationPublic
+class MentorConversationResponse(BaseModel):
+    item: MentorConversationPublic
     api_source: str = "backend"
 
 
-class CoachMessageRequest(BaseModel):
+class MentorMessageRequest(BaseModel):
     learner_id: str = "demo_learner"
     message: str = Field(min_length=1, max_length=2000)
 
 
-@router.get("/conversations", response_model=CoachConversationListResponse)
-def list_conversations(learner_id: str = "demo_learner") -> CoachConversationListResponse:
-    return CoachConversationListResponse(items=[CoachConversationPublic.model_validate(item) for item in coach_agent_service.list_conversations(learner_id)])
+@router.get("/conversations", response_model=MentorConversationListResponse)
+def list_conversations(learner_id: str = "demo_learner") -> MentorConversationListResponse:
+    return MentorConversationListResponse(items=[MentorConversationPublic.model_validate(item) for item in mentor_agent_service.list_conversations(learner_id)])
 
 
-@router.post("/conversations", response_model=CoachConversationResponse)
-def create_conversation(learner_id: str = "demo_learner") -> CoachConversationResponse:
-    return CoachConversationResponse(item=CoachConversationPublic.model_validate(coach_agent_service.create_conversation(learner_id)))
+@router.post("/conversations", response_model=MentorConversationResponse)
+def create_conversation(learner_id: str = "demo_learner") -> MentorConversationResponse:
+    return MentorConversationResponse(item=MentorConversationPublic.model_validate(mentor_agent_service.create_conversation(learner_id)))
 
 
-@router.get("/conversations/{conversation_id}", response_model=CoachConversationResponse)
-def conversation_detail(conversation_id: str, learner_id: str = "demo_learner") -> CoachConversationResponse:
+@router.get("/conversations/{conversation_id}", response_model=MentorConversationResponse)
+def conversation_detail(conversation_id: str, learner_id: str = "demo_learner") -> MentorConversationResponse:
     try:
-        return CoachConversationResponse(item=CoachConversationPublic.model_validate(coach_agent_service.detail(conversation_id, learner_id)))
+        return MentorConversationResponse(item=MentorConversationPublic.model_validate(mentor_agent_service.detail(conversation_id, learner_id)))
     except KeyError as exc:
         raise HTTPException(404, "带教对话不存在。") from exc
 
 
 @router.post("/conversations/{conversation_id}/stream")
-def stream_message(conversation_id: str, request: CoachMessageRequest) -> StreamingResponse:
+def stream_message(conversation_id: str, request: MentorMessageRequest) -> StreamingResponse:
     def event_stream():
         try:
-            for event in coach_agent_service.stream_message(
+            for event in mentor_agent_service.stream_message(
                 conversation_id=conversation_id, learner_id=request.learner_id, message=request.message
             ):
                 yield f"event: {event.event}\ndata: {json.dumps(event.data, ensure_ascii=False)}\n\n"
