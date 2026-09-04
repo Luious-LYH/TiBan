@@ -7,7 +7,7 @@
 让题库、智能辅导、知识检索与复习调度围绕学习者持续协同，
 把每一次作答都沉淀为下一步更合适的学习行动。
 
-中文 | [English](./README.en.md) | [赞助](#支持-tiban)🚀
+中文 | [English](./README.en.md) | [桌面版](https://github.com/Luious-LYH/TiBan/releases/download/v3.3.1/%E9%A2%98%E4%BC%B4%20TiBan-3.3.1-x64-Portable.exe) | [赞助](#支持-tiban)🚀
 
 </div>
 
@@ -187,6 +187,10 @@ npm run build
 - [知识检索管线](./docs/architecture/rag-pipeline.md)
 - [领域包与共享核心](./docs/architecture/domain-packs-v2.md)
 - [数据来源与许可边界](./THIRD_PARTY_DATA.md)
+
+## Windows 桌面版
+
+[下载 Windows 便携版（双击即可启动）](https://github.com/Luious-LYH/TiBan/releases/download/v3.3.1/%E9%A2%98%E4%BC%B4%20TiBan-3.3.1-x64-Portable.exe)
 
 ## 支持 TiBan
 

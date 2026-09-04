@@ -7,7 +7,7 @@
 Question banks, contextual tutoring, knowledge retrieval, and review scheduling
 work together as one learning path that remembers where the learner is.
 
-[中文 README](./README.md)
+[中文 README](./README.md) | [Desktop app](https://github.com/Luious-LYH/TiBan/releases/download/v3.3.1/%E9%A2%98%E4%BC%B4%20TiBan-3.3.1-x64-Portable.exe)
 
 </div>
 
@@ -202,6 +202,10 @@ npm run build
 
 See [THIRD_PARTY_DATA.md](./THIRD_PARTY_DATA.md) for data attribution and
 licensing boundaries.
+
+## Windows desktop app
+
+[Download the Windows portable app (double-click to launch)](https://github.com/Luious-LYH/TiBan/releases/download/v3.3.1/%E9%A2%98%E4%BC%B4%20TiBan-3.3.1-x64-Portable.exe)
 
 ## Support TiBan
 
