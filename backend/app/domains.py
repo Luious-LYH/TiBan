@@ -7,6 +7,9 @@ metadata and the policy/namespace references owned by that domain pack.
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import zlib
 from dataclasses import asdict, dataclass
 from typing import Literal
 
@@ -44,6 +47,8 @@ class DomainManifest:
 
 
 _ALL_QUESTION_TYPES = ("single_choice", "multiple_choice", "true_false", "short_answer")
+CUSTOM_DOMAIN_PREFIX = "custom_"
+_CUSTOM_DOMAIN_LABELS: dict[str, str] = {}
 
 DOMAIN_MANIFESTS: dict[str, DomainManifest] = {
     "endoscopy": DomainManifest(
@@ -79,7 +84,55 @@ def get_domain(domain_id: str) -> DomainManifest:
     try:
         return DOMAIN_MANIFESTS[domain_id]
     except KeyError as exc:
+        if domain_id.startswith(CUSTOM_DOMAIN_PREFIX):
+            encoded_name = domain_id.removeprefix(CUSTOM_DOMAIN_PREFIX)
+            padding = "=" * (-len(encoded_name) % 4)
+            display_name = _CUSTOM_DOMAIN_LABELS.get(domain_id, "")
+            try:
+                decoded = base64.urlsafe_b64decode(encoded_name + padding)
+                try:
+                    display_name = zlib.decompress(decoded).decode("utf-8")
+                except zlib.error:
+                    # Keep accepting the original readable Base64 IDs created
+                    # before V3.1.2 introduced the length-safe representation.
+                    display_name = decoded.decode("utf-8")
+            except (ValueError, UnicodeDecodeError, zlib.error):
+                display_name = display_name or "自定义学习领域"
+            display_name = display_name or "自定义学习领域"
+            return DomainManifest(
+                domain_id=domain_id,
+                display_name=display_name or "自定义学习领域",
+                description="由使用者创建的通用学习领域，沿用通用学习与复核边界。",
+                subjects=(display_name or "自定义学习领域",),
+                supported_question_types=_ALL_QUESTION_TYPES,
+                knowledge_namespaces=("user_uploaded", "qbank_explanations"),
+                tutor_policy="general_learning",
+                evaluation_pack_refs=(),
+                license_summary="请确认自定义资料的来源与使用授权。",
+                learner_notice=GENERAL_LEARNING_NOTICE,
+                doctor_review_required=False,
+            )
         raise ValueError(f"unsupported domain_id: {domain_id}") from exc
+
+
+def build_custom_domain_id(display_name: str) -> str:
+    normalized = " ".join(str(display_name).split()).strip()[:48]
+    if not normalized:
+        raise ValueError("自定义领域名称不能为空。")
+    readable = base64.urlsafe_b64encode(normalized.encode("utf-8")).decode("ascii").rstrip("=")
+    candidate = f"{CUSTOM_DOMAIN_PREFIX}{readable}"
+    if len(candidate) > 100:
+        compressed = base64.urlsafe_b64encode(zlib.compress(normalized.encode("utf-8"), level=9)).decode("ascii").rstrip("=")
+        candidate = f"{CUSTOM_DOMAIN_PREFIX}{compressed}"
+    if len(candidate) > 100:
+        # Arbitrary Unicode text cannot always fit reversibly in the existing
+        # VARCHAR(100) domain_id contract.  A stable digest preserves domain
+        # isolation and keeps the identifier valid; the label is retained for
+        # the current process and the persisted bank remains the source of
+        # truth for the user-facing name.
+        candidate = f"{CUSTOM_DOMAIN_PREFIX}{hashlib.sha256(normalized.encode('utf-8')).hexdigest()[:48]}"
+    _CUSTOM_DOMAIN_LABELS[candidate] = normalized
+    return candidate
 
 
 def domain_ids() -> set[str]:

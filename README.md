@@ -89,14 +89,41 @@ TiBan 是一个把题库、学习资料、智能辅导和长期学习状态连�
   <img src="./docs/v3/evidence/readme/06-evaluation-current.png" alt="评测实验室" width="100%">
 </p>
 
-### 题库导入与学习配置
+### 题库导入：从文件到可刷题题目
 
-<table>
-  <tr>
-    <td width="50%"><strong>题库导入</strong><br><img src="./docs/v3/evidence/readme/07-factory-current.png" alt="题库导入工作区" width="100%"></td>
-    <td width="50%"><strong>设置</strong><br><img src="./docs/v3/evidence/readme/08-settings-current.png" alt="模型与 Embedding 设置" width="100%"></td>
-  </tr>
-</table>
+题库导入是一条完整的内容生产链路，而不是把原始文本直接展示给学习者。用户可以上传或粘贴 JSON、CSV、Markdown 题目文件（单文件不超过 10 MiB）；TiBan 会解析并规范化题型、选项、答案和解析，先进行格式校验，再以接近真实刷题的卡片形式分页预览，并支持按单选、多选、判断等题型筛选。
+
+校验通过后，题目会进入持久化的“待审核题库”，不会直接写入正式题库。作者可以逐题审核或批量通过，暂时离开后再回来继续；审核通过的题目最终可以新建题库，也可以补充到已有题库，未审核或退回的题目不会进入学习流程。
+
+<p align="center">
+  <img src="./docs/v3/evidence/readme/15-factory-ai-100-preview.png" alt="AI 算法岗 100 题 CSV 导入与格式校验" width="100%">
+</p>
+
+<p align="center"><em>文件校验：AI 算法岗 100 道题通过 UTF-8 CSV 导入，系统识别题型并给出真实数量与格式状态。</em></p>
+
+<p align="center">
+  <img src="./docs/v3/evidence/readme/18-factory-ai-100-cards.png" alt="AI 算法岗 100 题的可刷题格式预览与题型筛选" width="100%">
+</p>
+
+<p align="center"><em>可读预览：题目以接近刷题的卡片呈现，支持按单选、多选、判断筛选，并按页查看大批量内容。</em></p>
+
+<p align="center">
+  <img src="./docs/v3/evidence/readme/16-factory-ai-100-review.png" alt="AI 算法岗 100 题的持久化审核工作台" width="100%">
+</p>
+
+<p align="center"><em>持久化审核：批次、审核状态、题目列表和逐题审核集中在同一工作台，审核进度可离开后继续。</em></p>
+
+<p align="center">
+  <img src="./docs/v3/evidence/readme/17-bank-ai-100-detail.png" alt="审核发布后的 AI 算法岗 100 题正式题库" width="100%">
+</p>
+
+<p align="center"><em>正式入库：审核通过后题目写入正式题库，可直接开始刷题，也可在题库详情中编辑题目或删除题库。</em></p>
+
+### 模型与 Embedding 设置
+
+<p align="center">
+  <img src="./docs/v3/evidence/readme/08-settings-current.png" alt="模型与 Embedding 设置" width="100%">
+</p>
 
 ### 错题与复习
 

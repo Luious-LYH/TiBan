@@ -68,6 +68,7 @@ async function waitFor(url, timeoutMs = 45000) {
 }
 
 function spawnBackend() {
+  const fs = require('fs')
   const environment = {
     ...process.env,
     PYTHONUNBUFFERED: '1',
@@ -83,11 +84,20 @@ function spawnBackend() {
     environment.ENDO_DEMO_QBANK_BOOTSTRAP = process.env.ENDO_DEMO_QBANK_BOOTSTRAP || 'true'
     environment.ENDO_PROJECT_DATA_ROOT = process.env.ENDO_PROJECT_DATA_ROOT || path.join(codeRoot, 'data')
   }
+  const backendExecutable = isPackaged
+    ? path.join(codeRoot, 'backend-runtime', 'tiban-backend.exe')
+    : 'python'
+  const backendArguments = isPackaged
+    ? []
+    : ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', backendPort]
+  if (isPackaged && !fs.existsSync(backendExecutable)) {
+    throw new Error('桌面版后端组件缺失，请重新下载完整安装包。')
+  }
   backendProcess = spawn(
-    'python',
-    ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', backendPort],
+    backendExecutable,
+    backendArguments,
     {
-      cwd: backendRoot,
+      cwd: isPackaged ? path.dirname(backendExecutable) : backendRoot,
       windowsHide: true,
       stdio: 'ignore',
       env: environment,
@@ -100,7 +110,9 @@ async function ensureBackend() {
   spawnBackend()
   const ready = await waitFor(backendHealthUrl)
   if (!ready) {
-    throw new Error('后端服务启动失败，请确认 Python 依赖已安装。')
+    throw new Error(isPackaged
+      ? '本地后端启动失败，请重新安装完整的 TiBan 桌面包。'
+      : '后端服务启动失败，请确认 Python 依赖已安装。')
   }
 }
 

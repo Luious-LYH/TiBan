@@ -11,6 +11,7 @@ from .models import (  # noqa: F401
     AttemptModel,
     PracticeSessionModel,
     QuestionBankModel,
+    QuestionBankDeletionModel,
     QuestionModel,
     AgentConversationModel,
     AgentMessageModel,
@@ -26,6 +27,8 @@ from .models import (  # noqa: F401
     BackgroundJobModel,
     FactoryJobModel,
     QuestionRevisionModel,
+    QuestionImportBatchModel,
+    QuestionImportDraftModel,
     EvalDatasetModel,
     EvalDatasetVersionModel,
     EvalRunModel,
@@ -50,6 +53,7 @@ def demo_qbank_counts() -> dict[str, int]:
     """Return learner-ready counts for the three portfolio demo banks."""
 
     with SessionLocal() as session:
+        deleted_ids = set(session.scalars(select(QuestionBankDeletionModel.bank_id)))
         rows = session.execute(
             select(QuestionModel.bank_id, func.count(QuestionModel.question_id))
             .where(QuestionModel.business_usage == "user_ready")
@@ -58,6 +62,8 @@ def demo_qbank_counts() -> dict[str, int]:
         ).all()
     counts = {bank_id: 0 for bank_id in DEMO_QBANK_EXPECTATIONS}
     counts.update({str(bank_id): int(count) for bank_id, count in rows})
+    for bank_id in deleted_ids:
+        counts.pop(str(bank_id), None)
     return counts
 
 
@@ -98,10 +104,12 @@ def bootstrap_demo_qbank() -> dict[str, object]:
     """
 
     before = demo_qbank_counts()
+    with SessionLocal() as session:
+        deleted_ids = set(session.scalars(select(QuestionBankDeletionModel.bank_id)))
     missing = {
         bank_id
         for bank_id, expected in DEMO_QBANK_EXPECTATIONS.items()
-        if before[bank_id] < expected
+        if bank_id not in deleted_ids and before.get(bank_id, 0) < expected
     }
     if not missing:
         return {"imported": 0, "counts": before, "status": "complete"}
@@ -123,7 +131,7 @@ def bootstrap_demo_qbank() -> dict[str, object]:
     incomplete = {
         bank_id: {"expected": expected, "found": after[bank_id]}
         for bank_id, expected in DEMO_QBANK_EXPECTATIONS.items()
-        if after[bank_id] < expected
+        if bank_id not in deleted_ids and after.get(bank_id, 0) < expected
     }
     if incomplete:
         raise RuntimeError(f"Demo QBank bootstrap did not reach its contract: {incomplete}")
@@ -139,7 +147,10 @@ def bootstrap_desktop_cmexam() -> dict[str, object]:
     """
 
     expected = DEMO_QBANK_EXPECTATIONS["bank-cmexam-real"]
-    before = demo_qbank_counts()["bank-cmexam-real"]
+    before = demo_qbank_counts().get("bank-cmexam-real", 0)
+    with SessionLocal() as session:
+        if session.get(QuestionBankDeletionModel, "bank-cmexam-real") is not None:
+            return {"imported": 0, "counts": {"bank-cmexam-real": 0}, "status": "deleted"}
     if before >= expected:
         return {"imported": 0, "counts": {"bank-cmexam-real": before}, "status": "complete"}
 
@@ -171,6 +182,10 @@ def initialize_database() -> int:
     _upgrade_local_sqlite_domain_scope()
     with SessionLocal() as session:
         seeded = seed_database(session)
+    # Seed/import code intentionally leaves new banks at the neutral order
+    # value.  Once the catalog rows exist, append any such rows deterministically
+    # so a restart never causes a newly imported bank to jump around.
+    _backfill_local_sqlite_question_bank_order()
     if DESKTOP_CMEXAM_BUNDLE:
         result = bootstrap_desktop_cmexam()
         return seeded + int(result["imported"])
@@ -207,6 +222,8 @@ def _upgrade_local_sqlite_domain_scope() -> None:
         _upgrade_local_sqlite_factory_jobs(connection, inspector)
         _upgrade_local_sqlite_knowledge_sources(connection, inspector)
         _upgrade_local_sqlite_v32_state(connection, inspector)
+        _upgrade_local_sqlite_question_import_review(connection, inspector)
+        _upgrade_local_sqlite_question_bank_order(connection, inspector)
         for table_name in domain_tables:
             columns = {column["name"] for column in inspector.get_columns(table_name)}
             if "domain_id" not in columns:
@@ -328,6 +345,54 @@ def _upgrade_local_sqlite_v32_state(connection: object, inspector: object) -> No
             connection.execute(text(f"ALTER TABLE practice_sessions ADD COLUMN {name} {definition}"))
     connection.execute(text("UPDATE practice_sessions SET updated_at = last_active_at WHERE updated_at IS NULL"))
     connection.execute(text("UPDATE agent_conversations SET agent_profile = 'mentor' WHERE agent_profile = 'coach'"))
+
+
+def _upgrade_local_sqlite_question_import_review(connection: object, inspector: object) -> None:
+    """Preserve validation issues for review batches created before this field.
+
+    The review UI is resumable, so parse warnings must survive leaving the page.
+    This is the SQLite equivalent of the Alembic column below; it only adds a
+    JSON field and backfills existing rows with an empty list.
+    """
+
+    columns = {column["name"] for column in inspector.get_columns("question_import_batches")}
+    if "issues" not in columns:
+        connection.execute(text("ALTER TABLE question_import_batches ADD COLUMN issues JSON NOT NULL DEFAULT '[]'"))
+
+
+def _upgrade_local_sqlite_question_bank_order(connection: object, inspector: object) -> None:
+    """Add the non-destructive catalog ordering field to old local databases."""
+
+    columns = {column["name"] for column in inspector.get_columns("question_banks")}
+    if "display_order" not in columns:
+        connection.execute(text("ALTER TABLE question_banks ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0"))
+    _backfill_question_bank_order(connection)
+
+
+def _backfill_local_sqlite_question_bank_order() -> None:
+    """Append rows created during bootstrap while preserving existing order."""
+
+    if engine.dialect.name != "sqlite":
+        return
+    with engine.begin() as connection:
+        _backfill_question_bank_order(connection)
+
+
+def _backfill_question_bank_order(connection: object) -> None:
+    """Give only neutral-order rows a stable position after existing rows."""
+
+    rows = connection.execute(
+        text("SELECT bank_id, display_order FROM question_banks ORDER BY name, bank_id")
+    ).mappings().all()
+    next_order = max((int(row["display_order"] or 0) for row in rows), default=0)
+    for row in rows:
+        if int(row["display_order"] or 0) > 0:
+            continue
+        next_order += 1
+        connection.execute(
+            text("UPDATE question_banks SET display_order = :display_order WHERE bank_id = :bank_id"),
+            {"display_order": next_order, "bank_id": row["bank_id"]},
+        )
 
 
 def _rebuild_sqlite_unique_scope(connection: object, table_name: str, expected_constraint: str) -> None:

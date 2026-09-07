@@ -149,6 +149,18 @@ class QuestionBankPublic(Stage1Model):
     progress: float = Field(default=0, ge=0, le=1)
 
 
+class QuestionBankUpdateRequest(Stage1Model):
+    """Editable learner-facing metadata for an existing question bank."""
+
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=1000)
+
+
+class QuestionBankUpdateResponse(Stage1Model):
+    item: QuestionBankPublic
+    api_source: Literal["backend"] = "backend"
+
+
 class DomainPublic(Stage1Model):
     domain_id: str
     display_name: str
@@ -164,6 +176,17 @@ class QuestionBankListResponse(Stage1Model):
     api_source: Literal["backend"] = "backend"
 
 
+class QuestionBankOrderRequest(Stage1Model):
+    """Complete learner-visible catalog order submitted by the manager UI."""
+
+    bank_ids: list[str] = Field(min_length=1, max_length=500)
+
+
+class QuestionBankOrderResponse(Stage1Model):
+    bank_ids: list[str]
+    api_source: Literal["backend"] = "backend"
+
+
 class PracticeQuestionListResponse(Stage1Model):
     items: list[QuestionPublic]
     total: int = Field(ge=0)
@@ -176,6 +199,49 @@ class PracticeQuestionListResponse(Stage1Model):
 class PracticeQuestionDetailResponse(Stage1Model):
     item: QuestionPublic
     safety_notice: str = SAFETY_NOTICE
+    api_source: Literal["backend"] = "backend"
+
+
+class QuestionEditRequest(Stage1Model):
+    """Authoring boundary for correcting a saved question in-place.
+
+    The question id is deliberately not editable, so existing Attempts,
+    review cards and session membership remain attached to the same item.
+    """
+
+    title: str = Field(min_length=1, max_length=300)
+    stem: str = Field(min_length=1, max_length=20000)
+    question_type: QuestionTypeCode
+    options: list[QuestionOptionPublic] = Field(default_factory=list, max_length=8)
+    answer: Union[str, list[str], bool]
+    explanation: str = Field(default="", max_length=20000)
+    difficulty: Difficulty = "medium"
+    tags: list[str] = Field(default_factory=list, max_length=8)
+    body_part: str = Field(default="通用", min_length=1, max_length=80)
+    subject: str | None = Field(default=None, max_length=160)
+    topic: str | None = Field(default=None, max_length=160)
+    task: str = Field(default="个人题库练习", max_length=120)
+
+
+class QuestionEditPublic(Stage1Model):
+    question_id: str
+    bank_id: str
+    title: str
+    stem: str
+    question_type: QuestionTypeCode
+    options: list[QuestionOptionPublic] = Field(default_factory=list)
+    answer: Union[str, list[str], bool]
+    explanation: str
+    difficulty: Difficulty
+    tags: list[str] = Field(default_factory=list)
+    body_part: str
+    subject: str | None = None
+    topic: str | None = None
+    task: str
+
+
+class QuestionEditResponse(Stage1Model):
+    item: QuestionEditPublic
     api_source: Literal["backend"] = "backend"
 
 

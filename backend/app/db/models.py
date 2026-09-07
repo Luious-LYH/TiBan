@@ -24,11 +24,25 @@ class QuestionBankModel(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[str] = mapped_column(String(50), nullable=False, default="seed-v1")
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="published")
+    # User-managed catalog order.  Zero is reserved for legacy rows that have
+    # not been explicitly ordered yet; the compatibility upgrade backfills
+    # those rows without changing their established name order.
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     question_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     question_type_counts: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False, default=dict)
     modality_counts: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False, default=dict)
     body_parts: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class QuestionBankDeletionModel(Base):
+    """Durable tombstone preventing an explicitly deleted seeded bank from
+    being silently recreated by the idempotent demo bootstrap on restart."""
+
+    __tablename__ = "question_bank_deletions"
+
+    bank_id: Mapped[str] = mapped_column(String(100), primary_key=True)
+    deleted_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
 class QuestionModel(Base):
@@ -269,6 +283,55 @@ class SourceDocumentModel(Base):
     index_stage: Mapped[str | None] = mapped_column(String(48), nullable=True)
     index_progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     index_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
+class QuestionImportBatchModel(Base):
+    """Durable learner-owned import workbench.
+
+    Parsing a file and publishing a bank are intentionally separate state
+    transitions.  The normalized payload is kept here so a browser leaving the
+    Factory page cannot lose an unfinished review session or accidentally write
+    unreviewed questions into the canonical catalog.
+    """
+
+    __tablename__ = "question_import_batches"
+
+    batch_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    domain_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    source_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    file_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    format: Mapped[str] = mapped_column(String(20), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="reviewing", index=True)
+    total_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pending_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    approved_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rejected_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    published_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    published_bank_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    source_document_id: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    issues: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False, index=True)
+
+
+class QuestionImportDraftModel(Base):
+    """One normalized question awaiting an explicit author decision."""
+
+    __tablename__ = "question_import_drafts"
+    __table_args__ = (
+        UniqueConstraint("batch_id", "ordinal", name="uq_question_import_draft_ordinal"),
+    )
+
+    draft_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    batch_id: Mapped[str] = mapped_column(ForeignKey("question_import_batches.batch_id"), nullable=False, index=True)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending", index=True)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 

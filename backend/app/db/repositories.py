@@ -7,7 +7,7 @@ import re
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import SAFETY_NOTICE
@@ -168,7 +168,14 @@ class Stage1Repository:
             statement = statement.where(QuestionBankModel.domain_id == domain_id)
         banks = [
             bank
-            for bank in self.session.scalars(statement.order_by(QuestionBankModel.name))
+            for bank in self.session.scalars(
+                statement.order_by(
+                    case((QuestionBankModel.display_order > 0, 0), else_=1),
+                    QuestionBankModel.display_order,
+                    QuestionBankModel.name,
+                    QuestionBankModel.bank_id,
+                )
+            )
             if not bank.bank_id.startswith("adaptive-bank-")
             and not self._test_only_bank(bank.bank_id)
         ]
@@ -176,6 +183,31 @@ class Stage1Repository:
             bank._stage1_progress = self.bank_progress(bank.bank_id, learner_id)
             bank._stage1_completed_count = bank._stage1_progress["completed_count"]
         return banks
+
+    def reorder_banks(self, bank_ids: list[str], learner_id: str = "demo_learner") -> list[str]:
+        """Persist a complete learner-catalog order after validating its scope.
+
+        Requiring the exact visible-bank set makes the operation safe when a
+        stale tab, a filtered view, or a future multi-user boundary submits an
+        incomplete list.  The client must send the full catalog order.
+        """
+
+        normalized_ids = [str(bank_id).strip() for bank_id in bank_ids]
+        if len(normalized_ids) != len(set(normalized_ids)):
+            raise ValueError("题库排序中不能包含重复题库。")
+
+        visible_ids = [bank.bank_id for bank in self.list_banks(learner_id)]
+        if set(normalized_ids) != set(visible_ids) or len(normalized_ids) != len(visible_ids):
+            raise ValueError("请先显示全部题库后再调整顺序。")
+
+        banks_by_id = {bank.bank_id: bank for bank in self.session.scalars(select(QuestionBankModel))}
+        for position, bank_id in enumerate(normalized_ids, start=1):
+            bank = banks_by_id.get(bank_id)
+            if bank is None:
+                raise ValueError("题库不存在或当前不可排序。")
+            bank.display_order = position
+        self.session.commit()
+        return normalized_ids
 
     def _test_only_bank(self, bank_id: str) -> bool:
         source_types = set(self.session.scalars(
@@ -280,15 +312,28 @@ class Stage1Repository:
         bank_id: str,
         learner_id: str,
         state: str = "all",
+        search: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[dict[str, Any]], int]:
         self.learner_bank(bank_id)
-        questions = list(self.session.scalars(
-            select(QuestionModel)
-            .where(QuestionModel.bank_id == bank_id, QuestionModel.business_usage == "user_ready")
-            .order_by(QuestionModel.question_id)
-        ))
+        statement = select(QuestionModel).where(
+            QuestionModel.bank_id == bank_id,
+            QuestionModel.business_usage == "user_ready",
+        )
+        normalized_search = str(search or "").strip()
+        if normalized_search:
+            escaped_search = normalized_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped_search}%"
+            statement = statement.where(or_(
+                QuestionModel.title.ilike(pattern, escape="\\"),
+                QuestionModel.stem.ilike(pattern, escape="\\"),
+                QuestionModel.case_summary.ilike(pattern, escape="\\"),
+                QuestionModel.subject.ilike(pattern, escape="\\"),
+                QuestionModel.topic.ilike(pattern, escape="\\"),
+                QuestionModel.body_part.ilike(pattern, escape="\\"),
+            ))
+        questions = list(self.session.scalars(statement.order_by(QuestionModel.question_id)))
         question_ids = [item.question_id for item in questions]
         latest = self._latest_attempts(learner_id, question_ids)
         counts = Counter(self.session.scalars(

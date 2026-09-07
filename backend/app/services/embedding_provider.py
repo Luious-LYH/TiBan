@@ -13,11 +13,12 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
-
-from fastembed import TextEmbedding
+from typing import TYPE_CHECKING, Protocol
 
 from app.core import config
+
+if TYPE_CHECKING:
+    from fastembed import TextEmbedding
 
 
 class EmbeddingProvider(Protocol):
@@ -138,6 +139,12 @@ class LocalFastEmbedProvider:
     @property
     def embedder(self) -> TextEmbedding:
         if self._embedder is None:
+            # FastEmbed remains available to source/developer installs, while
+            # the desktop bundle uses the configured remote Embedding API and
+            # should not carry the optional torch stack.
+            from importlib import import_module
+
+            TextEmbedding = import_module("fastembed").TextEmbedding
             self.cache_dir.mkdir(parents=True, exist_ok=True)
             self._embedder = TextEmbedding(model_name=self.model_id, cache_dir=str(self.cache_dir))
         return self._embedder

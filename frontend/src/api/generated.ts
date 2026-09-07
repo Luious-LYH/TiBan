@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v3/question-banks/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Import Question Bank */
+        post: operations["import_question_bank_api_v3_question_banks_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/question-banks": {
         parameters: {
             query?: never;
@@ -14,6 +31,26 @@ export interface paths {
         /** List Question Banks */
         get: operations["list_question_banks_api_v3_question_banks_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/question-banks/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder Question Banks
+         * @description Persist the complete visible question-bank order.
+         */
+        put: operations["reorder_question_banks_api_v3_question_banks_order_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -32,10 +69,33 @@ export interface paths {
         get: operations["get_question_bank_api_v3_question_banks__bank_id__get"];
         put?: never;
         post?: never;
+        /**
+         * Delete Question Bank
+         * @description Remove a selected bank and its dependent study state.
+         */
+        delete: operations["delete_question_bank_api_v3_question_banks__bank_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Question Bank */
+        patch: operations["update_question_bank_api_v3_question_banks__bank_id__patch"];
+        trace?: never;
+    };
+    "/api/v3/question-banks/{bank_id}/questions/{question_id}/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Question For Edit */
+        get: operations["get_question_for_edit_api_v3_question_banks__bank_id__questions__question_id__edit_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Question */
+        patch: operations["update_question_api_v3_question_banks__bank_id__questions__question_id__edit_patch"];
         trace?: never;
     };
     "/api/v3/question-banks/{bank_id}/questions": {
@@ -632,6 +692,93 @@ export interface paths {
         put?: never;
         /** Publish Job */
         post: operations["publish_job_api_v3_factory_jobs__job_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/factory/import-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Import Batches */
+        get: operations["list_import_batches_api_v3_factory_import_batches_get"];
+        put?: never;
+        /** Create Import Batch */
+        post: operations["create_import_batch_api_v3_factory_import_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/factory/import-batches/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Import Batch */
+        get: operations["read_import_batch_api_v3_factory_import_batches__batch_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Import Batch */
+        delete: operations["delete_import_batch_api_v3_factory_import_batches__batch_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/factory/import-batches/{batch_id}/drafts/{draft_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Review Import Draft */
+        patch: operations["review_import_draft_api_v3_factory_import_batches__batch_id__drafts__draft_id__patch"];
+        trace?: never;
+    };
+    "/api/v3/factory/import-batches/{batch_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Import Batch */
+        post: operations["review_import_batch_api_v3_factory_import_batches__batch_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/factory/import-batches/{batch_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish Import Batch */
+        post: operations["publish_import_batch_api_v3_factory_import_batches__batch_id__publish_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2548,6 +2695,220 @@ export interface components {
              */
             learner_id: string;
         };
+        /** ImportBatchCreateRequest */
+        ImportBatchCreateRequest: {
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "json" | "jsonl" | "csv" | "markdown";
+            /** Content */
+            content: string;
+            /**
+             * Domain Id
+             * @default endoscopy
+             */
+            domain_id: string;
+            /** Custom Domain Name */
+            custom_domain_name?: string | null;
+            /** Source Name */
+            source_name?: string | null;
+            /** File Name */
+            file_name?: string | null;
+        };
+        /** ImportBatchListResponse */
+        ImportBatchListResponse: {
+            /** Items */
+            items: components["schemas"]["ImportBatchPublic"][];
+            /** Total */
+            total: number;
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
+        /** ImportBatchPublic */
+        ImportBatchPublic: {
+            /** Batch Id */
+            batch_id: string;
+            /** Domain Id */
+            domain_id: string;
+            /** Source Name */
+            source_name: string;
+            /** File Name */
+            file_name?: string | null;
+            /** Format */
+            format: string;
+            /** Status */
+            status: string;
+            /** Total Count */
+            total_count: number;
+            /** Pending Count */
+            pending_count: number;
+            /** Approved Count */
+            approved_count: number;
+            /** Rejected Count */
+            rejected_count: number;
+            /** Published Count */
+            published_count: number;
+            /** Published Bank Id */
+            published_bank_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Issues */
+            issues?: {
+                [key: string]: unknown;
+            }[];
+            /** Items */
+            items?: components["schemas"]["ImportDraftPublic"][];
+        };
+        /** ImportBatchPublishPublic */
+        ImportBatchPublishPublic: {
+            /** Batch Id */
+            batch_id: string;
+            /** Bank Id */
+            bank_id: string;
+            /** Bank Name */
+            bank_name: string;
+            /** Imported Count */
+            imported_count: number;
+            /** Duplicate Count */
+            duplicate_count: number;
+            /** Published Count */
+            published_count: number;
+            /** Pending Count */
+            pending_count: number;
+            /** Status */
+            status: string;
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
+        /** ImportBatchPublishRequest */
+        ImportBatchPublishRequest: {
+            /**
+             * Mode
+             * @default create_bank
+             * @enum {string}
+             */
+            mode: "create_bank" | "append_questions";
+            /** Bank Name */
+            bank_name?: string | null;
+            /** Bank Description */
+            bank_description?: string | null;
+            /** Target Bank Id */
+            target_bank_id?: string | null;
+        };
+        /** ImportBatchPublishResponse */
+        ImportBatchPublishResponse: {
+            item: components["schemas"]["ImportBatchPublishPublic"];
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
+        /** ImportBatchResponse */
+        ImportBatchResponse: {
+            item: components["schemas"]["ImportBatchPublic"];
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
+        /** ImportBatchReviewRequest */
+        ImportBatchReviewRequest: {
+            /** Draft Ids */
+            draft_ids?: string[] | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "rejected";
+            /** Review Note */
+            review_note?: string | null;
+        };
+        /** ImportDraftPublic */
+        ImportDraftPublic: {
+            /** Draft Id */
+            draft_id: string;
+            /** Ordinal */
+            ordinal: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "rejected" | "published";
+            /** Review Note */
+            review_note?: string | null;
+            /** Title */
+            title: string;
+            /** Question */
+            question: string;
+            /** Question Type */
+            question_type: string;
+            /** Options */
+            options?: {
+                [key: string]: string;
+            }[];
+            /** Answer */
+            answer: string;
+            /** Answer Key */
+            answer_key?: unknown;
+            /** Explanation */
+            explanation: string;
+            /**
+             * Explanation Available
+             * @default false
+             */
+            explanation_available: boolean;
+            /** Body Part */
+            body_part: string;
+            /** Difficulty */
+            difficulty: string;
+            /** Image Url */
+            image_url?: string | null;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /** Teaching Tags */
+            teaching_tags?: string[];
+            /** Source Dataset */
+            source_dataset: string;
+            /** Expected Keywords */
+            expected_keywords?: string[];
+            /** Fingerprint */
+            fingerprint: string;
+            /** Source Item Id */
+            source_item_id: string;
+        };
+        /** ImportDraftStatusRequest */
+        ImportDraftStatusRequest: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "approved" | "rejected";
+            /** Review Note */
+            review_note?: string | null;
+        };
         /** IndexRebuildResponse */
         IndexRebuildResponse: {
             /** Job Id */
@@ -3496,6 +3857,79 @@ export interface components {
             /** Revision Id */
             revision_id: string;
         };
+        /**
+         * QuestionBankImportRequest
+         * @description A single write contract for creating or extending a question bank.
+         */
+        QuestionBankImportRequest: {
+            /**
+             * Format
+             * @enum {string}
+             */
+            format: "json" | "jsonl" | "csv" | "markdown";
+            /** Content */
+            content: string;
+            /**
+             * Mode
+             * @default create_bank
+             * @enum {string}
+             */
+            mode: "create_bank" | "append_questions";
+            /**
+             * Domain Id
+             * @default endoscopy
+             */
+            domain_id: string;
+            /** Custom Domain Name */
+            custom_domain_name?: string | null;
+            /** Bank Name */
+            bank_name?: string | null;
+            /** Bank Description */
+            bank_description?: string | null;
+            /** Target Bank Id */
+            target_bank_id?: string | null;
+            /** Source Name */
+            source_name?: string | null;
+            /** File Name */
+            file_name?: string | null;
+        };
+        /** QuestionBankImportResponse */
+        QuestionBankImportResponse: {
+            /** Mode */
+            mode: string;
+            /** Bank Id */
+            bank_id: string;
+            /** Bank Name */
+            bank_name: string;
+            /** Source Document Id */
+            source_document_id: string;
+            /** Accepted Count */
+            accepted_count: number;
+            /** Imported Count */
+            imported_count: number;
+            /** Duplicate Count */
+            duplicate_count: number;
+            /** Rejected Count */
+            rejected_count: number;
+            /** Issues */
+            issues?: {
+                [key: string]: unknown;
+            }[];
+            /** Question Count */
+            question_count: number;
+            /** Question Type Counts */
+            question_type_counts?: {
+                [key: string]: number;
+            };
+            /** Status */
+            status: string;
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
         /** QuestionBankListResponse */
         QuestionBankListResponse: {
             /** Items */
@@ -3507,6 +3941,25 @@ export interface components {
              * @default 仅供教学研修或医生复核前辅助，不作为独立诊断依据。
              */
             safety_notice: string;
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
+        /**
+         * QuestionBankOrderRequest
+         * @description Complete learner-visible catalog order submitted by the manager UI.
+         */
+        QuestionBankOrderRequest: {
+            /** Bank Ids */
+            bank_ids: string[];
+        };
+        /** QuestionBankOrderResponse */
+        QuestionBankOrderResponse: {
+            /** Bank Ids */
+            bank_ids: string[];
             /**
              * Api Source
              * @default backend
@@ -3568,6 +4021,125 @@ export interface components {
              * @default 0
              */
             progress: number;
+        };
+        /**
+         * QuestionBankUpdateRequest
+         * @description Editable learner-facing metadata for an existing question bank.
+         */
+        QuestionBankUpdateRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+        };
+        /** QuestionBankUpdateResponse */
+        QuestionBankUpdateResponse: {
+            item: components["schemas"]["QuestionBankPublic"];
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
+        };
+        /** QuestionEditPublic */
+        QuestionEditPublic: {
+            /** Question Id */
+            question_id: string;
+            /** Bank Id */
+            bank_id: string;
+            /** Title */
+            title: string;
+            /** Stem */
+            stem: string;
+            /**
+             * Question Type
+             * @enum {string}
+             */
+            question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
+            /** Options */
+            options?: components["schemas"]["QuestionOptionPublic"][];
+            /** Answer */
+            answer: string | string[] | boolean;
+            /** Explanation */
+            explanation: string;
+            /**
+             * Difficulty
+             * @enum {string}
+             */
+            difficulty: "easy" | "medium" | "hard";
+            /** Tags */
+            tags?: string[];
+            /** Body Part */
+            body_part: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /** Task */
+            task: string;
+        };
+        /**
+         * QuestionEditRequest
+         * @description Authoring boundary for correcting a saved question in-place.
+         *
+         *     The question id is deliberately not editable, so existing Attempts,
+         *     review cards and session membership remain attached to the same item.
+         */
+        QuestionEditRequest: {
+            /** Title */
+            title: string;
+            /** Stem */
+            stem: string;
+            /**
+             * Question Type
+             * @enum {string}
+             */
+            question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
+            /** Options */
+            options?: components["schemas"]["QuestionOptionPublic"][];
+            /** Answer */
+            answer: string | string[] | boolean;
+            /**
+             * Explanation
+             * @default
+             */
+            explanation: string;
+            /**
+             * Difficulty
+             * @default medium
+             * @enum {string}
+             */
+            difficulty: "easy" | "medium" | "hard";
+            /** Tags */
+            tags?: string[];
+            /**
+             * Body Part
+             * @default 通用
+             */
+            body_part: string;
+            /** Subject */
+            subject?: string | null;
+            /** Topic */
+            topic?: string | null;
+            /**
+             * Task
+             * @default 个人题库练习
+             */
+            task: string;
+        };
+        /** QuestionEditResponse */
+        QuestionEditResponse: {
+            item: components["schemas"]["QuestionEditPublic"];
+            /**
+             * Api Source
+             * @default backend
+             * @constant
+             */
+            api_source: "backend";
         };
         /** QuestionMarkRequest */
         QuestionMarkRequest: {
@@ -4317,6 +4889,39 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    import_question_bank_api_v3_question_banks_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionBankImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionBankImportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_question_banks_api_v3_question_banks_get: {
         parameters: {
             query?: {
@@ -4336,6 +4941,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuestionBankListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_question_banks_api_v3_question_banks_order_put: {
+        parameters: {
+            query?: {
+                learner_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionBankOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionBankOrderResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4382,11 +5022,148 @@ export interface operations {
             };
         };
     };
+    delete_question_bank_api_v3_question_banks__bank_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_question_bank_api_v3_question_banks__bank_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bank_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionBankUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionBankUpdateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_question_for_edit_api_v3_question_banks__bank_id__questions__question_id__edit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bank_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionEditResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_question_api_v3_question_banks__bank_id__questions__question_id__edit_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bank_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuestionEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionEditResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_bank_questions_api_v3_question_banks__bank_id__questions_get: {
         parameters: {
             query?: {
                 learner_id?: string;
                 state?: string;
+                search?: string | null;
                 limit?: number;
                 offset?: number;
             };
@@ -5698,6 +6475,240 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FactoryPublishResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_import_batches_api_v3_factory_import_batches_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_import_batch_api_v3_factory_import_batches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportBatchCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_import_batch_api_v3_factory_import_batches__batch_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_import_batch_api_v3_factory_import_batches__batch_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_import_draft_api_v3_factory_import_batches__batch_id__drafts__draft_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+                draft_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportDraftStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_import_batch_api_v3_factory_import_batches__batch_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportBatchReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_import_batch_api_v3_factory_import_batches__batch_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportBatchPublishRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportBatchPublishResponse"];
                 };
             };
             /** @description Validation Error */

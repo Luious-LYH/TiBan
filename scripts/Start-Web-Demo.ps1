@@ -22,13 +22,14 @@ $factoryWorkerPidFile = Join-Path $logsRoot "web-demo-factory-worker.pid"
 $backendPort = if ($env:ARIS_BACKEND_PORT) { [int]$env:ARIS_BACKEND_PORT } else { 8002 }
 $frontendPort = if ($env:ARIS_FRONTEND_PORT) { [int]$env:ARIS_FRONTEND_PORT } else { 5174 }
 $redisPort = if ($env:ARIS_REDIS_PORT) { [int]$env:ARIS_REDIS_PORT } else { 56379 }
+$qdrantPort = if ($env:ARIS_QDRANT_PORT) { [int]$env:ARIS_QDRANT_PORT } else { 6333 }
 
-# The normal local launcher is also a Demo runtime.  Make the complete
-# portfolio QBank bootstrap explicit so a fresh local SQLite/PostgreSQL store
-# cannot silently fall back to the tiny legacy teaching seed.  Respect an
-# explicit caller override for isolated tests or lightweight development.
+# The public checkout does not redistribute the optional large QBank source
+# files.  Start with the compact, self-contained teaching seed; a developer
+# who has locally authorized source files can opt into the full bootstrap.
+# Respect an explicit caller override for acceptance runs or local imports.
 if (-not $env:ENDO_DEMO_QBANK_BOOTSTRAP) {
-  $env:ENDO_DEMO_QBANK_BOOTSTRAP = "true"
+  $env:ENDO_DEMO_QBANK_BOOTSTRAP = "false"
 }
 if (-not $env:ENDO_PROJECT_DATA_ROOT) {
   $env:ENDO_PROJECT_DATA_ROOT = Join-Path $codeRoot "data"
@@ -282,6 +283,51 @@ function Wait-HttpOk {
   return $false
 }
 
+function Start-LocalInfrastructure {
+  $docker = Get-Command docker -ErrorAction SilentlyContinue
+  if (-not $docker) {
+    Write-Host "Local infrastructure: Docker CLI not found; install/start Docker Desktop to enable Factory generation." -ForegroundColor Yellow
+    return $false
+  }
+
+  try {
+    $null = & $docker.Source info --format '{{.ServerVersion}}' 2>$null
+  } catch {
+    $null = $null
+  }
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "Local infrastructure: Docker Desktop is not running; start it to enable Factory generation." -ForegroundColor Yellow
+    return $false
+  }
+
+  Write-Step "Starting local Redis and Qdrant services..."
+  Push-Location $codeRoot
+  try {
+    & $docker.Source compose up -d redis qdrant
+    $composeExit = $LASTEXITCODE
+  } finally {
+    Pop-Location
+  }
+  if ($composeExit -ne 0) {
+    Write-Host "Local infrastructure: Redis/Qdrant startup failed; Factory generation remains unavailable." -ForegroundColor Yellow
+    return $false
+  }
+
+  $redisReady = Wait-PortOpen -Port $redisPort -Seconds 30
+  $qdrantReady = Wait-HttpOk -Url "http://127.0.0.1:$qdrantPort/collections" -Seconds 60
+  if (-not $redisReady) {
+    Write-Host "Local infrastructure: Redis did not become ready on 127.0.0.1:$redisPort." -ForegroundColor Yellow
+  }
+  if (-not $qdrantReady) {
+    Write-Host "Local infrastructure: Qdrant did not become ready on 127.0.0.1:$qdrantPort." -ForegroundColor Yellow
+  }
+  if ($redisReady -and $qdrantReady) {
+    Write-Host "Local infrastructure: Redis and Qdrant ready." -ForegroundColor Green
+    return $true
+  }
+  return $false
+}
+
 function Start-FactoryWorker {
   if ($env:ARIS_DISABLE_FACTORY_WORKER -eq "1") {
     Write-Host "Factory worker: disabled by ARIS_DISABLE_FACTORY_WORKER=1." -ForegroundColor Yellow
@@ -289,6 +335,10 @@ function Start-FactoryWorker {
   }
   if (-not (Test-PortOpen -Port $redisPort)) {
     Write-Host "Factory worker: Redis is not reachable on 127.0.0.1:$redisPort; queued jobs will remain visible until Redis/Dramatiq is started." -ForegroundColor Yellow
+    return
+  }
+  if (-not (Wait-HttpOk -Url "http://127.0.0.1:$qdrantPort/collections" -Seconds 2)) {
+    Write-Host "Factory worker: Qdrant is not reachable on 127.0.0.1:$qdrantPort; start the local services before generating questions." -ForegroundColor Yellow
     return
   }
   if (Test-Path -LiteralPath $factoryWorkerPidFile) {
@@ -383,6 +433,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $backendRoot "app\main.py"))) {
 if (-not (Test-Path -LiteralPath (Join-Path $frontendDist "index.html"))) {
   throw "Frontend dist not found. Please use the latest package, or run npm run build before starting."
 }
+
+Start-LocalInfrastructure | Out-Null
 
 Write-Host ""
 Write-Step "Starting platform..."

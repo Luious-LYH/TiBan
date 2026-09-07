@@ -64,21 +64,35 @@ code\frontend\release\题伴 TiBan-3.3.1-x64-Portable.exe
 code\frontend\release\win-unpacked\题伴 TiBan.exe
 ```
 
-## 运行前要求
+## 开发与打包要求
 
-- 已安装 Node.js，并已在 `code\frontend` 执行过 `npm install`。
-- 已安装 Python，并已在 `code\backend` 安装依赖：
+运行已生成的 Windows 桌面包不需要预装 Node.js 或 Python。只有从源码开发或重新打包时，才需要 Node.js、Python 以及构建依赖：
+
+```powershell
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code\frontend
+npm install
+
+cd ..\backend
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-desktop.txt
+```
+
+源码开发仍可直接使用 Python 启动后端，再在另一个终端启动 Electron：
 
 ```powershell
 cd E:\2.Projects\ARIS\Endoscopy_Agent\code\backend
-python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8002
+
+# 另一个终端
+cd E:\2.Projects\ARIS\Endoscopy_Agent\code\frontend
+npm run electron:dev
 ```
 
 ## 当前边界
 
 Electron 版本是桌面外壳版：它会自动启动本机 FastAPI 后端，并在桌面窗口中加载构建后的前端页面。
 
-本次 V3.3.1 发布的安装包和便携包仍要求目标电脑具备 Python 运行环境及上述后端依赖；它们不是完全离线、自包含的 Python 安装包。
+V3.3.1 作品集桌面包会把 FastAPI 后端编译为随包携带的 `tiban-backend.exe`，目标电脑无需安装 Python、Node.js 或后端依赖，打开安装版或便携版即可启动本地学习工作台。
 
 完整 Windows 发布包内置 1,500 道 CMExam 演示题。首次启动时，题库会复制到当前用户的本地数据目录并自动导入；学习记录和上传资料也保存在用户目录，不写入安装目录。CMExam 资料遵循上游 Apache 2.0 许可及其学术/研究用途说明。
 
@@ -88,4 +102,4 @@ Electron 版本是桌面外壳版：它会自动启动本机 FastAPI 后端，�
 
 未配置 API 时，题库、刷题、复习和评测页面仍可使用；智能辅导与带教 Agent 会明确显示配置入口并禁用发送，不会把本地规则结果显示成模型回答。API Key 只在当前运行实例中使用，不会打包进安装文件、写入数据库或上传 GitHub。
 
-如果需要发给没有 Python 环境的电脑使用，后续可以继续做“完全离线安装包”：把后端用 PyInstaller 打成可执行文件，再随 Electron 一起打包。
+桌面包仍需要网络连接才能访问用户配置的模型 API；它不内置 API Key，也不承诺离线调用外部大模型。未配置 API 时，题库、刷题、复习和评测仍可使用，Agent 会在关键入口提示配置要求并保持禁用。

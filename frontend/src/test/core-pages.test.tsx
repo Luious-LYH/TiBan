@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearLearningMemory, createEvaluationSuite, createMentorConversation, createModelEvaluation, createPracticeSession, createReviewSession, createRagEvaluation, deleteEvaluationExperiments, deleteKnowledgeSource, deleteMentorConversation, deleteSavedRagProfile, discoverEvaluationModels, getDomains, getEvaluationCatalog, getEvaluationExperiment, getInstanceSettings, getLatestEvaluationExperiment, getKnowledgeSource, getKnowledgeSources, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, getLatestEvaluationSuite, getSavedRagProfiles, leavePracticeSession, listMentorConversations, reindexKnowledgeSource, resumePracticeSession, saveRagProfile, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, uploadKnowledgeSource } from '../api/client'
+import { clearLearningMemory, createEvaluationSuite, createMentorConversation, createModelEvaluation, createPracticeSession, createReviewSession, createRagEvaluation, deleteEvaluationExperiments, deleteKnowledgeSource, deleteMentorConversation, deleteSavedRagProfile, discoverEvaluationModels, getDomains, getEvaluationCatalog, getEvaluationExperiment, getInstanceSettings, getLatestEvaluationExperiment, getKnowledgeSource, getKnowledgeSources, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, getLatestEvaluationSuite, getSavedRagProfiles, leavePracticeSession, listMentorConversations, reorderQuestionBanks, reindexKnowledgeSource, resumePracticeSession, saveRagProfile, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, uploadKnowledgeSource } from '../api/client'
 import type { EvaluationExperiment, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult, SavedRagProfile } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -20,6 +20,7 @@ vi.mock('../api/client', () => ({
   createReviewSession: vi.fn(),
   deleteKnowledgeSource: vi.fn(),
   deleteMentorConversation: vi.fn(),
+  deleteQuestionBank: vi.fn(),
   getMentorConversation: vi.fn(),
   getDomains: vi.fn(),
   clearLearningMemory: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock('../api/client', () => ({
   getOverview: vi.fn(),
   getPracticeSession: vi.fn(),
   getQuestionBanks: vi.fn(),
+  reorderQuestionBanks: vi.fn(),
   getQuestions: vi.fn(),
   getResumablePracticeSession: vi.fn(),
   getReviewItem: vi.fn(),
@@ -57,6 +59,7 @@ vi.mock('../api/client', () => ({
   streamMentorMessage: vi.fn(),
   submitFsrsReview: vi.fn(),
   submitPracticeAnswer: vi.fn(),
+  updateQuestionBank: vi.fn(),
   uploadKnowledgeSource: vi.fn(),
 }))
 
@@ -79,6 +82,7 @@ const mockedCreateSession = vi.mocked(createPracticeSession)
 const mockedCreateReviewSession = vi.mocked(createReviewSession)
 const mockedGetPracticeSession = vi.mocked(getPracticeSession)
 const mockedGetQuestionBanks = vi.mocked(getQuestionBanks)
+const mockedReorderQuestionBanks = vi.mocked(reorderQuestionBanks)
 const mockedGetQuestions = vi.mocked(getQuestions)
 const mockedGetResumablePracticeSession = vi.mocked(getResumablePracticeSession)
 const mockedResumePracticeSession = vi.mocked(resumePracticeSession)
@@ -175,6 +179,7 @@ beforeEach(() => {
   mockedGetLearningMemory.mockResolvedValue({ learner_id: 'demo_learner', items: [], api_source: 'backend' })
   mockedClearLearningMemory.mockResolvedValue({ learner_id: 'demo_learner', superseded_count: 0, preserved_attempt_history: true, preserved_review_history: true, api_source: 'backend' })
   mockedGetQuestionBanks.mockResolvedValue(banks)
+  mockedReorderQuestionBanks.mockResolvedValue(banks.map((bank) => bank.bank_id))
   mockedGetQuestions.mockResolvedValue(questionsResponse(questionVariants))
   mockedCreateSession.mockResolvedValue({ session_id: 'session-test', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'study', status: 'active', started_at: '2026-08-28T00:00:00Z', ...v32SessionState, question_count: 20, question_ids: [], selection_strategy: 'coverage', selection_reason: '本次按未练题与题库覆盖安排练习。', selection_evidence: ['优先安排未练题。'] })
   mockedCreateReviewSession.mockResolvedValue({ session_id: 'session-review', bank_id: 'bank-a', domain_id: 'endoscopy', learner_id: 'demo_learner', mode: 'review', status: 'active', started_at: '2026-08-28T00:00:00Z', ...v32SessionState, question_count: 1, question_ids: ['single'], selection_strategy: 'due_review', selection_reason: '复习队列', selection_evidence: [] })
@@ -258,6 +263,48 @@ describe('Stage 1 page contracts', () => {
     await user.type(screen.getByLabelText('自定义题量'), '37')
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '开始练习' }))
     expect(await screen.findByTestId('location-probe')).toHaveTextContent('/practice?bank_id=bank-b&count=37&mode=exam&session_id=session-test&tutor_thread_id=tutor-thread-test')
+  })
+
+  it('keeps bank management actions hidden until management mode is enabled', async () => {
+    const user = userEvent.setup()
+    renderPage(<BanksPage />)
+
+    expect(await screen.findByTestId('banks-page')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '编辑' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '删除' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '管理题库' }))
+    expect(screen.getByRole('button', { name: '完成管理' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: '编辑' })).toHaveLength(banks.length)
+    expect(screen.getAllByRole('button', { name: '删除' })).toHaveLength(banks.length)
+  })
+
+  it('persists bank ordering from the management controls and exposes drag rows', async () => {
+    const user = userEvent.setup()
+    renderPage(<BanksPage />)
+
+    await screen.findByTestId('banks-page')
+    await user.click(screen.getByRole('button', { name: '管理题库' }))
+    expect(screen.getByRole('status')).toHaveTextContent('按住题库行左侧六点手柄拖到目标位置')
+    expect(screen.getAllByLabelText('拖动调整顺序')).toHaveLength(banks.length)
+    expect(screen.getAllByRole('button', { name: /上移/ })).toHaveLength(banks.length)
+
+    await user.click(screen.getByRole('button', { name: '上移 食管观察题库' }))
+    await waitFor(() => expect(mockedReorderQuestionBanks).toHaveBeenCalledWith(['bank-b', 'bank-a']))
+  })
+
+  it('persists a pointer drag from the visible handle to another bank row', async () => {
+    renderPage(<BanksPage />)
+
+    await screen.findByTestId('banks-page')
+    await userEvent.setup().click(screen.getByRole('button', { name: '管理题库' }))
+    const handles = screen.getAllByLabelText('拖动调整顺序')
+    const rows = screen.getAllByRole('article')
+    fireEvent.pointerDown(handles[0])
+    fireEvent.pointerEnter(rows[1])
+    fireEvent.pointerUp(rows[1])
+
+    await waitFor(() => expect(mockedReorderQuestionBanks).toHaveBeenCalledWith(['bank-b', 'bank-a']))
   })
 
   it('supports all four discriminated question controls and typed submit payloads', async () => {

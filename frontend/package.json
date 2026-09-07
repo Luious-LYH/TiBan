@@ -9,8 +9,9 @@
     "build": "tsc -b && vite build",
     "electron:dev": "npm run build && electron .",
     "desktop:prepare-data": "node scripts/prepare-desktop-data.mjs",
-    "desktop:pack": "npm run build && electron-builder --dir",
-    "desktop:dist": "npm run desktop:prepare-data && npm run build && electron-builder",
+    "desktop:backend": "node scripts/build-desktop-backend.mjs",
+    "desktop:pack": "npm run desktop:prepare-data && npm run desktop:backend && npm run build && electron-builder --dir",
+    "desktop:dist": "npm run desktop:prepare-data && npm run desktop:backend && npm run build && electron-builder",
     "lint": "eslint .",
     "api:generate": "node scripts/generate-openapi.mjs",
     "api:check": "npm run api:generate && git diff --exit-code -- src/api/generated.ts",
@@ -78,29 +79,19 @@
         ]
       },
       {
-        "from": "../backend",
-        "to": "backend",
-        "filter": [
-          "**/*",
-          "!**/__pycache__/**",
-          "!**/*.pyc",
-          "!runtime{,/**/*}",
-          "!**/runtime{,/**/*}",
-          "!**/.pytest_cache{,/**/*}",
-          "!**/tests{,/**/*}",
-          "!**/.env",
-          "!**/.demo_llm_providers.json",
-          "!**/*.key",
-          "!**/*secret*"
-        ]
-      },
-      {
         "from": "desktop-data",
         "to": "desktop-data",
         "filter": [
           "external/CMExam/data/test_with_annotations.csv",
           "external/CMExam/LICENSE",
           "external/CMExam/README.md"
+        ]
+      },
+      {
+        "from": "backend-runtime",
+        "to": "backend-runtime",
+        "filter": [
+          "tiban-backend.exe"
         ]
       }
     ],

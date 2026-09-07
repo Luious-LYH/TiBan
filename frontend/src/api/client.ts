@@ -24,6 +24,7 @@ export type SubmitResult = components['schemas']['PracticeSubmitResponse']
 // These are presentation view models; their fields are projected from the
 // generated API components, not hand-maintained response contracts.
 export type QuestionBank = Required<components['schemas']['QuestionBankPublic']>
+export type QuestionEdit = components['schemas']['QuestionEditPublic']
 export type Domain = components['schemas']['DomainPublic']
 export type QuestionsResponse = components['schemas']['PracticeQuestionListResponse']
 export type SessionResponse = components['schemas']['PracticeSessionPublic']
@@ -75,7 +76,12 @@ export type InstanceEmbeddingTestResult = components['schemas']['EmbeddingTestRe
 export type IndexRebuildResult = components['schemas']['IndexRebuildResponse']
 export type KnowledgeSource = components['schemas']['KnowledgeSourcePublic']
 export type KnowledgeSourceDetail = components['schemas']['KnowledgeSourceDetailPublic']
-export type QBankValidation = { format: string; accepted_count: number; rejected_count: number; ready_to_publish: boolean; items: Array<{ title: string; question: string; question_type: string }>; issues: Array<{ row: number; code: string; message: string }>; summary: { question_type_counts: Record<string, number> } }
+export type QBankValidation = { format: string; accepted_count: number; rejected_count: number; ready_to_publish: boolean; items: Array<{ title: string; question: string; question_type: string; options?: Array<{ id: string; text: string }>; difficulty?: string; body_part?: string }>; issues: Array<{ row: number; code: string; message: string }>; summary: { question_type_counts: Record<string, number> } }
+export type QBankImportRequest = { format: 'json' | 'jsonl' | 'csv' | 'markdown'; content: string; mode: 'create_bank' | 'append_questions'; domain_id: string; custom_domain_name?: string; bank_name?: string; bank_description?: string; target_bank_id?: string; source_name?: string; file_name?: string }
+export type QBankImportResult = { mode: string; bank_id: string; bank_name: string; source_document_id: string; accepted_count: number; imported_count: number; duplicate_count: number; rejected_count: number; issues: Array<{ row: number; code: string; message: string }>; question_count: number; question_type_counts: Record<string, number>; status: string; api_source: 'backend' }
+export type QuestionImportDraft = components['schemas']['ImportDraftPublic']
+export type QuestionImportBatch = components['schemas']['ImportBatchPublic']
+export type QuestionImportBatchPublishResult = components['schemas']['ImportBatchPublishPublic']
 
 export class ApiError extends Error {
   readonly status: number
@@ -104,6 +110,26 @@ export async function getQuestionBanks(learnerId = 'demo_learner', domainId?: st
   return response.items.map((item) => item as QuestionBank)
 }
 
+export async function reorderQuestionBanks(bankIds: string[], learnerId = 'demo_learner'): Promise<string[]> {
+  const response = await unwrap(api.PUT('/api/v3/question-banks/order', { params: { query: { learner_id: learnerId } }, body: { bank_ids: bankIds } }))
+  return response.bank_ids
+}
+
+export async function updateQuestionBank(bankId: string, payload: { name: string; description: string }): Promise<QuestionBank> {
+  const response = await unwrap(api.PATCH('/api/v3/question-banks/{bank_id}', { params: { path: { bank_id: bankId } }, body: payload }))
+  return response.item as QuestionBank
+}
+
+export async function getQuestionForEdit(bankId: string, questionId: string): Promise<QuestionEdit> {
+  const response = await unwrap(api.GET('/api/v3/question-banks/{bank_id}/questions/{question_id}/edit', { params: { path: { bank_id: bankId, question_id: questionId } } }))
+  return response.item as QuestionEdit
+}
+
+export async function updateQuestion(bankId: string, questionId: string, payload: components['schemas']['QuestionEditRequest']): Promise<QuestionEdit> {
+  const response = await unwrap(api.PATCH('/api/v3/question-banks/{bank_id}/questions/{question_id}/edit', { params: { path: { bank_id: bankId, question_id: questionId } }, body: payload }))
+  return response.item as QuestionEdit
+}
+
 export async function getDomains(): Promise<Domain[]> {
   const response = await unwrap(api.GET('/api/v3/domains'))
   return response.items
@@ -129,8 +155,8 @@ export function createPracticeSession(bankId: string, learnerId = 'demo_learner'
   }))
 }
 
-export function getBankQuestionProgress(bankId: string, state: 'all' | 'uncompleted' | 'completed' | 'incorrect' | 'marked' = 'all'): Promise<BankQuestionProgressResponse> {
-  return unwrap(api.GET('/api/v3/question-banks/{bank_id}/questions', { params: { path: { bank_id: bankId }, query: { learner_id: 'demo_learner', state, limit: 100, offset: 0 } } }))
+export function getBankQuestionProgress(bankId: string, state: 'all' | 'uncompleted' | 'completed' | 'incorrect' | 'marked' = 'all', search?: string): Promise<BankQuestionProgressResponse> {
+  return unwrap(api.GET('/api/v3/question-banks/{bank_id}/questions', { params: { path: { bank_id: bankId }, query: { learner_id: 'demo_learner', state, search: search || undefined, limit: 100, offset: 0 } } }))
 }
 
 export function getReviewSummary(): Promise<ReviewSummary> {
@@ -378,4 +404,14 @@ export function testInstanceEmbedding(payload: EmbeddingConnectionTestPayload = 
 export function applyInstanceEmbedding(payload: EmbeddingSettingsPayload) { return unwrap(api.POST('/api/v3/settings/embedding/apply', { body: payload })) }
 export function restoreInstanceEmbedding() { return unwrap(api.POST('/api/v3/settings/embedding/restore')) }
 export function rebuildInstanceIndexes(): Promise<IndexRebuildResult> { return unwrap(api.POST('/api/v3/settings/indexes/rebuild')) }
-export function validateQuestionBankImport(payload: { format: 'csv' | 'jsonl' | 'markdown'; content: string; source_name?: string }): Promise<QBankValidation> { return unwrap(api.POST('/api/question-banks/import/validate', { body: payload })) as Promise<QBankValidation> }
+export function validateQuestionBankImport(payload: { format: 'json' | 'csv' | 'jsonl' | 'markdown'; content: string; source_name?: string }): Promise<QBankValidation> { return unwrap(api.POST('/api/question-banks/import/validate', { body: payload })) as Promise<QBankValidation> }
+export function importQuestionBank(payload: QBankImportRequest): Promise<QBankImportResult> { return unwrap(api.POST('/api/v3/question-banks/import', { body: payload })) as Promise<QBankImportResult> }
+export async function getQuestionImportTemplates(): Promise<{ formats: string[]; required_fields: string[]; examples: Record<string, string> }> { return unwrap(api.GET('/api/question-banks/import/templates')) as Promise<{ formats: string[]; required_fields: string[]; examples: Record<string, string> }> }
+export async function createQuestionImportBatch(payload: { format: 'json' | 'jsonl' | 'csv' | 'markdown'; content: string; domain_id: string; custom_domain_name?: string; source_name?: string; file_name?: string }): Promise<QuestionImportBatch> { const response = await unwrap(api.POST('/api/v3/factory/import-batches', { body: payload })); return response.item as QuestionImportBatch }
+export async function getQuestionImportBatches(status?: string): Promise<QuestionImportBatch[]> { const response = await unwrap(api.GET('/api/v3/factory/import-batches', { params: { query: { status } } })); return response.items as QuestionImportBatch[] }
+export async function getQuestionImportBatch(batchId: string): Promise<QuestionImportBatch> { const response = await unwrap(api.GET('/api/v3/factory/import-batches/{batch_id}', { params: { path: { batch_id: batchId } } })); return response.item as QuestionImportBatch }
+export async function reviewQuestionImportDraft(batchId: string, draftId: string, status: 'pending' | 'approved' | 'rejected', reviewNote?: string): Promise<QuestionImportBatch> { const response = await unwrap(api.PATCH('/api/v3/factory/import-batches/{batch_id}/drafts/{draft_id}', { params: { path: { batch_id: batchId, draft_id: draftId } }, body: { status, review_note: reviewNote } })); return response.item as QuestionImportBatch }
+export async function reviewQuestionImportBatch(batchId: string, status: 'pending' | 'approved' | 'rejected', draftIds?: string[]): Promise<QuestionImportBatch> { const response = await unwrap(api.POST('/api/v3/factory/import-batches/{batch_id}/review', { params: { path: { batch_id: batchId } }, body: { status, draft_ids: draftIds } })); return response.item as QuestionImportBatch }
+export async function publishQuestionImportBatch(batchId: string, payload: { mode: 'create_bank' | 'append_questions'; bank_name?: string; bank_description?: string; target_bank_id?: string }): Promise<QuestionImportBatchPublishResult> { const response = await unwrap(api.POST('/api/v3/factory/import-batches/{batch_id}/publish', { params: { path: { batch_id: batchId } }, body: payload })); return response.item as QuestionImportBatchPublishResult }
+export function deleteQuestionImportBatch(batchId: string): Promise<{ batch_id: string; deleted: boolean }> { return unwrap(api.DELETE('/api/v3/factory/import-batches/{batch_id}', { params: { path: { batch_id: batchId } } })) as Promise<{ batch_id: string; deleted: boolean }> }
+export function deleteQuestionBank(bankId: string): Promise<{ bank_id: string; deleted: boolean }> { return unwrap(api.DELETE('/api/v3/question-banks/{bank_id}', { params: { path: { bank_id: bankId } } })) as Promise<{ bank_id: string; deleted: boolean }> }
