@@ -560,6 +560,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/knowledge/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Knowledge
+         * @description Search text and, when available, related knowledge images/evidence.
+         */
+        post: operations["search_knowledge_api_v3_knowledge_search_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/knowledge/media/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Knowledge Media */
+        get: operations["knowledge_media_api_v3_knowledge_media__asset_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/mentor/conversations": {
         parameters: {
             query?: never;
@@ -779,6 +816,74 @@ export interface paths {
         put?: never;
         /** Publish Import Batch */
         post: operations["publish_import_batch_api_v3_factory_import_batches__batch_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/assets/question-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stage Question Image */
+        post: operations["stage_question_image_api_v3_assets_question_images_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/assets/chat-images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stage Chat Image */
+        post: operations["stage_chat_image_api_v3_assets_chat_images_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/assets/question-images/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Question Image */
+        get: operations["question_image_api_v3_assets_question_images__asset_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/assets/chat-images/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chat Image */
+        get: operations["chat_image_api_v3_assets_chat_images__asset_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2114,6 +2219,10 @@ export interface components {
             question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
             /** Question Summary */
             question_summary: string;
+            /** Image Url */
+            image_url?: string | null;
+            /** Image Alt */
+            image_alt?: string | null;
             /** Subject */
             subject?: string | null;
             /** Topic */
@@ -2683,6 +2792,34 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** ImageAssetPublic */
+        ImageAssetPublic: {
+            /** Asset Id */
+            asset_id: string;
+            /** Filename */
+            filename: string;
+            /** Url */
+            url: string;
+            /** Mime Type */
+            mime_type: string;
+            /** Width */
+            width: number;
+            /** Height */
+            height: number;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Sha256 Prefix */
+            sha256_prefix: string;
+            /** Expires At */
+            expires_at?: string | null;
+        };
+        /** ImageAssetUploadRequest */
+        ImageAssetUploadRequest: {
+            /** Filename */
+            filename: string;
+            /** Data Url */
+            data_url: string;
+        };
         /** ImageUploadRequest */
         ImageUploadRequest: {
             /** Filename */
@@ -2715,6 +2852,8 @@ export interface components {
             source_name?: string | null;
             /** File Name */
             file_name?: string | null;
+            /** Image Assets */
+            image_assets?: components["schemas"]["QuestionImageAssetRef"][];
         };
         /** ImportBatchListResponse */
         ImportBatchListResponse: {
@@ -2884,6 +3023,8 @@ export interface components {
             difficulty: string;
             /** Image Url */
             image_url?: string | null;
+            /** Image Alt */
+            image_alt?: string | null;
             /** Subject */
             subject?: string | null;
             /** Topic */
@@ -2951,6 +3092,48 @@ export interface components {
              */
             api_source: string;
         };
+        /** KnowledgeSearchRequest */
+        KnowledgeSearchRequest: {
+            /** Query */
+            query: string;
+            /** Domain Id */
+            domain_id?: string | null;
+            /**
+             * Limit
+             * @default 5
+             */
+            limit: number;
+        };
+        /** KnowledgeSearchResponse */
+        KnowledgeSearchResponse: {
+            /** Citations */
+            citations?: {
+                [key: string]: unknown;
+            }[];
+            /** Image Results */
+            image_results?: {
+                [key: string]: unknown;
+            }[];
+            /** Graph Paths */
+            graph_paths?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Image Index Status
+             * @default stale
+             */
+            image_index_status: string;
+            /**
+             * Graph Status
+             * @default empty
+             */
+            graph_status: string;
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
         /** KnowledgeSourceDetailPublic */
         KnowledgeSourceDetailPublic: {
             /** Id */
@@ -2993,6 +3176,24 @@ export interface components {
             index_progress: number;
             /** Index Error */
             index_error?: string | null;
+            /** Image Count */
+            image_count?: number | null;
+            /** Image Index Status */
+            image_index_status?: string | null;
+            /** Image Index Error */
+            image_index_error?: string | null;
+            /** Graph Status */
+            graph_status?: string | null;
+            /** Graph Node Count */
+            graph_node_count?: number | null;
+            /** Graph Edge Count */
+            graph_edge_count?: number | null;
+            /** Graph Error */
+            graph_error?: string | null;
+            /** Media Preview */
+            media_preview?: {
+                [key: string]: unknown;
+            }[];
             /** Attribution */
             attribution?: string | null;
             /** Created At */
@@ -3046,6 +3247,24 @@ export interface components {
             index_progress: number;
             /** Index Error */
             index_error?: string | null;
+            /** Image Count */
+            image_count?: number | null;
+            /** Image Index Status */
+            image_index_status?: string | null;
+            /** Image Index Error */
+            image_index_error?: string | null;
+            /** Graph Status */
+            graph_status?: string | null;
+            /** Graph Node Count */
+            graph_node_count?: number | null;
+            /** Graph Edge Count */
+            graph_edge_count?: number | null;
+            /** Graph Error */
+            graph_error?: string | null;
+            /** Media Preview */
+            media_preview?: {
+                [key: string]: unknown;
+            }[];
             /** Attribution */
             attribution?: string | null;
             /** Created At */
@@ -3237,6 +3456,13 @@ export interface components {
             sources?: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Image Attached
+             * @default false
+             */
+            image_attached: boolean;
+            /** Image Asset Id */
+            image_asset_id?: string | null;
             /** Created At */
             created_at: string;
         };
@@ -3249,6 +3475,8 @@ export interface components {
             learner_id: string;
             /** Message */
             message: string;
+            /** Image Asset Id */
+            image_asset_id?: string | null;
         };
         /** MentorPlanPublic */
         MentorPlanPublic: {
@@ -3892,6 +4120,8 @@ export interface components {
             source_name?: string | null;
             /** File Name */
             file_name?: string | null;
+            /** Image Assets */
+            image_assets?: components["schemas"]["QuestionImageAssetRef"][];
         };
         /** QuestionBankImportResponse */
         QuestionBankImportResponse: {
@@ -4081,6 +4311,10 @@ export interface components {
             topic?: string | null;
             /** Task */
             task: string;
+            /** Image Url */
+            image_url?: string | null;
+            /** Image Alt */
+            image_alt?: string | null;
         };
         /**
          * QuestionEditRequest
@@ -4140,6 +4374,16 @@ export interface components {
              * @constant
              */
             api_source: "backend";
+        };
+        /**
+         * QuestionImageAssetRef
+         * @description A staged upload referenced by an imported question file.
+         */
+        QuestionImageAssetRef: {
+            /** Asset Id */
+            asset_id: string;
+            /** Filename */
+            filename: string;
         };
         /** QuestionMarkRequest */
         QuestionMarkRequest: {
@@ -4375,6 +4619,10 @@ export interface components {
             question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
             /** Question Summary */
             question_summary: string;
+            /** Image Url */
+            image_url?: string | null;
+            /** Image Alt */
+            image_alt?: string | null;
             /** Subject */
             subject?: string | null;
             /** Topic */
@@ -4428,6 +4676,10 @@ export interface components {
             question_type: "single_choice" | "multiple_choice" | "true_false" | "short_answer";
             /** Question Summary */
             question_summary: string;
+            /** Image Url */
+            image_url?: string | null;
+            /** Image Alt */
+            image_alt?: string | null;
             /** Subject */
             subject?: string | null;
             /** Topic */
@@ -4846,6 +5098,8 @@ export interface components {
             learner_id: string;
             /** Message */
             message: string;
+            /** Image Asset Id */
+            image_asset_id?: string | null;
             /** Attempt Id */
             attempt_id?: string | null;
             /**
@@ -6162,6 +6416,70 @@ export interface operations {
             };
         };
     };
+    search_knowledge_api_v3_knowledge_search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    knowledge_media_api_v3_knowledge_media__asset_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_conversations_api_v3_mentor_conversations_get: {
         parameters: {
             query?: {
@@ -6709,6 +7027,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImportBatchPublishResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stage_question_image_api_v3_assets_question_images_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageAssetUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageAssetPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stage_chat_image_api_v3_assets_chat_images_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageAssetUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageAssetPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    question_image_api_v3_assets_question_images__asset_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_image_api_v3_assets_chat_images__asset_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

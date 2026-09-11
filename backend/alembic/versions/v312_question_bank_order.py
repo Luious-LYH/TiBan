@@ -29,7 +29,11 @@ def upgrade() -> None:
             sa.text("UPDATE question_banks SET display_order = :display_order WHERE bank_id = :bank_id"),
             {"display_order": position, "bank_id": bank_id},
         )
-    op.alter_column("question_banks", "display_order", server_default=None)
+    # SQLite cannot change a column default with ALTER COLUMN.  The default is
+    # only needed while adding/backfilling the column, so leave it in place on
+    # SQLite; SQLAlchemy model writes still provide the explicit order value.
+    if op.get_bind().dialect.name != "sqlite":
+        op.alter_column("question_banks", "display_order", server_default=None)
 
 
 def downgrade() -> None:

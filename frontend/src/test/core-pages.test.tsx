@@ -57,6 +57,8 @@ vi.mock('../api/client', () => ({
   getMentorPlan: vi.fn(),
   streamTutor: vi.fn(),
   streamMentorMessage: vi.fn(),
+  resolveApiUrl: (value?: string | null) => value ?? undefined,
+  uploadChatImage: vi.fn(),
   submitFsrsReview: vi.fn(),
   submitPracticeAnswer: vi.fn(),
   updateQuestionBank: vi.fn(),
@@ -404,6 +406,30 @@ describe('Stage 1 page contracts', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
+  it('explains when a stale session link is no longer resumable', async () => {
+    mockedGetPracticeSession.mockResolvedValueOnce({
+      session_id: 'session-closed',
+      bank_id: 'bank-a',
+      domain_id: 'endoscopy',
+      learner_id: 'demo_learner',
+      mode: 'study',
+      status: 'abandoned',
+      started_at: '2026-08-28T00:00:00Z',
+      ...v32SessionState,
+      question_count: 2,
+      question_ids: ['single', 'multi'],
+      selection_strategy: 'coverage',
+      selection_reason: '题库覆盖',
+      selection_evidence: [],
+    })
+
+    renderPage(<PracticePage />, ['/practice?session_id=session-closed'])
+
+    expect(await screen.findByRole('heading', { name: '这组练习已关闭' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /返回题库/ })).toHaveAttribute('href', '/banks')
+    expect(mockedResumePracticeSession).not.toHaveBeenCalled()
+  })
+
   it('opens a lightweight question map and navigates by real question position', async () => {
     const user = userEvent.setup()
     mockedGetQuestions.mockResolvedValueOnce(questionsResponse(questionVariants.slice(0, 2)))
@@ -477,6 +503,8 @@ describe('Stage 1 page contracts', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     renderPage(<KnowledgePage />, ['/knowledge'])
+    expect(screen.getByRole('tab', { name: '系统资料' })).toHaveAttribute('aria-selected', 'true')
+    await user.click(screen.getByRole('tab', { name: '我的资料' }))
     expect(await screen.findByRole('button', { name: '删除我的学习笔记' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '删除CMExam 官方解析库' })).not.toBeInTheDocument()
 
@@ -665,6 +693,7 @@ describe('Stage 1 page contracts', () => {
     const user = userEvent.setup()
     renderPage(<PracticePage />, [practicePath])
     await screen.findByTestId('practice-page')
+    await screen.findByPlaceholderText('继续追问当前题目…')
     await user.type(screen.getByLabelText('向智能辅导提问'), '请帮助我观察')
     await user.click(screen.getByLabelText('发送给智能辅导'))
     expect(await screen.findByText('先观察可支持事实。')).toBeInTheDocument()
@@ -676,6 +705,7 @@ describe('Stage 1 page contracts', () => {
     renderPage(<MentorPage />, ['/mentor'])
     expect(await screen.findByTestId('mentor-page')).toBeInTheDocument()
     expect(await screen.findByText('CMExam 官方解析库')).toBeInTheDocument()
+    await screen.findByPlaceholderText(/问问我最近该复习什么/)
     await user.type(screen.getByLabelText('向带教 Agent 提问'), '我今天应该先复习什么？')
     await user.click(screen.getByLabelText('发送给带教 Agent'))
     expect(await screen.findByText('先处理 2 道到期复习，再完成一组短练习。')).toBeInTheDocument()
@@ -696,7 +726,7 @@ describe('Stage 1 page contracts', () => {
     expect(mockedDeleteMentorConversation).toHaveBeenCalledWith('mentor-test')
   })
 
-  it('deduplicates repeated citations and keeps extra sources collapsed by default', async () => {
+  it('deduplicates repeated citations and keeps answer sources collapsed by default', async () => {
     const user = userEvent.setup()
     mockedStreamTutor.mockImplementationOnce(async (_request, onEvent) => {
       onEvent({ event: 'source', data: { document_name: '资料 A', section: '第一节', snippet: '相同资料' } })
@@ -707,13 +737,14 @@ describe('Stage 1 page contracts', () => {
     })
     renderPage(<PracticePage />, [practicePath])
     await screen.findByTestId('practice-page')
+    await screen.findByPlaceholderText('继续追问当前题目…')
     await user.type(screen.getByLabelText('向智能辅导提问'), '请解释')
     await user.click(screen.getByLabelText('发送给智能辅导'))
     expect(await screen.findByText('参考资料 3 条')).toBeInTheDocument()
-    expect(screen.getByText(/资料 A/)).toBeInTheDocument()
-    expect(screen.getByText(/资料 B/)).toBeInTheDocument()
-    expect(screen.queryByText(/资料 C/)).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: '查看全部 3 条' }))
+    const sources = screen.getByTestId('tutor-sources') as HTMLDetailsElement
+    expect(sources.open).toBe(false)
+    await user.click(screen.getByText('参考资料 3 条'))
+    expect(sources.open).toBe(true)
     expect(screen.getByText(/资料 C/)).toBeInTheDocument()
   })
 

@@ -20,6 +20,7 @@ class TutorStreamRequest(BaseModel):
     question_id: str
     learner_id: str = 'demo_learner'
     message: str = Field(min_length=1, max_length=2000)
+    image_asset_id: str | None = Field(default=None, max_length=150)
     attempt_id: str | None = None
     mode: Literal['study', 'exam', 'review'] = 'study'
 
@@ -27,6 +28,20 @@ class TutorStreamRequest(BaseModel):
 @router.post('/stream')
 def tutor_stream(request: TutorStreamRequest) -> StreamingResponse:
     phase = 'post_submit' if request.attempt_id else 'pre_submit'
+    image_path: str | None = None
+    if request.image_asset_id:
+        from app.db.database import SessionLocal
+        from app.services.image_asset_service import image_asset_service
+
+        try:
+            with SessionLocal() as session:
+                # Validate existence here, but keep the opaque API reference
+                # at the Agent boundary.  Absolute runtime paths must never
+                # enter the conversation context or Provider adapter.
+                image_asset_service.resolve_path(session, request.image_asset_id, kind="chat")
+                image_path = f"/api/v3/assets/chat-images/{request.image_asset_id}"
+        except (KeyError, FileNotFoundError, ValueError) as exc:
+            raise HTTPException(422, "聊天图片不存在或已过期，请重新附加图片。") from exc
     try:
         conversation = tutor_session_service.start_turn(
             practice_session_id=request.practice_session_id,
@@ -34,6 +49,8 @@ def tutor_stream(request: TutorStreamRequest) -> StreamingResponse:
             learner_id=request.learner_id,
             question_id=request.question_id,
             content=request.message,
+            image_attached=bool(request.image_asset_id),
+            image_asset_id=request.image_asset_id,
         )
     except KeyError as exc:
         raise HTTPException(409, "当前智能辅导上下文已失效，请重新进入本次练习。") from exc
@@ -48,6 +65,7 @@ def tutor_stream(request: TutorStreamRequest) -> StreamingResponse:
             attempt_id=request.attempt_id,
             practice_session_id=request.practice_session_id,
             tutor_thread_id=request.tutor_thread_id,
+            image_paths=[image_path] if image_path else [],
             metadata={"conversation": conversation, "agent_profile": "tutor"},
         )
         answer: list[str] = []

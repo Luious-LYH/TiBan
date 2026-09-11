@@ -10,22 +10,54 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
-from typing import Iterable, Literal
+from typing import Any, Iterable, Literal
 
 from qdrant_client import QdrantClient, models
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.core.config import DEFAULT_DOMAIN_ID, DEFAULT_KNOWLEDGE_NAMESPACE, QDRANT_URL
 from app.db.database import SessionLocal
-from app.db.models import DocumentVersionModel, KnowledgeChunkModel, SourceDocumentModel, VectorIndexStateModel
-from app.services.embedding_provider import EmbeddingProvider, RerankerProvider, configured_embedding_provider, configured_reranker_provider
+from app.db.models import (
+    DocumentVersionModel,
+    KnowledgeChunkModel,
+    KnowledgeEntityModel,
+    KnowledgeMediaAssetModel,
+    KnowledgeRelationModel,
+    SourceDocumentModel,
+    VectorIndexStateModel,
+)
+from app.services.embedding_provider import EmbeddingProvider, ImageEmbeddingProvider, RerankerProvider, configured_embedding_provider, configured_image_embedding_provider, configured_reranker_provider
 
 
 MODEL_NAME = 'BAAI/bge-m3'
 RERANK_MODEL = 'BAAI/bge-reranker-v2-m3'
 COLLECTION = 'tiban_knowledge_v32'
 KNOWLEDGE_INDEX_KEY = 'knowledge'
+IMAGE_COLLECTION = 'tiban_knowledge_image_v35'
+IMAGE_INDEX_KEY = 'knowledge_images'
 MODEL_CACHE = Path(os.getenv('ENDO_EMBEDDING_CACHE', Path(__file__).resolve().parents[2] / 'runtime' / 'fastembed'))
+_IMAGE_QUERY_TERMS = (
+    "结肠镜", "盲肠", "回盲瓣", "直肠", "上消化道", "胃镜", "食管", "十二指肠",
+    "内镜", "息肉", "腺瘤", "图像记录", "图像", "colonoscopy", "cecum", "ileocecal",
+    "gastroscopy", "endoscopy", "polyp", "adenoma", "image documentation",
+)
+
+
+def _clip_query_text(query: str) -> str:
+    """Keep a learner's image query inside CLIP's short text context.
+
+    The original question is still used by BGE-M3 text retrieval.  CLIP has a
+    much smaller token window, especially for CJK text, so image search uses
+    only explicit controlled concepts when present; otherwise it keeps a
+    bounded prefix rather than failing the whole multimodal evidence path.
+    """
+
+    compact = re.sub(r"\s+", " ", query).strip()
+    lowered = compact.lower()
+    matched = [term for term in _IMAGE_QUERY_TERMS if term.lower() in lowered]
+    if matched:
+        return " ".join(dict.fromkeys(matched))[:72]
+    return compact[:24]
 
 
 @dataclass(frozen=True)
@@ -39,6 +71,8 @@ class Citation:
     document_id: str | None = None
     namespace: str = DEFAULT_KNOWLEDGE_NAMESPACE
     source_uri: str | None = None
+    media_asset_ids: tuple[str, ...] = ()
+    image_urls: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -508,6 +542,22 @@ class RagService:
             wait=True,
         )
 
+    def delete_image_documents(self, document_ids: list[str]) -> None:
+        """Remove only the specified knowledge-media points, if indexed."""
+
+        if not document_ids:
+            return
+        client = self.qdrant
+        if not client.collection_exists(IMAGE_COLLECTION):
+            return
+        client.delete(
+            IMAGE_COLLECTION,
+            points_selector=models.FilterSelector(
+                filter=models.Filter(must=[models.FieldCondition(key="document_id", match=models.MatchAny(any=document_ids))])
+            ),
+            wait=True,
+        )
+
     def _replace_collection(self, provider: EmbeddingProvider, vectors: list[list[float]]) -> None:
         client = self.qdrant
         dimension = len(vectors[0]) if vectors else provider.dimension()
@@ -534,6 +584,788 @@ class RagService:
             else:
                 state.status, state.error_message = ("ready" if preserve_ready else "failed"), error
             session.commit()
+
+    def image_index_state(self) -> dict[str, object]:
+        """Return the truthful state of the optional knowledge-image index."""
+
+        # Do not load CLIP just to render the Knowledge page.  The configured
+        # provider/model pair is enough to detect a stale derived index.
+        from app.core import config
+
+        expected_provider = config.IMAGE_EMBEDDING_PROVIDER or "clip"
+        expected_model = config.IMAGE_EMBEDDING_MODEL
+        with SessionLocal() as session:
+            state = session.get(VectorIndexStateModel, IMAGE_INDEX_KEY)
+            if state is None:
+                return {
+                    "provider": expected_provider,
+                    "model": expected_model,
+                    "status": "stale",
+                    "vector_dimension": None,
+                    "index_version": 0,
+                }
+            status = state.status
+            if status in {"ready", "empty"} and (
+                state.provider != expected_provider
+                or state.model_id != expected_model
+                or (status == "ready" and not state.vector_dimension)
+            ):
+                status = "stale"
+            return {
+                "provider": state.provider,
+                "model": state.model_id,
+                "status": status,
+                "vector_dimension": state.vector_dimension,
+                "index_version": state.index_version,
+                "indexed_at": state.indexed_at,
+                "error_message": state.error_message,
+            }
+
+    def rebuild_knowledge_image_index(self, *, document_ids: list[str] | None = None) -> list[str]:
+        """Build the real image/text vector space for current knowledge media.
+
+        The update is document-scoped when the provider signature and Qdrant
+        collection are compatible; a provider/model/dimension change forces a
+        coherent full replacement.  A failed image build is surfaced to the
+        source while the text collection remains usable.
+        """
+
+        requested_ids = {str(value) for value in (document_ids or []) if str(value)}
+        provider: ImageEmbeddingProvider | None = None
+        try:
+            provider = configured_image_embedding_provider()
+            with SessionLocal() as session:
+                state = session.get(VectorIndexStateModel, IMAGE_INDEX_KEY)
+                previous_ready = bool(
+                    state is not None
+                    and state.status == "ready"
+                    and state.provider == provider.provider_id
+                    and state.model_id == provider.model_id
+                    and state.vector_dimension
+                )
+                previous_dimension = int(state.vector_dimension or 0) if state else 0
+            collection_exists = self.qdrant.collection_exists(IMAGE_COLLECTION)
+            incremental = bool(requested_ids and previous_ready and collection_exists)
+            with SessionLocal() as session:
+                latest_versions = select(
+                    DocumentVersionModel.version_id,
+                    DocumentVersionModel.document_id,
+                    func.row_number().over(
+                        partition_by=DocumentVersionModel.document_id,
+                        order_by=(DocumentVersionModel.created_at.desc(), DocumentVersionModel.version_id.desc()),
+                    ).label("version_rank"),
+                ).subquery("latest_knowledge_image_versions")
+                statement = (
+                    select(KnowledgeMediaAssetModel, SourceDocumentModel)
+                    .join(SourceDocumentModel, SourceDocumentModel.document_id == KnowledgeMediaAssetModel.document_id)
+                    .join(latest_versions, KnowledgeMediaAssetModel.version_id == latest_versions.c.version_id)
+                    .where(
+                        latest_versions.c.version_rank == 1,
+                        KnowledgeMediaAssetModel.status == "ready",
+                        SourceDocumentModel.business_usage == "knowledge_base",
+                        SourceDocumentModel.ai_ingestion_allowed.is_(True),
+                        SourceDocumentModel.enabled.is_(True),
+                        SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "disabled", "retired"]),
+                        SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
+                    )
+                    .order_by(KnowledgeMediaAssetModel.document_id, KnowledgeMediaAssetModel.ordinal)
+                )
+                if requested_ids:
+                    statement = statement.where(KnowledgeMediaAssetModel.document_id.in_(requested_ids))
+                rows = list(session.execute(statement).all())
+                old_asset_ids = set(session.scalars(
+                    select(KnowledgeMediaAssetModel.asset_id).where(KnowledgeMediaAssetModel.document_id.in_(requested_ids))
+                )) if incremental else set()
+            if not rows:
+                if incremental:
+                    self._delete_image_point_ids(old_asset_ids)
+                    self._set_image_index_state(provider, "empty" if not requested_ids else "ready", previous_dimension if requested_ids else 0, None)
+                else:
+                    if collection_exists:
+                        self.qdrant.delete_collection(IMAGE_COLLECTION)
+                    self._set_image_index_state(provider, "empty", 0, None)
+                self._set_source_image_status(requested_ids, "empty", None)
+                return []
+
+            paths = []
+            assets = []
+            documents = []
+            from app.services.knowledge_multimodal_service import KNOWLEDGE_MEDIA_ROOT
+
+            for asset, document in rows:
+                path = (KNOWLEDGE_MEDIA_ROOT / asset.storage_path).resolve()
+                if KNOWLEDGE_MEDIA_ROOT.resolve() not in path.parents or not path.is_file():
+                    raise FileNotFoundError(asset.asset_id)
+                paths.append(path)
+                assets.append(asset)
+                documents.append(document)
+            vectors = provider.embed_images(paths)
+            if len(vectors) != len(assets) or any(not vector for vector in vectors):
+                raise RuntimeError("image_embedding_vectors_invalid")
+            dimension = len(vectors[0])
+            if any(len(vector) != dimension for vector in vectors):
+                raise RuntimeError("image_embedding_vector_dimensions_inconsistent")
+            if incremental and previous_dimension and dimension != previous_dimension:
+                incremental = False
+            evidence_by_asset = self._image_evidence_metadata([asset.asset_id for asset in assets])
+            points = [
+                models.PointStruct(
+                    id=_point_id(f"knowledge-image:{asset.asset_id}"),
+                    vector=vector,
+                    payload={
+                        "asset_id": asset.asset_id,
+                        "document_id": asset.document_id,
+                        "version_id": asset.version_id,
+                        "domain_id": document.domain_id,
+                        "namespace": document.namespace,
+                        "document_name": document.name,
+                        "page": asset.page,
+                        "ordinal": asset.ordinal,
+                        "mime_type": asset.mime_type,
+                        "width": asset.width,
+                        "height": asset.height,
+                        "caption": evidence_by_asset.get(asset.asset_id, {}).get("caption", asset.alt_text or ""),
+                        "section": evidence_by_asset.get(asset.asset_id, {}).get("section", ""),
+                        "concepts": evidence_by_asset.get(asset.asset_id, {}).get("concepts", []),
+                        "linked_chunk_id": evidence_by_asset.get(asset.asset_id, {}).get("chunk_id", ""),
+                    },
+                )
+                for asset, document, vector in zip(assets, documents, vectors)
+            ]
+            if incremental:
+                # A source can be re-parsed into a different asset set.  The
+                # previous asset IDs may already have been removed from the
+                # relational database, so deleting only those IDs would leave
+                # stale logo/page-furniture vectors behind.  Remove the
+                # document slice first, then atomically repopulate it with
+                # the caption-qualified assets built above.
+                self.delete_image_documents(list(requested_ids))
+                self.qdrant.upsert(IMAGE_COLLECTION, points=points, wait=True)
+            else:
+                if self.qdrant.collection_exists(IMAGE_COLLECTION):
+                    self.qdrant.delete_collection(IMAGE_COLLECTION)
+                self.qdrant.create_collection(
+                    IMAGE_COLLECTION,
+                    vectors_config=models.VectorParams(size=dimension, distance=models.Distance.COSINE),
+                )
+                self.qdrant.upsert(IMAGE_COLLECTION, points=points, wait=True)
+            self._set_image_index_state(provider, "ready", dimension, None)
+            self._set_source_image_status({asset.document_id for asset in assets} | requested_ids, "ready", None)
+            return [asset.asset_id for asset in assets]
+        except Exception as exc:
+            if provider is None:
+                provider_id, model_id = self._configured_image_identity()
+            else:
+                provider_id, model_id = provider.provider_id, provider.model_id
+            self._set_image_index_state_identity(provider_id, model_id, "failed", None, type(exc).__name__)
+            self._set_source_image_status(requested_ids, "failed", type(exc).__name__)
+            raise
+
+    @staticmethod
+    def _image_evidence_metadata(asset_ids: list[str]) -> dict[str, dict[str, object]]:
+        """Build compact, explainable image metadata from relational truth."""
+
+        if not asset_ids:
+            return {}
+        requested = set(asset_ids)
+        metadata: dict[str, dict[str, object]] = {}
+        with SessionLocal() as session:
+            assets = {
+                item.asset_id: item
+                for item in session.scalars(select(KnowledgeMediaAssetModel).where(
+                    KnowledgeMediaAssetModel.asset_id.in_(requested),
+                    KnowledgeMediaAssetModel.status == "ready",
+                ))
+            }
+            document_ids = {item.document_id for item in assets.values()}
+            chunks = list(session.scalars(select(KnowledgeChunkModel).where(
+                KnowledgeChunkModel.document_id.in_(document_ids),
+            ))) if document_ids else []
+            for asset_id, asset in assets.items():
+                linked = next((chunk for chunk in chunks if asset_id in (chunk.media_asset_ids or [])), None)
+                concepts: list[str] = []
+                if linked is not None:
+                    relations = list(session.scalars(select(KnowledgeRelationModel).where(
+                        KnowledgeRelationModel.chunk_id == linked.chunk_id,
+                        KnowledgeRelationModel.relation_type == "depicted_in_figure",
+                    )))
+                    entity_ids = {relation.source_entity_id for relation in relations}
+                    if entity_ids:
+                        concepts = list(session.scalars(select(KnowledgeEntityModel.canonical_name).where(
+                            KnowledgeEntityModel.entity_id.in_(entity_ids),
+                            KnowledgeEntityModel.entity_type == "concept",
+                        )))
+                metadata[asset_id] = {
+                    "caption": asset.alt_text or "资料中的教学图片",
+                    "section": linked.parent_section if linked is not None else f"第 {asset.page} 页",
+                    "chunk_id": linked.chunk_id if linked is not None else "",
+                    "concepts": concepts[:6],
+                }
+        return metadata
+
+    @staticmethod
+    def _configured_image_identity() -> tuple[str, str]:
+        from app.core import config
+
+        return config.IMAGE_EMBEDDING_PROVIDER or "clip", config.IMAGE_EMBEDDING_MODEL
+
+    @staticmethod
+    def _safe_source_uri(value: str | None) -> str | None:
+        """Expose only an intentional external reference, never a local path."""
+
+        raw = str(value or "").strip()
+        return raw if raw.startswith(("https://", "http://")) else None
+
+    def _set_image_index_state(self, provider: ImageEmbeddingProvider, status: str, dimension: int, error: str | None) -> None:
+        self._set_image_index_state_identity(provider.provider_id, provider.model_id, status, dimension, error)
+
+    @staticmethod
+    def _set_image_index_state_identity(provider_id: str, model_id: str, status: str, dimension: int | None, error: str | None) -> None:
+        with SessionLocal() as session:
+            state = session.get(VectorIndexStateModel, IMAGE_INDEX_KEY)
+            if state is None:
+                state = VectorIndexStateModel(index_key=IMAGE_INDEX_KEY, provider=provider_id, model_id=model_id, status=status)
+                session.add(state)
+            else:
+                state.provider, state.model_id, state.status = provider_id, model_id, status
+                state.index_version += 1
+            state.vector_dimension, state.error_message = dimension, error
+            state.indexed_at = datetime.utcnow() if status in {"ready", "empty"} else None
+            session.commit()
+
+    @staticmethod
+    def _set_source_image_status(document_ids: set[str], status: str, error: str | None) -> None:
+        if not document_ids:
+            return
+        from app.services.knowledge_multimodal_service import knowledge_multimodal_service
+
+        knowledge_multimodal_service.set_image_index_status(document_ids, status, error)
+
+    def _delete_image_point_ids(self, asset_ids: set[str]) -> None:
+        if not asset_ids or not self.qdrant.collection_exists(IMAGE_COLLECTION):
+            return
+        self.qdrant.delete(
+            IMAGE_COLLECTION,
+            points_selector=models.PointIdsList(points=[_point_id(f"knowledge-image:{asset_id}") for asset_id in asset_ids]),
+            wait=True,
+        )
+
+    def retrieve_multimodal(
+        self,
+        query: str,
+        *,
+        limit: int = 5,
+        domain_id: str | None = None,
+        namespaces: list[str] | None = None,
+        include_images: bool = True,
+        include_graph: bool = True,
+    ) -> dict[str, object]:
+        """Retrieve text, related images and one-hop evidence graph context."""
+
+        active_namespaces = namespaces if namespaces is not None else ["system", "user", "qbank_explanations"]
+        citations = self.retrieve(
+            query,
+            mode="hybrid",
+            limit=limit,
+            domain_id=domain_id,
+            namespaces=active_namespaces,
+        )
+        image_results: list[dict[str, object]] = []
+        image_state = self.image_index_state()
+        if include_images and image_state.get("status") == "ready":
+            try:
+                image_provider = configured_image_embedding_provider()
+                if image_state.get("provider") == image_provider.provider_id and image_state.get("model") == image_provider.model_id:
+                    vector = image_provider.embed_text(_clip_query_text(query))
+                    with SessionLocal() as session:
+                        image_documents_statement = select(SourceDocumentModel).where(
+                            SourceDocumentModel.business_usage == "knowledge_base",
+                            SourceDocumentModel.ai_ingestion_allowed.is_(True),
+                            SourceDocumentModel.enabled.is_(True),
+                            SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "disabled", "retired"]),
+                            SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
+                        )
+                        if domain_id:
+                            image_documents_statement = image_documents_statement.where(SourceDocumentModel.domain_id == domain_id)
+                        if active_namespaces:
+                            image_documents_statement = image_documents_statement.where(SourceDocumentModel.namespace.in_(active_namespaces))
+                        image_documents = {
+                            item.document_id: item
+                            for item in session.scalars(image_documents_statement)
+                        }
+                    conditions = [models.FieldCondition(key="document_id", match=models.MatchAny(any=list(image_documents)))] if image_documents else []
+                    if domain_id:
+                        conditions.append(models.FieldCondition(key="domain_id", match=models.MatchValue(value=domain_id)))
+                    image_filter = models.Filter(must=conditions) if conditions else None
+                    points = self.qdrant.query_points(IMAGE_COLLECTION, query=vector, limit=max(limit * 4, 20), with_payload=True, query_filter=image_filter).points
+                    for point in points:
+                        payload = point.payload or {}
+                        asset_id = str(payload.get("asset_id") or "")
+                        document_id = str(payload.get("document_id") or "")
+                        document = image_documents.get(document_id)
+                        if not asset_id or document is None:
+                            continue
+                        image_results.append({
+                            "asset_id": asset_id,
+                            "url": f"/api/v3/knowledge/media/{asset_id}",
+                            "document_id": document_id,
+                            "document_name": document.name,
+                            "namespace": document.namespace,
+                            "page": int(payload.get("page") or 1),
+                            "score": round(float(point.score), 5),
+                            "width": int(payload.get("width") or 0),
+                            "height": int(payload.get("height") or 0),
+                            "mime_type": str(payload.get("mime_type") or "image/jpeg"),
+                            "caption": str(payload.get("caption") or "资料中的教学图片"),
+                            "section": str(payload.get("section") or f"第 {int(payload.get('page') or 1)} 页"),
+                            "concepts": list(payload.get("concepts") or []),
+                            "linked_chunk_id": str(payload.get("linked_chunk_id") or ""),
+                            # This is a retrieval similarity, not a model
+                            # confidence.  Evidence-graph bonuses are applied
+                            # separately below and remain explainable.
+                            "clip_score": round(float(point.score), 5),
+                            "retrieval_channels": ["clip"],
+                            "evidence_links": ["图文语义匹配"],
+                        })
+            except Exception:
+                # The text citations remain useful.  The source status already
+                # tells the operator whether the image index needs rebuilding.
+                image_results = []
+
+        graph_paths: list[dict[str, object]] = []
+        graph_citations: list[Citation] = []
+        if include_graph:
+            if citations:
+                graph_citations, graph_paths = self._expand_graph(citations, domain_id=domain_id, limit=limit)
+            graph_images, image_paths = self._graph_related_images(
+                citations, query=query, domain_id=domain_id, namespaces=active_namespaces, limit=limit,
+            )
+            graph_paths.extend(image_paths)
+            image_results = self._merge_image_results(image_results, graph_images)
+        image_results = self._fuse_image_results(image_results, citations=citations, limit=limit)
+        linked_citations, image_to_text_paths = self._image_linked_citations(
+            image_results, domain_id=domain_id, namespaces=active_namespaces, limit=limit,
+        )
+        graph_paths.extend(image_to_text_paths)
+        merged: list[Citation] = list(citations)
+        known = {item.chunk_id for item in merged}
+        for item in graph_citations:
+            if item.chunk_id not in known:
+                merged.append(item)
+                known.add(item.chunk_id)
+        for item in linked_citations:
+            if item.chunk_id not in known:
+                merged.append(item)
+                known.add(item.chunk_id)
+        # Graph expansion is additive context: retain the requested lexical
+        # results and append only the bounded, evidence-backed neighbours.  A
+        # plain ``[:limit]`` here would silently discard every graph result as
+        # soon as the base retriever filled the requested top-k.
+        return {
+            "citations": merged[: limit + len(graph_citations) + len(linked_citations)],
+            "image_results": image_results,
+            "graph_paths": graph_paths,
+            "image_index_status": image_state.get("status", "stale"),
+            "graph_status": "ready" if graph_paths else "empty",
+        }
+
+    @staticmethod
+    def _merge_image_results(primary: list[dict[str, object]], additions: list[dict[str, object]]) -> list[dict[str, object]]:
+        merged = {str(item.get("asset_id")): dict(item) for item in primary if item.get("asset_id")}
+        for item in additions:
+            asset_id = str(item.get("asset_id") or "")
+            if not asset_id:
+                continue
+            if asset_id not in merged:
+                merged[asset_id] = dict(item)
+                continue
+            existing = merged[asset_id]
+            existing["retrieval_channels"] = list(dict.fromkeys([
+                *list(existing.get("retrieval_channels") or []),
+                *list(item.get("retrieval_channels") or []),
+            ]))
+            existing["evidence_links"] = list(dict.fromkeys([
+                *list(existing.get("evidence_links") or []),
+                *list(item.get("evidence_links") or []),
+            ]))
+            existing["graph_match_count"] = int(existing.get("graph_match_count") or 0) + int(item.get("graph_match_count") or 0)
+        return list(merged.values())
+
+    @staticmethod
+    def _fuse_image_results(
+        images: list[dict[str, object]], *, citations: list[Citation], limit: int,
+    ) -> list[dict[str, object]]:
+        """Rank image evidence using visible, provenance-backed signals only.
+
+        CLIP supplies a cross-modal similarity.  A bounded bonus is added when
+        the governed graph matched a caption concept and when a textual hit is
+        on the same source page.  The resulting ``evidence_association_bonus``
+        is intentionally named as an association signal rather than exposed as
+        a fabricated probability or model confidence.
+        """
+
+        if limit <= 0:
+            return []
+        citation_pages = {(item.document_id, item.page) for item in citations}
+        fused: list[dict[str, object]] = []
+        for image in images:
+            item = dict(image)
+            graph_matches = min(int(item.get("graph_match_count") or 0), 2)
+            # Direct caption/concept matches are stronger evidence than a
+            # weak cross-language CLIP similarity.  The cap keeps the boost
+            # bounded while allowing a Figure that matches two governed
+            # query concepts to outrank an unrelated visual near-neighbour.
+            association_bonus = graph_matches * 0.12
+            if (str(item.get("document_id") or ""), int(item.get("page") or 0)) in citation_pages:
+                association_bonus += 0.03
+                links = list(item.get("evidence_links") or [])
+                if "与相关文字证据同页" not in links:
+                    item["evidence_links"] = [*links, "与相关文字证据同页"]
+            item["evidence_association_bonus"] = round(association_bonus, 3)
+            item["retrieval_score"] = round(float(item.get("clip_score") or 0.0) + association_bonus, 5)
+            fused.append(item)
+        return sorted(
+            fused,
+            key=lambda item: (
+                -float(item.get("retrieval_score") or 0.0),
+                -int(item.get("graph_match_count") or 0),
+                int(item.get("page") or 0),
+                str(item.get("asset_id") or ""),
+            ),
+        )[:limit]
+
+    def _graph_related_images(
+        self,
+        citations: list[Citation],
+        *,
+        query: str = "",
+        domain_id: str | None,
+        namespaces: list[str] | None = None,
+        limit: int,
+    ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+        """Expand text or governed query concepts to captioned figures.
+
+        The canonical captions in a source may be English while a learner asks
+        in Chinese.  Controlled concept aliases (for example ``结肠镜`` ↔
+        ``colonoscopy``) provide a transparent bridge only for vocabulary that
+        the source graph actually contains; this is evidence expansion, not
+        a hidden translation or model-generated claim.
+        """
+
+        seed_ids = {item.chunk_id for item in citations if item.chunk_id}
+        query_concepts: set[str] = set()
+        if query.strip():
+            from app.services.knowledge_multimodal_service import knowledge_multimodal_service
+
+            query_concepts = set(knowledge_multimodal_service._entity_names(query))
+        if not seed_ids and not query_concepts:
+            return [], []
+        with SessionLocal() as session:
+            seed_chunks = list(session.scalars(select(KnowledgeChunkModel).where(KnowledgeChunkModel.chunk_id.in_(seed_ids))))
+            doc_ids = {chunk.document_id for chunk in seed_chunks}
+            document_statement = select(SourceDocumentModel).where(
+                SourceDocumentModel.business_usage == "knowledge_base",
+                SourceDocumentModel.enabled.is_(True),
+                SourceDocumentModel.ai_ingestion_allowed.is_(True),
+                SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "disabled", "retired"]),
+                SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
+            )
+            # A lexical text hit can belong to a different eligible source.
+            # When the query itself contains a governed concept, retain the
+            # domain-wide candidate set so that concept → Figure expansion can
+            # contribute the matching image rather than being shadowed by an
+            # unrelated text top-k result.
+            if doc_ids and not query_concepts:
+                document_statement = document_statement.where(SourceDocumentModel.document_id.in_(doc_ids))
+            if domain_id:
+                document_statement = document_statement.where(SourceDocumentModel.domain_id == domain_id)
+            if namespaces:
+                document_statement = document_statement.where(SourceDocumentModel.namespace.in_(namespaces))
+            docs = {item.document_id: item for item in session.scalars(document_statement)}
+            if domain_id:
+                docs = {key: value for key, value in docs.items() if value.domain_id == domain_id}
+            if not docs:
+                return [], []
+            seed_relations = list(session.scalars(select(KnowledgeRelationModel).where(
+                KnowledgeRelationModel.chunk_id.in_(seed_ids),
+                KnowledgeRelationModel.document_id.in_(docs),
+            )))
+            concept_ids = {
+                value
+                for relation in seed_relations
+                if relation.relation_type != "depicted_in_figure"
+                for value in (relation.source_entity_id, relation.target_entity_id)
+            }
+            if query_concepts:
+                concept_ids.update(session.scalars(select(KnowledgeEntityModel.entity_id).where(
+                    KnowledgeEntityModel.document_id.in_(docs),
+                    KnowledgeEntityModel.entity_type == "concept",
+                    KnowledgeEntityModel.canonical_name.in_(query_concepts),
+                )))
+            if not concept_ids:
+                return [], []
+            image_relations = list(session.scalars(select(KnowledgeRelationModel).where(
+                KnowledgeRelationModel.document_id.in_(docs),
+                KnowledgeRelationModel.relation_type == "depicted_in_figure",
+                KnowledgeRelationModel.source_entity_id.in_(concept_ids),
+            )))
+            figure_ids = {item.target_entity_id for item in image_relations}
+            figures = {
+                item.entity_id: item
+                for item in session.scalars(select(KnowledgeEntityModel).where(
+                    KnowledgeEntityModel.entity_id.in_(figure_ids),
+                    KnowledgeEntityModel.entity_type == "figure",
+                ))
+            }
+            asset_ids = {
+                str(asset_id)
+                for figure in figures.values()
+                for asset_id in figure.properties.get("media_asset_ids", [])
+            }
+            assets = {
+                item.asset_id: item
+                for item in session.scalars(select(KnowledgeMediaAssetModel).where(
+                    KnowledgeMediaAssetModel.asset_id.in_(asset_ids),
+                    KnowledgeMediaAssetModel.status == "ready",
+                ))
+            }
+            entities = {
+                item.entity_id: item
+                for item in session.scalars(select(KnowledgeEntityModel).where(
+                    KnowledgeEntityModel.entity_id.in_(concept_ids | figure_ids),
+                ))
+            }
+        results: list[dict[str, object]] = []
+        paths: list[dict[str, object]] = []
+        for relation in image_relations:
+            figure = figures.get(relation.target_entity_id)
+            concept = entities.get(relation.source_entity_id)
+            if figure is None or concept is None:
+                continue
+            for asset_id in figure.properties.get("media_asset_ids", []):
+                asset = assets.get(str(asset_id))
+                if asset is None:
+                    continue
+                results.append({
+                    "asset_id": asset.asset_id,
+                    "url": f"/api/v3/knowledge/media/{asset.asset_id}",
+                    "document_id": asset.document_id,
+                    "document_name": docs[asset.document_id].name,
+                    "namespace": docs[asset.document_id].namespace,
+                    "page": asset.page,
+                    "width": asset.width,
+                    "height": asset.height,
+                    "mime_type": asset.mime_type,
+                    "caption": asset.alt_text or "资料中的教学图片",
+                    "section": str(figure.properties.get("section") or f"第 {asset.page} 页"),
+                    "concepts": list(figure.properties.get("concepts") or [concept.canonical_name]),
+                    "linked_chunk_id": relation.chunk_id,
+                    "graph_match_count": 1,
+                    "retrieval_channels": ["caption_concept_graph"],
+                    "evidence_links": [f"资料关联：{concept.canonical_name} → 图示"],
+                })
+                paths.append({
+                    "from": concept.canonical_name,
+                    "to": asset.alt_text or "资料图片",
+                    "relation": "depicted_in_figure",
+                    "chunk_id": relation.chunk_id,
+                    "asset_id": asset.asset_id,
+                })
+        # Keep enough candidates to aggregate multiple concept edges before
+        # ``_fuse_image_results`` applies the final user-facing limit.  Cutting
+        # here can discard the second figure in a page simply because relation
+        # storage order happened to list a generic concept first.
+        candidate_limit = max(limit * 4, limit)
+        return self._merge_image_results([], results)[:candidate_limit], paths[:candidate_limit]
+
+    def _image_linked_citations(
+        self,
+        images: list[dict[str, object]],
+        *,
+        domain_id: str | None,
+        namespaces: list[str] | None = None,
+        limit: int,
+    ) -> tuple[list[Citation], list[dict[str, object]]]:
+        """Return the caption's linked text, completing the image-to-text hop."""
+
+        linked_ids = {str(item.get("linked_chunk_id") or "") for item in images} - {""}
+        if not linked_ids:
+            return [], []
+        with SessionLocal() as session:
+            chunks = list(session.scalars(select(KnowledgeChunkModel).where(KnowledgeChunkModel.chunk_id.in_(linked_ids))))
+            docs = {item.document_id: item for item in session.scalars(select(SourceDocumentModel).where(
+                SourceDocumentModel.document_id.in_({chunk.document_id for chunk in chunks}),
+            ))}
+        citations: list[Citation] = []
+        paths: list[dict[str, object]] = []
+        for chunk in chunks:
+            document = docs.get(chunk.document_id)
+            if document is None or (domain_id and document.domain_id != domain_id) or (namespaces and chunk.namespace not in namespaces):
+                continue
+            assets = tuple(str(value) for value in (chunk.media_asset_ids or []) if str(value).strip())
+            citations.append(Citation(
+                chunk_id=chunk.chunk_id, document_name=document.name, page=chunk.page,
+                section=chunk.parent_section, snippet=chunk.content[:220], score=0.0,
+                document_id=chunk.document_id, namespace=chunk.namespace,
+                source_uri=self._safe_source_uri(document.source_uri), media_asset_ids=assets,
+                image_urls=tuple(f"/api/v3/knowledge/media/{asset_id}" for asset_id in assets),
+            ))
+            paths.append({"from": "相关资料图片", "to": chunk.parent_section, "relation": "caption_supports_text", "chunk_id": chunk.chunk_id})
+        return citations[:limit], paths[:limit]
+
+    def _expand_graph(self, citations: list[Citation], *, domain_id: str | None, limit: int) -> tuple[list[Citation], list[dict[str, object]]]:
+        seed_chunk_ids = {item.chunk_id for item in citations if item.chunk_id}
+        if not seed_chunk_ids or limit <= 0:
+            return [], []
+
+        with SessionLocal() as session:
+            seed_chunks = list(session.scalars(select(KnowledgeChunkModel).where(KnowledgeChunkModel.chunk_id.in_(seed_chunk_ids))))
+            if not seed_chunks:
+                return [], []
+            seed_document_ids = {chunk.document_id for chunk in seed_chunks}
+            seed_version_ids = {chunk.version_id for chunk in seed_chunks}
+            eligible_docs = list(session.scalars(
+                select(SourceDocumentModel).where(
+                    SourceDocumentModel.document_id.in_(seed_document_ids),
+                    SourceDocumentModel.business_usage == "knowledge_base",
+                    SourceDocumentModel.business_usage != "benchmark_only",
+                    SourceDocumentModel.business_usage != "excluded",
+                    SourceDocumentModel.ai_ingestion_allowed.is_(True),
+                    SourceDocumentModel.enabled.is_(True),
+                    SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "disabled", "retired"]),
+                    SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
+                )
+            ))
+            docs = {document.document_id: document for document in eligible_docs}
+            if not docs:
+                return [], []
+
+            seed_relations = list(session.scalars(
+                select(KnowledgeRelationModel).where(
+                    KnowledgeRelationModel.document_id.in_(docs.keys()),
+                    KnowledgeRelationModel.chunk_id.in_(seed_chunk_ids),
+                ).order_by(
+                    KnowledgeRelationModel.confidence.desc(),
+                    KnowledgeRelationModel.relation_id,
+                ).limit(max(limit * 4, 8))
+            ))
+            if not seed_relations:
+                return [], []
+
+            seed_entity_ids = {
+                entity_id
+                for relation in seed_relations
+                for entity_id in (relation.source_entity_id, relation.target_entity_id)
+            }
+            if not seed_entity_ids:
+                return [], []
+
+            # The graph is deliberately one hop: a neighbour relation must
+            # share an entity with a seed relation, belong to the same source
+            # document, and point at a chunk from the same frozen version.
+            # This prevents a stale version, disabled source, or unrelated
+            # domain from becoming learner-facing evidence.
+            neighbour_relations = list(session.scalars(
+                select(KnowledgeRelationModel).where(
+                    KnowledgeRelationModel.document_id.in_(docs.keys()),
+                    or_(
+                        KnowledgeRelationModel.source_entity_id.in_(seed_entity_ids),
+                        KnowledgeRelationModel.target_entity_id.in_(seed_entity_ids),
+                    ),
+                ).order_by(
+                    KnowledgeRelationModel.confidence.desc(),
+                    KnowledgeRelationModel.relation_id,
+                ).limit(max(limit * 16, 32))
+            ))
+            neighbour_relations = [
+                relation for relation in neighbour_relations
+                if relation.chunk_id not in seed_chunk_ids
+            ]
+            if not neighbour_relations:
+                return [], []
+
+            neighbour_chunk_ids = {relation.chunk_id for relation in neighbour_relations}
+            chunks = {
+                chunk.chunk_id: chunk
+                for chunk in session.scalars(select(KnowledgeChunkModel).where(
+                    KnowledgeChunkModel.chunk_id.in_(neighbour_chunk_ids),
+                    KnowledgeChunkModel.document_id.in_(docs),
+                    KnowledgeChunkModel.version_id.in_(seed_version_ids),
+                ))
+            }
+            if not chunks:
+                return [], []
+
+            entity_ids = seed_entity_ids | {
+                entity_id
+                for relation in neighbour_relations
+                for entity_id in (relation.source_entity_id, relation.target_entity_id)
+            }
+            entities = {
+                entity.entity_id: entity
+                for entity in session.scalars(select(KnowledgeEntityModel).where(
+                    KnowledgeEntityModel.entity_id.in_(entity_ids),
+                    KnowledgeEntityModel.document_id.in_(docs.keys()),
+                ))
+            }
+
+        # Keep the strongest relation for each neighbouring chunk.  Stable
+        # sorting makes Tutor/Mentor citations deterministic across databases.
+        best_relation_by_chunk: dict[str, KnowledgeRelationModel] = {}
+        for relation in neighbour_relations:
+            if relation.chunk_id not in chunks:
+                continue
+            previous = best_relation_by_chunk.get(relation.chunk_id)
+            if previous is None or float(relation.confidence) > float(previous.confidence):
+                best_relation_by_chunk[relation.chunk_id] = relation
+
+        ordered_relations = sorted(
+            best_relation_by_chunk.values(),
+            key=lambda relation: (-float(relation.confidence), relation.chunk_id),
+        )[:limit]
+        paths: list[dict[str, object]] = []
+        extra: list[Citation] = []
+        for relation in ordered_relations:
+            chunk = chunks[relation.chunk_id]
+            document = docs.get(chunk.document_id)
+            if document is None or (domain_id and document.domain_id != domain_id):
+                continue
+            shared_entities = seed_entity_ids.intersection({relation.source_entity_id, relation.target_entity_id})
+            seed_chunk_id = next(
+                (
+                    seed_relation.chunk_id
+                    for seed_relation in seed_relations
+                    if shared_entities.intersection({seed_relation.source_entity_id, seed_relation.target_entity_id})
+                ),
+                "",
+            )
+            source_entity = entities.get(relation.source_entity_id)
+            target_entity = entities.get(relation.target_entity_id)
+            if source_entity is None or target_entity is None:
+                continue
+            paths.append({
+                "from": source_entity.canonical_name,
+                "to": target_entity.canonical_name,
+                "relation": relation.relation_type,
+                "chunk_id": relation.chunk_id,
+                "seed_chunk_id": seed_chunk_id,
+                "confidence": round(float(relation.confidence), 3),
+            })
+            asset_ids = tuple(str(value) for value in (chunk.media_asset_ids or []) if str(value).strip())
+            extra.append(Citation(
+                chunk_id=chunk.chunk_id,
+                document_name=document.name,
+                page=chunk.page,
+                section=chunk.parent_section,
+                snippet=chunk.content[:220],
+                score=round(float(relation.confidence) * 0.01, 5),
+                document_id=chunk.document_id,
+                namespace=chunk.namespace,
+                source_uri=self._safe_source_uri(document.source_uri),
+                media_asset_ids=asset_ids,
+                image_urls=tuple(f"/api/v3/knowledge/media/{asset_id}" for asset_id in asset_ids),
+            ))
+        return extra[:limit], paths[:limit * 2]
 
     def retrieve(
         self,
@@ -698,7 +1530,25 @@ class RagService:
                     deduped.append(row)
             selected = deduped[:limit]
         _ = perf_counter() - started
-        return [Citation(chunk_id=row.chunk_id, document_name=docs.get(row.document_id).name if row.document_id in docs else '教学资料', page=row.page, section=row.parent_section, snippet=row.content[:220], score=round(scores[row.chunk_id], 5), document_id=row.document_id, namespace=row.namespace, source_uri=docs.get(row.document_id).source_uri if row.document_id in docs else row.source_uri) for row in selected if scores[row.chunk_id] > 0]
+        citations: list[Citation] = []
+        for row in selected:
+            if scores[row.chunk_id] <= 0:
+                continue
+            asset_ids = tuple(str(value) for value in (row.media_asset_ids or []) if str(value).strip())
+            citations.append(Citation(
+                chunk_id=row.chunk_id,
+                document_name=docs.get(row.document_id).name if row.document_id in docs else '教学资料',
+                page=row.page,
+                section=row.parent_section,
+                snippet=row.content[:220],
+                score=round(scores[row.chunk_id], 5),
+                document_id=row.document_id,
+                namespace=row.namespace,
+                source_uri=self._safe_source_uri(docs.get(row.document_id).source_uri if row.document_id in docs else row.source_uri),
+                media_asset_ids=asset_ids,
+                image_urls=tuple(f"/api/v3/knowledge/media/{asset_id}" for asset_id in asset_ids),
+            ))
+        return citations
 
 
 def _point_id(value: str) -> int:

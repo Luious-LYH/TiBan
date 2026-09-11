@@ -25,6 +25,13 @@ class Stage1Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class QuestionImageAssetRef(Stage1Model):
+    """A staged upload referenced by an imported question file."""
+
+    asset_id: str = Field(min_length=1, max_length=150)
+    filename: str = Field(min_length=1, max_length=300)
+
+
 class QuestionOptionPublic(Stage1Model):
     id: str = Field(min_length=1)
     text: str = Field(min_length=1)
@@ -238,6 +245,8 @@ class QuestionEditPublic(Stage1Model):
     subject: str | None = None
     topic: str | None = None
     task: str
+    image_url: str | None = None
+    image_alt: str | None = None
 
 
 class QuestionEditResponse(Stage1Model):
@@ -281,6 +290,8 @@ class BankQuestionProgressPublic(Stage1Model):
     question_id: str
     question_type: QuestionTypeCode
     question_summary: str
+    image_url: str | None = None
+    image_alt: str | None = None
     subject: str | None = None
     topic: str | None = None
     completed: bool

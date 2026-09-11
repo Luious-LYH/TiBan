@@ -62,42 +62,64 @@ def _question_context(context: AgentContext) -> dict[str, Any]:
         return payload
 
 
-def _retrieve_knowledge(context: AgentContext) -> list[dict[str, str]]:
+def _retrieve_knowledge(context: AgentContext) -> list[dict[str, Any]]:
     question = _question_context(context)
     # Retrieval is explicit-route only. Keep the user request first, with a
     # small question anchor for terms such as “这个选项”，rather than searching
     # the entire stem and manufacturing a superficially similar citation.
     query = f"{context.user_message}\n当前题目：{question.get('stem', '')[:180]}"
     citations: list[Any] = []
+    image_results: list[dict[str, Any]] = []
     if os.getenv("TUTOR_RETRIEVAL_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}:
         try:
             from app.services.rag_service import rag_service
 
             manifest = get_domain(str(question["domain_id"]))
-            citations = rag_service.retrieve(
+            result = rag_service.retrieve_multimodal(
                 query,
-                mode="hybrid",
                 limit=4,
                 domain_id=manifest.domain_id,
-                namespaces=["system", "user", "qbank_explanations"],
             )
+            citations = list(result.get("citations", []))
+            image_results = list(result.get("image_results", []))
         except Exception:
             # No local fake source is presented as RAG evidence. Public question
             # provenance below remains a truthful fallback when index is absent.
             citations = []
-    if citations:
-        return [
-            {
-                "chunk_id": citation.chunk_id,
-                "document_name": citation.document_name,
-                "page": str(citation.page),
-                "section": citation.section,
-                "snippet": citation.snippet,
-                "source_uri": citation.source_uri or "",
-                "namespace": citation.namespace,
-            }
-            for citation in citations
-        ]
+            image_results = []
+    if citations or image_results:
+        return (
+            [
+                {
+                    "chunk_id": citation.chunk_id,
+                    "document_name": citation.document_name,
+                    "page": str(citation.page),
+                    "section": citation.section,
+                    "snippet": citation.snippet,
+                    "source_uri": citation.source_uri or "",
+                    "namespace": citation.namespace,
+                    "image_urls": list(citation.image_urls),
+                    "media_asset_ids": list(citation.media_asset_ids),
+                }
+                for citation in citations
+            ]
+            + [
+                {
+                    "document_name": str(item.get("document_name") or "教学资料图片"),
+                    "page": str(item.get("page") or 1),
+                    "section": str(item.get("section") or "资料图片"),
+                    "snippet": str(item.get("caption") or "检索到相关资料图片。"),
+                    "source_uri": "",
+                    "namespace": "knowledge_media",
+                    "image_urls": [str(item.get("url"))],
+                    "media_asset_ids": [str(item.get("asset_id"))],
+                    "concepts": list(item.get("concepts") or []),
+                    "evidence_links": list(item.get("evidence_links") or []),
+                }
+                for item in image_results
+                if item.get("url")
+            ]
+        )
     # Zero is a valid retrieval result.  Question provenance is context, never
     # masqueraded as a knowledge-base citation.
     return []
@@ -145,6 +167,8 @@ def configured_tutor_gateway() -> ModelGateway:
     from app.services.runtime_settings_service import runtime_settings_service
 
     runtime_settings_service.sync()
-    if runtime_settings_service.llm_public()["agent_available"]:
+    from app.services.llm_provider import llm_provider
+
+    if llm_provider.status()["configured"]:
         return OpenAICompatibleTutorGateway()
     return LocalPolicyModelGateway()

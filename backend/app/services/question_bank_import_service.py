@@ -48,6 +48,7 @@ from app.db.models import (
 )
 from app.domains import build_custom_domain_id, get_domain
 from app.schemas import QuestionForGrading
+from app.services.image_asset_service import image_asset_service, normalise_filename
 
 
 SUPPORTED_FORMATS = ("json", "jsonl", "csv", "markdown")
@@ -69,6 +70,7 @@ _FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "tags": ("tags", "teaching_tags", "labels", "标签"),
     "difficulty": ("difficulty", "level", "难度"),
     "image_url": ("image_url", "image", "image_path", "图片"),
+    "image_alt": ("image_alt", "alt", "图片说明", "图像说明"),
     "expected_keywords": ("expected_keywords", "keywords", "评分关键词"),
     "task": ("task", "任务"),
 }
@@ -282,12 +284,77 @@ class QuestionBankImportService:
                 issues.extend(item_issues)
                 continue
             assert item is not None
+            if item.get("image_url"):
+                image_url, image_issue = self._resolve_import_image(item["image_url"], payload.get("image_assets") or [], index)
+                if image_issue:
+                    issues.append(image_issue)
+                    continue
+                item["image_url"] = image_url
+                item["image_alt"] = item.get("image_alt") or "题目图像"
             if item["fingerprint"] in fingerprints:
                 issues.append(self._issue(index, "duplicate_in_file", "题库文件中出现重复题目，已保留首次出现的题目。"))
                 continue
             fingerprints.add(item["fingerprint"])
             normalized.append(item)
         return self._response(fmt, content, normalized, issues), normalized
+
+    def _resolve_import_image(self, raw_value: Any, references: Any, index: int) -> tuple[str | None, dict[str, Any] | None]:
+        """Resolve an optional image field to a controlled question asset URL.
+
+        Import files are not allowed to make the API process arbitrary local or
+        remote paths.  The browser uploads accompanying image files first and
+        sends their opaque asset references alongside the question content.
+        """
+
+        raw = _clean(raw_value).replace("\\", "/")
+        if raw.startswith("data:") or len(raw) > 500:
+            return None, self._issue(index, "unsafe_image_reference", "图片字段不能直接写入 Base64 或过长内容，请作为图片文件一并上传。")
+        if raw.startswith("http://") or raw.startswith("https://") or raw.startswith("file:") or raw.startswith("/"):
+            return None, self._issue(index, "unsafe_image_reference", "图片字段只支持随题库上传的相对文件名。")
+        try:
+            safe_raw = normalise_filename(raw)
+        except ValueError as exc:
+            return None, self._issue(index, "unsafe_image_reference", str(exc))
+
+        candidates: list[dict[str, str]] = []
+        if isinstance(references, list):
+            for reference in references:
+                if not isinstance(reference, dict):
+                    continue
+                asset_id = _clean(reference.get("asset_id"))
+                filename = _clean(reference.get("filename")).replace("\\", "/")
+                if not asset_id or not filename:
+                    continue
+                try:
+                    filename = normalise_filename(filename)
+                except ValueError:
+                    continue
+                candidates.append({"asset_id": asset_id, "filename": filename})
+        matches = [item for item in candidates if item["filename"] == safe_raw]
+        if not matches:
+            basename = safe_raw.rsplit("/", 1)[-1]
+            matches = [item for item in candidates if item["filename"].rsplit("/", 1)[-1] == basename]
+        if len(matches) != 1:
+            if not matches:
+                return None, self._issue(index, "missing_image_asset", f"引用了图片“{raw}”，但没有找到对应的已上传图片文件。")
+            return None, self._issue(index, "ambiguous_image_asset", f"图片“{raw}”对应多个同名文件，请在题库文件中填写完整相对路径。")
+        asset_id = matches[0]["asset_id"]
+        try:
+            with SessionLocal() as session:
+                image_asset_service.resolve_path(session, asset_id, kind="question")
+        except (KeyError, FileNotFoundError, ValueError):
+            return None, self._issue(index, "invalid_image_asset", f"图片“{raw}”暂时无法读取，请重新上传后再试。")
+        return f"/api/v3/assets/question-images/{asset_id}", None
+
+    @staticmethod
+    def _question_asset_ids(items: list[dict[str, Any]]) -> set[str]:
+        asset_ids: set[str] = set()
+        pattern = re.compile(r"^/api/v3/assets/question-images/([A-Za-z0-9_-]{1,150})$")
+        for item in items:
+            match = pattern.fullmatch(str(item.get("image_url") or ""))
+            if match:
+                asset_ids.add(match.group(1))
+        return asset_ids
 
     def import_questions(self, payload: dict[str, Any]) -> dict[str, Any]:
         mode = _clean(payload.get("mode") or "create_bank").lower()
@@ -336,6 +403,13 @@ class QuestionBankImportService:
                     raise ValueError("只能向已发布题库补充题目。")
                 if bank.domain_id != domain_id:
                     raise ValueError("补充题目的领域必须与目标题库一致。")
+
+            image_asset_service.link_question_assets(
+                session,
+                self._question_asset_ids(normalized_items),
+                bank_id=bank_id,
+                published=True,
+            )
 
             source_document_id = f"qbank_import_{uuid4().hex[:12]}"
             session.add(SourceDocumentModel(
@@ -416,6 +490,12 @@ class QuestionBankImportService:
                 issues=preview["issues"][:50],
             )
             session.add(batch)
+            image_asset_service.link_question_assets(
+                session,
+                self._question_asset_ids(normalized_items),
+                batch_id=batch_id,
+                published=False,
+            )
             for ordinal, item in enumerate(normalized_items, start=1):
                 session.add(QuestionImportDraftModel(
                     draft_id=f"qbank_draft_{uuid4().hex[:14]}",
@@ -546,6 +626,12 @@ class QuestionBankImportService:
                     imported_count += 1
                 draft.status = "published"
                 draft.published_at = datetime.utcnow()
+            image_asset_service.link_question_assets(
+                session,
+                self._question_asset_ids([draft.payload for draft in approved]),
+                bank_id=bank_id,
+                published=True,
+            )
             session.flush()
             self._refresh_bank_inventory(session, bank)
             self._refresh_batch_counts(batch, session)
@@ -567,6 +653,7 @@ class QuestionBankImportService:
             batch = session.get(QuestionImportBatchModel, batch_id)
             if batch is None:
                 raise KeyError("review batch not found")
+            image_asset_service.cleanup_batch(session, batch_id)
             session.execute(delete(QuestionImportDraftModel).where(QuestionImportDraftModel.batch_id == batch_id))
             session.delete(batch)
             session.commit()
@@ -583,6 +670,7 @@ class QuestionBankImportService:
             bank = session.get(QuestionBankModel, bank_id)
             if bank is None:
                 raise KeyError("question bank not found")
+            image_asset_service.cleanup_bank(session, bank_id)
             if session.get(QuestionBankDeletionModel, bank_id) is None:
                 session.add(QuestionBankDeletionModel(bank_id=bank_id))
             question_ids = list(session.scalars(select(QuestionModel.question_id).where(QuestionModel.bank_id == bank_id)))
@@ -749,6 +837,8 @@ class QuestionBankImportService:
             "subject": question.subject,
             "topic": question.topic,
             "task": question.task,
+            "image_url": question.image_url,
+            "image_alt": question.image_alt,
         }
 
     def _ensure_batch_source_document(self, session: Any, batch: QuestionImportBatchModel, bank_id: str) -> SourceDocumentModel:
@@ -978,7 +1068,12 @@ class QuestionBankImportService:
         keywords = _split_list(_field(row, "expected_keywords"))[:8]
         if not keywords:
             keywords = [item for item in re.findall(r"[\u4e00-\u9fff]{2,}|[A-Za-z]{3,}", f"{answer} {explanation}") if item not in {"需要", "结合", "题干", "资料", "复核"}][:8]
-        fingerprint = _sha(json.dumps({"question": question, "question_type": question_type, "options": options, "answer": key}, ensure_ascii=False, sort_keys=True))
+        # An image changes the learning item even when the observation prompt
+        # and answer choices are intentionally shared across a visual set.  The
+        # asset reference therefore belongs in the import fingerprint; without
+        # it, a batch of identical prompts paired with different endoscopy
+        # images would be incorrectly collapsed to its first row.
+        fingerprint = _sha(json.dumps({"question": question, "question_type": question_type, "options": options, "answer": key, "image_url": image_url}, ensure_ascii=False, sort_keys=True))
         normalized = {
             "title": title,
             "question": question,
@@ -995,6 +1090,7 @@ class QuestionBankImportService:
             "task": _clean(_field(row, "task")) or "个人题库练习",
             "teaching_tags": tags or [body_part],
             "image_url": image_url,
+            "image_alt": _clean(_field(row, "image_alt"))[:300] or ("题目图像" if image_url else None),
             "subject": subject,
             "topic": topic,
             "source_dataset": source_name,
@@ -1017,10 +1113,14 @@ class QuestionBankImportService:
                 "domain_id": DEFAULT_DOMAIN_ID,
                 "title": title,
                 "stem": question,
-                "case_summary": f"{source_name} 导入题目。",
+                # ``case_summary`` is learner-facing case context, not an
+                # importer receipt.  Keep source lineage in the dedicated
+                # source fields below so imported questions do not surface
+                # implementation wording in Practice.
+                "case_summary": "",
                 "modality": "image" if image_url else "text",
                 "image_url": image_url,
-                "image_alt": "导入题目图像" if image_url else None,
+                "image_alt": normalized["image_alt"],
                 "difficulty": difficulty,
                 "tags": tags or [body_part],
                 "body_part": body_part,
@@ -1038,7 +1138,7 @@ class QuestionBankImportService:
 
     def _response(self, fmt: str, content: str, normalized: list[dict[str, Any]], issues: list[dict[str, Any]]) -> dict[str, Any]:
         type_counts = Counter(item["question_type"] for item in normalized)
-        public_items = [{key: item[key] for key in ("title", "question", "question_type", "options", "difficulty", "body_part", "explanation")} for item in normalized]
+        public_items = [{key: item[key] for key in ("title", "question", "question_type", "options", "difficulty", "body_part", "explanation", "image_url", "image_alt")} for item in normalized]
         return {
             "schema_version": "qbank-import-v3.1.2",
             "format": fmt,
@@ -1061,9 +1161,12 @@ class QuestionBankImportService:
             modality="image" if item["image_url"] else "text",
             title=item["title"][:300],
             stem=item["question"],
-            case_summary=f"{source_name} 导入题目；请结合题干和来源资料完成学习。",
+            # Import provenance belongs to source_dataset/citation_note.  An
+            # imported question should look exactly like a native question to
+            # a learner unless the author supplied a real case summary.
+            case_summary="",
             image_url=item["image_url"],
-            image_alt="导入题目图像" if item["image_url"] else None,
+            image_alt=item.get("image_alt") if item["image_url"] else None,
             difficulty=item["difficulty"],
             complexity=item["complexity"],
             question_class=item["question_class"],

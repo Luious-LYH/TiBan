@@ -30,6 +30,22 @@ FSRS queue, bank progress or Mentor history. These mode and isolation checks are
 covered by the Tutor permission regression tests. Long-term state is assembled
 by `MentorContextBuilder` and consumed only by Mentor.
 
+## Image input
+
+Question images are optional. When the current public question contains an
+image, the existing Tutor gateway resolves its controlled asset reference at
+the provider boundary and sends an OpenAI-compatible multimodal message with a
+text content block and an `image_url` content block. Mentor uses the same
+gateway for a user-attached image. The database and conversation history keep
+only the opaque asset ID and a boolean attachment flag; image bytes, data URLs
+and filesystem paths are never persisted in messages, traces or broker jobs.
+
+The runtime rejects visual context before a text-only gateway can answer. A
+provider response that explicitly reports unsupported image input is normalized
+to a clear user-facing error. Provider outages and invalid/expired assets are
+reported separately, so an image is never silently dropped or represented as
+an answer based on an unseen image.
+
 No tool writes attempts, mastery, or review schedule. The submit workflow remains deterministic: `grade -> Attempt -> learning projection -> ReviewCard`.
 
 Pre-submit context cannot obtain answer keys, correct option IDs, reference answers, hidden rubrics, or benchmark targets. This is enforced by tool availability, not by a refusal prompt alone.

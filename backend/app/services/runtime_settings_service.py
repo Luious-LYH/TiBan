@@ -234,11 +234,14 @@ class RuntimeSettingsService:
         self.sync()
         provider_status = llm_provider.status()
         with self._lock:
-            # This is the same gate used by the Tutor/Mentor composition edge.
-            # Reporting it explicitly prevents the UI from treating a merely
-            # present provider key as proof that the Agent runtime is active.
-            provider_enabled = os.getenv("TUTOR_PROVIDER_ENABLED", "").strip().lower() == "true" or self._llm_override
-            agent_available = provider_enabled and bool(provider_status["configured"])
+            # The project-default chain is the normal product path.  A stale
+            # opt-in flag must not lock the learner out when the configured
+            # default/backup providers are available.  If every remote
+            # provider is absent, the existing local policy gateway remains a
+            # usable text fallback; image requests still receive a truthful
+            # visual-capability error at the runtime boundary.
+            provider_available = bool(provider_status["configured"])
+            agent_available = True
             return {
                 # The public Settings page should describe the effective
                 # chain entry, not the first configured slot. In a normal
@@ -249,7 +252,7 @@ class RuntimeSettingsService:
                 "base_url_configured": bool(provider_status["base_url_configured"]),
                 "api_key_configured": bool(provider_status["api_key_configured"]),
                 "agent_available": agent_available,
-                "agent_mode": "provider" if agent_available else "rule",
+                "agent_mode": "provider" if provider_available else "rule",
                 "model": provider_status["model"],
                 "reasoning_effort": config.LLM_MODEL_REASONING_EFFORT or None,
                 "runtime_override": self._llm_override,
@@ -306,6 +309,14 @@ class RuntimeSettingsService:
                     SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
                 )) or 0
                 memory_count = session.scalar(select(func.count()).select_from(LearningMemoryItemModel).where(LearningMemoryItemModel.status == "active")) or 0
+                ready_knowledge_sources = session.scalar(select(func.count()).select_from(SourceDocumentModel).where(
+                    SourceDocumentModel.business_usage == "knowledge_base",
+                    SourceDocumentModel.enabled.is_(True),
+                    SourceDocumentModel.status == "ready",
+                    SourceDocumentModel.index_stage == "completed",
+                    SourceDocumentModel.index_progress >= 100,
+                    SourceDocumentModel.index_error.is_(None),
+                )) or 0
 
             def public_index_status(index_key: str, source_count: int) -> str:
                 state = states.get(index_key)
@@ -319,6 +330,23 @@ class RuntimeSettingsService:
                     or not state.vector_dimension
                 ):
                     return "stale"
+                # A previous full-corpus rebuild can fail after the
+                # document-scoped index has already completed.  In that case
+                # the relational source receipt and the live Qdrant
+                # collection are the user-facing truth; showing the old
+                # failure makes Settings contradict the Knowledge page.
+                if index_key == "knowledge" and state.status == "failed" and ready_knowledge_sources:
+                    try:
+                        from app.services.rag_service import COLLECTION
+
+                        if rag_service.qdrant.collection_exists(COLLECTION):
+                            point_count = int(rag_service.qdrant.count(COLLECTION, exact=False).count)
+                            if point_count > 0:
+                                return "ready"
+                    except Exception:
+                        # Settings must remain readable if Qdrant is down;
+                        # the regular failed state is more honest then.
+                        pass
                 return state.status
 
             return {

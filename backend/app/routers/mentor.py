@@ -19,6 +19,8 @@ class MentorMessagePublic(BaseModel):
     content: str
     activity: list[dict[str, object]] = Field(default_factory=list)
     sources: list[dict[str, object]] = Field(default_factory=list)
+    image_attached: bool = False
+    image_asset_id: str | None = None
     created_at: str
 
 
@@ -49,6 +51,7 @@ class MentorConversationDeleteResponse(BaseModel):
 class MentorMessageRequest(BaseModel):
     learner_id: str = "demo_learner"
     message: str = Field(min_length=1, max_length=2000)
+    image_asset_id: str | None = Field(default=None, max_length=150)
 
 
 @router.get("/conversations", response_model=MentorConversationListResponse)
@@ -82,10 +85,12 @@ def stream_message(conversation_id: str, request: MentorMessageRequest) -> Strea
     def event_stream():
         try:
             for event in mentor_agent_service.stream_message(
-                conversation_id=conversation_id, learner_id=request.learner_id, message=request.message
+                conversation_id=conversation_id, learner_id=request.learner_id, message=request.message, image_asset_id=request.image_asset_id
             ):
                 yield f"event: {event.event}\ndata: {json.dumps(event.data, ensure_ascii=False)}\n\n"
         except KeyError:
             yield "event: error\ndata: {\"code\":\"not_found\",\"message\":\"带教对话不存在。\"}\n\n"
+        except ValueError as exc:
+            yield f"event: error\ndata: {json.dumps({'code': 'image_input_unavailable', 'message': str(exc)}, ensure_ascii=False)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})

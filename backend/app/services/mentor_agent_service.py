@@ -10,12 +10,13 @@ from uuid import uuid4
 
 from sqlalchemy import delete, select
 
-from app.adapters.tutor_dependencies import configured_tutor_gateway
+from app.application.errors import normalize_provider_error
 from app.db.database import SessionLocal
 from app.db.models import AgentConversationModel, AgentMessageModel, AttemptModel, QuestionBankModel, QuestionModel, ReviewCardModel
 from app.db.repositories import Stage1Repository
 from app.services.agent_runtime import AgentContext, AgentEvent, AgentRunner, LocalPolicyModelGateway, ToolRegistry
 from app.services.learning_memory_service import learning_memory_service
+from app.services.llm_provider import llm_provider
 from app.services.semantic_memory_service import semantic_memory_service
 from app.services.stage1_service import stage1_service
 
@@ -23,20 +24,46 @@ from app.services.stage1_service import stage1_service
 MENTOR_PROMPT = (Path(__file__).resolve().parents[1] / "agents" / "prompts" / "mentor_agent.md").read_text(encoding="utf-8")
 
 
+def _context_image_paths(context: AgentContext, observations: dict[str, Any] | None = None) -> list[str]:
+    paths = [str(path) for path in context.image_paths if str(path).strip()]
+    for observation in (observations or {}).values():
+        if not isinstance(observation, list):
+            continue
+        for item in observation:
+            if not isinstance(item, dict):
+                continue
+            urls = item.get("image_urls", [])
+            if isinstance(urls, list):
+                paths.extend(str(url) for url in urls if str(url).strip())
+    return list(dict.fromkeys(paths))
+
+
 class MentorGateway:
     """Mentor shares the installed Provider but has a long-term prompt boundary."""
 
-    name = "local-learning-mentor"
-
-    def __init__(self) -> None:
-        self._provider_enabled = False
+    @property
+    def _provider_enabled(self) -> bool:
+        # Runtime settings may be applied by another API request/process after
+        # this long-lived runner was composed. Read the shared provider status
+        # at the gateway seam so Mentor does not keep a stale rule/provider or
+        # vision capability snapshot.
         try:
-            gateway = configured_tutor_gateway()
-            self._provider_enabled = gateway.name != LocalPolicyModelGateway.name
+            return bool(llm_provider.status().get("configured"))
         except Exception:
-            self._provider_enabled = False
-        if self._provider_enabled:
-            self.name = "openai-compatible-learning-mentor"
+            return False
+
+    @property
+    def name(self) -> str:
+        return "openai-compatible-learning-mentor" if self._provider_enabled else "local-learning-mentor"
+
+    @property
+    def supports_vision(self) -> bool:
+        if not self._provider_enabled:
+            return False
+        try:
+            return bool(llm_provider.status().get("vision_configured"))
+        except Exception:
+            return False
 
     def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
         # AgentRunner has already applied the shared policy gate.  Returning
@@ -47,8 +74,6 @@ class MentorGateway:
     def compose(self, context: AgentContext, observations: dict[str, Any]) -> str:
         if not self._provider_enabled:
             return LocalPolicyModelGateway().compose(context, observations)
-        from app.services.llm_provider import llm_provider
-
         result = llm_provider.chat(
             system_prompt=MENTOR_PROMPT + "\n\nUse only supplied deterministic learning state, semantic memory, tool observations, and real citations. Do not invent history or sources. Do not output tool names, JSON, internal IDs, hidden reasoning, diagnosis, or treatment advice.",
             user_prompt=(
@@ -57,11 +82,12 @@ class MentorGateway:
                 f"允许的学习观察：{observations}\n\n"
                 f"最近对话：{context.metadata.get('conversation', [])[-12:]}"
             ),
+            image_paths=_context_image_paths(context, observations),
             temperature=0.2,
             max_tokens=440,
         )
         if not result.ok:
-            raise RuntimeError(result.error)
+            raise normalize_provider_error(result.error)
         return result.text
 
 
@@ -156,26 +182,57 @@ def _learning_memories(context: AgentContext) -> list[dict[str, Any]]:
         return memories[:5]
 
 
-def _search_knowledge(context: AgentContext) -> list[dict[str, str]]:
+def _knowledge_domain_hint(message: str) -> str | None:
+    """Constrain clearly endoscopy-focused material requests before ranking.
+
+    Mentor is intentionally cross-domain for learning plans.  A request that
+    explicitly names endoscopy anatomy or teaching images, however, should not
+    let an unrelated general question-bank explanation outrank the governed
+    endoscopy guide merely because its text embedding is closer.
+    """
+
+    lowered = message.lower()
+    endoscopy_markers = (
+        "内镜", "胃镜", "肠镜", "结肠", "直肠", "盲肠", "回盲瓣", "食管", "胃窦", "十二指肠",
+        "消化道", "消化内镜", "endoscopy", "colonoscopy", "gastroscopy", "ileocecal", "cecum",
+    )
+    return "endoscopy" if any(marker in lowered for marker in endoscopy_markers) else None
+
+
+def _search_knowledge(context: AgentContext) -> list[dict[str, Any]]:
     if os.getenv("TUTOR_RETRIEVAL_ENABLED", "true").strip().lower() not in {"1", "true", "yes", "on"}:
         return []
     try:
         from app.services.rag_service import rag_service
 
-        citations = rag_service.retrieve(
+        endoscopy_query = _knowledge_domain_hint(context.user_message) == "endoscopy"
+        result = rag_service.retrieve_multimodal(
             context.user_message,
-            mode="hybrid",
             limit=4,
-            namespaces=["system", "user", "qbank_explanations"],
+            domain_id=_knowledge_domain_hint(context.user_message),
+            namespaces=["system", "user"] if endoscopy_query else ["system", "user", "qbank_explanations"],
         )
+        citations = list(result.get("citations", []))
+        image_results = list(result.get("image_results", []))
     except Exception:
         return []
     return [
         {
             "document_name": item.document_name, "page": str(item.page), "section": item.section,
             "snippet": item.snippet, "source_uri": item.source_uri or "", "namespace": item.namespace,
+            "image_urls": list(item.image_urls), "media_asset_ids": list(item.media_asset_ids),
         }
         for item in citations
+    ] + [
+        {
+            "document_name": str(item.get("document_name") or "教学资料图片"),
+            "page": str(item.get("page") or 1), "section": str(item.get("section") or "资料图片"),
+            "snippet": str(item.get("caption") or "检索到相关资料图片。"), "source_uri": "", "namespace": "knowledge_media",
+            "image_urls": [str(item.get("url"))], "media_asset_ids": [str(item.get("asset_id"))],
+            "concepts": list(item.get("concepts") or []), "evidence_links": list(item.get("evidence_links") or []),
+        }
+        for item in image_results
+        if item.get("url")
     ]
 
 
@@ -246,14 +303,29 @@ class MentorAgentService:
             session.commit()
         return {"conversation_id": conversation_id, "deleted": True}
 
-    def stream_message(self, *, conversation_id: str, learner_id: str, message: str) -> Iterator[AgentEvent]:
+    def stream_message(self, *, conversation_id: str, learner_id: str, message: str, image_asset_id: str | None = None) -> Iterator[AgentEvent]:
+        image_path: str | None = None
         with SessionLocal() as session:
             conversation = self._conversation(session, conversation_id, learner_id)
             history = list(session.scalars(select(AgentMessageModel).where(
                 AgentMessageModel.conversation_id == conversation_id
             ).order_by(AgentMessageModel.created_at.desc()).limit(12)))
             history.reverse()
-            user = AgentMessageModel(message_id=f"mentormsg_{uuid4().hex[:12]}", conversation_id=conversation_id, role="user", content=message)
+            if image_asset_id:
+                from app.services.image_asset_service import image_asset_service
+
+                try:
+                    # Resolve for authorization/expiry validation only.  The
+                    # Agent receives an opaque asset URL, never a local path.
+                    image_asset_service.resolve_path(session, image_asset_id, kind="chat")
+                    image_path = f"/api/v3/assets/chat-images/{image_asset_id}"
+                except (KeyError, FileNotFoundError, ValueError) as exc:
+                    raise ValueError("聊天图片不存在或已过期，请重新附加图片。") from exc
+            user = AgentMessageModel(
+                message_id=f"mentormsg_{uuid4().hex[:12]}", conversation_id=conversation_id,
+                role="user", content=message, image_attached=bool(image_asset_id),
+                image_asset_id=image_asset_id,
+            )
             session.add(user)
             if conversation.title == "新的带教对话":
                 conversation.title = message.strip().replace("\n", " ")[:32] or conversation.title
@@ -262,6 +334,7 @@ class MentorAgentService:
 
         context = AgentContext(
             question_id="", learner_id=learner_id, user_message=message, phase="mentor", mode="study",
+            image_paths=[image_path] if image_path else [],
             metadata={"agent_profile": "mentor", "conversation": prior, "mentor_context": MentorContextBuilder().build(learner_id=learner_id, message=message)},
         )
         answer: list[str] = []
@@ -305,7 +378,7 @@ class MentorAgentService:
                 messages = list(active.scalars(select(AgentMessageModel).where(
                     AgentMessageModel.conversation_id == row.conversation_id
                 ).order_by(AgentMessageModel.created_at)))
-                payload["messages"] = [{"id": item.message_id, "role": item.role, "content": item.content, "activity": item.activity, "sources": item.sources, "created_at": item.created_at.isoformat()} for item in messages]
+                payload["messages"] = [{"id": item.message_id, "role": item.role, "content": item.content, "activity": item.activity, "sources": item.sources, "image_attached": bool(item.image_attached), "image_asset_id": item.image_asset_id, "created_at": item.created_at.isoformat()} for item in messages]
             finally:
                 if own_session:
                     active.close()

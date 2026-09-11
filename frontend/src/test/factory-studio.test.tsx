@@ -25,6 +25,8 @@ vi.mock('../api/client', () => ({
   publishQuestionImportBatch: vi.fn(),
   reviewQuestionImportBatch: vi.fn(),
   reviewQuestionImportDraft: vi.fn(),
+  resolveApiUrl: (value?: string | null) => value ?? undefined,
+  uploadQuestionImage: vi.fn(),
   validateQuestionBankImport: vi.fn(),
 }))
 

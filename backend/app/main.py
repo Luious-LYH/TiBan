@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
 
 from app.core.config import ALLOWED_ORIGINS, APP_NAME, APP_VERSION
 from app.db.bootstrap import initialize_database
@@ -23,6 +24,8 @@ app = FastAPI(
     description="Agent-native 自适应题库与学习工作台，支持按领域配置题库、学习、复习与智能辅导。",
     version=APP_VERSION,
 )
+
+logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -57,6 +60,14 @@ def startup_database() -> None:
     # Retire V3.1-excluded generated corpora in the relational eligibility
     # graph only. This is deliberately independent from Qdrant availability.
     from app.services.knowledge_service import knowledge_service
+    try:
+        # Keep the supplied, attributed endoscopy PDF as a real first-run
+        # knowledge example.  Indexing is isolated from startup availability:
+        # text/Practice can still run when optional vector services are down.
+        if knowledge_service.ensure_default_multimodal_guide() is None:
+            logger.warning("bundled multimodal knowledge sample is unavailable")
+    except Exception as exc:
+        logger.warning("bundled multimodal knowledge sample could not be prepared: %s", type(exc).__name__)
     knowledge_service.retire_legacy_system_corpus()
     # Instance-level Settings are intentionally runtime scoped; an API service
     # restart restores the Compose/.env defaults instead of retaining a key.

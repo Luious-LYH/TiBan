@@ -56,6 +56,8 @@ export type TutorStreamEvent = {
 }
 export type MentorConversation = components['schemas']['MentorConversationPublic']
 export type MentorMessage = components['schemas']['MentorMessagePublic']
+export type ImageAsset = components['schemas']['ImageAssetPublic']
+export type QuestionImageAssetRef = components['schemas']['QuestionImageAssetRef']
 // API payload contracts are generated from FastAPI/OpenAPI. Components may
 // add purely presentational state around them, but not response schemas.
 export type FactoryDocument = components['schemas']['FactoryDocumentPublic']
@@ -76,8 +78,9 @@ export type InstanceEmbeddingTestResult = components['schemas']['EmbeddingTestRe
 export type IndexRebuildResult = components['schemas']['IndexRebuildResponse']
 export type KnowledgeSource = components['schemas']['KnowledgeSourcePublic']
 export type KnowledgeSourceDetail = components['schemas']['KnowledgeSourceDetailPublic']
-export type QBankValidation = { format: string; accepted_count: number; rejected_count: number; ready_to_publish: boolean; items: Array<{ title: string; question: string; question_type: string; options?: Array<{ id: string; text: string }>; difficulty?: string; body_part?: string }>; issues: Array<{ row: number; code: string; message: string }>; summary: { question_type_counts: Record<string, number> } }
-export type QBankImportRequest = { format: 'json' | 'jsonl' | 'csv' | 'markdown'; content: string; mode: 'create_bank' | 'append_questions'; domain_id: string; custom_domain_name?: string; bank_name?: string; bank_description?: string; target_bank_id?: string; source_name?: string; file_name?: string }
+export type KnowledgeSearchResult = components['schemas']['KnowledgeSearchResponse']
+export type QBankValidation = { format: string; accepted_count: number; rejected_count: number; ready_to_publish: boolean; items: Array<{ title: string; question: string; question_type: string; options?: Array<{ id: string; text: string }>; difficulty?: string; body_part?: string; image_url?: string | null; image_alt?: string | null }>; issues: Array<{ row: number; code: string; message: string }>; summary: { question_type_counts: Record<string, number> } }
+export type QBankImportRequest = { format: 'json' | 'jsonl' | 'csv' | 'markdown'; content: string; mode: 'create_bank' | 'append_questions'; domain_id: string; custom_domain_name?: string; bank_name?: string; bank_description?: string; target_bank_id?: string; source_name?: string; file_name?: string; image_assets?: QuestionImageAssetRef[] }
 export type QBankImportResult = { mode: string; bank_id: string; bank_name: string; source_document_id: string; accepted_count: number; imported_count: number; duplicate_count: number; rejected_count: number; issues: Array<{ row: number; code: string; message: string }>; question_count: number; question_type_counts: Record<string, number>; status: string; api_source: 'backend' }
 export type QuestionImportDraft = components['schemas']['ImportDraftPublic']
 export type QuestionImportBatch = components['schemas']['ImportBatchPublic']
@@ -210,13 +213,37 @@ export async function deleteKnowledgeSource(documentId: string): Promise<{ statu
   return { status: String(response.status), api_source: String(response.api_source) }
 }
 
-function fileToBase64(file: File): Promise<string> {
+export async function searchKnowledge(query: string, domainId?: string): Promise<KnowledgeSearchResult> {
+  return unwrap(api.POST('/api/v3/knowledge/search', { body: { query, domain_id: domainId, limit: 5 } }))
+}
+
+function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(reader.error)
-    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
+    reader.onload = () => resolve(String(reader.result))
     reader.readAsDataURL(file)
   })
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return fileToDataUrl(file).then((value) => value.split(',')[1] ?? '')
+}
+
+export async function uploadQuestionImage(file: File): Promise<ImageAsset> {
+  const response = await unwrap(api.POST('/api/v3/assets/question-images', { body: { filename: file.name, data_url: await fileToDataUrl(file) } }))
+  return response as ImageAsset
+}
+
+export async function uploadChatImage(file: File): Promise<ImageAsset> {
+  const response = await unwrap(api.POST('/api/v3/assets/chat-images', { body: { filename: file.name, data_url: await fileToDataUrl(file) } }))
+  return response as ImageAsset
+}
+
+export function resolveApiUrl(value?: string | null): string | undefined {
+  if (!value) return undefined
+  if (/^https?:\/\//i.test(value)) return value
+  return API_BASE && value.startsWith('/') ? `${API_BASE.replace(/\/$/, '')}${value}` : value
 }
 
 export function getPracticeSession(sessionId: string): Promise<SessionDetailResponse> {
@@ -272,8 +299,8 @@ export async function deleteMentorConversation(conversationId: string, learnerId
   return { conversation_id: response.conversation_id, deleted: response.deleted }
 }
 
-export async function streamMentorMessage(conversationId: string, message: string, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal, learnerId = 'demo_learner'): Promise<void> {
-  await streamSse(`${API_BASE}/api/v3/mentor/conversations/${encodeURIComponent(conversationId)}/stream`, { learner_id: learnerId, message }, onEvent, signal, '带教 Agent 请求失败')
+export async function streamMentorMessage(conversationId: string, message: string, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal, learnerId = 'demo_learner', imageAssetId?: string): Promise<void> {
+  await streamSse(`${API_BASE}/api/v3/mentor/conversations/${encodeURIComponent(conversationId)}/stream`, { learner_id: learnerId, message, image_asset_id: imageAssetId }, onEvent, signal, '带教 Agent 请求失败')
 }
 
 async function streamSse(url: string, body: unknown, onEvent: (event: TutorStreamEvent) => void, signal: AbortSignal, failure: string): Promise<void> {
@@ -404,10 +431,10 @@ export function testInstanceEmbedding(payload: EmbeddingConnectionTestPayload = 
 export function applyInstanceEmbedding(payload: EmbeddingSettingsPayload) { return unwrap(api.POST('/api/v3/settings/embedding/apply', { body: payload })) }
 export function restoreInstanceEmbedding() { return unwrap(api.POST('/api/v3/settings/embedding/restore')) }
 export function rebuildInstanceIndexes(): Promise<IndexRebuildResult> { return unwrap(api.POST('/api/v3/settings/indexes/rebuild')) }
-export function validateQuestionBankImport(payload: { format: 'json' | 'csv' | 'jsonl' | 'markdown'; content: string; source_name?: string }): Promise<QBankValidation> { return unwrap(api.POST('/api/question-banks/import/validate', { body: payload })) as Promise<QBankValidation> }
+export function validateQuestionBankImport(payload: { format: 'json' | 'csv' | 'jsonl' | 'markdown'; content: string; source_name?: string; image_assets?: QuestionImageAssetRef[] }): Promise<QBankValidation> { return unwrap(api.POST('/api/question-banks/import/validate', { body: payload })) as Promise<QBankValidation> }
 export function importQuestionBank(payload: QBankImportRequest): Promise<QBankImportResult> { return unwrap(api.POST('/api/v3/question-banks/import', { body: payload })) as Promise<QBankImportResult> }
 export async function getQuestionImportTemplates(): Promise<{ formats: string[]; required_fields: string[]; examples: Record<string, string> }> { return unwrap(api.GET('/api/question-banks/import/templates')) as Promise<{ formats: string[]; required_fields: string[]; examples: Record<string, string> }> }
-export async function createQuestionImportBatch(payload: { format: 'json' | 'jsonl' | 'csv' | 'markdown'; content: string; domain_id: string; custom_domain_name?: string; source_name?: string; file_name?: string }): Promise<QuestionImportBatch> { const response = await unwrap(api.POST('/api/v3/factory/import-batches', { body: payload })); return response.item as QuestionImportBatch }
+export async function createQuestionImportBatch(payload: { format: 'json' | 'jsonl' | 'csv' | 'markdown'; content: string; domain_id: string; custom_domain_name?: string; source_name?: string; file_name?: string; image_assets?: QuestionImageAssetRef[] }): Promise<QuestionImportBatch> { const response = await unwrap(api.POST('/api/v3/factory/import-batches', { body: payload })); return response.item as QuestionImportBatch }
 export async function getQuestionImportBatches(status?: string): Promise<QuestionImportBatch[]> { const response = await unwrap(api.GET('/api/v3/factory/import-batches', { params: { query: { status } } })); return response.items as QuestionImportBatch[] }
 export async function getQuestionImportBatch(batchId: string): Promise<QuestionImportBatch> { const response = await unwrap(api.GET('/api/v3/factory/import-batches/{batch_id}', { params: { path: { batch_id: batchId } } })); return response.item as QuestionImportBatch }
 export async function reviewQuestionImportDraft(batchId: string, draftId: string, status: 'pending' | 'approved' | 'rejected', reviewNote?: string): Promise<QuestionImportBatch> { const response = await unwrap(api.PATCH('/api/v3/factory/import-batches/{batch_id}/drafts/{draft_id}', { params: { path: { batch_id: batchId, draft_id: draftId } }, body: { status, review_note: reviewNote } })); return response.item as QuestionImportBatch }

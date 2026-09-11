@@ -6,11 +6,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 APP_NAME = "TiBan 学习与评测实验室"
-APP_VERSION = "3.3.1"
+APP_VERSION = "3.5.1"
 SAFETY_NOTICE = "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
 DEMO_LEARNER_ID = "demo_learner"
 DEFAULT_DOMAIN_ID = "endoscopy"
 DEFAULT_KNOWLEDGE_NAMESPACE = "general_learning"
+DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID = "source-endoscopy-image-documentation-v35"
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
@@ -26,6 +27,14 @@ def _env_first(*names: str, default: str = "") -> str:
         if value is not None and value.strip():
             return value.strip()
     return default
+
+
+DEFAULT_MULTIMODAL_KNOWLEDGE_SAMPLE_PATH = Path(
+    _env_first(
+        "TIBAN_DEFAULT_MULTIMODAL_KNOWLEDGE_SAMPLE",
+        default=str(PROJECT_DIR / "knowledge" / "samples" / "image-documentation-gastrointestinal-endoscopy.pdf"),
+    )
+)
 
 
 RUNTIME_ROOT = Path(_env_first("TIBAN_RUNTIME_ROOT", "ENDO_RUNTIME_ROOT", default=str(BACKEND_DIR / "runtime")))
@@ -56,7 +65,7 @@ QDRANT_URL = _env_first("QDRANT_URL", default="http://127.0.0.1:6333").rstrip("/
 REDIS_URL = _env_first("REDIS_URL", default="redis://127.0.0.1:56379/0")
 _allowed_origins_raw = _env_first(
     "ENDO_ALLOWED_ORIGINS",
-    default="http://localhost:5173,http://127.0.0.1:5173",
+    default="http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
 )
 ALLOWED_ORIGINS = tuple(
     origin.strip().rstrip("/")
@@ -96,8 +105,42 @@ LLM_FINAL_FALLBACK_BASE_URL = _env_first(
 ).rstrip("/")
 LLM_FINAL_FALLBACK_API_KEY = _env_first("LLM_FINAL_FALLBACK_API_KEY", "BIGMODEL_API_KEY")
 LLM_FINAL_FALLBACK_MODEL = _env_first("LLM_FINAL_FALLBACK_MODEL", "BIGMODEL_MODEL", default="GLM-5.3-Flash")
+# A visual request is a different capability path.  It never falls back to the
+# text-only Cloudflare model: the first attempt is the free OpenRouter vision
+# route and the final attempt is BigModel's visual Flash model.  The API keys
+# intentionally inherit the existing provider keys unless an instance owner
+# supplies a separate runtime secret.
+LLM_VISION_PROVIDER = _env_first("LLM_VISION_PROVIDER", default="openrouter")
+LLM_VISION_BASE_URL = _env_first(
+    "LLM_VISION_BASE_URL", default=LLM_FALLBACK_BASE_URL
+).rstrip("/")
+LLM_VISION_API_KEY = _env_first("LLM_VISION_API_KEY", default=LLM_FALLBACK_API_KEY)
+# OpenRouter's free router chooses an available free model with the requested
+# image capability at request time.  The final provider in this chain is the
+# explicit BigModel visual fallback below.
+LLM_VISION_MODEL = _env_first("LLM_VISION_MODEL", default="openrouter/free")
+LLM_VISION_FALLBACK_PROVIDER = _env_first("LLM_VISION_FALLBACK_PROVIDER", default="bigmodel")
+LLM_VISION_FALLBACK_BASE_URL = _env_first(
+    "LLM_VISION_FALLBACK_BASE_URL", default=LLM_FINAL_FALLBACK_BASE_URL
+).rstrip("/")
+LLM_VISION_FALLBACK_API_KEY = _env_first(
+    "LLM_VISION_FALLBACK_API_KEY", default=LLM_FINAL_FALLBACK_API_KEY
+)
+LLM_VISION_FALLBACK_MODEL = _env_first(
+    "LLM_VISION_FALLBACK_MODEL", default="GLM-4.6V-Flash"
+)
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
 FACTORY_PROVIDER_ENABLED = _env_first("FACTORY_PROVIDER_ENABLED").lower() == "true"
+
+# Knowledge image retrieval uses a real CLIP-compatible image/text space.  It
+# is optional at runtime so a text-only installation can continue to index and
+# search text while exposing a truthful image-index failure state.
+IMAGE_EMBEDDING_MODE = _env_first("IMAGE_EMBEDDING_MODE", default="local").lower()
+IMAGE_EMBEDDING_PROVIDER = _env_first("IMAGE_EMBEDDING_PROVIDER", default="clip")
+IMAGE_EMBEDDING_MODEL = _env_first("IMAGE_EMBEDDING_MODEL", default="clip-ViT-B-32")
+IMAGE_EMBEDDING_CACHE = Path(
+    _env_first("IMAGE_EMBEDDING_CACHE", default=str(RUNTIME_ROOT / "clip"))
+)
 
 # Vector inference is an instance concern, never a browser-owned setting.
 # Online/demo deployments use a SiliconFlow-compatible endpoint by default;

@@ -18,10 +18,15 @@ def upgrade() -> None:
     for table in ("practice_sessions", "review_cards", "learner_mastery", "learning_memory_items", "eval_datasets"):
         op.add_column(table, sa.Column("domain_id", sa.String(length=100), nullable=False, server_default="endoscopy"))
 
-    op.drop_constraint("uq_mastery_learner_point", "learner_mastery", type_="unique")
-    op.create_unique_constraint("uq_mastery_learner_domain_point", "learner_mastery", ["learner_id", "domain_id", "knowledge_point"])
-    op.drop_constraint("uq_learning_memory_learner_dedupe", "learning_memory_items", type_="unique")
-    op.create_unique_constraint("uq_learning_memory_learner_domain_dedupe", "learning_memory_items", ["learner_id", "domain_id", "dedupe_key"])
+    # SQLite does not support ALTER TABLE DROP/ADD CONSTRAINT directly.  Batch
+    # mode performs the safe copy-and-move that SQLite needs and uses ordinary
+    # ALTER statements on PostgreSQL.
+    with op.batch_alter_table("learner_mastery", recreate="auto") as batch:
+        batch.drop_constraint("uq_mastery_learner_point", type_="unique")
+        batch.create_unique_constraint("uq_mastery_learner_domain_point", ["learner_id", "domain_id", "knowledge_point"])
+    with op.batch_alter_table("learning_memory_items", recreate="auto") as batch:
+        batch.drop_constraint("uq_learning_memory_learner_dedupe", type_="unique")
+        batch.create_unique_constraint("uq_learning_memory_learner_domain_dedupe", ["learner_id", "domain_id", "dedupe_key"])
     op.create_index("ix_review_cards_learner_domain_due", "review_cards", ["learner_id", "domain_id", "due_at"])
     op.create_index("ix_learning_memory_learner_domain_status", "learning_memory_items", ["learner_id", "domain_id", "status"])
     # The former Stage 2.5 label was never a product-level domain contract.
@@ -33,9 +38,11 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_learning_memory_learner_domain_status", table_name="learning_memory_items")
     op.drop_index("ix_review_cards_learner_domain_due", table_name="review_cards")
-    op.drop_constraint("uq_learning_memory_learner_domain_dedupe", "learning_memory_items", type_="unique")
-    op.create_unique_constraint("uq_learning_memory_learner_dedupe", "learning_memory_items", ["learner_id", "dedupe_key"])
-    op.drop_constraint("uq_mastery_learner_domain_point", "learner_mastery", type_="unique")
-    op.create_unique_constraint("uq_mastery_learner_point", "learner_mastery", ["learner_id", "knowledge_point"])
+    with op.batch_alter_table("learning_memory_items", recreate="auto") as batch:
+        batch.drop_constraint("uq_learning_memory_learner_domain_dedupe", type_="unique")
+        batch.create_unique_constraint("uq_learning_memory_learner_dedupe", ["learner_id", "dedupe_key"])
+    with op.batch_alter_table("learner_mastery", recreate="auto") as batch:
+        batch.drop_constraint("uq_mastery_learner_domain_point", type_="unique")
+        batch.create_unique_constraint("uq_mastery_learner_point", ["learner_id", "knowledge_point"])
     for table in ("eval_datasets", "learning_memory_items", "learner_mastery", "review_cards", "practice_sessions"):
         op.drop_column(table, "domain_id")

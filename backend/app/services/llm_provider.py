@@ -3,6 +3,7 @@ import http.client
 import ipaddress
 import json
 import mimetypes
+import re
 import socket
 import ssl
 import time
@@ -137,6 +138,9 @@ class LLMProvider:
         from app.services.runtime_settings_service import runtime_settings_service
         runtime_settings_service.sync()
         demo_attempts = self._local_demo_provider_attempts()
+        vision_attempts = self._vision_provider_attempts(
+            base_url=None, api_key=None, model=None, provider=None, allow_fallback=True
+        )
         demo_configured = bool(demo_attempts)
         primary_configured = bool(
             config.LLM_BASE_URL
@@ -178,6 +182,10 @@ class LLMProvider:
             "mode": "provider" if configured else "rule",
             "fallback_provider_configured": fallback_configured,
             "final_fallback_provider_configured": final_fallback_configured,
+            "vision_configured": bool(vision_attempts),
+            "vision_provider": vision_attempts[0]["provider"] if vision_attempts else config.LLM_VISION_PROVIDER,
+            "vision_model": vision_attempts[0]["model"] if vision_attempts else config.LLM_VISION_MODEL,
+            "vision_fallback_model": config.LLM_VISION_FALLBACK_MODEL,
             "private_host_allowlist_configured": bool(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
             "private_host_allowlist_count": len(config.LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST),
             "safety_notice": "真实 provider 仅用于公开教学样例和医生审核前辅助，不上传真实患者身份信息。",
@@ -282,6 +290,22 @@ class LLMProvider:
             "key_persisted": False,
         }
 
+    def vision_configured(self) -> bool:
+        """Return whether a visual route has usable, environment-only credentials.
+
+        This is a configuration capability check, not a claim that the remote
+        model has passed a visual inference probe.  The latter is established by
+        the actual image request; provider errors are normalized and surfaced to
+        the learner rather than silently retrying a text-only model.
+        """
+
+        from app.services.runtime_settings_service import runtime_settings_service
+
+        runtime_settings_service.sync()
+        return bool(self._vision_provider_attempts(
+            base_url=None, api_key=None, model=None, provider=None, allow_fallback=True
+        ))
+
     def runtime_request_config(self, *, model: str | None = None) -> dict[str, str] | None:
         """Return the active instance connection without exposing it publicly.
 
@@ -358,6 +382,7 @@ class LLMProvider:
         system_prompt: str,
         user_prompt: str,
         image_path: str | None = None,
+        image_paths: list[str] | None = None,
         temperature: float = 0.2,
         max_tokens: int = 700,
         base_url: str | None = None,
@@ -368,17 +393,48 @@ class LLMProvider:
     ) -> LLMResult:
         from app.services.runtime_settings_service import runtime_settings_service
         runtime_settings_service.sync()
-        image_data = self._image_data_url(image_path) if image_path else None
+        requested_images: list[str] = []
+        for candidate in [image_path, *(image_paths or [])]:
+            cleaned = str(candidate or "").strip()
+            if cleaned and cleaned not in requested_images:
+                requested_images.append(cleaned)
+        try:
+            image_data = [
+                data
+                for path in requested_images
+                if (data := self._image_data_url(path))
+            ]
+        except (FileNotFoundError, KeyError, ValueError) as exc:
+            error = str(exc) if str(exc) in {"image_not_available", "image_input_unavailable"} else "image_not_available"
+            return LLMResult(False, "", "provider", provider or config.LLM_VISION_PROVIDER, model or config.LLM_VISION_MODEL, error, image_attached=bool(requested_images))
         image_attached = bool(image_data)
-        attempts = self._provider_attempts(
-            base_url=base_url,
-            api_key=api_key,
-            model=model,
-            provider=provider,
-            allow_fallback=allow_fallback,
+        attempts = (
+            self._vision_provider_attempts(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                provider=provider,
+                allow_fallback=allow_fallback,
+            )
+            if image_attached
+            else self._provider_attempts(
+                base_url=base_url,
+                api_key=api_key,
+                model=model,
+                provider=provider,
+                allow_fallback=allow_fallback,
+            )
         )
         if not attempts:
-            return LLMResult(False, "", "rule", provider or config.LLM_PROVIDER, model or config.LLM_MODEL, "provider_not_configured", image_attached=image_attached)
+            return LLMResult(
+                False,
+                "",
+                "rule",
+                provider or (config.LLM_VISION_PROVIDER if image_attached else config.LLM_PROVIDER),
+                model or (config.LLM_VISION_MODEL if image_attached else config.LLM_MODEL),
+                "vision_provider_not_configured" if image_attached else "provider_not_configured",
+                image_attached=image_attached,
+            )
 
         last_result: LLMResult | None = None
         for attempt in attempts:
@@ -402,7 +458,15 @@ class LLMProvider:
                     time.sleep(0.5 * (2**retry_index))
                     continue
                 break
-        return last_result or LLMResult(False, "", "rule", provider or config.LLM_PROVIDER, model or config.LLM_MODEL, "provider_not_configured", image_attached=image_attached)
+        return last_result or LLMResult(
+            False,
+            "",
+            "rule",
+            provider or (config.LLM_VISION_PROVIDER if image_attached else config.LLM_PROVIDER),
+            model or (config.LLM_VISION_MODEL if image_attached else config.LLM_MODEL),
+            "vision_provider_not_configured" if image_attached else "provider_not_configured",
+            image_attached=image_attached,
+        )
 
     def _is_transient_provider_error(self, error: str | None) -> bool:
         if not error:
@@ -481,6 +545,67 @@ class LLMProvider:
             })
         return attempts
 
+    def _vision_provider_attempts(
+        self,
+        *,
+        base_url: str | None,
+        api_key: str | None,
+        model: str | None,
+        provider: str | None,
+        allow_fallback: bool = True,
+    ) -> list[dict[str, str]]:
+        """Build only the visual provider chain.
+
+        An image request must never enter ``_provider_attempts`` because the
+        normal chain begins with a text model.  Explicit settings are allowed
+        for operator/provider probes, but any configured fallback remains on
+        this visual-only chain.
+        """
+
+        explicit = bool((base_url or "").strip() or (api_key or "").strip())
+        candidates: list[dict[str, str | None]] = []
+        if explicit:
+            candidates.append({
+                "provider": provider or config.LLM_VISION_PROVIDER,
+                "base_url": self._normalize_base_url(base_url or ""),
+                "api_key": api_key or "",
+                "model": model or config.LLM_VISION_MODEL,
+            })
+        else:
+            candidates.append({
+                "provider": config.LLM_VISION_PROVIDER,
+                "base_url": self._normalize_base_url(config.LLM_VISION_BASE_URL),
+                "api_key": config.LLM_VISION_API_KEY,
+                "model": config.LLM_VISION_MODEL,
+            })
+        if allow_fallback:
+            candidates.append({
+                "provider": config.LLM_VISION_FALLBACK_PROVIDER,
+                "base_url": self._normalize_base_url(config.LLM_VISION_FALLBACK_BASE_URL),
+                "api_key": config.LLM_VISION_FALLBACK_API_KEY,
+                "model": config.LLM_VISION_FALLBACK_MODEL,
+            })
+        attempts: list[dict[str, str]] = []
+        seen: set[tuple[str, str, str, str]] = set()
+        for candidate in candidates:
+            provider_value = str(candidate["provider"] or "")
+            base_value = str(candidate["base_url"] or "")
+            key_value = str(candidate["api_key"] or "")
+            model_value = str(candidate["model"] or "")
+            if not (provider_value and base_value and self._is_usable_api_key(key_value) and provider_value != "mock"):
+                continue
+            fingerprint = (provider_value, base_value, key_value, model_value)
+            if fingerprint in seen:
+                continue
+            seen.add(fingerprint)
+            attempts.append({
+                "provider": provider_value,
+                "base_url": base_value,
+                "api_key": key_value,
+                "model": model_value,
+            })
+        return attempts
+
     def _is_usable_api_key(self, value: str | None) -> bool:
         key = str(value or "").strip()
         if not key:
@@ -504,7 +629,7 @@ class LLMProvider:
         *,
         system_prompt: str,
         user_prompt: str,
-        image_data: str | None,
+        image_data: list[str],
         image_attached: bool,
         temperature: float,
         max_tokens: int,
@@ -517,10 +642,8 @@ class LLMProvider:
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
         user_content: str | list[dict[str, Any]]
         if image_data:
-            user_content = [
-                {"type": "text", "text": user_prompt},
-                {"type": "image_url", "image_url": {"url": image_data}},
-            ]
+            user_content = [{"type": "text", "text": user_prompt}]
+            user_content.extend({"type": "image_url", "image_url": {"url": image}} for image in image_data)
         else:
             user_content = user_prompt
         messages.append({"role": "user", "content": user_content})
@@ -858,12 +981,41 @@ class LLMProvider:
     def _image_data_url(self, image_path: str | None) -> str | None:
         if not image_path:
             return None
-        path = self._resolve_public_image(image_path)
-        if not path or not path.exists() or path.stat().st_size > 2_500_000:
-            return None
+        path = self.resolve_image_path(image_path)
+        if path.stat().st_size > 2_500_000:
+            raise ValueError("image_not_available")
         mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
         encoded = base64.b64encode(path.read_bytes()).decode("ascii")
         return f"data:{mime};base64,{encoded}"
+
+    def resolve_image_path(self, image_path: str) -> Path:
+        """Resolve only controlled runtime assets and bundled public samples.
+
+        Tutor and Mentor pass opaque API asset URLs here.  The image bytes are
+        read only at the final Provider boundary; no path or data URL is put in
+        a persisted message, broker payload, trace, or normal API response.
+        """
+
+        cleaned = str(image_path or "").strip()
+        asset_match = urllib.parse.urlsplit(cleaned)
+        asset_path = asset_match.path if asset_match.scheme in {"http", "https"} else cleaned
+        match = re.fullmatch(r"/api/v3/assets/(question-images|chat-images)/([A-Za-z0-9_-]{1,150})", asset_path)
+        if match:
+            from app.db.database import SessionLocal
+            from app.services.image_asset_service import image_asset_service
+
+            kind = "question" if match.group(1) == "question-images" else "chat"
+            with SessionLocal() as session:
+                return image_asset_service.resolve_path(session, match.group(2), kind=kind)
+        knowledge_match = re.fullmatch(r"/api/v3/knowledge/media/([A-Za-z0-9_-]{1,150})", asset_path)
+        if knowledge_match:
+            from app.services.knowledge_multimodal_service import knowledge_multimodal_service
+
+            return knowledge_multimodal_service.resolve_path(knowledge_match.group(1))
+        path = self._resolve_public_image(cleaned)
+        if not path or not path.exists() or not path.is_file():
+            raise ValueError("image_not_available")
+        return path.resolve()
 
     def _resolve_public_image(self, image_path: str) -> Path | None:
         if image_path.startswith("/assets/real_samples/"):
@@ -875,6 +1027,14 @@ class LLMProvider:
             upload_root = config.UPLOAD_DIR.resolve()
             if upload_root == resolved or upload_root in resolved.parents:
                 return resolved
+        local_vqa_match = re.fullmatch(r"/api/v3/assets/local-vqa/([A-Za-z0-9_-]{1,80})/(.+)", image_path)
+        if local_vqa_match:
+            try:
+                from app.services.data_governance import resolve_local_asset
+
+                return resolve_local_asset(local_vqa_match.group(1), local_vqa_match.group(2))
+            except (ValueError, FileNotFoundError):
+                return None
         if image_path.startswith("eval://endobench/"):
             relative = image_path.removeprefix("eval://endobench/")
             try:

@@ -1,0 +1,32 @@
+{
+  "dataset_version": "multimodal-knowledge-v35-figure-caption-1",
+  "source_id": "source-endoscopy-image-documentation-v35",
+  "domain_id": "endoscopy",
+  "license_note": "Queries are authored against the bundled CC BY-NC-ND 4.0 teaching guide. The fixture stores captions and page expectations only; it contains no source images.",
+  "cases": [
+    {
+      "id": "upper-gi-systematic-imaging",
+      "query": "上消化道内镜系统图像记录",
+      "expected_page": 4,
+      "expected_caption_contains": "Fig. 1. Suggested systematic imaging in upper GI endoscopy"
+    },
+    {
+      "id": "upper-gi-image-sequence",
+      "query": "上消化道内镜系统图像示例",
+      "expected_page": 4,
+      "expected_caption_contains": "Fig. 2. Examples of systematic imaging in upper GI endoscopy"
+    },
+    {
+      "id": "colonoscopy-systematic-imaging",
+      "query": "结肠镜系统图像记录",
+      "expected_page": 5,
+      "expected_caption_contains": "Fig. 3. Suggested systematic imaging in colonoscopy"
+    },
+    {
+      "id": "colonoscopy-landmarks",
+      "query": "结肠镜直肠盲肠和回盲瓣图像",
+      "expected_page": 5,
+      "expected_caption_contains": "Fig. 4. Examples of systematic imaging in colonoscopy"
+    }
+  ]
+}

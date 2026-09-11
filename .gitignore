@@ -11,6 +11,9 @@ runtime_logs/
 frontend/release/
 frontend/desktop-data/
 frontend/artifacts/
+frontend/backend-runtime/
+frontend/build-desktop-backend/
+backend/frontend/
 *.lnk
 data/external/
 data/normalized/
@@ -36,6 +39,10 @@ frontend/test-results/
 # Local-only generated question-bank samples.
 /临时生成题库/
 /临时生成题库目录/
+/portfolio_dist/
+/check_8/
+/pdf_preview_*/
+/tmp/
 
 # Local Compose overrides are used for acceptance runs and isolated experiments.
 # The public runtime entry point is docker-compose.yml.

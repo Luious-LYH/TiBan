@@ -29,6 +29,10 @@ from .models import (  # noqa: F401
     QuestionRevisionModel,
     QuestionImportBatchModel,
     QuestionImportDraftModel,
+    QuestionImageAssetModel,
+    KnowledgeMediaAssetModel,
+    KnowledgeEntityModel,
+    KnowledgeRelationModel,
     EvalDatasetModel,
     EvalDatasetVersionModel,
     EvalRunModel,
@@ -221,8 +225,11 @@ def _upgrade_local_sqlite_domain_scope() -> None:
         inspector = inspect(connection)
         _upgrade_local_sqlite_factory_jobs(connection, inspector)
         _upgrade_local_sqlite_knowledge_sources(connection, inspector)
+        _upgrade_local_sqlite_knowledge_multimodal(connection, inspector)
         _upgrade_local_sqlite_v32_state(connection, inspector)
         _upgrade_local_sqlite_question_import_review(connection, inspector)
+        _upgrade_local_sqlite_question_image_assets(connection, inspector)
+        _upgrade_local_sqlite_agent_image_flags(connection, inspector)
         _upgrade_local_sqlite_question_bank_order(connection, inspector)
         for table_name in domain_tables:
             columns = {column["name"] for column in inspector.get_columns(table_name)}
@@ -325,6 +332,45 @@ def _upgrade_local_sqlite_knowledge_sources(connection: object, inspector: objec
     connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_index_job_id ON source_documents (index_job_id)"))
 
 
+def _upgrade_local_sqlite_knowledge_multimodal(connection: object, inspector: object) -> None:
+    """Add the additive metadata used by the knowledge media pipeline.
+
+    Existing local databases receive the image-asset, image-index and
+    evidence-graph columns without rewriting source/chunk content.  Actual
+    media extraction and graph/index rebuilds remain in the knowledge service,
+    so startup stays safe when optional vector services are unavailable.
+    """
+
+    source_columns = {column["name"] for column in inspect(connection).get_columns("source_documents")}
+    source_definitions = {
+        "image_count": "INTEGER NOT NULL DEFAULT 0",
+        "image_index_status": "VARCHAR(24) NOT NULL DEFAULT 'empty'",
+        "image_index_error": "TEXT",
+        "graph_status": "VARCHAR(24) NOT NULL DEFAULT 'empty'",
+        "graph_node_count": "INTEGER NOT NULL DEFAULT 0",
+        "graph_edge_count": "INTEGER NOT NULL DEFAULT 0",
+        "graph_error": "TEXT",
+    }
+    for name, definition in source_definitions.items():
+        if name not in source_columns:
+            connection.execute(text(f"ALTER TABLE source_documents ADD COLUMN {name} {definition}"))
+
+    chunk_columns = {column["name"] for column in inspect(connection).get_columns("knowledge_chunks")}
+    chunk_definitions = {
+        "modality": "VARCHAR(16) NOT NULL DEFAULT 'text'",
+        "media_asset_ids": "JSON NOT NULL DEFAULT '[]'",
+    }
+    for name, definition in chunk_definitions.items():
+        if name not in chunk_columns:
+            connection.execute(text(f"ALTER TABLE knowledge_chunks ADD COLUMN {name} {definition}"))
+
+    # ``create_all`` covers fresh databases.  ``checkfirst`` makes this safe
+    # for an older database that is upgraded in place and for test fixtures
+    # created from a partially migrated checkout.
+    for table_name in ("knowledge_media_assets", "knowledge_entities", "knowledge_relations"):
+        Base.metadata.tables[table_name].create(connection, checkfirst=True)
+
+
 def _upgrade_local_sqlite_v32_state(connection: object, inspector: object) -> None:
     """Non-destructively add V3.2 lifecycle fields for existing local data."""
 
@@ -358,6 +404,44 @@ def _upgrade_local_sqlite_question_import_review(connection: object, inspector: 
     columns = {column["name"] for column in inspector.get_columns("question_import_batches")}
     if "issues" not in columns:
         connection.execute(text("ALTER TABLE question_import_batches ADD COLUMN issues JSON NOT NULL DEFAULT '[]'"))
+
+
+def _upgrade_local_sqlite_question_image_assets(connection: object, inspector: object) -> None:
+    """Add the V3.5 runtime image asset table for an existing local SQLite DB."""
+
+    if "question_image_assets" in inspector.get_table_names():
+        return
+    connection.execute(text(
+        "CREATE TABLE question_image_assets ("
+        "asset_id VARCHAR(150) NOT NULL PRIMARY KEY, "
+        "kind VARCHAR(32) NOT NULL, batch_id VARCHAR(150), bank_id VARCHAR(100), "
+        "storage_path VARCHAR(300) NOT NULL UNIQUE, original_filename VARCHAR(300) NOT NULL, "
+        "sha256 VARCHAR(64) NOT NULL, mime_type VARCHAR(40) NOT NULL, width INTEGER NOT NULL, "
+        "height INTEGER NOT NULL, size_bytes INTEGER NOT NULL, status VARCHAR(24) NOT NULL DEFAULT 'staged', "
+        "created_at DATETIME NOT NULL, expires_at DATETIME"
+        ")"
+    ))
+    for name, column in (
+        ("ix_question_image_assets_kind", "kind"),
+        ("ix_question_image_assets_batch_id", "batch_id"),
+        ("ix_question_image_assets_bank_id", "bank_id"),
+        ("ix_question_image_assets_sha256", "sha256"),
+        ("ix_question_image_assets_status", "status"),
+        ("ix_question_image_assets_expires_at", "expires_at"),
+    ):
+        connection.execute(text(f"CREATE INDEX IF NOT EXISTS {name} ON question_image_assets ({column})"))
+
+
+def _upgrade_local_sqlite_agent_image_flags(connection: object, inspector: object) -> None:
+    """Add non-sensitive attachment metadata to existing chat tables."""
+
+    for table_name in ("agent_messages", "tutor_messages"):
+        columns = {column["name"] for column in inspector.get_columns(table_name)}
+        if "image_attached" not in columns:
+            connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN image_attached BOOLEAN NOT NULL DEFAULT 0"))
+        if "image_asset_id" not in columns:
+            connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN image_asset_id VARCHAR(150)"))
+        connection.execute(text(f"CREATE INDEX IF NOT EXISTS ix_{table_name}_image_asset_id ON {table_name} (image_asset_id)"))
 
 
 def _upgrade_local_sqlite_question_bank_order(connection: object, inspector: object) -> None:

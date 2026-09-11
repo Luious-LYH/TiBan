@@ -10,6 +10,7 @@ from typing import Any, Literal, Protocol
 from uuid import uuid4
 
 from app.domains import get_domain
+from app.application.errors import ApplicationError, VisionNotSupportedError
 
 
 AgentEventType = Literal['agent_start', 'activity', 'message_start', 'reasoning', 'token', 'tool_start', 'tool_end', 'source', 'done', 'message_end', 'error']
@@ -39,6 +40,7 @@ class AgentContext:
     attempt_id: str | None = None
     practice_session_id: str | None = None
     tutor_thread_id: str | None = None
+    image_paths: list[str] = field(default_factory=list)
     cancelled: Callable[[], bool] = lambda: False
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -78,6 +80,7 @@ class TutorDependencies:
 
 class ModelGateway(Protocol):
     name: str
+    supports_vision: bool
 
     def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]: ...
 
@@ -88,6 +91,7 @@ class LocalPolicyModelGateway:
     """No-secret development adapter. It is never presented as an external model run."""
 
     name = 'local-policy-adapter/external-provider-pending'
+    supports_vision = False
 
     def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
         return _policy_tools(context, available_tools)
@@ -204,6 +208,16 @@ class AgentRunner:
                     })
                     return
                 observations['current_question'] = {}
+        current_question = observations.get('current_question')
+        if isinstance(current_question, dict) and current_question.get('image_url'):
+            context.metadata['_current_question_image'] = str(current_question['image_url'])
+        if _has_visual_context(context):
+            if not bool(getattr(self.gateway, 'supports_vision', False)):
+                yield AgentEvent('error', {
+                    'code': VisionNotSupportedError.code,
+                    'message': '当前默认模型暂不支持读取图片，请更换为支持视觉输入的模型后重试。',
+                })
+                return
         receipts: list[ToolReceipt] = []
         try:
             if context.cancelled():
@@ -223,6 +237,9 @@ class AgentRunner:
                         if name in policy_allowed
                     ][: self.max_steps] if policy_allowed else []
                     break
+                except ApplicationError as exc:
+                    yield AgentEvent('error', {'code': exc.code, 'message': str(exc)})
+                    return
                 except Exception as exc:
                     if retry_count >= self.retries:
                         yield AgentEvent('error', {'code': 'gateway_failure', 'message': f'模型网关不可用：{type(exc).__name__}。请重试。'})
@@ -242,17 +259,46 @@ class AgentRunner:
                 receipts.append(receipt)
                 yield AgentEvent('tool_end', {'tool_name': tool_name, **asdict(receipt)})
                 yield AgentEvent('activity', {'activity': tool_name, 'status': 'completed' if receipt.status == 'ok' else 'failed', 'label': _activity_label(tool_name, receipt.status), 'elapsed_ms': receipt.elapsed_ms})
-                if tool_name == 'retrieve_knowledge':
+                if tool_name in {'retrieve_knowledge', 'search_knowledge'}:
                     for source in observation:
                         yield AgentEvent('source', source)
-            text = _clean_user_facing_text(self.gateway.compose(context, observations))
+                if _observation_has_visual_context(observation):
+                    if not bool(getattr(self.gateway, 'supports_vision', False)):
+                        yield AgentEvent('error', {
+                            'code': VisionNotSupportedError.code,
+                            'message': '检索到的资料包含图片，但当前智能辅导模型不支持图片输入，无法可靠解读。请配置支持视觉输入的模型后重试。',
+                        })
+                        return
+                    context.metadata['_knowledge_images_attached'] = True
+            try:
+                text = _clean_user_facing_text(self.gateway.compose(context, observations))
+            except ApplicationError as exc:
+                yield AgentEvent('error', {'code': exc.code, 'message': str(exc)})
+                return
             yield AgentEvent('reasoning', {'summary': ['识别学习目标', '对照题目与允许的证据', '组织面向学习者的回答'], 'duration_ms': round((perf_counter() - started) * 1000)})
             for token in _tokenize(text):
                 yield AgentEvent('token', {'text': token})
             yield AgentEvent('done', {'run_id': run_id, 'duration_ms': round((perf_counter() - started) * 1000), 'receipt_count': len(receipts)})
             yield AgentEvent('message_end', {'run_id': run_id, 'receipt_count': len(receipts), 'provider': self.gateway.name, 'retry_count': retry_count})
+        except ApplicationError as exc:
+            yield AgentEvent('error', {'code': exc.code, 'message': str(exc)})
         except Exception as exc:
             yield AgentEvent('error', {'code': 'agent_failure', 'message': f'智能辅导暂不可用：{type(exc).__name__}。请重试。'})
+
+
+def _has_visual_context(context: AgentContext) -> bool:
+    return bool(context.image_paths or context.metadata.get('_current_question_image'))
+
+
+def _observation_has_visual_context(observation: Any) -> bool:
+    if not isinstance(observation, list):
+        return False
+    return any(
+        isinstance(item, dict)
+        and isinstance(item.get('image_urls'), list)
+        and any(str(url).strip() for url in item.get('image_urls', []))
+        for item in observation
+    )
 
 
 def _tokenize(text: str) -> list[str]:
@@ -271,7 +317,9 @@ def _policy_tools(context: AgentContext, available_tools: set[str]) -> list[str]
     lowered = context.user_message.lower()
     profile = str(context.metadata.get('agent_profile', 'question_assistant'))
     explicit_knowledge = any(marker in lowered for marker in (
-        '知识库', '我的资料', '上传的资料', '根据资料', '课程资料', '根据来源', '文献', '指南', '查资料', '查一下资料', '引用来源',
+        '知识库', '我的资料', '上传的资料', '根据资料', '结合资料', '资料中的', '课程资料',
+        '根据来源', '资料出处', '引用来源', '结合图像', '根据图像', '相关资料', '文献', '指南',
+        '查资料', '查一下资料',
     ))
     history_request = any(marker in lowered for marker in (
         '我最近', '近期', '我的错题', '我老错', '总在这题错', '为什么总', '容易错',

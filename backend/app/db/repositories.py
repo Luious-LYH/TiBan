@@ -677,6 +677,8 @@ class Stage1Repository:
             "question_id": question.question_id,
             "question_type": question.question_type,
             "question_summary": (question.stem or question.title).strip()[:120],
+            "image_url": question.image_url,
+            "image_alt": question.image_alt,
             "subject": question.subject,
             "topic": question.topic,
             "completed": latest is not None,

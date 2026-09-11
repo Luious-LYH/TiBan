@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.core.config import DEFAULT_DOMAIN_ID
+from app.schemas.stage1 import QuestionImageAssetRef
 from app.services.factory_service import enqueue_factory_job, get_job, import_allowed_document, mark_factory_dispatch_failed, publish_revision, record_queue_message, request_job_cancellation
 from app.services.question_bank_import_service import question_bank_import_service
 from app.workers.factory_worker import process_factory_job_actor
@@ -186,6 +187,7 @@ class ImportBatchCreateRequest(BaseModel):
     custom_domain_name: str | None = Field(default=None, max_length=48)
     source_name: str | None = Field(default=None, max_length=120)
     file_name: str | None = Field(default=None, max_length=300)
+    image_assets: list[QuestionImageAssetRef] = Field(default_factory=list, max_length=200)
 
 
 class ImportDraftStatusRequest(BaseModel):
@@ -222,6 +224,7 @@ class ImportDraftPublic(BaseModel):
     body_part: str
     difficulty: str
     image_url: str | None = None
+    image_alt: str | None = None
     subject: str | None = None
     topic: str | None = None
     teaching_tags: list[str] = Field(default_factory=list)

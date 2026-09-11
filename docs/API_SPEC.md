@@ -2,6 +2,28 @@
 
 Base URL: `http://127.0.0.1:8000/api`
 
+## V3.5 图片题与图片对话
+
+图片能力覆盖题目图片、Tutor/Mentor 对话附件和知识资料中的图片。知识资料会保留
+Figure 图注、页码、图片资产与文字片段的关联，并在可用时建立图片检索索引；向量服务不可用
+时，文字资料和图片预览仍可用，接口会返回真实的索引状态。
+
+| Method | Path | 说明 |
+|---|---|---|
+| POST | `/v3/assets/question-images` | 校验并暂存题库图片，返回不透明资产 ID 和受控 URL |
+| GET | `/v3/assets/question-images/{asset_id}` | 读取已关联且仍有效的题库图片 |
+| POST | `/v3/assets/chat-images` | 校验并暂存一张短期聊天图片 |
+| GET | `/v3/assets/chat-images/{asset_id}` | 读取仍有效的聊天图片 |
+| POST | `/v3/factory/import-batches` | 创建支持 CSV、JSON、JSONL 图片字段的持久化审核批次 |
+| POST | `/v3/tutor/stream` | 在当前题目存在图片时发送真实多模态 Tutor 请求 |
+| POST | `/v3/mentor/conversations/{conversation_id}/stream` | 发送带可选一张图片的 Mentor 请求 |
+| GET | `/v3/knowledge/sources` | 查看文字/图片资料及其真实处理状态 |
+| GET | `/v3/knowledge/sources/{document_id}` | 查看资料片段、图片预览和资料关联摘要 |
+| GET | `/v3/knowledge/media/{asset_id}` | 读取受控知识图片资产 |
+| POST | `/v3/knowledge/search` | 搜索文字片段，并在可用时返回相关图片与资料关联 |
+
+图片字段必须引用与题目文件一起上传的相对文件名；不接受 Base64、远程 URL、绝对路径或路径穿越。服务端校验 MIME、文件头、大小和像素尺寸。数据库、日志、trace 和 Redis/Dramatiq 消息只保留资产 ID 或摘要，不保留图片字节或 data URL。若当前 Provider 不支持视觉输入，接口返回 `vision_not_supported`，不会静默丢弃图片。
+
 ## V3.3 评测实验室
 
 用户评测入口是 `/api/v3/evaluation/lab`，只保留模型评测与 RAG 评测。

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import os
 import re
+import hashlib
+import shutil
+from dataclasses import asdict
 from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
@@ -12,10 +15,15 @@ import fitz
 from docx import Document
 from sqlalchemy import func, select
 
-from app.core.config import DEFAULT_DOMAIN_ID
+from app.core.config import (
+    DEFAULT_DOMAIN_ID,
+    DEFAULT_MULTIMODAL_KNOWLEDGE_SAMPLE_PATH,
+    DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID,
+)
 from app.db.database import SessionLocal
-from app.db.models import BackgroundJobModel, DocumentVersionModel, KnowledgeChunkModel, QuestionModel, SourceDocumentModel
+from app.db.models import BackgroundJobModel, DocumentVersionModel, KnowledgeChunkModel, KnowledgeMediaAssetModel, QuestionModel, SourceDocumentModel
 from app.services.rag_service import MODEL_NAME, rag_service
+from app.services.knowledge_multimodal_service import knowledge_multimodal_service
 
 
 KNOWLEDGE_UPLOAD_DIR = Path(os.getenv("ENDO_KNOWLEDGE_UPLOAD_DIR", Path(__file__).resolve().parents[2] / "runtime" / "knowledge"))
@@ -32,9 +40,31 @@ ALLOWED_TYPES = {
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 PARSER_VERSION = "v31-section-aware-1"
 LEGACY_PREFIXES = ("stage7-medical-", "stage7-general-")
+DEFAULT_MULTIMODAL_KNOWLEDGE_TITLE = "消化道内镜图像记录建议"
+DEFAULT_MULTIMODAL_KNOWLEDGE_FILE_NAME = "Image Documentation in Gastrointestinal Endoscopy - Review of Recommendations.pdf"
+DEFAULT_MULTIMODAL_KNOWLEDGE_ATTRIBUTION = "Image Documentation in Gastrointestinal Endoscopy: Review of Recommendations；Susana Marques 等；CC BY-NC-ND 4.0"
+DEFAULT_MULTIMODAL_KNOWLEDGE_URI = "https://doi.org/10.1159/000477739"
 
 
 class KnowledgeService:
+    def search(self, *, query: str, domain_id: str | None, limit: int) -> dict[str, object]:
+        result = rag_service.retrieve_multimodal(query, limit=limit, domain_id=domain_id, include_images=True, include_graph=True)
+        citations = []
+        for item in result.get("citations", []):
+            payload = asdict(item) if hasattr(item, "__dataclass_fields__") else dict(item)
+            payload["media_asset_ids"] = list(payload.get("media_asset_ids") or [])
+            payload["image_urls"] = list(payload.get("image_urls") or [])
+            citations.append(payload)
+        return {**result, "citations": citations}
+
+    @staticmethod
+    def resolve_media_path(asset_id: str) -> Path:
+        return knowledge_multimodal_service.resolve_path(asset_id)
+
+    @staticmethod
+    def media_asset(asset_id: str) -> dict[str, object]:
+        return knowledge_multimodal_service.public_asset(asset_id)
+
     def list_sources(self, scope: str | None = None) -> list[dict[str, object]]:
         """Return the knowledge-library projection without touching retrieval runtime.
 
@@ -77,6 +107,23 @@ class KnowledgeService:
             )
             payload = self._public(row, int(chunk_count or 0))
             payload["preview"] = [{"section": item.parent_section, "page": item.page, "text": item.content[:700]} for item in chunks]
+            media = list(session.scalars(select(KnowledgeMediaAssetModel).where(
+                KnowledgeMediaAssetModel.document_id == document_id,
+                KnowledgeMediaAssetModel.version_id.in_(latest_version_ids),
+                KnowledgeMediaAssetModel.status == "ready",
+            ).order_by(KnowledgeMediaAssetModel.ordinal).limit(6)))
+            payload["media_preview"] = [
+                {
+                    "asset_id": item.asset_id,
+                    "url": f"/api/v3/knowledge/media/{item.asset_id}",
+                    "mime_type": item.mime_type,
+                    "width": item.width,
+                    "height": item.height,
+                    "page": item.page,
+                    "alt_text": item.alt_text or "资料中的教学图片",
+                }
+                for item in media
+            ]
             return payload
 
     def upload(self, *, filename: str, content: bytes, content_type: str | None, domain_id: str = DEFAULT_DOMAIN_ID) -> dict[str, object]:
@@ -107,6 +154,110 @@ class KnowledgeService:
             session.commit()
         return self._enqueue_index(document_id, reason="upload")
 
+    def ensure_default_multimodal_guide(self) -> dict[str, object] | None:
+        """Make the bundled, attributed endoscopy guide available on a clean run.
+
+        The source PDF is kept unchanged in the public sample directory.  It is
+        copied into the ignored runtime knowledge directory before parsing so
+        startup never writes beside an installed/read-only application file.
+        Repeated starts reuse the indexed source and do not rebuild it unless
+        the bundled file has changed.
+        """
+
+        bundled_path = DEFAULT_MULTIMODAL_KNOWLEDGE_SAMPLE_PATH
+        if not bundled_path.is_file():
+            return None
+        payload = bundled_path.read_bytes()
+        source_hash = hashlib.sha256(payload).hexdigest()
+        runtime_path = KNOWLEDGE_UPLOAD_DIR / f"{DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID}.pdf"
+        KNOWLEDGE_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        if not runtime_path.is_file() or hashlib.sha256(runtime_path.read_bytes()).hexdigest() != source_hash:
+            shutil.copyfile(bundled_path, runtime_path)
+
+        # Keep the stable ID available for the clean-install branch below.
+        # Without this assignment the first startup raised UnboundLocalError
+        # after creating the row, so the bundled source never reached the
+        # parser or the knowledge-library projection.
+        document_id = DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID
+        with SessionLocal() as session:
+            row = session.get(SourceDocumentModel, DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID)
+            if row is None:
+                # A previous local run may have imported the same user-provided
+                # PDF manually. Reuse that row instead of showing two copies.
+                row = session.scalar(select(SourceDocumentModel).where(
+                    SourceDocumentModel.source_scope == "system",
+                    SourceDocumentModel.source_uri == DEFAULT_MULTIMODAL_KNOWLEDGE_URI,
+                ).order_by(SourceDocumentModel.created_at.asc()))
+            if row is None:
+                row = SourceDocumentModel(
+                    document_id=DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID,
+                    domain_id=DEFAULT_DOMAIN_ID,
+                    bank_id=None,
+                    name=DEFAULT_MULTIMODAL_KNOWLEDGE_TITLE,
+                    media_type="application/pdf",
+                    content_hash=source_hash,
+                    status="queued",
+                    source_id=DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID,
+                    business_usage="knowledge_base",
+                    license_gate_status="allow_noncommercial",
+                    ai_ingestion_allowed=True,
+                    source_uri=DEFAULT_MULTIMODAL_KNOWLEDGE_URI,
+                    namespace="system",
+                    attribution=DEFAULT_MULTIMODAL_KNOWLEDGE_ATTRIBUTION,
+                    source_scope="system",
+                    file_name=DEFAULT_MULTIMODAL_KNOWLEDGE_FILE_NAME,
+                    size_bytes=len(payload),
+                    enabled=False,
+                    index_stage="准备示例资料",
+                    index_progress=0,
+                )
+                session.add(row)
+            elif row.content_hash == source_hash and row.image_count > 0 and row.graph_status == "ready":
+                # Upgrade pre-V3.5 reused system rows without forcing a
+                # needless parse/index cycle.
+                row.source_id = DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID
+                session.commit()
+                return self.detail(row.document_id)
+            else:
+                row.domain_id = DEFAULT_DOMAIN_ID
+                row.name = DEFAULT_MULTIMODAL_KNOWLEDGE_TITLE
+                row.media_type = "application/pdf"
+                row.content_hash = source_hash
+                # The bundled guide uses a stable source ID even when an
+                # older local run first registered it under an opaque import
+                # ID.  This keeps its reproducible Figure-caption evaluation
+                # fixture independent from runtime document IDs.
+                row.source_id = DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID
+                row.business_usage = "knowledge_base"
+                row.license_gate_status = "allow_noncommercial"
+                row.ai_ingestion_allowed = True
+                row.source_uri = DEFAULT_MULTIMODAL_KNOWLEDGE_URI
+                row.namespace = "system"
+                row.attribution = DEFAULT_MULTIMODAL_KNOWLEDGE_ATTRIBUTION
+                row.source_scope = "system"
+                row.file_name = DEFAULT_MULTIMODAL_KNOWLEDGE_FILE_NAME
+                row.size_bytes = len(payload)
+                row.enabled = False
+                row.status = "queued"
+                row.index_stage = "准备示例资料"
+                row.index_progress = 0
+            document_id = row.document_id
+            session.commit()
+
+        return self._index(
+            document_id=document_id,
+            source_path=runtime_path,
+            title=DEFAULT_MULTIMODAL_KNOWLEDGE_TITLE,
+            file_name=DEFAULT_MULTIMODAL_KNOWLEDGE_FILE_NAME,
+            media_type="application/pdf",
+            scope="system",
+            namespace="system",
+            domain_id=DEFAULT_DOMAIN_ID,
+            attribution=DEFAULT_MULTIMODAL_KNOWLEDGE_ATTRIBUTION,
+            source_uri=DEFAULT_MULTIMODAL_KNOWLEDGE_URI,
+            license_gate_status="allow_noncommercial",
+        )
+
     def set_enabled(self, document_id: str, enabled: bool) -> dict[str, object]:
         with SessionLocal() as session:
             row = self._document(session, document_id)
@@ -118,8 +269,13 @@ class KnowledgeService:
     def reindex(self, document_id: str) -> dict[str, object]:
         with SessionLocal() as session:
             row = self._document(session, document_id)
-            version = session.scalar(select(DocumentVersionModel).where(DocumentVersionModel.document_id == document_id).order_by(DocumentVersionModel.created_at.desc()))
-            if version is None or not Path(version.source_path).is_file():
+            versions = list(session.scalars(
+                select(DocumentVersionModel)
+                .where(DocumentVersionModel.document_id == document_id)
+                .order_by(DocumentVersionModel.created_at.desc(), DocumentVersionModel.version_id.desc())
+            ))
+            version = self._select_reindex_source_version(versions)
+            if version is None:
                 raise ValueError("原始资料文件已不可用，无法重新索引。")
         return self._enqueue_index(document_id, reason="reindex")
 
@@ -135,6 +291,7 @@ class KnowledgeService:
         except Exception:
             # Deleting canonical source metadata must remain possible while the
             # derived vector service is offline; next rebuild drops old points.
+            knowledge_multimodal_service.purge_document(document_id)
             with SessionLocal() as session:
                 session.query(KnowledgeChunkModel).filter_by(document_id=document_id).delete(synchronize_session=False)
                 session.query(DocumentVersionModel).filter_by(document_id=document_id).delete(synchronize_session=False)
@@ -220,8 +377,17 @@ class KnowledgeService:
                 session.commit()
         return len(legacy)
 
-    def _index(self, *, document_id: str, source_path: Path, title: str, file_name: str, media_type: str, scope: str, namespace: str, domain_id: str, attribution: str | None, source_uri: str | None) -> dict[str, object]:
+    def _index(self, *, document_id: str, source_path: Path, title: str, file_name: str, media_type: str, scope: str, namespace: str, domain_id: str, attribution: str | None, source_uri: str | None, license_gate_status: str = "allow") -> dict[str, object]:
         markdown, parser = self._parse(source_path)
+        # The bundled guide may reuse an existing local document row.  Its
+        # evidence fixture must still resolve by a stable public source ID,
+        # rather than whichever opaque document ID happened to be created on
+        # that machine.  Other sources keep their normal document identity.
+        source_identifier = (
+            DEFAULT_MULTIMODAL_KNOWLEDGE_SOURCE_ID
+            if source_uri == DEFAULT_MULTIMODAL_KNOWLEDGE_URI
+            else document_id
+        )
         # Include this canonical source in the worker's global rebuild while
         # keeping its public status non-retrievable until the final commit.
         with SessionLocal() as session:
@@ -237,11 +403,52 @@ class KnowledgeService:
                 pending.enabled = True
                 pending.status = "ready" if has_existing_chunks else "indexing"
                 pending.business_usage = "knowledge_base"
-                pending.license_gate_status, pending.ai_ingestion_allowed = "allow", True
+                pending.license_gate_status, pending.ai_ingestion_allowed = license_gate_status, True
                 session.commit()
-        rag_service.index_markdown(markdown, document_id=document_id, document_name=title, domain_id=domain_id, child_size=700,
-                                   namespace=namespace, source_id=document_id, source_uri=source_uri, business_usage="knowledge_base",
-                                   license_gate_status="allow", ai_ingestion_allowed=True, version_label=f"{PARSER_VERSION}-700")
+        vector_error: str | None = None
+        try:
+            rag_service.index_markdown(markdown, document_id=document_id, document_name=title, domain_id=domain_id, child_size=700,
+                                       namespace=namespace, source_id=source_identifier, source_uri=source_uri, business_usage="knowledge_base",
+                                       license_gate_status=license_gate_status, ai_ingestion_allowed=True, version_label=f"{PARSER_VERSION}-700")
+        except Exception as exc:
+            # Text-vector maintenance is a derived capability.  Keep the
+            # committed text chunks available for sparse retrieval and still
+            # continue with PDF/DOCX media extraction and the evidence graph;
+            # the source status below records the exact retryable failure.
+            vector_error = type(exc).__name__
+        # Text retrieval is canonical and must remain usable when the optional
+        # image encoder or image Qdrant collection is unavailable.  Media
+        # extraction and the deterministic evidence graph therefore happen
+        # after the text index commit, with image-vector failure isolated to
+        # the source's truthful status fields.
+        with SessionLocal() as session:
+            version = session.scalar(select(DocumentVersionModel).where(
+                DocumentVersionModel.document_id == document_id,
+            ).order_by(DocumentVersionModel.created_at.desc(), DocumentVersionModel.version_id.desc()))
+            if version is not None:
+                # ``RagService`` indexes the normalized markdown projection;
+                # retain the original upload as the durable source path so a
+                # later background reindex can extract embedded media again.
+                version.source_path = str(source_path.resolve())
+                version.parser = parser
+                session.commit()
+        if version is not None:
+            media = knowledge_multimodal_service.ingest_document(
+                document_id=document_id,
+                version_id=version.version_id,
+                source_path=source_path,
+                media_type=media_type,
+            )
+            if int(media.get("image_count") or 0) > 0:
+                try:
+                    rag_service.rebuild_knowledge_image_index(document_ids=[document_id])
+                except Exception as exc:
+                    # The text path has already succeeded.  Keep the exact
+                    # failure class for the UI/diagnostics without exposing
+                    # provider keys or local paths.
+                    knowledge_multimodal_service.set_image_index_status(
+                        [document_id], "failed", type(exc).__name__
+                    )
         with SessionLocal() as session:
             row = session.get(SourceDocumentModel, document_id)
             assert row is not None
@@ -249,13 +456,14 @@ class KnowledgeService:
             row.source_scope, row.namespace, row.domain_id = scope, namespace, domain_id
             state = rag_service.index_state()
             row.status, row.enabled, row.business_usage = "ready", True, "knowledge_base"
-            row.license_gate_status, row.ai_ingestion_allowed = "allow", True
+            row.license_gate_status, row.ai_ingestion_allowed = license_gate_status, True
             row.attribution, row.source_uri = attribution, source_uri or str(source_path.resolve())
+            row.content_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
             row.size_bytes, row.parser_version, row.embedding_model = source_path.stat().st_size, parser, str(state.get("model") or MODEL_NAME)
             row.embedding_provider = str(state.get("provider") or "") or None
             row.embedding_dimension = int(state["vector_dimension"]) if isinstance(state.get("vector_dimension"), int) else None
             row.index_version = int(state.get("index_version") or 0)
-            row.index_stage, row.index_progress, row.index_error = "completed", 100, None
+            row.index_stage, row.index_progress, row.index_error = "completed", 100, vector_error
             session.commit()
         return self.detail(document_id)
 
@@ -321,8 +529,13 @@ class KnowledgeService:
             if job.status == "completed":
                 return {"job_id": job_id, "status": "completed"}
             row = self._document(session, job.target_id)
-            version = session.scalar(select(DocumentVersionModel).where(DocumentVersionModel.document_id == row.document_id).order_by(DocumentVersionModel.created_at.desc()))
-            if version is None or not Path(version.source_path).is_file():
+            versions = list(session.scalars(
+                select(DocumentVersionModel)
+                .where(DocumentVersionModel.document_id == row.document_id)
+                .order_by(DocumentVersionModel.created_at.desc(), DocumentVersionModel.version_id.desc())
+            ))
+            version = self._select_reindex_source_version(versions)
+            if version is None:
                 raise ValueError("原始资料文件已不可用，无法索引。")
             had_previous_chunks = bool(session.scalar(select(func.count(KnowledgeChunkModel.chunk_id)).where(
                 KnowledgeChunkModel.document_id == row.document_id,
@@ -422,6 +635,26 @@ class KnowledgeService:
         return row
 
     @staticmethod
+    def _select_reindex_source_version(versions: list[DocumentVersionModel]) -> DocumentVersionModel | None:
+        """Choose the durable source file, never the derived parsed Markdown.
+
+        A knowledge version also has a normalized ``.parsed.md`` projection for
+        text retrieval. Older records used that projection as ``source_path``
+        after indexing, which made a later reindex silently lose embedded PDF
+        or DOCX media. Prefer an existing original upload/source path and only
+        fall back to a non-derived file when no sibling is available.
+        """
+
+        usable = [item for item in versions if Path(item.source_path).is_file()]
+        if not usable:
+            return None
+        original = [
+            item for item in usable
+            if not str(item.source_path).lower().endswith(".parsed.md")
+        ]
+        return original[0] if original else usable[0]
+
+    @staticmethod
     def _latest_versions(session: object, document_ids: list[str]):
         """Return a ranked subquery selecting the newest version per source.
 
@@ -446,11 +679,22 @@ class KnowledgeService:
                 "enabled": row.enabled, "parser_version": row.parser_version, "embedding_model": row.embedding_model,
                 "embedding_provider": row.embedding_provider, "index_version": row.index_version, "index_job_id": row.index_job_id,
                 "index_stage": row.index_stage, "index_progress": row.index_progress, "index_error": row.index_error,
+                "image_count": row.image_count, "image_index_status": row.image_index_status,
+                "image_index_error": row.image_index_error, "graph_status": row.graph_status,
+                "graph_node_count": row.graph_node_count, "graph_edge_count": row.graph_edge_count,
+                "graph_error": row.graph_error, "media_preview": [],
                 "attribution": row.attribution, "created_at": row.created_at, "updated_at": row.updated_at}
 
     @staticmethod
     def _purge(document_id: str, *, remove_document: bool) -> None:
         rag_service.delete_documents([document_id])
+        try:
+            rag_service.delete_image_documents([document_id])
+        except Exception:
+            # Derived image storage is optional; relational cleanup below is
+            # still required when Qdrant is unavailable.
+            pass
+        knowledge_multimodal_service.purge_document(document_id)
         with SessionLocal() as session:
             session.query(KnowledgeChunkModel).filter_by(document_id=document_id).delete(synchronize_session=False)
             session.query(DocumentVersionModel).filter_by(document_id=document_id).delete(synchronize_session=False)

@@ -1,9 +1,9 @@
-import { ArrowLeft, Bookmark, Check, CheckCircle2, ChevronRight, Clock3, ImageIcon, ListChecks, Play, RotateCcw, XCircle } from 'lucide-react'
+import { ArrowLeft, Bookmark, Check, CheckCircle2, ChevronRight, Clock3, ListChecks, Play, RotateCcw, XCircle } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { getBankQuestionProgress, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, leavePracticeSession, resumePracticeSession, setQuestionMark, submitFsrsReview, submitPracticeAnswer, type AnswerValue, type PracticeResumable, type Question, type ReviewCard, type SubmitResult, type TutorThread } from '../../api/client'
+import { getBankQuestionProgress, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, leavePracticeSession, resolveApiUrl, resumePracticeSession, setQuestionMark, submitFsrsReview, submitPracticeAnswer, type AnswerValue, type PracticeResumable, type Question, type ReviewCard, type SubmitResult, type TutorThread } from '../../api/client'
 import { EmptyState, ErrorState, LoadingState } from '../../components/shared/AsyncState'
 import { TutorPanel } from '../../components/tutor/TutorPanel'
 
@@ -39,8 +39,13 @@ export function PracticePage() {
   const restoredSessionQuery = useQuery({ queryKey: ['practice-session', sessionId], queryFn: () => getPracticeSession(sessionId ?? ''), enabled: Boolean(sessionId), retry: false })
   const resumableQuery = useQuery({ queryKey: ['practice-session-resumable'], queryFn: () => getResumablePracticeSession(), enabled: !sessionId, retry: false })
   const restoredSession = restoredSessionQuery.data ?? null
-  const activeSession = restoredSession
-  const selectedBankId = restoredSession?.bank_id
+  // A stale deep link can point at a completed/closed session. It remains
+  // useful as history, but it is not a resumable Practice context. Keep this
+  // distinction explicit so the page does not wait for a Tutor thread that
+  // can never be created.
+  const staleSession = Boolean(restoredSession && !routeTutorThreadId && restoredSession.status !== 'active')
+  const activeSession = staleSession ? null : restoredSession
+  const selectedBankId = activeSession?.bank_id
   const tutorThreadId = routeTutorThreadId ?? resumedThread?.tutor_thread_id
   const resumeMutation = useMutation({ mutationFn: (targetSessionId: string) => resumePracticeSession(targetSessionId) })
   const questionsQuery = useQuery({
@@ -54,7 +59,7 @@ export function PracticePage() {
     // A direct session URL without an issued thread is a genuine resume.
     // Resume preserves position while deliberately creating a fresh Tutor
     // context; a new builder session already supplies its thread in the URL.
-    if (!sessionId || routeTutorThreadId || resumedThread || !restoredSession || resumeMutation.isPending) return
+    if (!sessionId || routeTutorThreadId || resumedThread || !restoredSession || restoredSession.status !== 'active' || resumeMutation.isPending) return
     resumeMutation.mutate(sessionId, { onSuccess: setResumedThread })
   }, [resumeMutation, resumedThread, restoredSession, routeTutorThreadId, sessionId])
 
@@ -135,6 +140,7 @@ export function PracticePage() {
       navigate('/banks')
     }} />
   }
+  if (staleSession) return <PracticeSessionClosed status={restoredSession?.status ?? 'abandoned'} />
   if (banksQuery.isPending || restoredSessionQuery.isPending || !selectedBankId || !activeSession || questionsQuery.isPending || (!routeTutorThreadId && resumeMutation.isPending)) return <LoadingState label="正在恢复本次练习…" />
   if (banksQuery.isError) return <ErrorState message={banksQuery.error.message} onRetry={() => void banksQuery.refetch()} />
   if (restoredSessionQuery.isError) return <ErrorState message="无法恢复本次练习 session。" onRetry={() => void restoredSessionQuery.refetch()} />
@@ -175,7 +181,7 @@ export function PracticePage() {
 
         <section className={`practice-question ${question.image_url ? 'has-image' : 'is-text-only'}`} data-testid="question-card" data-question-layout={question.image_url ? 'image' : 'text-only'}>
           <div className="practice-question-kicker"><span>{typeLabels[question.question_type]}</span></div>
-          <div className={question.image_url ? 'practice-question-heading has-image' : 'practice-question-heading'}><div><h1>{question.stem}</h1>{learnerCaseSummary(question.case_summary) && <p>{learnerCaseSummary(question.case_summary)}</p>}</div>{question.image_url && <figure className="practice-question-image"><img src={question.image_url} alt={question.image_alt ?? '内镜教学图像'} /><figcaption><ImageIcon size={13} />{question.image_alt ?? '图像题'}</figcaption></figure>}</div>
+          <div className={question.image_url ? 'practice-question-heading has-image' : 'practice-question-heading'}><div><h1>{question.stem}</h1>{learnerCaseSummary(question.case_summary) && <p>{learnerCaseSummary(question.case_summary)}</p>}</div>{question.image_url && <figure className="practice-question-image"><img src={resolveApiUrl(question.image_url)} alt={question.image_alt ?? '内镜教学图像'} /></figure>}</div>
           <AnswerControl question={question} answer={answer} disabled={Boolean(result)} result={result} onChoose={chooseOption} onText={setAnswer} />
           {submitMutation.isError && <div className="practice-inline-error" role="alert">提交失败：{submitMutation.error.message}</div>}
           {result && <ResultPanel question={question} result={result} mode={mode} reviewCard={reviewMutation.data?.question_id === question.id ? reviewMutation.data : undefined} reviewPending={reviewMutation.isPending} reviewError={reviewMutation.isError ? reviewMutation.error.message : undefined} onReview={(rating) => reviewMutation.mutate({ questionId: question.id, rating })} />}
@@ -183,8 +189,13 @@ export function PracticePage() {
         </section>
       </div>}
     </main>
-    {question && tutorThreadId && <TutorPanel questionId={question.id} practiceSessionId={activeSession.session_id} tutorThreadId={tutorThreadId} attemptId={result?.attempt_id} learnerId={learnerId} mode={mode} open={tutorOpen} onClose={() => setTutorOpen(false)} contextLabel={learnerTopic(question.topic) ?? question.subject ?? displayBankName(selectedBank?.name) ?? '当前题目'} />}
+    {question && tutorThreadId && <TutorPanel key={`${activeSession.session_id}:${question.id}:${tutorThreadId}`} questionId={question.id} practiceSessionId={activeSession.session_id} tutorThreadId={tutorThreadId} attemptId={result?.attempt_id} learnerId={learnerId} mode={mode} open={tutorOpen} onClose={() => setTutorOpen(false)} contextLabel={learnerTopic(question.topic) ?? question.subject ?? displayBankName(selectedBank?.name) ?? '当前题目'} />}
   </div>
+}
+
+function PracticeSessionClosed({ status }: { status: string }) {
+  const completed = status === 'completed'
+  return <div className="practice-entry-shell"><section className="practice-entry-card practice-resume-gate" role="status"><div className="practice-entry-icon"><Clock3 size={20} /></div><div className="practice-entry-copy"><span className="practice-entry-eyebrow">练习记录</span><h1>{completed ? '这组练习已完成' : '这组练习已关闭'}</h1><p>{completed ? '这组题目的作答记录已经保存。你可以从题库开始下一组练习。' : '这组练习已经结束，原有作答记录仍会保留。你可以从题库重新开始。'}</p></div><div className="practice-entry-actions"><Link className="practice-submit" to="/banks">返回题库<ChevronRight size={16} /></Link></div></section></div>
 }
 
 function PracticeEntryGate({ resumable, onContinue, onChooseBank }: { resumable: PracticeResumable | null; onContinue: (item: PracticeResumable) => Promise<void>; onChooseBank: () => Promise<void> }) {
@@ -198,7 +209,16 @@ function PracticeEntryGate({ resumable, onContinue, onChooseBank }: { resumable:
 
 function normalizeMode(value: string | null): Mode { return value === 'exam' || value === 'review' ? value : 'study' }
 function isAnswered(value: AnswerValue | null): value is AnswerValue { return value !== null && (!(Array.isArray(value)) || value.length > 0) && (typeof value !== 'string' || value.trim().length > 0) }
-function learnerCaseSummary(value: string): string | null { const summary = value.trim(); return !summary || summary.includes('本地导入') || (summary.startsWith('来自 ') && summary.includes('真实题目') && summary.includes('上游来源与授权边界')) ? null : summary }
+function learnerCaseSummary(value: string): string | null {
+  const summary = value.trim()
+  if (!summary) return null
+  // Import provenance remains available to the author and Tutor context, but
+  // it is not a learner-facing case description.  Older imported banks use a
+  // few different phrasings, so filter the metadata family at this boundary.
+  if (summary.includes('本地导入') || summary.includes('导入题目') || summary.includes('请结合题干和来源资料完成学习')) return null
+  if (summary.startsWith('来自 ') && summary.includes('真实题目') && summary.includes('上游来源与授权边界')) return null
+  return summary
+}
 function displayBankName(name?: string) { return name?.replace(/医疗\s*\/\s*消化内镜\s*·\s*Factory\s*生成题草稿库/g, '医疗 / 消化内镜 · 资料生成题库').replace(/\s*[（(]本地导入[）)]/g, '').trim() }
 function learnerTopic(value: string | null | undefined) { const topic = String(value ?? '').trim(); return /^(不符合|未知|其他|n\/?a|import|csv|jsonl)$/i.test(topic) || /模块\s*\d+/i.test(topic) ? null : topic || null }
 function formatResumeTime(value: string) { const date = new Date(value); if (Number.isNaN(date.getTime())) return '刚刚'; const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60_000)); if (minutes < 2) return '刚刚'; if (minutes < 60) return `${minutes} 分钟前`; if (minutes < 24 * 60) return `${Math.floor(minutes / 60)} 小时前`; return `${date.getMonth() + 1}/${date.getDate()}` }

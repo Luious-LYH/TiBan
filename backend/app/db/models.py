@@ -189,6 +189,11 @@ class AgentMessageModel(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     activity: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
     sources: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    image_attached: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Opaque runtime asset identity only.  Image bytes and filesystem paths
+    # never enter the transcript; chat assets remain short-lived and are
+    # resolved through the controlled asset endpoint when still available.
+    image_asset_id: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False, index=True)
 
 
@@ -222,6 +227,8 @@ class TutorMessageModel(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     activity: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
     sources: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
+    image_attached: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    image_asset_id: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
     run_id: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False, index=True)
 
@@ -283,6 +290,17 @@ class SourceDocumentModel(Base):
     index_stage: Mapped[str | None] = mapped_column(String(48), nullable=True)
     index_progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     index_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # V3.5 keeps text indexing, image indexing and relationship construction as
+    # separate truthful states.  A document can remain usable for text search
+    # when an optional local image encoder is unavailable; the UI can then show
+    # the real image-index state instead of claiming multimodal readiness.
+    image_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    image_index_status: Mapped[str] = mapped_column(String(24), nullable=False, default="empty")
+    image_index_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    graph_status: Mapped[str] = mapped_column(String(24), nullable=False, default="empty")
+    graph_node_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    graph_edge_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    graph_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
@@ -336,6 +354,36 @@ class QuestionImportDraftModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
 
+class QuestionImageAssetModel(Base):
+    """A validated image stored outside business payloads.
+
+    The database keeps only metadata and a runtime-relative storage path.  It
+    never stores the image bytes or a data URL.  ``kind`` separates images
+    staged during question import from short-lived chat attachments.
+    """
+
+    __tablename__ = "question_image_assets"
+    __table_args__ = (
+        Index("ix_question_image_assets_batch_id", "batch_id"),
+        Index("ix_question_image_assets_bank_id", "bank_id"),
+    )
+
+    asset_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    batch_id: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    bank_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    storage_path: Mapped[str] = mapped_column(String(300), nullable=False, unique=True)
+    original_filename: Mapped[str] = mapped_column(String(300), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    mime_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="staged", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+
+
 class DocumentVersionModel(Base):
     __tablename__ = "document_versions"
 
@@ -361,8 +409,77 @@ class KnowledgeChunkModel(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     token_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    modality: Mapped[str] = mapped_column(String(16), nullable=False, default="text")
+    # Opaque knowledge-media identities only; the image bytes stay in the
+    # controlled runtime asset directory and are never embedded in a chunk.
+    media_asset_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     namespace: Mapped[str] = mapped_column(String(80), nullable=False, default=DEFAULT_KNOWLEDGE_NAMESPACE, index=True)
     source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class KnowledgeMediaAssetModel(Base):
+    """Validated image extracted from a user-owned knowledge document."""
+
+    __tablename__ = "knowledge_media_assets"
+    __table_args__ = (
+        Index("ix_knowledge_media_assets_document_id", "document_id"),
+        Index("ix_knowledge_media_assets_version_id", "version_id"),
+        Index("ix_knowledge_media_assets_sha256", "sha256"),
+    )
+
+    asset_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("source_documents.document_id"), nullable=False)
+    version_id: Mapped[str] = mapped_column(ForeignKey("document_versions.version_id"), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(400), nullable=False, unique=True)
+    original_filename: Mapped[str] = mapped_column(String(300), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    alt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="ready", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class KnowledgeEntityModel(Base):
+    """Small, source-scoped entity table used by the governed graph expansion."""
+
+    __tablename__ = "knowledge_entities"
+    __table_args__ = (
+        UniqueConstraint("document_id", "canonical_name", name="uq_knowledge_entity_document_name"),
+        Index("ix_knowledge_entities_document_id", "document_id"),
+    )
+
+    entity_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("source_documents.document_id"), nullable=False)
+    canonical_name: Mapped[str] = mapped_column(String(240), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, default="concept")
+    properties: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class KnowledgeRelationModel(Base):
+    """Evidence-bound relation between two entities in one source document."""
+
+    __tablename__ = "knowledge_relations"
+    __table_args__ = (
+        Index("ix_knowledge_relations_document_id", "document_id"),
+        Index("ix_knowledge_relations_source_entity", "source_entity_id"),
+        Index("ix_knowledge_relations_target_entity", "target_entity_id"),
+        Index("ix_knowledge_relations_chunk_id", "chunk_id"),
+    )
+
+    relation_id: Mapped[str] = mapped_column(String(150), primary_key=True)
+    document_id: Mapped[str] = mapped_column(ForeignKey("source_documents.document_id"), nullable=False)
+    source_entity_id: Mapped[str] = mapped_column(ForeignKey("knowledge_entities.entity_id"), nullable=False)
+    target_entity_id: Mapped[str] = mapped_column(ForeignKey("knowledge_entities.entity_id"), nullable=False)
+    relation_type: Mapped[str] = mapped_column(String(80), nullable=False)
+    chunk_id: Mapped[str] = mapped_column(ForeignKey("knowledge_chunks.chunk_id"), nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.6)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 

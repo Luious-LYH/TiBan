@@ -372,6 +372,11 @@ function requiresRealSampleLedger(route) {
   return route === '/'
 }
 
+function requiresLegacyEvidenceSidebar(route) {
+  return ['/training', '/profile', '/report', '/models', '/card', '/delivery']
+    .some((prefix) => route.startsWith(prefix))
+}
+
 async function waitForRuntimeValue(client, expression, timeoutMs) {
   const startedAt = Date.now()
   while (Date.now() - startedAt < timeoutMs) {
@@ -461,7 +466,9 @@ async function main() {
       const result = await inspectRoute({ frontend: args.frontend, port: args.port, route, timeoutMs: args.timeoutMs })
       results.push(result)
       if (result.blank) failures.push(`${route}: page appears blank`)
-      if (!result.hasLiveEvidence) failures.push(`${route}: missing global realtime evidence sidebar`)
+      if (requiresLegacyEvidenceSidebar(route) && !result.hasLiveEvidence) {
+        failures.push(`${route}: missing global realtime evidence sidebar`)
+      }
       if (requiresRealSampleLedger(route) && !result.realSampleLedgerLoaded) failures.push(`${route}: missing real sample ledger`)
       if (requiresRealSampleLedger(route) && result.realSampleLedgerRecords <= 0) failures.push(`${route}: real sample ledger records missing`)
       if (requiresRealSampleLedger(route) && result.realSampleLedgerMapped <= 0) failures.push(`${route}: real sample ledger mapped question count missing`)
@@ -496,7 +503,7 @@ async function main() {
       printSection('Failures', { items: failures })
       return 2
     }
-    console.log('\nUI smoke passed. Key routes rendered, global realtime evidence sidebar is present, and no runtime/console errors were captured.')
+    console.log('\nUI smoke passed. Key routes rendered and no runtime/console errors were captured.')
     return 0
   } finally {
     await stopBrowser(browser)

@@ -4,22 +4,49 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.core.config import DEFAULT_DOMAIN_ID
 from app.domains import get_domain
 from app.application.errors import normalize_provider_error
-from app.services.agent_runtime import AgentContext
 from app.services.llm_provider import llm_provider
+
+if TYPE_CHECKING:
+    from app.services.agent_runtime import AgentContext
 
 
 QUESTION_ASSISTANT_PROMPT = (Path(__file__).resolve().parents[1] / "agents" / "prompts" / "question_assistant.md").read_text(encoding="utf-8")
+
+
+def _context_image_paths(context: AgentContext, observations: dict[str, Any] | None = None) -> list[str]:
+    paths = [str(path) for path in context.image_paths if str(path).strip()]
+    if context.metadata.get('_current_question_image'):
+        paths.append(str(context.metadata['_current_question_image']))
+    question = (observations or {}).get('current_question', {})
+    if isinstance(question, dict) and question.get('image_url'):
+        paths.append(str(question['image_url']))
+    for observation in (observations or {}).values():
+        if not isinstance(observation, list):
+            continue
+        for item in observation:
+            if not isinstance(item, dict):
+                continue
+            urls = item.get("image_urls", [])
+            if isinstance(urls, list):
+                paths.extend(str(url) for url in urls if str(url).strip())
+    return list(dict.fromkeys(paths))
 
 
 class OpenAICompatibleTutorGateway:
     """Opt-in adapter over the internal OpenAI-compatible provider client."""
 
     name = "openai-compatible-tutor"
+    @property
+    def supports_vision(self) -> bool:
+        # This is the configured visual-route capability, not a blanket claim
+        # that every OpenAI-compatible model can see images.  The provider
+        # response remains the final capability proof.
+        return llm_provider.vision_configured()
 
     def select_tools(self, context: AgentContext, available_tools: set[str]) -> list[str]:
         result = llm_provider.chat(
@@ -31,6 +58,7 @@ class OpenAICompatibleTutorGateway:
                 "get_answer_explanation is permitted only for explicit Study-mode, pre-submit answer requests."
             ),
             user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "mode": context.mode, "allowed_tools": sorted(available_tools)}, ensure_ascii=False),
+            image_paths=_context_image_paths(context),
             temperature=0,
             # GLM-5.3-Flash may spend a short internal reasoning budget before
             # returning the JSON tool plan. Keep enough output budget for the
@@ -67,6 +95,7 @@ class OpenAICompatibleTutorGateway:
                 + "Give concise evidence-based teaching. Mention a source only when a real supplied citation exists."
             ),
             user_prompt=json.dumps({"user_message": context.user_message, "phase": context.phase, "mode": context.mode, "observations": observations, "recent_conversation": context.metadata.get("conversation", [])[-12:]}, ensure_ascii=False),
+            image_paths=_context_image_paths(context, observations),
             temperature=0.2,
             max_tokens=420,
         )

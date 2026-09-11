@@ -15,7 +15,7 @@ from app.services.memory_reflection_service import memory_reflection_service
 
 
 class TutorSessionService:
-    def start_turn(self, *, practice_session_id: str, tutor_thread_id: str, learner_id: str, question_id: str, content: str) -> list[dict[str, str]]:
+    def start_turn(self, *, practice_session_id: str, tutor_thread_id: str, learner_id: str, question_id: str, content: str, image_attached: bool = False, image_asset_id: str | None = None) -> list[dict[str, Any]]:
         with SessionLocal() as session:
             practice = session.get(PracticeSessionModel, practice_session_id)
             thread = session.get(TutorThreadModel, tutor_thread_id)
@@ -41,6 +41,8 @@ class TutorSessionService:
             session.add(TutorMessageModel(
                 tutor_message_id=f"tutormsg_{uuid4().hex[:12]}", tutor_thread_id=tutor_thread_id,
                 practice_session_id=practice_session_id, role="user", content=content,
+                image_attached=image_attached,
+                image_asset_id=image_asset_id,
             ))
             thread.last_active_at = now
             practice.last_active_at = now
@@ -48,7 +50,7 @@ class TutorSessionService:
             # supports a durable fact; it never writes raw chat into Memory.
             practice.reflection_dirty, practice.reflection_version, practice.reflection_status = True, practice.reflection_version + 1, "pending"
             session.commit()
-            return [{"role": item.role, "content": item.content} for item in history]
+            return [{"role": item.role, "content": item.content, "image_attached": bool(item.image_attached), "image_asset_id": item.image_asset_id} for item in history]
 
     def finish_turn(
         self,

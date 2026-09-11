@@ -283,21 +283,63 @@ function Wait-HttpOk {
   return $false
 }
 
+function Get-DockerDesktopExecutable {
+  $candidates = @(
+    (Join-Path $env:LOCALAPPDATA "Programs\DockerDesktop\Docker Desktop.exe"),
+    "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+  )
+  foreach ($candidate in $candidates) {
+    if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+      return (Resolve-Path -LiteralPath $candidate).Path
+    }
+  }
+  return ""
+}
+
+function Test-DockerEngine {
+  param([string]$DockerPath)
+  try {
+    $null = & $DockerPath info --format '{{.ServerVersion}}' 2>$null
+    return $LASTEXITCODE -eq 0
+  } catch {
+    return $false
+  }
+}
+
+function Wait-DockerEngine {
+  param(
+    [string]$DockerPath,
+    [int]$Seconds = 90
+  )
+  $deadline = (Get-Date).AddSeconds($Seconds)
+  while ((Get-Date) -lt $deadline) {
+    if (Test-DockerEngine -DockerPath $DockerPath) {
+      return $true
+    }
+    Start-Sleep -Seconds 2
+  }
+  return $false
+}
+
 function Start-LocalInfrastructure {
   $docker = Get-Command docker -ErrorAction SilentlyContinue
   if (-not $docker) {
-    Write-Host "Local infrastructure: Docker CLI not found; install/start Docker Desktop to enable Factory generation." -ForegroundColor Yellow
+    Write-Host "Local infrastructure: Docker CLI not found; semantic retrieval and background generation are unavailable." -ForegroundColor Yellow
     return $false
   }
 
-  try {
-    $null = & $docker.Source info --format '{{.ServerVersion}}' 2>$null
-  } catch {
-    $null = $null
-  }
-  if ($LASTEXITCODE -ne 0) {
-    Write-Host "Local infrastructure: Docker Desktop is not running; start it to enable Factory generation." -ForegroundColor Yellow
-    return $false
+  if (-not (Test-DockerEngine -DockerPath $docker.Source)) {
+    $dockerDesktop = Get-DockerDesktopExecutable
+    if (-not $dockerDesktop) {
+      Write-Host "Local infrastructure: Docker Desktop was not found; semantic retrieval and background generation are unavailable." -ForegroundColor Yellow
+      return $false
+    }
+    Write-Step "Starting Docker Desktop for local retrieval services..."
+    Start-Process -FilePath $dockerDesktop -WindowStyle Hidden | Out-Null
+    if (-not (Wait-DockerEngine -DockerPath $docker.Source)) {
+      Write-Host "Local infrastructure: Docker Desktop did not become ready; semantic retrieval and background generation are unavailable." -ForegroundColor Yellow
+      return $false
+    }
   }
 
   Write-Step "Starting local Redis and Qdrant services..."
@@ -399,7 +441,18 @@ function Get-ConfiguredBaseUrl {
   $value = Read-LocalEnvValue -Name "LLM_BASE_URL"
   if ($value) { return $value }
   if ($env:OPENAI_BASE_URL) { return $env:OPENAI_BASE_URL }
-  return Read-LocalEnvValue -Name "OPENAI_BASE_URL"
+  $value = Read-LocalEnvValue -Name "OPENAI_BASE_URL"
+  if ($value) { return $value }
+  foreach ($name in @("LLM_FALLBACK_BASE_URL", "OPENROUTER_BASE_URL", "LLM_FINAL_FALLBACK_BASE_URL", "BIGMODEL_BASE_URL")) {
+    $value = [Environment]::GetEnvironmentVariable($name)
+    if ($value) { return $value }
+    $value = Read-LocalEnvValue -Name $name
+    if ($value) { return $value }
+  }
+  # Cloudflare Workers AI derives its endpoint from account ID, so it has no
+  # standalone base URL in many normal .env configurations.
+  if ($env:CLOUDFLARE_ACCOUNT_ID -or (Read-LocalEnvValue -Name "CLOUDFLARE_ACCOUNT_ID")) { return "cloudflare-workers-ai" }
+  return ""
 }
 
 function Get-ConfiguredApiKey {
@@ -407,7 +460,15 @@ function Get-ConfiguredApiKey {
   $value = Read-LocalEnvValue -Name "LLM_API_KEY"
   if ($value) { return $value }
   if ($env:OPENAI_API_KEY) { return $env:OPENAI_API_KEY }
-  return Read-LocalEnvValue -Name "OPENAI_API_KEY"
+  $value = Read-LocalEnvValue -Name "OPENAI_API_KEY"
+  if ($value) { return $value }
+  foreach ($name in @("CLOUDFLARE_API_TOKEN", "LLM_FALLBACK_API_KEY", "OPENROUTER_API_KEY", "LLM_FINAL_FALLBACK_API_KEY", "BIGMODEL_API_KEY")) {
+    $value = [Environment]::GetEnvironmentVariable($name)
+    if ($value) { return $value }
+    $value = Read-LocalEnvValue -Name $name
+    if ($value) { return $value }
+  }
+  return ""
 }
 
 function Test-DemoProviderConfigured {
@@ -442,6 +503,31 @@ Write-Host "Platform: $platformName"
 Write-Host "Frontend: $frontendUrl"
 Write-Host "Backend : $backendUrl"
 
+$providerHost = Get-ProviderHost
+if (-not $env:LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST -and -not $env:LLM_ALLOWED_PRIVATE_HOSTS -and $providerHost) {
+  $env:LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST = $providerHost
+}
+
+# A configured local Provider is an explicit developer opt-in for the Tutor
+# path. Keep offline/test runs on the deterministic adapter when no Provider
+# credentials are present, while making the normal local start command match
+# the configured Provider acceptance state.
+if (-not $env:TUTOR_PROVIDER_ENABLED) {
+  if ((Test-DemoProviderConfigured) -or ((Get-ConfiguredBaseUrl) -and (Get-ConfiguredApiKey))) {
+    $env:TUTOR_PROVIDER_ENABLED = "true"
+  } else {
+    $env:TUTOR_PROVIDER_ENABLED = "false"
+  }
+}
+
+if (Test-DemoProviderConfigured) {
+  Write-Host "Agent: local demo provider configured." -ForegroundColor Green
+} elseif ((Get-ConfiguredBaseUrl) -and (Get-ConfiguredApiKey)) {
+  Write-Host "Agent: default provider chain configured." -ForegroundColor Green
+} else {
+  Write-Host "Agent: no default provider detected; teaching workflow can still run." -ForegroundColor Yellow
+}
+
 $backendAlreadyReady = Test-PortOpen -Port $backendPort
 $frontendAlreadyReady = Test-PortOpen -Port $frontendPort
 
@@ -468,31 +554,6 @@ if ($env:ARIS_KEEP_RUNNING -ne "1") {
     Stop-DemoPortProcess -Port $backendPort
   }
   Start-Sleep -Milliseconds 250
-}
-
-$providerHost = Get-ProviderHost
-if (-not $env:LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST -and -not $env:LLM_ALLOWED_PRIVATE_HOSTS -and $providerHost) {
-  $env:LLM_PROVIDER_PRIVATE_HOST_ALLOWLIST = $providerHost
-}
-
-# A configured local Provider is an explicit developer opt-in for the Tutor
-# path.  Keep offline/test runs on the deterministic adapter when no Provider
-# credentials are present, while making the normal local start command match
-# the configured Provider acceptance state.
-if (-not $env:TUTOR_PROVIDER_ENABLED) {
-  if ((Test-DemoProviderConfigured) -or ((Get-ConfiguredBaseUrl) -and (Get-ConfiguredApiKey))) {
-    $env:TUTOR_PROVIDER_ENABLED = "true"
-  } else {
-    $env:TUTOR_PROVIDER_ENABLED = "false"
-  }
-}
-
-if (Test-DemoProviderConfigured) {
-  Write-Host "Agent: local demo provider configured." -ForegroundColor Green
-} elseif ((Get-ConfiguredBaseUrl) -and (Get-ConfiguredApiKey)) {
-  Write-Host "Agent: local provider configured." -ForegroundColor Green
-} else {
-  Write-Host "Agent: local provider not detected; teaching workflow can still run." -ForegroundColor Yellow
 }
 
 $backendErrLog = Join-Path $logsRoot "web-demo-backend.err.log"
@@ -539,7 +600,7 @@ if (-not (Test-PortOpen -Port $frontendPort)) {
   Write-Step "Starting frontend static server..."
   Write-Host "Python : $pythonExe" -ForegroundColor DarkGray
   $frontend = Start-Process -FilePath $pythonExe `
-    -ArgumentList @((Join-Path $PSScriptRoot "static_frontend_server.py"), "--host", "127.0.0.1", "--port", "$frontendPort", "--root", $frontendDist) `
+    -ArgumentList @((Join-Path $PSScriptRoot "static_frontend_server.py"), "--host", "127.0.0.1", "--port", "$frontendPort", "--root", $frontendDist, "--backend-url", $backendUrl) `
     -WorkingDirectory $codeRoot `
     -RedirectStandardOutput $frontendOutLog `
     -RedirectStandardError $frontendErrLog `

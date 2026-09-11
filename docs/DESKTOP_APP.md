@@ -56,11 +56,11 @@ npm run desktop:dist
 code\frontend\release
 ```
 
-V3.3.1 当前会生成：
+V3.5.1 当前会生成：
 
 ```text
-code\frontend\release\题伴 TiBan-3.3.1-x64-Setup.exe
-code\frontend\release\题伴 TiBan-3.3.1-x64-Portable.exe
+code\frontend\release\题伴 TiBan-3.5.1-x64-Setup.exe
+code\frontend\release\题伴 TiBan-3.5.1-x64-Portable.exe
 code\frontend\release\win-unpacked\题伴 TiBan.exe
 ```
 
@@ -92,14 +92,17 @@ npm run electron:dev
 
 Electron 版本是桌面外壳版：它会自动启动本机 FastAPI 后端，并在桌面窗口中加载构建后的前端页面。
 
-V3.3.1 作品集桌面包会把 FastAPI 后端编译为随包携带的 `tiban-backend.exe`，目标电脑无需安装 Python、Node.js 或后端依赖，打开安装版或便携版即可启动本地学习工作台。
+V3.5.1 桌面包会把 FastAPI 后端编译为随包携带的 `tiban-backend.exe`，目标电脑无需安装 Python、Node.js 或后端依赖，打开安装版或便携版即可启动本地学习工作台。
 
 完整 Windows 发布包内置 1,500 道 CMExam 演示题。首次启动时，题库会复制到当前用户的本地数据目录并自动导入；学习记录和上传资料也保存在用户目录，不写入安装目录。CMExam 资料遵循上游 Apache 2.0 许可及其学术/研究用途说明。
 
-## 使用智能 Agent 前的配置
+## 智能 Agent 的默认配置
 
-桌面包不会内置任何 API Key。首次打开后，请进入“设置 → 智能模型 → 自定义 API”，填写兼容 OpenAI API 的 Base URL、模型名称和 API Key，并点击“应用自定义配置”。配置成功后，刷题侧栏的智能辅导和“带教 Agent”才会发起真实模型请求。
+桌面包不会内置用户个人 API Key。文本问题会直接使用项目随部署提供的默认模型链路，
+带图片的问题会自动使用默认视觉模型链路；因此打开桌面版即可体验题库、刷题、
+智能辅导和带教 Agent。默认服务暂时不可用时，页面会显示真实的失败原因，基础题库
+与刷题流程仍可继续使用。
 
-未配置 API 时，题库、刷题、复习和评测页面仍可使用；智能辅导与带教 Agent 会明确显示配置入口并禁用发送，不会把本地规则结果显示成模型回答。API Key 只在当前运行实例中使用，不会打包进安装文件、写入数据库或上传 GitHub。
-
-桌面包仍需要网络连接才能访问用户配置的模型 API；它不内置 API Key，也不承诺离线调用外部大模型。未配置 API 时，题库、刷题、复习和评测仍可使用，Agent 会在关键入口提示配置要求并保持禁用。
+桌面包仍需要网络连接才能访问默认或用户自定义的模型服务。需要替换服务时，可进入
+“设置 → 智能模型 → 自定义 API”填写兼容 OpenAI API 的 Base URL、模型名称和 API Key。
+API Key 只在当前运行实例中使用，不会打包进安装文件、写入数据库或上传 GitHub。

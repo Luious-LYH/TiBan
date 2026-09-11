@@ -29,7 +29,11 @@ def upgrade() -> None:
     op.add_column("factory_jobs", sa.Column("completed_at", sa.DateTime(), nullable=True))
     op.add_column("factory_jobs", sa.Column("cancel_requested_at", sa.DateTime(), nullable=True))
     op.execute("UPDATE factory_jobs SET idempotency_key = job_id WHERE idempotency_key IS NULL")
-    op.alter_column("factory_jobs", "idempotency_key", nullable=False)
+    # SQLite cannot alter a column's nullability in-place.  The backfill above
+    # guarantees the invariant for existing rows, while PostgreSQL keeps the
+    # database-level NOT NULL constraint as intended.
+    if op.get_bind().dialect.name != "sqlite":
+        op.alter_column("factory_jobs", "idempotency_key", nullable=False)
     op.create_index("ix_factory_jobs_idempotency_key", "factory_jobs", ["idempotency_key"], unique=True)
 
 

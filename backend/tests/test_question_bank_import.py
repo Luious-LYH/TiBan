@@ -145,6 +145,7 @@ def test_create_and_append_question_bank_are_durable_and_idempotent() -> None:
         source = session.get(SourceDocumentModel, created["source_document_id"])
         assert bank is not None and bank.question_count == 2
         assert len(questions) == 2
+        assert all(question.case_summary == "" for question in questions)
         assert source is not None and source.bank_id == created["bank_id"]
 
     duplicate = question_bank_import_service.import_questions({"format": "jsonl", "content": content, "mode": "append_questions", "target_bank_id": created["bank_id"], "domain_id": "general_science"})

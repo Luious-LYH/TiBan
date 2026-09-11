@@ -19,6 +19,7 @@ from app.schemas import (
     QuestionEditPublic,
     QuestionEditRequest,
     QuestionEditResponse,
+    QuestionImageAssetRef,
 )
 from app.domains import PLATFORM_NOTICE
 from app.services.stage1_service import stage1_service
@@ -41,6 +42,7 @@ class QuestionBankImportRequest(BaseModel):
     target_bank_id: str | None = Field(default=None, max_length=100)
     source_name: str | None = Field(default=None, max_length=120)
     file_name: str | None = Field(default=None, max_length=300)
+    image_assets: list[QuestionImageAssetRef] = Field(default_factory=list, max_length=200)
 
 
 class QuestionBankImportResponse(BaseModel):

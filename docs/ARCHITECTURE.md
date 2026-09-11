@@ -1,6 +1,6 @@
 # TiBan Architecture
 
-本文描述当前 V3.2 有效运行路径。早期 V1/V2 技术演进仅保留在 Git 历史中
+本文描述当前 V3.5 有效运行路径。早期 V1/V2 技术演进仅保留在 Git 历史中
 追溯，不作为当前产品入口。
 
 ---
@@ -22,7 +22,8 @@ Practice / 智能辅导                         带教 Agent
 - `grading_service`: 规则评分、错因标签、atomic feedback、下一题推荐。
 - `AgentRunner` + `ToolRegistry`: 唯一的受控 Agent 运行时；智能辅导只读取当前 Practice session 和当前 Tutor thread，带教 Agent 使用独立的长期上下文构建器。
 - `report_service`: 报告草稿、报告修改评分和科普卡片；报告输出 `source_trace`、`evidence_ledger`、`generation_mode`，上传图片会把 `image_upload` 审计 ID/hash/尺寸绑定回报告证据台账，科普卡片生成草稿并通过同一 `card_id` 完成审核开放，输出 `review_status`、`share_status` 和审核步骤。
-- `llm_provider`: OpenAI-compatible `/chat/completions` 适配器；只允许公开样例图片和 `runtime/uploads` 受控图片进入视觉输入。
+- `llm_provider`: OpenAI-compatible `/chat/completions` 适配器；只允许公开样例图片和 `runtime/uploads` 受控图片进入视觉输入。图片题和 Tutor/Mentor 附件通过同一入口组装文本块与 `image_url` 块；不支持视觉输入时返回明确错误，不静默降级为文本回答。
+- `image_asset_service`: 校验 PNG/JPEG/WebP 的 MIME、文件头、大小、像素尺寸和相对路径，管理题库图片与短期聊天图片的受控运行时资产；数据库只保存元数据和不透明资产 ID，不保存 Base64。
 - `mentor_agent_service`: 跨 session 读取学习总览、最近作答、FSRS 复习队列、题库进度、Learning Memory 和按需 Knowledge RAG，并持久化带教对话。
 - `memory_reflection_service`: 从已持久化的 session evidence 生成并校验 ADD/UPDATE/RESOLVE/NOOP 候选，再写入结构化 Learning Memory。
 - `semantic_memory_service`: 使用独立的可重建 Qdrant memory index 做有边界的长期记忆召回。
@@ -54,6 +55,10 @@ Baseline 是当前 TiBan 默认 `RetrievalProfile`，最多可添加两个 Varia
 产生第二套检索器。耗时 Run 使用 Redis + Dramatiq 和 `BackgroundJobModel`
 报告真实进度；无真实 gold chunk 标注时 `Recall@K` 保持为空，不推断指标。
 - `/settings`: 实例级智能服务设置。
+
+题目图片字段是可选的。CSV、JSON、JSONL 导入时可以用随文件上传的相对图片路径引用图片；审核、题库详情和 Practice 复用同一套 `contain` 图像题卡。Tutor/Mentor 输入区域支持拖入或粘贴一张图片，发送前仅做浏览器缩略图预览，上传后由同一 Provider 链路处理。
+
+首次启动会把 `knowledge/samples/image-documentation-gastrointestinal-endoscopy.pdf` 登记为系统资料示例。PDF 解析按版面将有效 Figure 与最近图注、页码、章节和对应文字片段绑定；无图注的 logo、页眉和装饰图不会进入图片索引。Qdrant 中的 CLIP 图片向量与 BGE-M3 文本检索共同提供召回，受控概念图仅做一跳图文证据扩展，并把图片、图注、页码和来源一并交给 Tutor/Mentor 的视觉 Provider。完整的实现边界、数据流和可复跑 Figure 评测见 [`architecture/multimodal-evidence-rag-v35.md`](./architecture/multimodal-evidence-rag-v35.md)。
 
 ## 数据与后台任务
 

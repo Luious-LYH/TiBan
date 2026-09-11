@@ -12,6 +12,7 @@ import json
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
 
@@ -35,6 +36,17 @@ class RerankerProvider(Protocol):
     model_id: str
 
     def score(self, query: str, documents: list[str]) -> list[float]: ...
+
+
+class ImageEmbeddingProvider(Protocol):
+    """A real shared image/text embedding space for knowledge media."""
+
+    provider_id: str
+    model_id: str
+
+    def embed_images(self, image_paths: list[Path]) -> list[list[float]]: ...
+    def embed_text(self, text: str) -> list[float]: ...
+    def dimension(self) -> int: ...
 
 
 @dataclass
@@ -221,6 +233,69 @@ class LocalCrossEncoderProvider:
         return [float(value) for value in self.model.predict([(query, item) for item in documents], show_progress_bar=False)]
 
 
+@dataclass
+class ClipImageEmbeddingProvider:
+    """Local CLIP encoder: image and text vectors share one semantic space.
+
+    The model is lazy-loaded.  A missing model/dependency is allowed to fail at
+    the knowledge indexing boundary where the source can show a truthful
+    ``image_index_status=failed`` while its text index remains usable.
+    """
+
+    provider_id: str
+    model_id: str
+    cache_dir: Path
+    _model: object | None = None
+    _dimension: int | None = None
+
+    @property
+    def model(self):
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer
+
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            # The demo ships or prewarms this cache separately from source
+            # files.  Do not block a learner query on Hugging Face metadata
+            # checks after a restart: if the local model is absent, retrieval
+            # reports its unavailable state truthfully instead of hanging.
+            self._model = SentenceTransformer(
+                self.model_id,
+                cache_folder=str(self.cache_dir),
+                local_files_only=True,
+            )
+        return self._model
+
+    def embed_images(self, image_paths: list[Path]) -> list[list[float]]:
+        if not image_paths:
+            return []
+        from PIL import Image
+
+        images = []
+        try:
+            for path in image_paths:
+                with Image.open(path) as image:
+                    images.append(image.convert("RGB"))
+            values = self.model.encode(images, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
+            vectors = [[float(value) for value in row] for row in values]
+        finally:
+            for image in images:
+                image.close()
+        self._dimension = len(vectors[0]) if vectors else self._dimension
+        return vectors
+
+    def embed_text(self, text: str) -> list[float]:
+        values = self.model.encode([text], convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
+        vector = [float(value) for value in values[0]]
+        self._dimension = len(vector)
+        return vector
+
+    def dimension(self) -> int:
+        if self._dimension is None:
+            self.embed_text("TiBan knowledge image readiness probe")
+        assert self._dimension is not None
+        return self._dimension
+
+
 def embedding_batch_size() -> int:
     from app.services.runtime_settings_service import runtime_settings_service
 
@@ -261,3 +336,26 @@ def configured_reranker_provider(cache_dir: Path) -> RerankerProvider:
             timeout_seconds=config.EMBEDDING_TIMEOUT_SECONDS,
         )
     return LocalCrossEncoderProvider("local_cross_encoder", "cross-encoder/ms-marco-MiniLM-L6-v2", cache_dir)
+
+
+@lru_cache(maxsize=1)
+def configured_image_embedding_provider() -> ImageEmbeddingProvider:
+    """Return the configured real image/text encoder or a failing adapter.
+
+    ``IMAGE_EMBEDDING_MODE=disabled`` is useful for a deliberately text-only
+    deployment; it must be visible as an unavailable image index rather than a
+    fake hash/vector implementation.
+    """
+
+    if config.IMAGE_EMBEDDING_MODE != "local":
+        raise RuntimeError("image_embedding_mode_not_supported")
+    # CLIP is lazy but substantial to load.  The image index and retrieval
+    # paths use one configured model space, so keep the provider for the
+    # process instead of reloading weights for every Tutor, Mentor, or query.
+    # Image-provider configuration is process-scoped and takes effect after
+    # the normal service restart.
+    return ClipImageEmbeddingProvider(
+        provider_id=config.IMAGE_EMBEDDING_PROVIDER or "clip",
+        model_id=config.IMAGE_EMBEDDING_MODEL,
+        cache_dir=config.IMAGE_EMBEDDING_CACHE,
+    )
