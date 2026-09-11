@@ -52,7 +52,7 @@ progress reflect the learner's actual history.
 | Question banks | Browse domains, inspect bank scale, and filter by question state | Domain Packs, persistent progress, state projections |
 | Practice + assistant | Answer, see feedback, and ask about the current question | Context-aware Tutor, SSE streaming, controlled tool routing |
 | Mentor Agent | Review activity across banks and plan the next learning step | Persistent sessions, Learning Memory, Review Queue |
-| Knowledge library | Upload and manage PDF, DOCX, Markdown, and TXT sources | Parsing, chunking, versioned indexing, Qdrant retrieval |
+| Knowledge library | Manage text and image sources with visible captions and provenance | Layout-aware parsing, BGE-M3 + CLIP retrieval, Qdrant multimodal index, evidence graph |
 | Question import | Validate banks or create reviewable drafts from teaching material | CSV / JSONL / Markdown, quality gates, review and publish |
 | Evaluation Lab | Compare runtime models and retrieval profiles under fixed conditions | EvalSuite, durable jobs, versioned RetrievalProfile |
 
@@ -66,6 +66,17 @@ selecting a bank to tutoring, review, Agent collaboration, and evaluation.
 Questions, answer choices, feedback, explanations, and contextual tutoring
 share one focused workspace. The assistant understands the current learning
 context and can bring in cited material when it is useful.
+
+Image questions use the same focused layout: the image is shown with its
+original aspect ratio, while the Tutor receives it as a real visual input.
+The bundled endoscopy practice bank contains 30 image questions, and question
+media is kept separate from the knowledge-library image index.
+
+<p align="center">
+  <img src="./docs/v3/evidence/readme/21-multimodal-practice.png" alt="Image question and Tutor workspace" width="100%">
+</p>
+
+<p align="center"><em>Image-question practice: the image, choices, and Tutor remain in one familiar learning workspace.</em></p>
 
 ### Question banks and status browsing
 
@@ -88,11 +99,15 @@ progress, learning memory, and enabled sources across question banks.
 ### Knowledge library
 
 Learning materials become managed, versioned context for the Tutor and Mentor
-Agent. Each source has its own parsing, indexing, and enablement state.
+Agent. Each source has its own parsing, indexing, and enablement state. The
+bundled endoscopy guide demonstrates Figure-caption alignment, image previews,
+page provenance, and linked text evidence.
 
 <p align="center">
-  <img src="./docs/v3/evidence/readme/05-knowledge-current.png" alt="Knowledge library" width="100%">
+  <img src="./docs/v3/evidence/readme/20-knowledge-multimodal.png" alt="Multimodal knowledge library with images, captions, and parsed evidence" width="100%">
 </p>
+
+<p align="center"><em>Multimodal evidence chain: source images, Figure captions, licensing metadata, and parsed text are visible together.</em></p>
 
 ### Evaluation Lab
 
@@ -124,6 +139,40 @@ question detail and explanation in view.
 
 ## Technical highlights
 
+### Multimodal RAG and vision-enabled Agents
+
+**Keyword map:** `Multimodal RAG` · `Vision Agent` · `Layout-aware Ingestion` ·
+`Figure-caption Grounding` · `CLIP` · `BGE-M3` · `Qdrant` · `Evidence Graph /
+GraphRAG` · `Provenance` · `OpenAI-compatible Vision API`
+
+```text
+Multimodal sources / image questions
+      ↓ layout-aware parsing and governed asset storage
+Figure caption + page + section + linked text
+      ├─ BGE-M3 hybrid text retrieval
+      ├─ CLIP shared text ↔ image retrieval
+      └─ Evidence Graph one-hop cross-modal expansion
+      ↓ evidence pack (image / caption / source / page)
+Tutor / Mentor Vision Agent
+```
+
+- **Layout-aware PDF ingestion** — PyMuPDF reads text blocks, image positions,
+  and Figure captions, then binds evidence-bearing images to captions, pages,
+  sections, and nearby text. Logos, headers, and uncaptioned decoration are
+  excluded from the image index.
+- **Three-channel retrieval** — BGE-M3 handles hybrid text retrieval, CLIP
+  provides a shared text-image space in Qdrant, and a governed concept graph
+  performs one-hop text ↔ Figure evidence expansion.
+- **Evidence-grounded GraphRAG** — every result retains the image, caption,
+  page, source, and linked text chunk, so evidence can be traced from text to
+  image and back.
+- **Vision-capability routing** — Tutor and Mentor share one Provider path;
+  image requests compose OpenAI-compatible text and `image_url` content blocks,
+  while text-only requests keep the existing default route.
+- **Governed media assets** — MIME, file-header, size, pixel, and path checks
+  protect controlled runtime assets. Databases, Qdrant payloads, logs, and jobs
+  keep opaque asset IDs and provenance metadata rather than image bytes.
+
 - **Context-aware Tutor** — every request carries the current question, mode,
   learning phase, and conversation context.
 - **Governed retrieval** — the product routes ordinary knowledge directly and
@@ -151,10 +200,13 @@ React 19 + TypeScript + Vite
         ▼
 FastAPI + Pydantic + SQLAlchemy
         ├─ PostgreSQL: banks, attempts, reviews, sources, and jobs
-        ├─ Qdrant + BGE-M3: knowledge retrieval and semantic learning memory
+        ├─ PyMuPDF: layout-aware PDF and Figure-caption parsing
+        ├─ Qdrant + BGE-M3: hybrid text retrieval and semantic learning memory
+        ├─ Qdrant + CLIP: shared text-image retrieval space
+        ├─ Evidence Graph: governed one-hop cross-modal expansion
         ├─ Redis + Dramatiq: import, indexing, and reflection jobs
         ├─ py-fsrs: review scheduling
-        └─ OpenAI-compatible providers: model access and evaluation
+        └─ OpenAI-compatible vision providers: text/image routing and evaluation
 ~~~
 
 ## Quick start
@@ -202,6 +254,9 @@ npm run build
 
 See [THIRD_PARTY_DATA.md](./THIRD_PARTY_DATA.md) for data attribution and
 licensing boundaries.
+
+The reproducible multimodal retrieval fixture and implementation notes are in
+[`docs/architecture/multimodal-evidence-rag-v35.md`](./docs/architecture/multimodal-evidence-rag-v35.md).
 
 ## Windows desktop app
 

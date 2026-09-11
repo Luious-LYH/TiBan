@@ -44,7 +44,7 @@ TiBan 是一个把题库、学习资料、智能辅导和长期学习状态连�
 | 题库与题目状态 | 按领域选择题库，查看规模与已做、未做、错题、标记状态 | Domain Pack、持久化进度、题目状态投影 |
 | Practice + 智能辅导 | 在同一工作区完成作答、即时查看解析，并围绕当前题目提问 | 上下文感知 Tutor、SSE 流式交互、受控工具路由 |
 | 带教 Agent | 回顾跨题库作答与复习轨迹，获得学习规划和知识问答 | 持久化会话、Learning Memory、Review Queue、只读学习工具 |
-| 知识库 | 上传并管理 PDF、DOCX、Markdown、TXT，控制资料是否参与检索 | 解析、分段、版本化索引、Qdrant 语义检索 |
+| 知识库 | 上传并管理文字与图像资料，查看资料图片、图注和出处 | 版面感知解析、BGE-M3 + CLIP 多路召回、Qdrant 图文索引、证据图 |
 | 题库导入 | 校验已有题库，或从教学资料生成可审核的题目草稿 | CSV / JSONL / Markdown、质量门禁、审核发布流水线 |
 | 评测实验室 | 在冻结的评测集上比较模型表现与 RAG 检索方案 | EvalSuite、可恢复后台任务、版本化 RetrievalProfile |
 
@@ -75,13 +75,15 @@ TiBan 是一个把题库、学习资料、智能辅导和长期学习状态连�
 
 ### 知识库：让资料成为可调用的学习上下文
 
-用户资料经过解析、分段与索引后进入独立的知识管理空间。每份资料都拥有自己的状态与版本，学习者可以控制启停、查看解析结果，并为 Tutor 与带教 Agent 提供稳定的知识来源。
+用户资料经过版面感知解析、分段与索引后进入独立的知识管理空间。每份资料都拥有自己的状态与版本，学习者可以控制启停、查看解析结果，并为 Tutor 与带教 Agent 提供稳定的知识来源。
 
-首次启动会自动提供一份“消化道内镜图像记录建议”系统资料示例，来源为项目附带的内窥镜图像记录指南。系统将资料中的 Figure 图注与图片、页码和对应文字段落关联：检索结果可以同时给出相关资料图片与资料出处，Tutor 和带教 Agent 也会在使用这些资料时携带同一份图文证据。图片向量服务暂不可用时，文字资料与图片预览仍可正常查看，页面会如实显示处理状态。
+首次启动会自动提供一份“消化道内镜图像记录建议”系统资料示例，来源为项目附带的内窥镜图像记录指南。系统将资料中的 Figure 图注与图片、页码和对应文字段落关联：检索结果可以同时给出相关资料图片与资料出处，Tutor 和带教 Agent 也会在使用这些资料时携带同一份图文证据。
 
 <p align="center">
-  <img src="./docs/v3/evidence/readme/05-knowledge-current.png" alt="知识库管理页面" width="100%">
+  <img src="./docs/v3/evidence/readme/20-knowledge-multimodal.png" alt="多模态知识库：资料图片、图注与解析预览" width="100%">
 </p>
+
+<p align="center"><em>图文证据链：资料列表展示图片数量与索引状态，详情区同时呈现资料图片、Figure 图注、来源许可和解析片段。</em></p>
 
 ### 评测实验室：用可复现的条件比较模型与检索
 
@@ -125,9 +127,15 @@ TiBan 是一个把题库、学习资料、智能辅导和长期学习状态连�
 
 ### 图像题与图片对话
 
-题库中有图片时，刷题、题库详情和审核工作区会使用同一套图像题卡：图片按比例完整展示，不裁剪内镜图像；没有图片的题目仍按原来的纯文本布局显示。当前版本附带的本地演示题库为“消化道内镜图像研修题库”，包含 30 道图像题，用于演示导入、审核、发布和刷题闭环。
+题库中有图片时，刷题、题库详情和审核工作区会使用同一套图像题卡：图片按比例完整展示，不裁剪内镜图像；没有图片的题目仍按原来的纯文本布局显示。当前版本附带的本地演示题库为“消化道内镜图像研修题库”，包含 30 道图像题，用于演示导入、审核、发布和刷题闭环。题库图片资产与知识库图片索引隔离，不会污染知识检索。
 
-在 Practice 的智能辅导或带教 Agent 中，可以把一张图片直接拖入输入区域，或从剪贴板粘贴（Ctrl+V / 右键粘贴）；发送前会显示缩略图，也可以移除后重新附加。每次对话最多附加一张图片。文本问题沿用项目默认模型链路，带图片的问题会自动使用项目默认的视觉模型链路；如果当前视觉服务不可用，TiBan 会明确提示原因，不会丢弃图片后假装已经看过。需要时也可以在设置中切换到自定义 API。
+在 Practice 的智能辅导或带教 Agent 中，可以把一张图片直接拖入输入区域，或从剪贴板粘贴（Ctrl+V / 右键粘贴）；发送前会显示缩略图，也可以移除后重新附加。每次对话最多附加一张图片。文本问题沿用项目默认模型链路，带图片的问题会自动进入视觉模型链路；图片会作为真实视觉内容参与模型请求，而不是只把图片地址写进提示词。
+
+<p align="center">
+  <img src="./docs/v3/evidence/readme/21-multimodal-practice.png" alt="多模态题目与 Tutor 智能辅导工作区" width="100%">
+</p>
+
+<p align="center"><em>图像题实践：题目图片按比例展示，题干、选项与 Tutor 保持原有刷题工作区布局。</em></p>
 
 图片只作为教学研修和医生复核前辅助材料使用，请勿上传包含患者身份信息的文件。
 
@@ -146,6 +154,29 @@ FSRS 复习调度和真实作答记录共同构成 Review Queue，学习者可�
 </p>
 
 ## 技术亮点
+
+### 多模态 RAG 与视觉 Agent
+
+**关键词速览：** `Multimodal RAG` · `Vision Agent` · `Layout-aware Ingestion` · `Figure-caption Grounding` · `CLIP` · `BGE-M3` · `Qdrant` · `Evidence Graph / GraphRAG` · `Provenance` · `OpenAI-compatible Vision API`
+
+```text
+图文资料 / 图片题
+      ↓ 版面感知解析与受控资产管理
+Figure caption + 页码 + 章节 + 文字片段
+      ├─ BGE-M3 文字混合召回
+      ├─ CLIP 文字 ↔ 图片共享向量召回
+      └─ Evidence Graph 一跳跨模态证据扩展
+      ↓ 图文证据包（图片 / 图注 / 来源 / 页码）
+Tutor / Mentor Vision Agent
+```
+
+- **Layout-aware PDF ingestion**：使用 PyMuPDF 读取文本块、图片位置和 Figure caption，将有效图片与最近图注、页码、章节及文字片段绑定；无图注的装饰图、Logo 和页眉不进入图片索引。
+- **三路跨模态召回**：BGE-M3 负责文字混合检索，CLIP 建立文字与图片共享向量空间并写入 Qdrant，受控概念图提供一跳的文字 ↔ Figure 证据扩展。
+- **Evidence-grounded GraphRAG**：图谱关系来自图注、章节文本和受控内镜概念表；每个结果保留图片、图注、页码、来源和关联文字，支持从文字证据追到图片，也支持从图片回到对应段落。
+- **Vision-capability routing**：Tutor/Mentor 沿用同一 Provider 调用链；有图片时组装 OpenAI-compatible 的文本内容块与 `image_url` 内容块，视觉模型负责读取图片，文本请求不改变原有默认链路。
+- **受控多模态资产层**：图片通过 MIME、文件头、大小、像素尺寸和路径安全校验，运行时保存图片字节，数据库、Qdrant payload、日志和任务消息只保留不透明资产 ID 与必要 provenance。
+
+这条链路把“图片能被展示”推进到“图片可检索、可关联、可追溯、可进入视觉 Agent 上下文”：知识库返回的图文证据和 Tutor/Mentor 使用的视觉输入来自同一份受控资产与来源记录。
 
 ### Agent-native 学习工作流
 
@@ -170,10 +201,13 @@ React 19 + TypeScript + Vite
         ▼
 FastAPI + Pydantic + SQLAlchemy
         ├─ PostgreSQL：题库、作答、复习、知识源与任务状态
-        ├─ Qdrant + BGE-M3：知识检索与学习记忆语义索引
+        ├─ PyMuPDF：版面感知 PDF 解析、Figure / caption 对齐
+        ├─ Qdrant + BGE-M3：文字混合检索与学习记忆语义索引
+        ├─ Qdrant + CLIP：文字到图片的共享向量检索
+        ├─ Evidence Graph：受控概念图与一跳跨模态证据扩展
         ├─ Redis + Dramatiq：题库导入、索引与记忆整理后台任务
         ├─ py-fsrs：复习调度
-        └─ OpenAI-compatible Providers：模型调用与评测
+        └─ OpenAI-compatible Vision Providers：文本 / 图片能力路由与评测
 ~~~
 
 ## 快速开始
@@ -224,6 +258,7 @@ npm run build
 - [智能辅导与带教 Agent 架构](./docs/architecture/tutor-agent.md)
 - [题库导入架构](./docs/architecture/question-factory.md)
 - [知识检索管线](./docs/architecture/rag-pipeline.md)
+- [多模态图文证据链](./docs/architecture/multimodal-evidence-rag-v35.md)
 - [领域包与共享核心](./docs/architecture/domain-packs-v2.md)
 - [数据来源与许可边界](./THIRD_PARTY_DATA.md)
 
