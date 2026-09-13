@@ -34,6 +34,8 @@ TiBan 的多模态知识能力用于学习资料的图文检索与可追溯辅�
 cd code/backend
 $env:PYTHONPATH='.'
 python scripts/evaluate_multimodal_knowledge.py --strict
+# 如需同时查看冷启动、稳定交互时延和顺序热查询吞吐：
+python scripts/benchmark_multimodal_rag.py --strict
 ```
 
-脚本报告 Image Recall@3、图注/页码正确率、文字到图片与图片到文字的关联率，并检查结果中不存在 `article`、`review`、`port`、`logo` 等无意义图谱节点。它不写入资料、索引或评测产物。
+前一个脚本报告 Image Recall@3、图注/页码正确率、文字到图片与图片到文字的关联率，并检查结果中不存在 `article`、`review`、`port`、`logo` 等无意义图谱节点；后一个脚本在此基础上增加图文检索冷/热 P50/P95 和顺序热查询吞吐。两个脚本都不写入资料、索引或评测产物。

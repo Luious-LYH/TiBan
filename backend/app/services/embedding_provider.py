@@ -9,6 +9,7 @@ embedding architecture.
 from __future__ import annotations
 
 import json
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -59,55 +60,123 @@ class OpenAICompatibleEmbeddingProvider:
     _dimension: int | None = None
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        """Embed a document sequence without letting one flaky remote batch restart it.
+
+        Remote OpenAI-compatible endpoints do not share one reliable request
+        ceiling.  A batch that is safe for a short chat prompt can be rejected
+        or have its connection reset when it contains many 450-token document
+        chunks.  Keep successfully completed batches in memory, retry only the
+        failed request, and reduce *subsequent* batches when the transport
+        proves that the current size is too large.  The caller still receives
+        an all-or-nothing vector list, so a failed rebuild never creates a
+        mixed vector space.
+        """
+
         if not texts:
             return []
         batch_size = max(1, embedding_batch_size())
         vectors: list[list[float]] = []
         expected_dimension: int | None = None
-        for start in range(0, len(texts), batch_size):
-            batch = texts[start:start + batch_size]
-            payload = self._request({"model": self.model_id, "input": batch, "encoding_format": "float"})
-            data = payload.get("data")
-            if not isinstance(data, list) or len(data) != len(batch):
-                raise RuntimeError("embedding_response_invalid")
-            items = [item for item in data if isinstance(item, dict)]
-            if len(items) != len(batch):
-                raise RuntimeError("embedding_vectors_invalid")
-            # OpenAI-compatible servers may return an explicit per-batch index;
-            # preserve input order even if the response is not ordered.
-            if all("index" in item for item in items):
-                ordered: list[dict[str, object] | None] = [None] * len(batch)
-                for item in items:
-                    try:
-                        index = int(item["index"])
-                    except (KeyError, TypeError, ValueError) as exc:
-                        raise RuntimeError("embedding_response_invalid") from exc
-                    if index < 0 or index >= len(batch) or ordered[index] is not None:
-                        raise RuntimeError("embedding_response_invalid")
-                    ordered[index] = item
-                if any(item is None for item in ordered):
-                    raise RuntimeError("embedding_response_invalid")
-                items = [item for item in ordered if item is not None]
-            batch_vectors: list[list[float]] = []
-            for item in items:
-                try:
-                    vector = list(map(float, item.get("embedding", [])))
-                except (TypeError, ValueError) as exc:
-                    raise RuntimeError("embedding_vectors_invalid") from exc
-                if not vector:
-                    raise RuntimeError("embedding_vectors_invalid")
-                batch_vectors.append(vector)
-            if len(batch_vectors) != len(batch):
-                raise RuntimeError("embedding_vectors_invalid")
+        cursor = 0
+        # Start with the owner-configured value.  If a provider resets a large
+        # request, lower only this invocation's working size; a later run can
+        # use the configured maximum again after the provider recovers.
+        working_batch_size = batch_size
+        while cursor < len(texts):
+            batch = texts[cursor:cursor + min(working_batch_size, len(texts) - cursor)]
+            try:
+                batch_vectors = self._embed_batch_with_retry(batch)
+            except RuntimeError as exc:
+                if not self._is_retryable_transport_error(exc) or len(batch) <= 1:
+                    raise
+                # Retry the same uncompleted slice at a safer size.  Vectors
+                # for all preceding slices remain intact and are not requested
+                # again, which substantially reduces recovery time for long
+                # teaching documents.
+                working_batch_size = max(1, len(batch) // 2)
+                continue
             if expected_dimension is None:
                 expected_dimension = len(batch_vectors[0])
             if any(len(vector) != expected_dimension for vector in batch_vectors):
                 raise RuntimeError("embedding_vector_dimensions_inconsistent")
             vectors.extend(batch_vectors)
+            cursor += len(batch)
         if len(vectors) != len(texts) or expected_dimension is None:
             raise RuntimeError("embedding_vectors_invalid")
         self._dimension = expected_dimension
         return vectors
+
+    def _embed_batch_with_retry(self, batch: list[str]) -> list[list[float]]:
+        """Request and validate one batch, retrying only transient failures."""
+
+        last_error: RuntimeError | None = None
+        for attempt in range(3):
+            try:
+                payload = self._request({"model": self.model_id, "input": batch, "encoding_format": "float"})
+                return self._decode_batch(payload, expected_count=len(batch))
+            except RuntimeError as exc:
+                if not self._is_retryable_transport_error(exc):
+                    raise
+                last_error = exc
+                if attempt < 2:
+                    # Bounded backoff gives a shared endpoint time to recover
+                    # without turning one source import into an unbounded job.
+                    time.sleep(0.2 * (2 ** attempt))
+        assert last_error is not None
+        raise last_error
+
+    @staticmethod
+    def _decode_batch(payload: dict[str, object], *, expected_count: int) -> list[list[float]]:
+        data = payload.get("data")
+        if not isinstance(data, list) or len(data) != expected_count:
+            raise RuntimeError("embedding_response_invalid")
+        items = [item for item in data if isinstance(item, dict)]
+        if len(items) != expected_count:
+            raise RuntimeError("embedding_vectors_invalid")
+        # OpenAI-compatible servers may return an explicit per-batch index;
+        # preserve input order even if the response is not ordered.
+        if all("index" in item for item in items):
+            ordered: list[dict[str, object] | None] = [None] * expected_count
+            for item in items:
+                try:
+                    index = int(item["index"])
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise RuntimeError("embedding_response_invalid") from exc
+                if index < 0 or index >= expected_count or ordered[index] is not None:
+                    raise RuntimeError("embedding_response_invalid")
+                ordered[index] = item
+            if any(item is None for item in ordered):
+                raise RuntimeError("embedding_response_invalid")
+            items = [item for item in ordered if item is not None]
+        vectors: list[list[float]] = []
+        for item in items:
+            try:
+                vector = list(map(float, item.get("embedding", [])))
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError("embedding_vectors_invalid") from exc
+            if not vector:
+                raise RuntimeError("embedding_vectors_invalid")
+            vectors.append(vector)
+        if len(vectors) != expected_count:
+            raise RuntimeError("embedding_vectors_invalid")
+        return vectors
+
+    @staticmethod
+    def _is_retryable_transport_error(exc: RuntimeError) -> bool:
+        """Classify retryable service/network failures without leaking URLs."""
+
+        message = str(exc).lower()
+        if message.startswith("embedding_unavailable:"):
+            return True
+        if not message.startswith("embedding_http_"):
+            return False
+        # 408/425/429 and 5xx responses are service availability signals. A
+        # malformed success response remains a hard contract error instead.
+        try:
+            status = int(message.split(":", 1)[0].rsplit("_", 1)[1])
+        except (IndexError, ValueError):
+            return False
+        return status in {408, 409, 425, 429} or status >= 500
 
     def embed_query(self, text: str) -> list[float]:
         return self.embed_documents([text])[0]

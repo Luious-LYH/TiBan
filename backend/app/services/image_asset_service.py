@@ -138,12 +138,29 @@ def decode_data_url(data_url: str) -> tuple[bytes, str]:
 
 
 class ImageAssetService:
-    def stage_data_url(self, session: Any, *, kind: str, filename: str, data_url: str) -> dict[str, Any]:
+    def stage_bytes(
+        self,
+        session: Any,
+        *,
+        kind: str,
+        filename: str,
+        payload: bytes,
+        declared_mime: str | None = None,
+        batch_id: str | None = None,
+        expires_at: datetime | None = None,
+        commit: bool = True,
+    ) -> dict[str, Any]:
+        """Persist validated bytes in the controlled image store.
+
+        Factory/PDF extraction uses this same boundary as browser uploads.  A
+        caller receives only an opaque asset ID; bytes never enter a draft,
+        queue message, or ordinary API response.
+        """
+
         if kind not in {"question", "chat"}:
             raise ValueError("不支持的图片用途。")
         safe_name = normalise_filename(filename)
-        payload, declared = decode_data_url(data_url)
-        mime, width, height = inspect_image(payload, declared)
+        mime, width, height = inspect_image(payload, declared_mime)
         asset_id = f"img_{kind}_{uuid4().hex[:16]}"
         extension = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}[mime]
         relative = Path("question-images" if kind == "question" else "chat") / f"{asset_id}.{extension}"
@@ -155,14 +172,19 @@ class ImageAssetService:
         destination.write_bytes(payload)
         now = datetime.utcnow()
         row = QuestionImageAssetModel(
-            asset_id=asset_id, kind=kind, storage_path=relative.as_posix(), original_filename=safe_name,
+            asset_id=asset_id, kind=kind, batch_id=batch_id, storage_path=relative.as_posix(), original_filename=safe_name,
             sha256=hashlib.sha256(payload).hexdigest(), mime_type=mime, width=width, height=height,
             size_bytes=len(payload), status="staged", created_at=now,
-            expires_at=now + (QUESTION_ASSET_TTL if kind == "question" else CHAT_ASSET_TTL),
+            expires_at=expires_at if expires_at is not None else now + (QUESTION_ASSET_TTL if kind == "question" else CHAT_ASSET_TTL),
         )
         session.add(row)
-        session.commit()
+        if commit:
+            session.commit()
         return self.public_payload(row)
+
+    def stage_data_url(self, session: Any, *, kind: str, filename: str, data_url: str) -> dict[str, Any]:
+        payload, declared = decode_data_url(data_url)
+        return self.stage_bytes(session, kind=kind, filename=filename, payload=payload, declared_mime=declared)
 
     def get(self, session: Any, asset_id: str, *, kind: str | None = None) -> QuestionImageAssetModel:
         row = session.get(QuestionImageAssetModel, asset_id)

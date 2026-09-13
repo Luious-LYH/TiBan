@@ -257,12 +257,39 @@ class ReviewCardModel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
 
+class KnowledgeFolderModel(Base):
+    """Learner-facing folders for organizing knowledge sources.
+
+    Folders are metadata only.  Documents, chunks, media assets and graph
+    evidence remain in their existing tables so moving a source never forces a
+    re-index.  ``is_system`` protects seeded collections from accidental
+    deletion while still allowing user-created folders to be managed normally.
+    """
+
+    __tablename__ = "knowledge_folders"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_knowledge_folder_name"),
+        Index("ix_knowledge_folders_scope", "scope"),
+        Index("ix_knowledge_folders_display_order", "display_order"),
+    )
+
+    folder_id: Mapped[str] = mapped_column(String(120), primary_key=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    scope: Mapped[str] = mapped_column(String(32), nullable=False, default="user")
+    is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+
 class SourceDocumentModel(Base):
     __tablename__ = "source_documents"
 
     document_id: Mapped[str] = mapped_column(String(150), primary_key=True)
     domain_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     bank_id: Mapped[str | None] = mapped_column(ForeignKey("question_banks.bank_id"), nullable=True, index=True)
+    folder_id: Mapped[str | None] = mapped_column(ForeignKey("knowledge_folders.folder_id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(300), nullable=False)
     media_type: Mapped[str] = mapped_column(String(100), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -301,6 +328,10 @@ class SourceDocumentModel(Base):
     graph_node_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     graph_edge_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     graph_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Structured-parser coverage is persisted as compact JSON so the learner
+    # can see how much of a large source was actually processed without
+    # exposing implementation artifacts such as parsed Markdown files.
+    parse_stats: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
@@ -413,6 +444,12 @@ class KnowledgeChunkModel(Base):
     # Opaque knowledge-media identities only; the image bytes stay in the
     # controlled runtime asset directory and are never embedded in a chunk.
     media_asset_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    parent_chunk_id: Mapped[str | None] = mapped_column(String(150), nullable=True, index=True)
+    element_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    element_type: Mapped[str] = mapped_column(String(24), nullable=False, default="paragraph")
+    page_start: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    page_end: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    provenance: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
     namespace: Mapped[str] = mapped_column(String(80), nullable=False, default=DEFAULT_KNOWLEDGE_NAMESPACE, index=True)
     source_uri: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
@@ -441,6 +478,10 @@ class KnowledgeMediaAssetModel(Base):
     page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     alt_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    asset_type: Mapped[str] = mapped_column(String(24), nullable=False, default="figure", index=True)
+    bbox: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    source_element_id: Mapped[str | None] = mapped_column(String(180), nullable=True, index=True)
+    section_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="ready", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now, nullable=False)
 

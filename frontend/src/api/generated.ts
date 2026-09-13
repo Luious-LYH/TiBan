@@ -524,6 +524,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/knowledge/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Folders */
+        get: operations["list_folders_api_v3_knowledge_folders_get"];
+        put?: never;
+        /** Create Folder */
+        post: operations["create_folder_api_v3_knowledge_folders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/knowledge/folders/{folder_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Folder */
+        delete: operations["delete_folder_api_v3_knowledge_folders__folder_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Folder */
+        patch: operations["update_folder_api_v3_knowledge_folders__folder_id__patch"];
+        trace?: never;
+    };
+    "/api/v3/knowledge/sources/process": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Process Selected Sources
+         * @description Start indexing only the five-or-fewer sources explicitly selected by the user.
+         */
+        post: operations["process_selected_sources_api_v3_knowledge_sources_process_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/knowledge/sources/{document_id}": {
         parameters: {
             query?: never;
@@ -2650,12 +2706,28 @@ export interface components {
             title?: string | null;
             /** Stem */
             stem?: string | null;
+            /** Question Type */
+            question_type?: string | null;
+            /** Options */
+            options?: {
+                [key: string]: string;
+            }[];
+            /** Correct Option Id */
+            correct_option_id?: string | null;
             /** Explanation */
             explanation?: string | null;
+            /** Teaching Tags */
+            teaching_tags?: string[];
             /** Citation */
             citation?: {
-                [key: string]: string;
+                [key: string]: unknown;
             };
+            /** Image Asset Id */
+            image_asset_id?: string | null;
+            /** Image Alt */
+            image_alt?: string | null;
+            /** Image Page */
+            image_page?: number | null;
         };
         /** FactoryEventPublic */
         FactoryEventPublic: {
@@ -3080,7 +3152,79 @@ export interface components {
         /** KnowledgeEnabledRequest */
         KnowledgeEnabledRequest: {
             /** Enabled */
-            enabled: boolean;
+            enabled?: boolean | null;
+            /** Folder Id */
+            folder_id?: string | null;
+        };
+        /** KnowledgeFolderCreateRequest */
+        KnowledgeFolderCreateRequest: {
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /**
+             * Scope
+             * @default user
+             */
+            scope: string;
+        };
+        /** KnowledgeFolderDeleteResponse */
+        KnowledgeFolderDeleteResponse: {
+            /** Status */
+            status: string;
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** KnowledgeFolderListResponse */
+        KnowledgeFolderListResponse: {
+            /** Items */
+            items: components["schemas"]["KnowledgeFolderPublic"][];
+            /**
+             * Api Source
+             * @default backend
+             */
+            api_source: string;
+        };
+        /** KnowledgeFolderPublic */
+        KnowledgeFolderPublic: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Scope */
+            scope: string;
+            /**
+             * Is System
+             * @default false
+             */
+            is_system: boolean;
+            /**
+             * Source Count
+             * @default 0
+             */
+            source_count: number;
+            /** Created At */
+            created_at: unknown;
+            /** Updated At */
+            updated_at?: unknown | null;
+        };
+        /** KnowledgeFolderUpdateRequest */
+        KnowledgeFolderUpdateRequest: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
         };
         /** KnowledgeListResponse */
         KnowledgeListResponse: {
@@ -3091,6 +3235,11 @@ export interface components {
              * @default backend
              */
             api_source: string;
+        };
+        /** KnowledgeProcessRequest */
+        KnowledgeProcessRequest: {
+            /** Document Ids */
+            document_ids: string[];
         };
         /** KnowledgeSearchRequest */
         KnowledgeSearchRequest: {
@@ -3146,6 +3295,10 @@ export interface components {
             media_type: string;
             /** Scope */
             scope: string;
+            /** Folder Id */
+            folder_id?: string | null;
+            /** Folder Name */
+            folder_name?: string | null;
             /** Status */
             status: string;
             /** Size Bytes */
@@ -3190,6 +3343,10 @@ export interface components {
             graph_edge_count?: number | null;
             /** Graph Error */
             graph_error?: string | null;
+            /** Parse Stats */
+            parse_stats?: {
+                [key: string]: unknown;
+            };
             /** Media Preview */
             media_preview?: {
                 [key: string]: unknown;
@@ -3217,6 +3374,10 @@ export interface components {
             media_type: string;
             /** Scope */
             scope: string;
+            /** Folder Id */
+            folder_id?: string | null;
+            /** Folder Name */
+            folder_name?: string | null;
             /** Status */
             status: string;
             /** Size Bytes */
@@ -3261,6 +3422,10 @@ export interface components {
             graph_edge_count?: number | null;
             /** Graph Error */
             graph_error?: string | null;
+            /** Parse Stats */
+            parse_stats?: {
+                [key: string]: unknown;
+            };
             /** Media Preview */
             media_preview?: {
                 [key: string]: unknown;
@@ -6273,6 +6438,158 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["KnowledgeDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_folders_api_v3_knowledge_folders_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeFolderListResponse"];
+                };
+            };
+        };
+    };
+    create_folder_api_v3_knowledge_folders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeFolderCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeFolderPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_folder_api_v3_knowledge_folders__folder_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeFolderDeleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_folder_api_v3_knowledge_folders__folder_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeFolderUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeFolderPublic"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    process_selected_sources_api_v3_knowledge_sources_process_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KnowledgeProcessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KnowledgeListResponse"];
                 };
             };
             /** @description Validation Error */

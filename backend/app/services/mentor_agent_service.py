@@ -24,8 +24,54 @@ from app.services.stage1_service import stage1_service
 MENTOR_PROMPT = (Path(__file__).resolve().parents[1] / "agents" / "prompts" / "mentor_agent.md").read_text(encoding="utf-8")
 
 
+def _requests_reference_images(message: str) -> bool:
+    """Whether a Mentor turn should place retrieved figures in the reply.
+
+    Retrieval itself remains available for normal source questions, but an
+    inline figure is intentionally opt-in. That prevents ordinary learning
+    replies from turning into a gallery while making requests such as “给我
+    相关图片” feel immediate and useful in the chat transcript.
+    """
+
+    lowered = message.lower()
+    phrases = (
+        "相关图片", "资料图片", "给我图片", "给张图", "返回图片", "展示图片", "找图片",
+        "看看图片", "看图", "配图", "图示", "图片看看",
+        "show me an image", "show me image", "show image", "related image", "return image",
+    )
+    return any(phrase in lowered for phrase in phrases)
+
+
+def _provider_failure_fallback(context: AgentContext, observations: dict[str, Any]) -> str:
+    """Keep a successful evidence retrieval useful if generation is offline.
+
+    This never substitutes a visual interpretation. It only states the
+    document/page provenance already returned by the governed retriever, so a
+    learner who explicitly asked for an image still receives a useful, honest
+    answer and the matching figure card.
+    """
+
+    retrieval = observations.get("search_knowledge")
+    if _requests_reference_images(context.user_message) and isinstance(retrieval, list):
+        references: list[str] = []
+        for item in retrieval:
+            if not isinstance(item, dict) or not item.get("show_in_chat") or not item.get("image_urls"):
+                continue
+            label = f"{str(item.get('document_name') or '学习资料')}第 {str(item.get('page') or '?')} 页"
+            if label not in references:
+                references.append(label)
+        if references:
+            return f"已找到与问题相关的资料图片，出处为{'、'.join(references[:3])}。图片已附在本条回答中，可点击查看原图。"
+        return "当前已启用资料中没有检索到可追溯的相关图片。"
+    return LocalPolicyModelGateway().compose(context, observations)
+
+
 def _context_image_paths(context: AgentContext, observations: dict[str, Any] | None = None) -> list[str]:
-    paths = [str(path) for path in context.image_paths if str(path).strip()]
+    # A mentor reply can cite several nearby figures. Bound that visual
+    # context after user-attached imagery so the normal response remains fast
+    # and the model receives only the strongest retrieved evidence set.
+    direct_paths = [str(path) for path in context.image_paths if str(path).strip()]
+    evidence_paths: list[str] = []
     for observation in (observations or {}).values():
         if not isinstance(observation, list):
             continue
@@ -34,8 +80,8 @@ def _context_image_paths(context: AgentContext, observations: dict[str, Any] | N
                 continue
             urls = item.get("image_urls", [])
             if isinstance(urls, list):
-                paths.extend(str(url) for url in urls if str(url).strip())
-    return list(dict.fromkeys(paths))
+                evidence_paths.extend(str(url) for url in urls if str(url).strip())
+    return list(dict.fromkeys([*direct_paths, *evidence_paths]))[:4]
 
 
 class MentorGateway:
@@ -87,7 +133,7 @@ class MentorGateway:
             max_tokens=440,
         )
         if not result.ok:
-            raise normalize_provider_error(result.error)
+            return _provider_failure_fallback(context, observations)
         return result.text
 
 
@@ -216,11 +262,16 @@ def _search_knowledge(context: AgentContext) -> list[dict[str, Any]]:
         image_results = list(result.get("image_results", []))
     except Exception:
         return []
+    show_images_in_chat = _requests_reference_images(context.user_message)
     return [
         {
             "document_name": item.document_name, "page": str(item.page), "section": item.section,
             "snippet": item.snippet, "source_uri": item.source_uri or "", "namespace": item.namespace,
             "image_urls": list(item.image_urls), "media_asset_ids": list(item.media_asset_ids),
+            # Text citations keep their figure links in the collapsed source
+            # area. Only vetted Figure retrieval results below become direct
+            # reply cards when the learner explicitly asked to see images.
+            "show_in_chat": False,
         }
         for item in citations
     ] + [
@@ -230,6 +281,7 @@ def _search_knowledge(context: AgentContext) -> list[dict[str, Any]]:
             "snippet": str(item.get("caption") or "检索到相关资料图片。"), "source_uri": "", "namespace": "knowledge_media",
             "image_urls": [str(item.get("url"))], "media_asset_ids": [str(item.get("asset_id"))],
             "concepts": list(item.get("concepts") or []), "evidence_links": list(item.get("evidence_links") or []),
+            "show_in_chat": show_images_in_chat,
         }
         for item in image_results
         if item.get("url")

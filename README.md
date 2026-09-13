@@ -9,6 +9,8 @@
 
 中文 | [English](./README.en.md) | [桌面版](https://github.com/Luious-LYH/TiBan/releases/download/v3.3.1/%E9%A2%98%E4%BC%B4%20TiBan-3.3.1-x64-Portable.exe) | [赞助](#支持-tiban)🚀
 
+当前发布版本：**v3.5.2** · [版本记录](./docs/releases/V3.5.2.md)
+
 </div>
 
 <p align="center">
@@ -84,6 +86,12 @@ TiBan 是一个把题库、学习资料、智能辅导和长期学习状态连�
 </p>
 
 <p align="center"><em>图文证据链：资料列表展示图片数量与索引状态，详情区同时呈现资料图片、Figure 图注、来源许可和解析片段。</em></p>
+
+<p align="center">
+  <img src="./docs/v3/evidence/readme/22-knowledge-textbook-detail.png" alt="《医学影像学》教学材料的多模态知识库详情" width="100%">
+</p>
+
+<p align="center"><em>V3.5.2 实际知识库详情：406 页教材解析为 2298 个切块片段，保留 252 张可检索图片；图片预览、正文解析、页码出处与图文关联在同一资料详情中可回溯。</em></p>
 
 ### 评测实验室：用可复现的条件比较模型与检索
 
@@ -258,6 +266,8 @@ npm run build
 - [智能辅导与带教 Agent 架构](./docs/architecture/tutor-agent.md)
 - [题库导入架构](./docs/architecture/question-factory.md)
 - [知识检索管线](./docs/architecture/rag-pipeline.md)
+- [V3.5.2 多模态 RAG 简历与面试准备](./docs/portfolio/V3.5.2_RESUME_AND_INTERVIEW.md)
+- [V3.5.2 版本记录](./docs/releases/V3.5.2.md)
 - [多模态图文证据链](./docs/architecture/multimodal-evidence-rag-v35.md)
 - [领域包与共享核心](./docs/architecture/domain-packs-v2.md)
 - [数据来源与许可边界](./THIRD_PARTY_DATA.md)

@@ -39,8 +39,15 @@ class FactoryEventPublic(BaseModel):
 class FactoryDraftPublic(BaseModel):
     title: str | None = None
     stem: str | None = None
+    question_type: str | None = None
+    options: list[dict[str, str]] = Field(default_factory=list)
+    correct_option_id: str | None = None
     explanation: str | None = None
-    citation: dict[str, str] = Field(default_factory=dict)
+    teaching_tags: list[str] = Field(default_factory=list)
+    citation: dict[str, Any] = Field(default_factory=dict)
+    image_asset_id: str | None = None
+    image_alt: str | None = None
+    image_page: int | None = None
 
 
 class FactoryJudgePublic(BaseModel):

@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from qdrant_client import models
 
 from app.db.database import SessionLocal
 from app.db.models import DocumentVersionModel, FactoryJobModel, KnowledgeChunkModel, SourceDocumentModel, VectorIndexStateModel
@@ -40,6 +41,65 @@ def test_openai_embedding_batches_preserve_order_and_dimension(monkeypatch: pyte
     assert calls == [["a", "bb"], ["ccc"]]
     assert vectors == [[1.0, 0.0], [2.0, 1.0], [3.0, 0.0]]
     assert provider.dimension() == 2
+
+
+def test_openai_embedding_recovers_from_large_remote_batch_without_repeating_completed_work(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A provider reset lowers only the unfinished slice to a safe batch size."""
+
+    provider = OpenAICompatibleEmbeddingProvider(
+        provider_id="test", model_id="test-embedding", base_url="https://example.test/v1",
+        api_key="test-key", timeout_seconds=1,
+    )
+    monkeypatch.setattr("app.services.embedding_provider.embedding_batch_size", lambda: 4)
+    monkeypatch.setattr("app.services.embedding_provider.time.sleep", lambda _seconds: None)
+    calls: list[list[str]] = []
+
+    def request(body: dict[str, object]) -> dict[str, object]:
+        batch = [str(item) for item in body["input"]]  # type: ignore[index]
+        calls.append(batch)
+        if len(batch) > 2:
+            raise RuntimeError("embedding_unavailable:ConnectionResetError")
+        return {"data": [
+            {"index": index, "embedding": [float(len(value)), float(index)]}
+            for index, value in enumerate(batch)
+        ]}
+
+    monkeypatch.setattr(provider, "_request", request)
+    vectors = provider.embed_documents(["a", "bb", "ccc", "dddd", "eeeee"])
+
+    assert vectors == [[1.0, 0.0], [2.0, 1.0], [3.0, 0.0], [4.0, 1.0], [5.0, 0.0]]
+    # The first four-item request is retried, then the untouched slice is
+    # safely split. The final one-item slice is never requested twice.
+    assert calls.count(["eeeee"]) == 1
+    assert any(len(batch) == 2 for batch in calls)
+
+
+def test_qdrant_upsert_uses_small_retryable_slices(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One connection reset retries only the current Qdrant point slice."""
+
+    class FakeQdrant:
+        def __init__(self) -> None:
+            self.calls: list[list[object]] = []
+            self.failed_once = False
+
+        def upsert(self, _collection: str, *, points: list[object], wait: bool) -> None:
+            assert wait is True
+            self.calls.append(points)
+            if not self.failed_once:
+                self.failed_once = True
+                raise ConnectionResetError("connection reset")
+
+    fake = FakeQdrant()
+    monkeypatch.setattr(type(rag_service), "qdrant", property(lambda _self: fake))
+    monkeypatch.setattr("app.services.rag_service.sleep", lambda _seconds: None)
+    points = [
+        models.PointStruct(id=index, vector=[0.1, 0.2], payload={"ordinal": index})
+        for index in range(5)
+    ]
+
+    rag_service._upsert_points_batched("test", points, batch_size=2)
+
+    assert [len(batch) for batch in fake.calls] == [2, 2, 2, 1]
 
 
 def test_embedding_batch_dimension_failure_does_not_return_partial_vectors(monkeypatch: pytest.MonkeyPatch) -> None:

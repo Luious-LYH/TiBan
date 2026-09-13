@@ -5,15 +5,19 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+from difflib import SequenceMatcher
+from collections import OrderedDict
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, sleep
+from threading import RLock
+from time import monotonic
 from typing import Any, Iterable, Literal
 
 from qdrant_client import QdrantClient, models
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 
 from app.core.config import DEFAULT_DOMAIN_ID, DEFAULT_KNOWLEDGE_NAMESPACE, QDRANT_URL
 from app.db.database import SessionLocal
@@ -31,16 +35,36 @@ from app.services.embedding_provider import EmbeddingProvider, ImageEmbeddingPro
 
 MODEL_NAME = 'BAAI/bge-m3'
 RERANK_MODEL = 'BAAI/bge-reranker-v2-m3'
+# Bump when the structured parser/chunker contract changes materially.  The
+# normalized projection hash alone is not sufficient: a parser can keep the
+# same visible text while changing page provenance, chunk boundaries, or
+# caption-linked media.  A revisioned suffix prevents an older version from
+# remaining the newest row by creation time.
+STRUCTURED_INDEX_REVISION = "structured-v4"
 COLLECTION = 'tiban_knowledge_v32'
 KNOWLEDGE_INDEX_KEY = 'knowledge'
 IMAGE_COLLECTION = 'tiban_knowledge_image_v35'
 IMAGE_INDEX_KEY = 'knowledge_images'
 MODEL_CACHE = Path(os.getenv('ENDO_EMBEDDING_CACHE', Path(__file__).resolve().parents[2] / 'runtime' / 'fastembed'))
+# Keep write payloads small enough for Docker Desktop and reverse proxies.
+# This is deliberately independent of the upstream embedding batch: the
+# former controls provider throughput while this protects the local vector DB
+# from a multi-megabyte JSON upsert of a long textbook.
+QDRANT_UPSERT_BATCH_SIZE = max(8, min(256, int(os.getenv("TIBAN_QDRANT_UPSERT_BATCH_SIZE", "64"))))
 _IMAGE_QUERY_TERMS = (
     "结肠镜", "盲肠", "回盲瓣", "直肠", "上消化道", "胃镜", "食管", "十二指肠",
     "内镜", "息肉", "腺瘤", "图像记录", "图像", "colonoscopy", "cecum", "ileocecal",
     "gastroscopy", "endoscopy", "polyp", "adenoma", "image documentation",
 )
+# These labels are useful within a source's local evidence graph, but are too
+# broad to justify showing a learner an image by themselves. A query that only
+# mentions “image”, “diagnosis” or “model” must not fan out to every Figure
+# that shares those ordinary document words.
+_GRAPH_GENERIC_CONCEPTS = {
+    "图像", "指南", "诊断", "筛查", "治疗", "风险", "随访",
+    "知识库", "检索", "向量", "嵌入", "模型", "代理", "题库", "训练",
+    "image", "retrieval", "embedding", "agent", "model",
+}
 
 
 def _clip_query_text(query: str) -> str:
@@ -136,12 +160,62 @@ def _terms(value: str) -> Counter[str]:
     """
 
     terms: list[str] = []
-    for token in re.findall(r"[a-z0-9_]+|[\u4e00-\u9fff]+", value.lower()):
+    # Textbooks commonly use the multiplication mark for X-ray (×线), while
+    # learners normally type X线. Normalising before tokenisation keeps a
+    # Figure caption and its natural-language query in the same lexical path.
+    normalized_value = value.lower().replace("×", "x").replace("χ", "x")
+    for token in re.findall(r"[a-z0-9_]+|[\u4e00-\u9fff]+", normalized_value):
         if re.fullmatch(r"[a-z0-9_]+", token):
             terms.append(token)
         else:
             terms.extend(token[index:index + 2] for index in range(max(len(token) - 1, 0)))
     return Counter(terms)
+
+
+def _has_specific_graph_concept(value: str) -> bool:
+    return bool(value.strip()) and value.casefold() not in _GRAPH_GENERIC_CONCEPTS
+
+
+def _caption_query_match_score(query: str, caption: str) -> int:
+    """Return a conservative, explainable Figure-caption match score.
+
+    A one-token acronym match is not enough for learner-facing image evidence:
+    a query about ``CT 检查窗技术`` and a caption about any other CT study
+    would otherwise look equally supported. Prefer a shared Chinese phrase
+    (``检查窗技术``) or multiple meaningful Latin terms. Broad visual
+    similarity remains available to rank candidates in Qdrant, but does not
+    bypass this provenance gate.
+    """
+
+    query_cjk = re.findall(r"[\u4e00-\u9fff]{2,}", query)
+    caption_cjk = re.findall(r"[\u4e00-\u9fff]{2,}", caption)
+    longest_cjk = 0
+    for query_run in query_cjk:
+        for caption_run in caption_cjk:
+            longest_cjk = max(
+                longest_cjk,
+                SequenceMatcher(None, query_run, caption_run, autojunk=False).find_longest_match().size,
+            )
+    # Three adjacent CJK characters distinguish a captioned concept such as
+    # “线成像” or “结肠镜” from broad page furniture like “图像” / “检查”.
+    if longest_cjk >= 3:
+        return longest_cjk + 4
+
+    def latin_terms(value: str) -> set[str]:
+        return {
+            item
+            for item in re.findall(r"[a-z][a-z0-9_-]{2,}", value.casefold())
+            if item not in {"figure", "fig", "image", "images", "the", "and", "with", "from"}
+        }
+
+    shared_latin = latin_terms(query).intersection(latin_terms(caption))
+    if len(shared_latin) >= 2:
+        return len(shared_latin) + 2
+    # A long exact medical term such as ``colonoscopy`` is sufficiently
+    # specific by itself. Short abbreviations (CT/MRI) are deliberately not.
+    if any(len(item) >= 8 for item in shared_latin):
+        return 3
+    return 0
 
 
 def _sparse_score(query: str, content: str) -> float:
@@ -193,6 +267,102 @@ class RagService:
         self._reranker_provider: RerankerProvider | None = None
         self._provider_signature: tuple[str, str, str, str] | None = None
         self._reranker_signature: tuple[str, str, str, str] | None = None
+        # The cache is process-local and deliberately bounded.  It contains
+        # only already-projected citation/evidence metadata; image bytes,
+        # provider credentials and filesystem paths never enter it.
+        self._retrieval_cache: OrderedDict[str, tuple[float, object]] = OrderedDict()
+        self._retrieval_cache_lock = RLock()
+        self._retrieval_cache_ttl = max(0.0, float(os.getenv("TIBAN_RETRIEVAL_CACHE_TTL_SECONDS", "20")))
+        self._retrieval_cache_maxsize = max(8, int(os.getenv("TIBAN_RETRIEVAL_CACHE_MAXSIZE", "128")))
+
+    def clear_retrieval_cache(self) -> None:
+        """Invalidate process-local retrieval projections after corpus changes."""
+
+        with self._retrieval_cache_lock:
+            self._retrieval_cache.clear()
+
+    def _cached_retrieval(self, key: str) -> object | None:
+        if self._retrieval_cache_ttl <= 0:
+            return None
+        now = monotonic()
+        with self._retrieval_cache_lock:
+            entry = self._retrieval_cache.get(key)
+            if entry is None:
+                return None
+            expires_at, value = entry
+            if expires_at <= now:
+                self._retrieval_cache.pop(key, None)
+                return None
+            self._retrieval_cache.move_to_end(key)
+            return value
+
+    def _store_retrieval(self, key: str, value: object) -> None:
+        if self._retrieval_cache_ttl <= 0:
+            return
+        with self._retrieval_cache_lock:
+            self._retrieval_cache[key] = (monotonic() + self._retrieval_cache_ttl, value)
+            self._retrieval_cache.move_to_end(key)
+            while len(self._retrieval_cache) > self._retrieval_cache_maxsize:
+                self._retrieval_cache.popitem(last=False)
+
+    @staticmethod
+    def _retrieval_cache_key(
+        query: str,
+        *,
+        mode: str,
+        profile: RetrievalProfile,
+        version_id: str | None,
+        version_ids: list[str] | None,
+        document_ids: list[str] | None,
+        domain_id: str | None,
+        namespace: str | None,
+        namespaces: list[str] | None,
+        index_version: object,
+    ) -> str:
+        # Do not include provider secrets.  The active index version and
+        # profile are sufficient to prevent stale evidence after rebuilds.
+        payload = "\x1f".join([
+            query.strip(), mode, repr(profile.public()), str(version_id or ""),
+            ",".join(sorted(version_ids or [])), ",".join(sorted(document_ids or [])),
+            str(domain_id or ""), str(namespace or ""), ",".join(sorted(namespaces or [])),
+            str(index_version or 0),
+        ])
+        return "retrieve:" + _hash(payload)
+
+    def ensure_payload_indexes(self, collection: str = COLLECTION) -> list[str]:
+        """Create cheap keyword indexes when the Qdrant adapter supports them.
+
+        Qdrant's payload index is an optional derived optimization.  Local fake
+        clients used by unit tests and older Qdrant clients may not implement
+        this endpoint, so failure here must never make indexing unavailable.
+        """
+
+        client = self.qdrant
+        if not client.collection_exists(collection):
+            return []
+        create_index = getattr(client, "create_payload_index", None)
+        if not callable(create_index):
+            return []
+        fields = ["document_id", "domain_id", "namespace", "version_id"]
+        if collection == IMAGE_COLLECTION:
+            fields = ["document_id", "domain_id", "namespace", "version_id", "concepts"]
+        created: list[str] = []
+        for field in fields:
+            try:
+                create_index(
+                    collection_name=collection,
+                    field_name=field,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                    wait=True,
+                )
+                created.append(field)
+            except Exception as exc:
+                # Existing indexes are reported as a no-op by some clients and
+                # as a conflict by others.  Keep the indexer operational while
+                # exposing no false readiness signal to the product.
+                if "already" not in str(exc).lower() and "exist" not in str(exc).lower():
+                    continue
+        return created
 
     @staticmethod
     def _provider_signature_for(provider: object) -> tuple[str, str, str, str]:
@@ -273,16 +443,22 @@ class RagService:
         license_gate_status: str = 'allow_noncommercial',
         ai_ingestion_allowed: bool = True,
         version_label: str | None = None,
+        parsed_document: object | None = None,
     ) -> list[str]:
+        # ``index_markdown`` remains the compatibility entry point for curated
+        # notes and existing tests.  Knowledge uploads can additionally pass a
+        # ParsedDocument so chunking uses page/layout provenance instead of
+        # flattening a large PDF into one character stream.
         text = path.read_text(encoding='utf-8')
         resolved_document_name = document_name or path.name
         source_hash = _hash(text)
-        chunks = list(_chunk_markdown(_strip_frontmatter(text), child_size))
+        structured_chunks = list(parsed_document.chunks(max_tokens=450, overlap_tokens=60)) if parsed_document is not None and callable(getattr(parsed_document, "chunks", None)) else None
+        chunks = structured_chunks if structured_chunks is not None else list(_chunk_markdown(_strip_frontmatter(text), child_size))
         # Chunk identity changed in Stage 2 so identical uploads can coexist
         # without primary-key collisions.  Keep the previous runtime index
         # untouched for auditability; v2 is the only version eligible for new
         # benchmark/product retrieval and therefore can never mix both IDs.
-        version_id = f'{document_id}-{source_hash[:12]}-{child_size}-v2'
+        version_id = f'{document_id}-{source_hash[:12]}-{child_size}-{STRUCTURED_INDEX_REVISION}' if structured_chunks is not None else f'{document_id}-{source_hash[:12]}-{child_size}-v2'
         resolved_version_label = version_label or (
             f'retrieval-eval-v1-child-{child_size}-identity-v2'
             if document_id == 'source-stage2-endoscopy-v1'
@@ -303,29 +479,77 @@ class RagService:
                 document.license_gate_status = license_gate_status
                 document.ai_ingestion_allowed = ai_ingestion_allowed
             if not session.get(DocumentVersionModel, version_id):
-                session.add(DocumentVersionModel(version_id=version_id, document_id=document_id, version_label=resolved_version_label, source_path=str(path.resolve()), content_hash=source_hash, parser='heading-aware-markdown', status='indexed'))
-            for ordinal, (section, content) in enumerate(chunks):
+                session.add(DocumentVersionModel(version_id=version_id, document_id=document_id, version_label=resolved_version_label, source_path=str(path.resolve()), content_hash=source_hash, parser=str(getattr(parsed_document, "parser", "heading-aware-markdown")), status='indexed'))
+            for ordinal, item in enumerate(chunks):
+                if structured_chunks is not None:
+                    section = str(item.section_path)
+                    content = str(item.content)
+                    page_start = int(item.page_start)
+                    page_end = int(item.page_end)
+                    parent_chunk_id = str(item.parent_chunk_id)
+                    element_ids = list(item.element_ids)
+                    element_type = str(item.element_type)
+                    provenance = dict(item.provenance)
+                    token_count = int(item.token_count)
+                else:
+                    section, content = item
+                    page_start = page_end = _page_from_section(section)
+                    parent_chunk_id = None
+                    element_ids = []
+                    element_type = "paragraph"
+                    provenance = {"section_path": section, "page_start": page_start, "page_end": page_end}
+                    token_count = len(content)
                 # The same allowed content may be uploaded more than once;
                 # include document identity so globally keyed chunks retain
                 # both provenance paths without a collision.
-                chunk_id = f'chunk-{document_id[-12:]}-{source_hash[:8]}-{child_size}-{ordinal:02d}-v2'
+                chunk_id = f'chunk-{document_id[-12:]}-{source_hash[:8]}-{child_size}-{ordinal:02d}-{STRUCTURED_INDEX_REVISION}' if structured_chunks is not None else f'chunk-{document_id[-12:]}-{source_hash[:8]}-{child_size}-{ordinal:02d}-v2'
                 # Dramatiq may retry after a transient Qdrant failure.  The
                 # relational chunk insert is idempotent across such retries.
                 chunk = session.get(KnowledgeChunkModel, chunk_id)
                 if chunk is None:
-                    session.add(KnowledgeChunkModel(chunk_id=chunk_id, document_id=document_id, version_id=version_id, parent_section=section, page=_page_from_section(section), ordinal=ordinal, content=content, content_hash=_hash(content), token_count=len(content), namespace=namespace, source_uri=source_uri or str(path.resolve())))
+                    session.add(KnowledgeChunkModel(chunk_id=chunk_id, document_id=document_id, version_id=version_id, parent_section=section, page=page_start, ordinal=ordinal, content=content, content_hash=_hash(content), token_count=token_count, modality="text", media_asset_ids=[], parent_chunk_id=parent_chunk_id, element_ids=element_ids, element_type=element_type, page_start=page_start, page_end=page_end, provenance=provenance, namespace=namespace, source_uri=source_uri or str(path.resolve())))
                 else:
                     # Re-indexing is idempotent but also refreshes parser
                     # output when a curated note's frontmatter or section
                     # handling changes.
                     chunk.parent_section = section
-                    chunk.page = _page_from_section(section)
+                    chunk.page = page_start
                     chunk.ordinal = ordinal
                     chunk.content = content
                     chunk.content_hash = _hash(content)
-                    chunk.token_count = len(content)
+                    chunk.token_count = token_count
+                    chunk.parent_chunk_id = parent_chunk_id
+                    chunk.element_ids = element_ids
+                    chunk.element_type = element_type
+                    chunk.page_start = page_start
+                    chunk.page_end = page_end
+                    chunk.provenance = provenance
                     chunk.namespace = namespace
                     chunk.source_uri = source_uri or str(path.resolve())
+            # A retry can produce fewer chunks than an earlier parse of the
+            # same version.  Remove only rows that are no longer part of this
+            # version, together with their graph edges, before committing the
+            # replacement.  Without this, a corrected parser leaves stale
+            # OCR fragments in the relational corpus even though Qdrant has
+            # already moved on to the new point set.
+            expected_chunk_ids = {
+                f'chunk-{document_id[-12:]}-{source_hash[:8]}-{child_size}-{ordinal:02d}-{STRUCTURED_INDEX_REVISION}'
+                if structured_chunks is not None
+                else f'chunk-{document_id[-12:]}-{source_hash[:8]}-{child_size}-{ordinal:02d}-v2'
+                for ordinal in range(len(chunks))
+            }
+            existing_chunk_ids = set(session.scalars(select(KnowledgeChunkModel.chunk_id).where(
+                KnowledgeChunkModel.document_id == document_id,
+                KnowledgeChunkModel.version_id == version_id,
+            )))
+            stale_chunk_ids = existing_chunk_ids - expected_chunk_ids
+            if stale_chunk_ids:
+                session.execute(delete(KnowledgeRelationModel).where(
+                    KnowledgeRelationModel.chunk_id.in_(stale_chunk_ids),
+                ))
+                session.execute(delete(KnowledgeChunkModel).where(
+                    KnowledgeChunkModel.chunk_id.in_(stale_chunk_ids),
+                ))
             session.commit()
         # The document rows are canonical and committed before vector work.
         # Rebuild all eligible chunks when the active vector signature changed
@@ -346,6 +570,7 @@ class RagService:
             ),
             wait=True,
         )
+        self.clear_retrieval_cache()
 
     def index_state(self) -> dict[str, object]:
         provider = self.embedding_provider
@@ -459,7 +684,7 @@ class RagService:
                         # the worker's candidate set and becomes learner-
                         # retrievable only after KnowledgeService marks it
                         # ready. Other transitional states stay excluded.
-                        SourceDocumentModel.status.not_in(["queued", "rebuilding", "uploaded", "failed", "disabled", "retired"]),
+                        SourceDocumentModel.status.not_in(["queued", "rebuilding", "uploaded", "failed", "needs_ocr", "disabled", "retired"]),
                         SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
                     )
                     .order_by(KnowledgeChunkModel.document_id, KnowledgeChunkModel.ordinal)
@@ -518,13 +743,15 @@ class RagService:
                 for (chunk, document), vector in zip(rows, vectors)
             ]
             if incremental:
-                self.qdrant.upsert(COLLECTION, points=points, wait=True)
+                self._upsert_points_batched(COLLECTION, points)
                 current_ids = {chunk.chunk_id for chunk, _ in rows}
                 self._delete_point_ids(old_target_ids - current_ids)
             else:
                 self._replace_collection(provider, vectors)
-                self.qdrant.upsert(COLLECTION, points=points, wait=True)
+                self._upsert_points_batched(COLLECTION, points)
+            self.ensure_payload_indexes(COLLECTION)
             self._finish_index_state(provider, len(vectors[0]))
+            self.clear_retrieval_cache()
             return [chunk.chunk_id for chunk, _ in rows]
         except Exception as exc:
             # A compatible incremental failure leaves the previous collection
@@ -541,6 +768,53 @@ class RagService:
             points_selector=models.PointIdsList(points=[_point_id(chunk_id) for chunk_id in chunk_ids]),
             wait=True,
         )
+
+    def _upsert_points_batched(
+        self,
+        collection: str,
+        points: list[models.PointStruct],
+        *,
+        batch_size: int = QDRANT_UPSERT_BATCH_SIZE,
+    ) -> None:
+        """Write Qdrant points in retryable, bounded batches.
+
+        A long document can contain thousands of BGE-M3 vectors.  Sending all
+        of them in one HTTP request is fragile on local Docker/Qdrant setups:
+        a connection reset used to invalidate the whole rebuild after text and
+        image parsing had already succeeded.  Qdrant upserts are idempotent by
+        point ID, so retrying the failed slice is safe and completed slices are
+        retained without re-uploading them.
+        """
+
+        if not points:
+            return
+        size = max(1, int(batch_size))
+        for start in range(0, len(points), size):
+            batch = points[start:start + size]
+            last_error: Exception | None = None
+            for attempt in range(3):
+                try:
+                    self.qdrant.upsert(collection, points=batch, wait=True)
+                    last_error = None
+                    break
+                except Exception as exc:
+                    last_error = exc
+                    if not self._is_retryable_qdrant_write_error(exc) or attempt >= 2:
+                        raise
+                    sleep(0.2 * (2 ** attempt))
+            if last_error is not None:
+                raise last_error
+
+    @staticmethod
+    def _is_retryable_qdrant_write_error(exc: Exception) -> bool:
+        """Retry connection-level and transient Qdrant write failures only."""
+
+        message = f"{type(exc).__name__}:{exc}".lower()
+        markers = (
+            "connectionreset", "connection reset", "remotedisconnected",
+            "responsehandlingexception", "timed out", "timeout", "502", "503", "504",
+        )
+        return any(marker in message for marker in markers)
 
     def delete_image_documents(self, document_ids: list[str]) -> None:
         """Remove only the specified knowledge-media points, if indexed."""
@@ -661,11 +935,23 @@ class RagService:
                     .join(latest_versions, KnowledgeMediaAssetModel.version_id == latest_versions.c.version_id)
                     .where(
                         latest_versions.c.version_rank == 1,
+                        KnowledgeMediaAssetModel.asset_type == "figure",
                         KnowledgeMediaAssetModel.status == "ready",
                         SourceDocumentModel.business_usage == "knowledge_base",
                         SourceDocumentModel.ai_ingestion_allowed.is_(True),
                         SourceDocumentModel.enabled.is_(True),
-                        SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "disabled", "retired"]),
+                        # The current document is still marked ``indexing``
+                        # until its text, media and graph commits complete.
+                        # Include only that explicitly requested document so
+                        # its freshly extracted images can enter the image
+                        # index without exposing unrelated partial sources.
+                        or_(
+                        SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "needs_ocr", "disabled", "retired"]),
+                            and_(
+                                SourceDocumentModel.status == "indexing",
+                                SourceDocumentModel.document_id.in_(requested_ids),
+                            ),
+                        ),
                         SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
                     )
                     .order_by(KnowledgeMediaAssetModel.document_id, KnowledgeMediaAssetModel.ordinal)
@@ -740,7 +1026,7 @@ class RagService:
                 # document slice first, then atomically repopulate it with
                 # the caption-qualified assets built above.
                 self.delete_image_documents(list(requested_ids))
-                self.qdrant.upsert(IMAGE_COLLECTION, points=points, wait=True)
+                self._upsert_points_batched(IMAGE_COLLECTION, points)
             else:
                 if self.qdrant.collection_exists(IMAGE_COLLECTION):
                     self.qdrant.delete_collection(IMAGE_COLLECTION)
@@ -748,9 +1034,11 @@ class RagService:
                     IMAGE_COLLECTION,
                     vectors_config=models.VectorParams(size=dimension, distance=models.Distance.COSINE),
                 )
-                self.qdrant.upsert(IMAGE_COLLECTION, points=points, wait=True)
+                self._upsert_points_batched(IMAGE_COLLECTION, points)
+            self.ensure_payload_indexes(IMAGE_COLLECTION)
             self._set_image_index_state(provider, "ready", dimension, None)
             self._set_source_image_status({asset.document_id for asset in assets} | requested_ids, "ready", None)
+            self.clear_retrieval_cache()
             return [asset.asset_id for asset in assets]
         except Exception as exc:
             if provider is None:
@@ -774,6 +1062,7 @@ class RagService:
                 item.asset_id: item
                 for item in session.scalars(select(KnowledgeMediaAssetModel).where(
                     KnowledgeMediaAssetModel.asset_id.in_(requested),
+                    KnowledgeMediaAssetModel.asset_type == "figure",
                     KnowledgeMediaAssetModel.status == "ready",
                 ))
             }
@@ -849,6 +1138,7 @@ class RagService:
             points_selector=models.PointIdsList(points=[_point_id(f"knowledge-image:{asset_id}") for asset_id in asset_ids]),
             wait=True,
         )
+        self.clear_retrieval_cache()
 
     def retrieve_multimodal(
         self,
@@ -882,7 +1172,7 @@ class RagService:
                             SourceDocumentModel.business_usage == "knowledge_base",
                             SourceDocumentModel.ai_ingestion_allowed.is_(True),
                             SourceDocumentModel.enabled.is_(True),
-                            SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "disabled", "retired"]),
+                            SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "needs_ocr", "disabled", "retired"]),
                             SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
                         )
                         if domain_id:
@@ -934,14 +1224,28 @@ class RagService:
 
         graph_paths: list[dict[str, object]] = []
         graph_citations: list[Citation] = []
+        caption_images = self._caption_related_images(
+            citations, query=query, domain_id=domain_id, namespaces=active_namespaces, limit=limit,
+        )
+        image_results = self._merge_image_results(image_results, caption_images)
         if include_graph:
             if citations:
-                graph_citations, graph_paths = self._expand_graph(citations, domain_id=domain_id, limit=limit)
+                graph_citations, graph_paths = self._expand_graph(
+                    citations, query=query, domain_id=domain_id, limit=limit,
+                )
             graph_images, image_paths = self._graph_related_images(
                 citations, query=query, domain_id=domain_id, namespaces=active_namespaces, limit=limit,
             )
             graph_paths.extend(image_paths)
             image_results = self._merge_image_results(image_results, graph_images)
+        # CLIP is useful for recall, but a nearest visual neighbour is not by
+        # itself sufficient learner-facing evidence.  Keep a result only when
+        # it can be grounded in the matched text, a governed Figure→concept
+        # edge, or the Figure caption itself.  This makes the product obey the
+        # important precision rule: if the library has no supported related
+        # image, Tutor/Mentor should return no image rather than a plausible
+        # looking one.
+        image_results = self._filter_image_results_by_evidence(image_results, citations=citations, query=query)
         image_results = self._fuse_image_results(image_results, citations=citations, limit=limit)
         linked_citations, image_to_text_paths = self._image_linked_citations(
             image_results, domain_id=domain_id, namespaces=active_namespaces, limit=limit,
@@ -991,6 +1295,150 @@ class RagService:
             existing["graph_match_count"] = int(existing.get("graph_match_count") or 0) + int(item.get("graph_match_count") or 0)
         return list(merged.values())
 
+    def _caption_related_images(
+        self,
+        citations: list[Citation],
+        *,
+        query: str,
+        domain_id: str | None,
+        namespaces: list[str] | None = None,
+        limit: int,
+    ) -> list[dict[str, object]]:
+        """Recover figures whose caption directly supports a text query.
+
+        CLIP improves cross-modal recall, while the graph handles controlled
+        medical concepts. Neither is sufficient for every textbook-specific
+        phrase such as “CT检查窗技术”. This bounded third route searches only
+        Figures belonging to the text-hit documents and requires a literal,
+        explainable caption overlap. It therefore turns a text hit into its
+        matching Figure when one exists, without returning an image for every
+        broadly related page.
+        """
+
+        document_ids = {str(item.document_id) for item in citations if item.document_id}
+        if not document_ids or not query.strip() or limit <= 0:
+            return []
+        with SessionLocal() as session:
+            documents_statement = select(SourceDocumentModel).where(
+                SourceDocumentModel.document_id.in_(document_ids),
+                SourceDocumentModel.business_usage == "knowledge_base",
+                SourceDocumentModel.ai_ingestion_allowed.is_(True),
+                SourceDocumentModel.enabled.is_(True),
+                SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "needs_ocr", "disabled", "retired"]),
+                SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
+            )
+            if domain_id:
+                documents_statement = documents_statement.where(SourceDocumentModel.domain_id == domain_id)
+            eligible_documents = {item.document_id: item for item in session.scalars(documents_statement)}
+            if not eligible_documents:
+                return []
+            if namespaces:
+                eligible_documents = {
+                    document_id: document for document_id, document in eligible_documents.items()
+                    if document.namespace in namespaces
+                }
+            if not eligible_documents:
+                return []
+            latest_versions: dict[str, str] = {}
+            versions = list(session.scalars(select(DocumentVersionModel).where(
+                DocumentVersionModel.document_id.in_(eligible_documents),
+            ).order_by(DocumentVersionModel.document_id, DocumentVersionModel.created_at.desc(), DocumentVersionModel.version_id.desc())))
+            for version in versions:
+                latest_versions.setdefault(version.document_id, version.version_id)
+            assets = list(session.scalars(select(KnowledgeMediaAssetModel).where(
+                KnowledgeMediaAssetModel.document_id.in_(eligible_documents),
+                KnowledgeMediaAssetModel.asset_type == "figure",
+                KnowledgeMediaAssetModel.status == "ready",
+            ).order_by(KnowledgeMediaAssetModel.document_id, KnowledgeMediaAssetModel.page, KnowledgeMediaAssetModel.ordinal)))
+            assets = [asset for asset in assets if latest_versions.get(asset.document_id) == asset.version_id]
+            chunks = list(session.scalars(select(KnowledgeChunkModel).where(
+                KnowledgeChunkModel.document_id.in_(eligible_documents),
+                KnowledgeChunkModel.version_id.in_(set(latest_versions.values())),
+            ))) if latest_versions else []
+        linked_chunks = {
+            asset_id: chunk
+            for chunk in chunks
+            for asset_id in (chunk.media_asset_ids or [])
+        }
+        results: list[dict[str, object]] = []
+        for asset in assets:
+            score = _caption_query_match_score(query, asset.alt_text or "")
+            if score <= 0:
+                continue
+            chunk = linked_chunks.get(asset.asset_id)
+            document = eligible_documents.get(asset.document_id)
+            if chunk is None or document is None:
+                # A Figure cannot become an answer-side visual citation unless
+                # its textual provenance is present in the current version.
+                continue
+            results.append({
+                "asset_id": asset.asset_id,
+                "url": f"/api/v3/knowledge/media/{asset.asset_id}",
+                "document_id": asset.document_id,
+                "document_name": document.name,
+                "namespace": document.namespace,
+                "page": asset.page,
+                "width": asset.width,
+                "height": asset.height,
+                "mime_type": asset.mime_type,
+                "caption": asset.alt_text or "资料中的教学图片",
+                "section": asset.section_path or chunk.parent_section or f"第 {asset.page} 页",
+                "concepts": [],
+                "linked_chunk_id": chunk.chunk_id,
+                "caption_match_score": score,
+                "retrieval_channels": ["caption_text"],
+                "evidence_links": ["图注与查询关键词匹配"],
+            })
+        return sorted(
+            results,
+            key=lambda item: (-int(item.get("caption_match_score") or 0), int(item.get("page") or 0), str(item.get("asset_id") or "")),
+        )[:max(limit * 2, limit)]
+
+    @staticmethod
+    def _filter_image_results_by_evidence(
+        images: list[dict[str, object]], *, citations: list[Citation], query: str,
+    ) -> list[dict[str, object]]:
+        """Retain figures with a traceable text/caption/graph connection.
+
+        All indexed knowledge figures already have a verified caption and a
+        linked text chunk.  At retrieval time we require one additional
+        relevance signal rather than exposing a bare CLIP neighbour: the
+        figure shares its linked chunk or page with a text result, has a graph
+        concept match, or its caption itself carries meaningful query terms.
+        """
+
+        kept: list[dict[str, object]] = []
+        for source in images:
+            item = dict(source)
+            linked_chunk_id = str(item.get("linked_chunk_id") or "")
+            channels = {str(value) for value in (item.get("retrieval_channels") or [])}
+            graph_match = int(item.get("graph_match_count") or 0) > 0 or "caption_concept_graph" in channels
+            # A coincidental same-page match is not enough: textbook pages
+            # often mention several modalities and contain several Figures.
+            # Reuse linked text only when it contains real lexical anchors
+            # from the learner's question, so a weak dense hit cannot surface
+            # any image from the same page.
+            text_match = any(
+                citation.chunk_id == linked_chunk_id
+                and _meaningful_lexical_overlap(query, citation.snippet) >= 2
+                for citation in citations
+            )
+            caption_match = bool(linked_chunk_id) and _caption_query_match_score(
+                query, str(item.get("caption") or ""),
+            ) > 0
+            if not (graph_match or text_match or caption_match):
+                continue
+            if text_match:
+                links = list(item.get("evidence_links") or [])
+                if "与相关文字证据对应" not in links:
+                    item["evidence_links"] = [*links, "与相关文字证据对应"]
+            if caption_match and not (graph_match or text_match):
+                links = list(item.get("evidence_links") or [])
+                if "图注与查询关键词匹配" not in links:
+                    item["evidence_links"] = [*links, "图注与查询关键词匹配"]
+            kept.append(item)
+        return kept
+
     @staticmethod
     def _fuse_image_results(
         images: list[dict[str, object]], *, citations: list[Citation], limit: int,
@@ -1006,7 +1454,6 @@ class RagService:
 
         if limit <= 0:
             return []
-        citation_pages = {(item.document_id, item.page) for item in citations}
         fused: list[dict[str, object]] = []
         for image in images:
             item = dict(image)
@@ -1016,11 +1463,22 @@ class RagService:
             # bounded while allowing a Figure that matches two governed
             # query concepts to outrank an unrelated visual near-neighbour.
             association_bonus = graph_matches * 0.12
-            if (str(item.get("document_id") or ""), int(item.get("page") or 0)) in citation_pages:
+            # Caption hits are directly traceable lexical evidence. This is a
+            # bounded ordering bonus, not a probability or a synthetic CLIP
+            # score; it lets “CT检查窗技术” prefer its Figure over a merely
+            # visually similar but less explicitly grounded candidate.
+            association_bonus += min(int(item.get("caption_match_score") or 0), 6) * 0.04
+            linked_chunk_id = str(item.get("linked_chunk_id") or "")
+            direct_text_match = any(
+                citation.chunk_id == linked_chunk_id
+                and _meaningful_lexical_overlap(str(item.get("caption") or ""), citation.snippet) >= 2
+                for citation in citations
+            )
+            if direct_text_match:
                 association_bonus += 0.03
                 links = list(item.get("evidence_links") or [])
-                if "与相关文字证据同页" not in links:
-                    item["evidence_links"] = [*links, "与相关文字证据同页"]
+                if "与相关文字证据对应" not in links:
+                    item["evidence_links"] = [*links, "与相关文字证据对应"]
             item["evidence_association_bonus"] = round(association_bonus, 3)
             item["retrieval_score"] = round(float(item.get("clip_score") or 0.0) + association_bonus, 5)
             fused.append(item)
@@ -1057,8 +1515,15 @@ class RagService:
         if query.strip():
             from app.services.knowledge_multimodal_service import knowledge_multimodal_service
 
-            query_concepts = set(knowledge_multimodal_service._entity_names(query))
-        if not seed_ids and not query_concepts:
+            query_concepts = {
+                value for value in knowledge_multimodal_service._entity_names(query)
+                if _has_specific_graph_concept(value)
+            }
+        # A graph edge is only an image retrieval justification when the query
+        # carries a specific governed concept. Generic terms such as “图像” or
+        # “诊断” occur throughout a textbook and used to surface unrelated
+        # MRI/Figure examples for a CT question.
+        if not query_concepts:
             return [], []
         with SessionLocal() as session:
             seed_chunks = list(session.scalars(select(KnowledgeChunkModel).where(KnowledgeChunkModel.chunk_id.in_(seed_ids))))
@@ -1067,7 +1532,7 @@ class RagService:
                 SourceDocumentModel.business_usage == "knowledge_base",
                 SourceDocumentModel.enabled.is_(True),
                 SourceDocumentModel.ai_ingestion_allowed.is_(True),
-                SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "disabled", "retired"]),
+                SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "needs_ocr", "disabled", "retired"]),
                 SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
             )
             # A lexical text hit can belong to a different eligible source.
@@ -1075,8 +1540,6 @@ class RagService:
             # domain-wide candidate set so that concept → Figure expansion can
             # contribute the matching image rather than being shadowed by an
             # unrelated text top-k result.
-            if doc_ids and not query_concepts:
-                document_statement = document_statement.where(SourceDocumentModel.document_id.in_(doc_ids))
             if domain_id:
                 document_statement = document_statement.where(SourceDocumentModel.domain_id == domain_id)
             if namespaces:
@@ -1086,22 +1549,11 @@ class RagService:
                 docs = {key: value for key, value in docs.items() if value.domain_id == domain_id}
             if not docs:
                 return [], []
-            seed_relations = list(session.scalars(select(KnowledgeRelationModel).where(
-                KnowledgeRelationModel.chunk_id.in_(seed_ids),
-                KnowledgeRelationModel.document_id.in_(docs),
+            concept_ids = set(session.scalars(select(KnowledgeEntityModel.entity_id).where(
+                KnowledgeEntityModel.document_id.in_(docs),
+                KnowledgeEntityModel.entity_type == "concept",
+                KnowledgeEntityModel.canonical_name.in_(query_concepts),
             )))
-            concept_ids = {
-                value
-                for relation in seed_relations
-                if relation.relation_type != "depicted_in_figure"
-                for value in (relation.source_entity_id, relation.target_entity_id)
-            }
-            if query_concepts:
-                concept_ids.update(session.scalars(select(KnowledgeEntityModel.entity_id).where(
-                    KnowledgeEntityModel.document_id.in_(docs),
-                    KnowledgeEntityModel.entity_type == "concept",
-                    KnowledgeEntityModel.canonical_name.in_(query_concepts),
-                )))
             if not concept_ids:
                 return [], []
             image_relations = list(session.scalars(select(KnowledgeRelationModel).where(
@@ -1126,6 +1578,7 @@ class RagService:
                 item.asset_id: item
                 for item in session.scalars(select(KnowledgeMediaAssetModel).where(
                     KnowledgeMediaAssetModel.asset_id.in_(asset_ids),
+                    KnowledgeMediaAssetModel.asset_type == "figure",
                     KnowledgeMediaAssetModel.status == "ready",
                 ))
             }
@@ -1213,7 +1666,14 @@ class RagService:
             paths.append({"from": "相关资料图片", "to": chunk.parent_section, "relation": "caption_supports_text", "chunk_id": chunk.chunk_id})
         return citations[:limit], paths[:limit]
 
-    def _expand_graph(self, citations: list[Citation], *, domain_id: str | None, limit: int) -> tuple[list[Citation], list[dict[str, object]]]:
+    def _expand_graph(
+        self,
+        citations: list[Citation],
+        *,
+        domain_id: str | None,
+        limit: int,
+        query: str = "",
+    ) -> tuple[list[Citation], list[dict[str, object]]]:
         seed_chunk_ids = {item.chunk_id for item in citations if item.chunk_id}
         if not seed_chunk_ids or limit <= 0:
             return [], []
@@ -1232,7 +1692,7 @@ class RagService:
                     SourceDocumentModel.business_usage != "excluded",
                     SourceDocumentModel.ai_ingestion_allowed.is_(True),
                     SourceDocumentModel.enabled.is_(True),
-                    SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "disabled", "retired"]),
+                    SourceDocumentModel.status.not_in(["queued", "rebuilding", "indexing", "uploaded", "failed", "needs_ocr", "disabled", "retired"]),
                     SourceDocumentModel.license_gate_status.in_(["allow", "allow_noncommercial"]),
                 )
             ))
@@ -1240,11 +1700,46 @@ class RagService:
             if not docs:
                 return [], []
 
-            seed_relations = list(session.scalars(
-                select(KnowledgeRelationModel).where(
+            query_entity_ids: set[str] | None = None
+            if query.strip():
+                # A text-neighbour hop needs the same query-specific evidence
+                # discipline as Figure expansion. Without this, a weak dense
+                # seed that happened to mention “诊断” could add unrelated
+                # pathology text to a question about a CT viewing technique.
+                from app.services.knowledge_multimodal_service import knowledge_multimodal_service
+
+                query_concepts = {
+                    item
+                    for item in knowledge_multimodal_service._entity_names(query)
+                    if _has_specific_graph_concept(item)
+                }
+                if not query_concepts:
+                    return [], []
+                query_entity_ids = set(session.scalars(select(KnowledgeEntityModel.entity_id).where(
+                    KnowledgeEntityModel.document_id.in_(docs.keys()),
+                    KnowledgeEntityModel.entity_type == "concept",
+                    KnowledgeEntityModel.canonical_name.in_(query_concepts),
+                )))
+                if not query_entity_ids:
+                    return [], []
+
+            # Figure edges are expanded by ``_graph_related_images`` with a
+            # query-specific governed concept. Keeping them in the generic
+            # text-neighbour traversal caused broad labels such as “图像” to
+            # leak unrelated Figures into the evidence path.
+            text_relation_types = ("co_occurs_in_text", "co_occurs_in_evidence")
+            seed_relation_statement = select(KnowledgeRelationModel).where(
                     KnowledgeRelationModel.document_id.in_(docs.keys()),
                     KnowledgeRelationModel.chunk_id.in_(seed_chunk_ids),
-                ).order_by(
+                    KnowledgeRelationModel.relation_type.in_(text_relation_types),
+                )
+            if query_entity_ids is not None:
+                seed_relation_statement = seed_relation_statement.where(or_(
+                    KnowledgeRelationModel.source_entity_id.in_(query_entity_ids),
+                    KnowledgeRelationModel.target_entity_id.in_(query_entity_ids),
+                ))
+            seed_relations = list(session.scalars(
+                seed_relation_statement.order_by(
                     KnowledgeRelationModel.confidence.desc(),
                     KnowledgeRelationModel.relation_id,
                 ).limit(max(limit * 4, 8))
@@ -1268,6 +1763,7 @@ class RagService:
             neighbour_relations = list(session.scalars(
                 select(KnowledgeRelationModel).where(
                     KnowledgeRelationModel.document_id.in_(docs.keys()),
+                    KnowledgeRelationModel.relation_type.in_(text_relation_types),
                     or_(
                         KnowledgeRelationModel.source_entity_id.in_(seed_entity_ids),
                         KnowledgeRelationModel.target_entity_id.in_(seed_entity_ids),
@@ -1425,7 +1921,7 @@ class RagService:
                 # SQLite fixtures whose content is already present in the
                 # relational chunk graph.  Transitional/error states remain
                 # excluded so a queued source cannot become a citation.
-                SourceDocumentModel.status.not_in(['queued', 'rebuilding', 'indexing', 'uploaded', 'failed', 'disabled', 'retired']),
+                SourceDocumentModel.status.not_in(['queued', 'rebuilding', 'indexing', 'uploaded', 'failed', 'needs_ocr', 'disabled', 'retired']),
                 SourceDocumentModel.license_gate_status.in_(['allow', 'allow_noncommercial']),
             )
             if version_id is None and not version_ids:
@@ -1456,6 +1952,21 @@ class RagService:
         dense: dict[str, float] = {}
         state = self.index_state()
         active_provider = self.embedding_provider
+        cache_key = self._retrieval_cache_key(
+            query,
+            mode=mode,
+            profile=active_profile,
+            version_id=version_id,
+            version_ids=version_ids,
+            document_ids=document_ids,
+            domain_id=domain_id,
+            namespace=namespace,
+            namespaces=namespaces,
+            index_version=state.get("index_version", 0),
+        )
+        cached = self._cached_retrieval(cache_key)
+        if cached is not None:
+            return list(cached)  # type: ignore[arg-type]
         dense_allowed = (
             mode != "sparse"
             and state.get("status") == "ready"
@@ -1529,7 +2040,6 @@ class RagService:
                     seen_sections.add(key)
                     deduped.append(row)
             selected = deduped[:limit]
-        _ = perf_counter() - started
         citations: list[Citation] = []
         for row in selected:
             if scores[row.chunk_id] <= 0:
@@ -1548,6 +2058,7 @@ class RagService:
                 media_asset_ids=asset_ids,
                 image_urls=tuple(f"/api/v3/knowledge/media/{asset_id}" for asset_id in asset_ids),
             ))
+        self._store_retrieval(cache_key, tuple(citations))
         return citations
 
 

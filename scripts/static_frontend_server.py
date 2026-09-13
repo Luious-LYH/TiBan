@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 class SpaHandler(SimpleHTTPRequestHandler):
     backend_url = ""
+    browser_api_base = ""
 
     def _is_api_request(self) -> bool:
         return urlsplit(self.path).path == "/api" or urlsplit(self.path).path.startswith("/api/")
@@ -78,7 +79,10 @@ class SpaHandler(SimpleHTTPRequestHandler):
         except OSError:
             self.send_error(404)
             return
-        api_script = f"<script>window.__TIBAN_API_BASE__={json.dumps(self.backend_url)}</script>"
+        # API requests already travel through this server's same-origin proxy.
+        # Keeping the browser base empty avoids a CORS failure whenever a
+        # temporary local verification instance uses a different backend port.
+        api_script = f"<script>window.__TIBAN_API_BASE__={json.dumps(self.browser_api_base)}</script>"
         content = content.replace("</head>", f"{api_script}</head>", 1)
         payload = content.encode("utf-8")
         self.send_response(200)
@@ -120,10 +124,12 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=5174)
     parser.add_argument("--root", required=True)
     parser.add_argument("--backend-url", default=os.environ.get("TIBAN_BACKEND_URL", "http://127.0.0.1:8000"))
+    parser.add_argument("--browser-api-base", default=os.environ.get("TIBAN_BROWSER_API_BASE", ""))
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
     SpaHandler.backend_url = args.backend_url
+    SpaHandler.browser_api_base = args.browser_api_base.rstrip("/")
     os.chdir(root)
     server = ThreadingHTTPServer((args.host, args.port), SpaHandler)
     print(f"Serving {root} on http://{args.host}:{args.port}", flush=True)

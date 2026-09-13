@@ -25,8 +25,10 @@ export function PracticePage() {
   const [tutorOpen, setTutorOpen] = useState(true)
   const [questionMapOpen, setQuestionMapOpen] = useState(false)
   const [resumedThread, setResumedThread] = useState<TutorThread | null>(null)
+  const [tutorRuntimeReady, setTutorRuntimeReady] = useState(!sessionId)
   const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | null>(null)
   const restoredPosition = useRef<string | null>(null)
+  const tutorBootstrappedSession = useRef<string | null>(null)
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -46,7 +48,11 @@ export function PracticePage() {
   const staleSession = Boolean(restoredSession && !routeTutorThreadId && restoredSession.status !== 'active')
   const activeSession = staleSession ? null : restoredSession
   const selectedBankId = activeSession?.bank_id
-  const tutorThreadId = routeTutorThreadId ?? resumedThread?.tutor_thread_id
+  // A Tutor thread is shared by every question in one Practice session. The
+  // component stays mounted when the learner advances, so the transcript
+  // naturally continues across questions; mounting Practice again creates a
+  // fresh thread and therefore does not restore an old chat transcript.
+  const tutorThreadId = resumedThread?.tutor_thread_id ?? routeTutorThreadId
   const resumeMutation = useMutation({ mutationFn: (targetSessionId: string) => resumePracticeSession(targetSessionId) })
   const questionsQuery = useQuery({
     queryKey: ['practice-questions', selectedBankId, activeSession?.session_id],
@@ -56,12 +62,20 @@ export function PracticePage() {
   const marksQuery = useQuery({ queryKey: ['bank-question-progress', selectedBankId, 'marked'], queryFn: () => getBankQuestionProgress(selectedBankId ?? '', 'marked'), enabled: Boolean(selectedBankId) })
 
   useEffect(() => {
-    // A direct session URL without an issued thread is a genuine resume.
-    // Resume preserves position while deliberately creating a fresh Tutor
-    // context; a new builder session already supplies its thread in the URL.
-    if (!sessionId || routeTutorThreadId || resumedThread || !restoredSession || restoredSession.status !== 'active' || resumeMutation.isPending) return
-    resumeMutation.mutate(sessionId, { onSuccess: setResumedThread })
-  }, [resumeMutation, resumedThread, restoredSession, routeTutorThreadId, sessionId])
+    if (!sessionId || !restoredSession || restoredSession.status !== 'active' || tutorBootstrappedSession.current === sessionId || resumeMutation.isPending) return
+    tutorBootstrappedSession.current = sessionId
+    setTutorRuntimeReady(false)
+    // Refresh the thread on every new Practice mount. This keeps a normal
+    // question-to-question transition continuous while ensuring a reopened
+    // app never restores the previous chat transcript.
+    resumeMutation.mutate(sessionId, {
+      onSuccess: (thread) => {
+        setResumedThread(thread)
+        setTutorRuntimeReady(true)
+      },
+      onError: () => setTutorRuntimeReady(true),
+    })
+  }, [resumeMutation, restoredSession, routeTutorThreadId, sessionId])
 
   useEffect(() => {
     if (!activeSession?.session_id) return
@@ -141,7 +155,7 @@ export function PracticePage() {
     }} />
   }
   if (staleSession) return <PracticeSessionClosed status={restoredSession?.status ?? 'abandoned'} />
-  if (banksQuery.isPending || restoredSessionQuery.isPending || !selectedBankId || !activeSession || questionsQuery.isPending || (!routeTutorThreadId && resumeMutation.isPending)) return <LoadingState label="正在恢复本次练习…" />
+  if (banksQuery.isPending || restoredSessionQuery.isPending || !selectedBankId || !activeSession || questionsQuery.isPending || !tutorRuntimeReady || resumeMutation.isPending) return <LoadingState label="正在恢复本次练习…" />
   if (banksQuery.isError) return <ErrorState message={banksQuery.error.message} onRetry={() => void banksQuery.refetch()} />
   if (restoredSessionQuery.isError) return <ErrorState message="无法恢复本次练习 session。" onRetry={() => void restoredSessionQuery.refetch()} />
   if (resumeMutation.isError) return <ErrorState message={resumeMutation.error.message} onRetry={() => { setResumedThread(null); resumeMutation.reset() }} />
@@ -189,7 +203,7 @@ export function PracticePage() {
         </section>
       </div>}
     </main>
-    {question && tutorThreadId && <TutorPanel key={`${activeSession.session_id}:${question.id}:${tutorThreadId}`} questionId={question.id} practiceSessionId={activeSession.session_id} tutorThreadId={tutorThreadId} attemptId={result?.attempt_id} learnerId={learnerId} mode={mode} open={tutorOpen} onClose={() => setTutorOpen(false)} contextLabel={learnerTopic(question.topic) ?? question.subject ?? displayBankName(selectedBank?.name) ?? '当前题目'} />}
+    {question && tutorThreadId && <TutorPanel questionId={question.id} practiceSessionId={activeSession.session_id} tutorThreadId={tutorThreadId} attemptId={result?.attempt_id} learnerId={learnerId} mode={mode} open={tutorOpen} onClose={() => setTutorOpen(false)} contextLabel={learnerTopic(question.topic) ?? question.subject ?? displayBankName(selectedBank?.name) ?? '当前题目'} />}
   </div>
 }
 
@@ -204,7 +218,7 @@ function PracticeEntryGate({ resumable, onContinue, onChooseBank }: { resumable:
   const [error, setError] = useState<string | null>(null)
   if (!resumable) return <div className="practice-entry-shell"><section className="practice-entry-card practice-entry-empty"><span className="practice-entry-icon"><Play size={20} /></span><div><span className="practice-entry-eyebrow">开始练习</span><h1>从题库开始一组练习</h1><p>选择题库、范围和题量后，进入专注刷题。</p></div><div className="practice-entry-actions"><button type="button" className="practice-submit" disabled={choosing} onClick={() => { setChoosing(true); void onChooseBank().catch((reason: unknown) => { setError(reason instanceof Error ? reason.message : '无法打开题库。'); setChoosing(false) }) }}>{choosing ? '正在打开…' : '选择题库'}<ChevronRight size={16} /></button></div>{error && <p className="practice-entry-error" role="alert">{error}</p>}</section></div>
   const label = resumable.mode === 'exam' ? '考试' : resumable.mode === 'review' ? '错题复习' : '刷题'
-  return <div className="practice-entry-shell"><section className="practice-entry-card practice-resume-gate" role="dialog" aria-label="继续上次练习"><div className="practice-entry-icon"><RotateCcw size={20} /></div><div className="practice-entry-copy"><span className="practice-entry-eyebrow">未完成练习</span><h1>继续上次{label}？</h1><p>从第 {resumable.current_position + 1} 题继续；智能辅导会开启一段新的本次会话。</p></div><div className="practice-resume-meta"><span><Clock3 size={14} />上次活动 {formatResumeTime(resumable.last_active_at)}</span><span>{label}</span></div><div className="practice-entry-actions"><button type="button" className="practice-submit" disabled={continuing || choosing} onClick={() => { setContinuing(true); setError(null); void onContinue(resumable).catch((reason: unknown) => { setError(reason instanceof Error ? reason.message : '无法恢复上次练习。'); setContinuing(false) }) }}>{continuing ? '正在恢复…' : <><Play size={15} />继续上次练习</>}</button><button type="button" className="practice-next" disabled={continuing || choosing} onClick={() => { setChoosing(true); setError(null); void onChooseBank().catch((reason: unknown) => { setError(reason instanceof Error ? reason.message : '无法重新选择题库。'); setChoosing(false) }) }}>{choosing ? '正在打开…' : '重新选择题库'}</button></div>{error && <p className="practice-entry-error" role="alert">{error}</p>}</section></div>
+  return <div className="practice-entry-shell"><section className="practice-entry-card practice-resume-gate" role="dialog" aria-label="继续上次练习"><div className="practice-entry-icon"><RotateCcw size={20} /></div><div className="practice-entry-copy"><span className="practice-entry-eyebrow">未完成练习</span><h1>继续上次{label}？</h1><p>从第 {resumable.current_position + 1} 题继续；本次打开期间的智能辅导对话会接着保留。</p></div><div className="practice-resume-meta"><span><Clock3 size={14} />上次活动 {formatResumeTime(resumable.last_active_at)}</span><span>{label}</span></div><div className="practice-entry-actions"><button type="button" className="practice-submit" disabled={continuing || choosing} onClick={() => { setContinuing(true); setError(null); void onContinue(resumable).catch((reason: unknown) => { setError(reason instanceof Error ? reason.message : '无法恢复上次练习。'); setContinuing(false) }) }}>{continuing ? '正在恢复…' : <><Play size={15} />继续上次练习</>}</button><button type="button" className="practice-next" disabled={continuing || choosing} onClick={() => { setChoosing(true); setError(null); void onChooseBank().catch((reason: unknown) => { setError(reason instanceof Error ? reason.message : '无法重新选择题库。'); setChoosing(false) }) }}>{choosing ? '正在打开…' : '重新选择题库'}</button></div>{error && <p className="practice-entry-error" role="alert">{error}</p>}</section></div>
 }
 
 function normalizeMode(value: string | null): Mode { return value === 'exam' || value === 'review' ? value : 'study' }

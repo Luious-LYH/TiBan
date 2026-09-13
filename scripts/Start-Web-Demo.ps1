@@ -397,9 +397,9 @@ function Start-FactoryWorker {
   $workerErrLog = Join-Path $logsRoot "web-demo-factory-worker.err.log"
   $workerOutLog = Join-Path $logsRoot "web-demo-factory-worker.log"
   Remove-Item -LiteralPath $workerErrLog, $workerOutLog -Force -ErrorAction SilentlyContinue
-  Write-Step "Starting Factory Dramatiq worker..."
+  Write-Step "Starting knowledge and Factory Dramatiq workers..."
   $worker = Start-Process -FilePath $pythonExe `
-    -ArgumentList @("-m", "dramatiq", "app.workers.factory_worker", "--processes", "1", "--threads", "2") `
+    -ArgumentList @("-m", "dramatiq", "app.workers.factory_worker", "app.workers.background_worker", "--processes", "1", "--threads", "2", "--queues", "knowledge", "default") `
     -WorkingDirectory $backendRoot `
     -RedirectStandardOutput $workerOutLog `
     -RedirectStandardError $workerErrLog `
@@ -408,11 +408,11 @@ function Start-FactoryWorker {
   Set-Content -LiteralPath $factoryWorkerPidFile -Value $worker.Id -Encoding ascii
   Start-Sleep -Milliseconds 1200
   if (-not (Get-Process -Id $worker.Id -ErrorAction SilentlyContinue)) {
-    Show-ServiceLogs -Name "Factory worker" -StdoutPath $workerOutLog -StderrPath $workerErrLog
+    Show-ServiceLogs -Name "Knowledge/Factory worker" -StdoutPath $workerOutLog -StderrPath $workerErrLog
     Remove-Item -LiteralPath $factoryWorkerPidFile -Force -ErrorAction SilentlyContinue
-    Write-Host "Factory worker: failed to stay alive; queued jobs remain auditable but will not advance." -ForegroundColor Yellow
+    Write-Host "Knowledge/Factory worker: failed to stay alive; queued jobs remain visible but will not advance." -ForegroundColor Yellow
   } else {
-    Write-Host "Factory worker: ready (Redis/Dramatiq)." -ForegroundColor Green
+    Write-Host "Knowledge/Factory worker: ready (Redis/Dramatiq)." -ForegroundColor Green
   }
 }
 

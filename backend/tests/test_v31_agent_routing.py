@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from app.services.agent_runtime import AgentContext, LocalPolicyModelGateway, _clean_user_facing_text, tutor_runner
-from app.services.mentor_agent_service import _review_queue, mentor_agent_service, mentor_runner
+from app.services.llm_provider import LLMResult
+from app.services.mentor_agent_service import MentorGateway, _requests_reference_images, _review_queue, mentor_agent_service, mentor_runner
 
 
 def _question_tools(message: str, *, phase: str = "pre_submit") -> list[str]:
@@ -59,6 +60,9 @@ def test_mentor_routes_real_learning_state_and_persists_conversation() -> None:
     assert {"get_review_queue", "get_bank_progress", "get_learning_summary"}.issubset(plan_tools)
     assert _mentor_tools("牛顿是谁？") == []
     assert _mentor_tools("根据我的资料解释心力衰竭") == ["search_knowledge"]
+    assert _mentor_tools("请给我消化内镜相关图片") == ["search_knowledge"]
+    assert _requests_reference_images("请给我消化内镜相关图片") is True
+    assert _requests_reference_images("根据资料解释结肠镜检查要点") is False
 
     learner = "routing-mentor-persist"
     conversation = mentor_agent_service.create_conversation(learner)
@@ -87,3 +91,20 @@ def test_mentor_review_queue_uses_public_question_summary(monkeypatch) -> None:
     monkeypatch.setattr("app.services.mentor_agent_service.Stage1Repository", lambda _session: FakeRepository())
     context = AgentContext(question_id="", learner_id="routing-learner", user_message="复习", phase="mentor")
     assert _review_queue(context)["items"] == [{"question_id": "q1", "bank_name": "CMExam", "title": "真实复习题干", "due_at": None}]
+
+
+def test_mentor_keeps_traceable_image_result_when_visual_provider_is_unavailable(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "app.services.mentor_agent_service.llm_provider.chat",
+        lambda **_kwargs: LLMResult(False, "", "provider", "visual", "vision-model", "TimeoutError", image_attached=True),
+    )
+    context = AgentContext(
+        question_id="", learner_id="routing-learner", user_message="请返回 CT 检查窗技术相关图片", phase="mentor",
+        metadata={"agent_profile": "mentor"},
+    )
+    observations = {"search_knowledge": [{
+        "document_name": "《医学影像学》教学材料", "page": "26", "image_urls": ["/api/v3/knowledge/media/figure-ct"], "show_in_chat": True,
+    }]}
+    text = MentorGateway().compose(context, observations)
+    assert "《医学影像学》教学材料第 26 页" in text
+    assert "图片已附" in text

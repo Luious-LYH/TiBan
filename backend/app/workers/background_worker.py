@@ -7,7 +7,11 @@ import dramatiq
 from app.workers.broker import broker
 
 
-@dramatiq.actor(max_retries=2, time_limit=180_000)
+# A scanned textbook can require a long OCR pass on a CPU-only desktop.  The
+# parser writes page-level cache entries so a retry resumes cheaply; the actor
+# limit must still exceed a complete first pass instead of killing it at three
+# minutes and leaving the source forever in a misleading pending state.
+@dramatiq.actor(queue_name="knowledge", max_retries=2, time_limit=3_600_000)
 def process_knowledge_index_actor(job_id: str) -> dict[str, object]:
     from app.services.knowledge_service import knowledge_service
 

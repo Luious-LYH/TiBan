@@ -27,13 +27,19 @@ from app.domains import get_domain
 from app.db.database import SessionLocal
 from app.db.models import (
     DocumentVersionModel, FactoryJobModel, KnowledgeChunkModel, QuestionBankModel,
-    QuestionModel, QuestionRevisionModel, SourceDocumentModel,
+    QuestionImageAssetModel, QuestionModel, QuestionRevisionModel, SourceDocumentModel,
 )
+from app.services.document_parser import ParsedDocument, parse_document
+from app.services.image_asset_service import image_asset_service
 from app.services.rag_service import rag_service
 from app.services.llm_provider import llm_provider
 
 
-ALLOWED_SUFFIXES = {".md": "text/markdown", ".pdf": "application/pdf"}
+ALLOWED_SUFFIXES = {
+    ".md": "text/markdown",
+    ".pdf": "application/pdf",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 GENERATOR_PROMPT_VERSION = "factory-generator-v1"
 JUDGE_PROMPT_VERSION = "factory-judge-v1"
@@ -44,6 +50,10 @@ class GeneratorInput(BaseModel):
     source_chunk_id: str
     source_document_id: str
     objective: str = "根据可见证据完成教学观察练习"
+    image_asset_id: str | None = None
+    image_alt: str | None = None
+    image_page: int | None = None
+    image_path: str | None = None
 
 
 class GeneratedDraft(BaseModel):
@@ -59,6 +69,9 @@ class GeneratedDraft(BaseModel):
     provider: str | None = None
     model: str | None = None
     latency_ms: int | None = None
+    image_asset_id: str | None = None
+    image_alt: str | None = None
+    image_page: int | None = None
 
 
 class JudgeDecision(BaseModel):
@@ -140,7 +153,7 @@ def import_allowed_document(
     manifest = get_domain(domain_id)
     suffix = Path(filename).suffix.lower()
     if suffix not in ALLOWED_SUFFIXES:
-        raise ValueError("only .md and .pdf teaching documents are allowed")
+        raise ValueError("仅支持 Markdown、PDF 和 DOCX 教学文档。")
     if not content or len(content) > MAX_UPLOAD_BYTES:
         raise ValueError("document must be between 1 byte and 5 MiB")
     if content_type and content_type not in {ALLOWED_SUFFIXES[suffix], "application/octet-stream", "text/plain"}:
@@ -280,17 +293,79 @@ def recover_stale_factory_jobs(*, stale_after_seconds: int = 300) -> list[str]:
 
 
 def _markdown_from_document(version: DocumentVersionModel) -> Path:
+    """Compatibility helper returning a runtime projection, never beside source."""
+
     source = Path(version.source_path)
-    if source.suffix.lower() == ".md":
-        return source
-    pdf = fitz.open(source)
-    try:
-        text = "\n\n".join(f"## 第 {index + 1} 页\n{page.get_text('text')}" for index, page in enumerate(pdf))
-    finally:
-        pdf.close()
-    markdown = source.with_suffix(".parsed.md")
-    markdown.write_text(text, encoding="utf-8")
+    parsed = parse_document(source)
+    markdown = UPLOAD_DIR / "factory-parsed" / f"{version.version_id}.md"
+    markdown.parent.mkdir(parents=True, exist_ok=True)
+    markdown.write_text(parsed.text_projection(), encoding="utf-8")
     return markdown
+
+
+def _prepare_factory_document(version: DocumentVersionModel, job_id: str) -> tuple[Path, Path, ParsedDocument]:
+    """Parse the original upload once and retain a runtime-only text view."""
+
+    source = Path(version.source_path)
+    if not source.is_file():
+        raise ValueError("Factory 源文档当前不可读取。")
+    parsed = parse_document(source, source_version_id=version.version_id)
+    projection = UPLOAD_DIR / "factory-parsed" / f"{job_id}.md"
+    projection.parent.mkdir(parents=True, exist_ok=True)
+    projection.write_text(parsed.text_projection(), encoding="utf-8")
+    return source, projection, parsed
+
+
+def _stage_factory_images(job_id: str, parsed: ParsedDocument) -> list[dict[str, Any]]:
+    """Stage caption-qualified source figures in the question asset domain."""
+
+    figure_items = [item for item in parsed.images if item.asset_type == "figure"]
+    if not figure_items:
+        return []
+    batch_id = f"factory:{job_id}"
+    staged: list[dict[str, Any]] = []
+    with SessionLocal() as session:
+        image_asset_service.cleanup_batch(session, batch_id)
+        session.commit()
+        for item in figure_items[:20]:
+            try:
+                payload = image_asset_service.stage_bytes(
+                    session,
+                    kind="question",
+                    filename=item.filename,
+                    payload=item.payload,
+                    declared_mime=item.mime_type,
+                    batch_id=batch_id,
+                    commit=False,
+                )
+            except ValueError:
+                continue
+            staged.append({
+                "asset_id": str(payload["asset_id"]),
+                "url": str(payload["url"]),
+                # Pass the opaque API asset URL through the provider gateway.
+                # The gateway resolves it through ImageAssetService, so the
+                # absolute storage path never enters a draft, task payload, or
+                # provider request assembled by the caller.
+                "path": str(payload["url"]),
+                "alt_text": item.caption or "资料中的教学图片",
+                "page": int(item.page),
+                "element_id": item.element_id,
+            })
+        session.commit()
+    return staged
+
+
+def _image_for_chunks(parsed: ParsedDocument, staged: list[dict[str, Any]], chunks: list[Any]) -> dict[str, Any] | None:
+    """Choose one reliable figure that is explicitly attached to evidence."""
+
+    if not staged:
+        return None
+    for chunk in chunks:
+        for item in staged:
+            if int(chunk.page_start) <= int(item["page"]) <= int(chunk.page_end):
+                return item
+    return staged[0]
 
 
 def _generator(payload: GeneratorInput, *, repaired: bool = False) -> GeneratedDraft:
@@ -299,14 +374,17 @@ def _generator(payload: GeneratorInput, *, repaired: bool = False) -> GeneratedD
     if repaired:
         explanation += f"{SAFETY_NOTICE}"
     return GeneratedDraft(
-        title="资料证据导向练习", stem=f"根据资料，哪项表述最符合「{sentence[:42]}」这一观察要点？",
+        title="图像资料观察练习" if payload.image_asset_id else "资料证据导向练习",
+        stem=f"根据资料，哪项表述最符合「{sentence[:42]}」这一观察要点？",
         options=[
             {"id": "a", "text": sentence},
             {"id": "b", "text": "仅凭单帧图像即可给出独立临床诊断"},
             {"id": "c", "text": "无需记录部位和可见形态"},
             {"id": "d", "text": "可忽略资料中的不确定性边界"},
         ], correct_option_id="a", explanation=explanation,
-        teaching_tags=["资料溯源", "观察证据"], citation={"chunk_id": payload.source_chunk_id, "document_id": payload.source_document_id},
+        teaching_tags=["资料溯源", "图像观察" if payload.image_asset_id else "观察证据"],
+        citation={"chunk_id": payload.source_chunk_id, "document_id": payload.source_document_id},
+        image_asset_id=payload.image_asset_id, image_alt=payload.image_alt, image_page=payload.image_page,
     )
 
 
@@ -332,16 +410,18 @@ def _provider_generator(
 ) -> GeneratedDraft:
     """One real provider call for the Generator role; no fallback is allowed."""
 
-    system_prompt = """You are the TiBan Question Factory Generator. Create one Chinese learning single-choice draft from supplied evidence only. Do not diagnose, prescribe, or invent facts. Return JSON only with title, stem, options [{id,text}], correct_option_id, explanation, teaching_tags. The explanation must include the Chinese safety notice that it is for teaching or physician review before use and not an independent diagnostic basis."""
+    system_prompt = """You are the TiBan Question Factory Generator. Create one Chinese learning single-choice draft from supplied evidence only. Do not diagnose, prescribe, or invent facts. Return JSON only with title, stem, options [{id,text}], correct_option_id, explanation, teaching_tags. If an image is attached, use only visibly supported observations and do not infer unseen findings. The explanation must include the Chinese safety notice that it is for teaching or physician review before use and not an independent diagnostic basis."""
     user_payload = {
         "objective": payload.objective,
         "evidence": payload.evidence,
         "required_question_type": "single_choice",
         "repair_request": rewrite_instruction if repaired else None,
+        "image_evidence": {"caption": payload.image_alt, "page": payload.image_page} if payload.image_asset_id else None,
     }
     result = llm_provider.chat(
         system_prompt=system_prompt,
         user_prompt=json.dumps(user_payload, ensure_ascii=False),
+        image_paths=[payload.image_path] if payload.image_path else [],
         temperature=0.1,
         max_tokens=1000,
         allow_fallback=False,
@@ -357,6 +437,9 @@ def _provider_generator(
             "provider": result.provider,
             "model": result.model,
             "latency_ms": result.latency_ms,
+            "image_asset_id": payload.image_asset_id,
+            "image_alt": payload.image_alt,
+            "image_page": payload.image_page,
         }
     )
     try:
@@ -393,7 +476,8 @@ def _provider_judge(
     draft: GeneratedDraft,
     evidence: str,
     *,
-    expected_citation: dict[str, str] | None = None,
+    expected_citation: dict[str, Any] | None = None,
+    image_path: str | None = None,
 ) -> JudgeDecision:
     """One independently prompted Judge call that sees no Generator reasoning."""
 
@@ -411,6 +495,7 @@ def _provider_judge(
     result = llm_provider.chat(
         system_prompt=system_prompt,
         user_prompt=json.dumps({"draft": public_draft, "evidence": evidence, "expected_citation": expected_citation, "rubric": "groundedness, answer consistency, citation, distractors, teaching safety"}, ensure_ascii=False),
+        image_paths=[image_path] if image_path else [],
         temperature=0,
         max_tokens=650,
         allow_fallback=False,
@@ -487,10 +572,11 @@ def _run_judge(
     evidence: str,
     *,
     mode: Literal["local_deterministic_adapter", "provider"],
-    expected_citation: dict[str, str] | None = None,
+    expected_citation: dict[str, Any] | None = None,
+    image_path: str | None = None,
 ) -> JudgeDecision:
     if mode == "provider":
-        return _provider_judge(draft, evidence, expected_citation=expected_citation)
+        return _provider_judge(draft, evidence, expected_citation=expected_citation, image_path=image_path)
     return _judge(draft, evidence)
 
 
@@ -526,17 +612,28 @@ def process_factory_job(
             _record_event(job, "failed", "源文档或版本不存在。", progress=0)
             session.commit()
             return {"job_id": job_id, "status": "failed"}
+        document_id = document.document_id
+        document_domain_id = document.domain_id
+        document_source_id = document.source_id
+        document_source_uri = document.source_uri
+        document_business_usage = document.business_usage
+        document_license_gate_status = document.license_gate_status
+        document_ai_ingestion_allowed = document.ai_ingestion_allowed
         _record_event(job, "parsing", "正在解析允许使用的 Markdown/PDF 教学文档。", progress=10)
         session.commit()
         try:
-            markdown = _markdown_from_document(version)
+            source, markdown, parsed_document = _prepare_factory_document(version, job_id)
+            staged_images = _stage_factory_images(job_id, parsed_document)
         except (OSError, ValueError) as exc:
             _set_lifecycle(job, "failed", stage="failed", error_code="source_unreadable", error_message="上传资料当前不可读取，请重新上传后再试。")
             _record_event(job, "failed", "上传资料当前不可读取，请重新上传后再试。", progress=10)
             session.commit()
             return {"job_id": job_id, "status": "failed", "error": type(exc).__name__}
-        version.parser = "heading-aware-markdown" if markdown.suffix == ".md" else "pymupdf"
-        version.source_path = str(markdown.resolve())
+        version.parser = parsed_document.parser
+        # Keep the original source as the durable version path. The Markdown
+        # projection is runtime-only; replacing the path would make a later
+        # reindex lose embedded figures and DOCX media.
+        version.source_path = str(source.resolve())
         session.commit()
 
     with SessionLocal() as session:
@@ -548,15 +645,16 @@ def process_factory_job(
     try:
         rag_service.index_markdown(
             markdown,
-            document_id=document.document_id,
-            domain_id=document.domain_id,
+            document_id=document_id,
+            domain_id=document_domain_id,
             child_size=180,
             namespace="factory_sources",
-            source_id=document.source_id,
-            source_uri=document.source_uri,
-            business_usage=document.business_usage,
-            license_gate_status=document.license_gate_status,
-            ai_ingestion_allowed=document.ai_ingestion_allowed,
+            source_id=document_source_id,
+            source_uri=document_source_uri,
+            business_usage=document_business_usage,
+            license_gate_status=document_license_gate_status,
+            ai_ingestion_allowed=document_ai_ingestion_allowed,
+            parsed_document=parsed_document,
         )
     except Exception as exc:
         with SessionLocal() as session:
@@ -571,18 +669,52 @@ def process_factory_job(
         job = session.get(FactoryJobModel, job_id); assert job is not None
         if _cancel_if_requested(job):
             session.commit(); return {"job_id": job_id, "status": "cancelled"}
-        chunk = session.scalar(select(KnowledgeChunkModel).where(KnowledgeChunkModel.document_id == job.document_id).order_by(KnowledgeChunkModel.ordinal))
-        if chunk is None:
+        chunks = list(session.scalars(select(KnowledgeChunkModel).where(
+            KnowledgeChunkModel.document_id == job.document_id,
+        ).order_by(KnowledgeChunkModel.ordinal)))
+        if not chunks:
             _set_lifecycle(job, "failed", stage="failed", error_code="no_knowledge_chunk", error_message="文档没有可用知识块。")
             _record_event(job, "failed", "文档没有可用知识块。", progress=45)
             session.commit(); return {"job_id": job_id, "status": "failed"}
+        # Give the generator a bounded, readable evidence window assembled
+        # from every canonical chunk. The revision keeps every source chunk ID
+        # so the question remains traceable to the complete source lineage.
+        evidence_parts = [
+            f"[资料片段 {index + 1} · 第 {item.page_start}-{item.page_end} 页 · {item.parent_section}]\n{item.content}"
+            for index, item in enumerate(chunks)
+        ]
+        evidence = "\n\n".join(evidence_parts)[:24000]
+        primary_chunk = chunks[0]
+        image = _image_for_chunks(parsed_document, staged_images, chunks)
+        source_chunk_ids = [item.chunk_id for item in chunks]
+        expected_citation: dict[str, Any] = {
+            "document_id": job.document_id,
+            "chunk_ids": source_chunk_ids,
+        }
+        if image:
+            expected_citation.update({"image_asset_id": image["asset_id"], "image_page": image["page"]})
+        job.detail = {
+            **dict(job.detail or {}),
+            "source_chunk_count": len(source_chunk_ids),
+            "image_asset_id": image["asset_id"] if image else None,
+            "image_page": image["page"] if image else None,
+        }
+        session.commit()
         generation_detail = "Generator 使用独立 schema 生成可追溯草稿。"
         if resolved_mode == "provider":
             generation_detail = "Generator 正在调用已配置的真实 Provider；失败将保留为失败，不会改用本地 adapter。"
         _record_event(job, "generating", generation_detail, progress=55)
         try:
             initial = _run_generator(
-                GeneratorInput(evidence=chunk.content, source_chunk_id=chunk.chunk_id, source_document_id=chunk.document_id),
+                GeneratorInput(
+                    evidence=evidence,
+                    source_chunk_id=primary_chunk.chunk_id,
+                    source_document_id=primary_chunk.document_id,
+                    image_asset_id=image["asset_id"] if image else None,
+                    image_alt=image["alt_text"] if image else None,
+                    image_page=image["page"] if image else None,
+                    image_path=image["path"] if image else None,
+                ),
                 mode=resolved_mode,
             )
         except ProviderFactoryError as exc:
@@ -590,12 +722,18 @@ def process_factory_job(
             _record_event(job, "failed", f"Provider Generator 未生成可用 schema：{exc}。", progress=55)
             session.commit()
             return {"job_id": job_id, "status": "failed", "error": str(exc)}
-        valid, gate_error = _deterministic_gate(initial, chunk.content)
+        initial.citation = {
+            **initial.citation,
+            "chunk_ids": source_chunk_ids,
+            "image_asset_id": image["asset_id"] if image else None,
+            "image_page": image["page"] if image else None,
+        }
+        valid, gate_error = _deterministic_gate(initial, evidence)
         initial_revision = QuestionRevisionModel(
             revision_id=f"revision_{uuid4().hex[:12]}", parent_revision_id=None, job_id=job_id,
             status="generated" if valid else "rejected", draft_payload=initial.model_dump(),
             judge_decision={}, rewrite_instruction=gate_error, prompt_version=GENERATOR_PROMPT_VERSION,
-            source_chunk_ids=[chunk.chunk_id],
+            source_chunk_ids=source_chunk_ids,
         )
         session.add(initial_revision); session.flush()
         judging_detail = "Judge 使用独立 schema，只读取草稿、资料证据与 rubric。"
@@ -606,9 +744,10 @@ def process_factory_job(
             try:
                 decision = _run_judge(
                     initial,
-                    chunk.content,
+                    evidence,
                     mode=resolved_mode,
-                    expected_citation={"chunk_id": chunk.chunk_id, "document_id": chunk.document_id},
+                    expected_citation=expected_citation,
+                    image_path=image["path"] if image else None,
                 )
             except ProviderFactoryError as exc:
                 _set_lifecycle(job, "failed", stage="failed", error_code="judge_provider_failed", error_message="Provider Judge 未生成可用 schema。")
@@ -629,16 +768,31 @@ def process_factory_job(
         _record_event(job, "repairing", "保留初稿并创建新的 repair revision。", progress=84)
         try:
             repaired = _run_generator(
-                GeneratorInput(evidence=chunk.content, source_chunk_id=chunk.chunk_id, source_document_id=chunk.document_id),
+                GeneratorInput(
+                    evidence=evidence,
+                    source_chunk_id=primary_chunk.chunk_id,
+                    source_document_id=primary_chunk.document_id,
+                    image_asset_id=image["asset_id"] if image else None,
+                    image_alt=image["alt_text"] if image else None,
+                    image_page=image["page"] if image else None,
+                    image_path=image["path"] if image else None,
+                ),
                 mode=resolved_mode,
                 repaired=True,
                 rewrite_instruction=decision.rewrite_instruction,
             )
+            repaired.citation = {
+                **repaired.citation,
+                "chunk_ids": source_chunk_ids,
+                "image_asset_id": image["asset_id"] if image else None,
+                "image_page": image["page"] if image else None,
+            }
             repaired_decision = _run_judge(
                 repaired,
-                chunk.content,
+                evidence,
                 mode=resolved_mode,
-                expected_citation={"chunk_id": chunk.chunk_id, "document_id": chunk.document_id},
+                expected_citation=expected_citation,
+                image_path=image["path"] if image else None,
             )
         except ProviderFactoryError as exc:
             _set_lifecycle(job, "failed", stage="failed", error_code="repair_provider_failed", error_message="Provider Repair 未生成可用 schema。")
@@ -649,7 +803,7 @@ def process_factory_job(
             revision_id=f"revision_{uuid4().hex[:12]}", parent_revision_id=initial_revision.revision_id, job_id=job_id,
             status="ready_for_review" if repaired_decision.passed else "rejected", draft_payload=repaired.model_dump(),
             judge_decision=repaired_decision.model_dump(), rewrite_instruction=decision.rewrite_instruction,
-            prompt_version=GENERATOR_PROMPT_VERSION, source_chunk_ids=[chunk.chunk_id],
+            prompt_version=GENERATOR_PROMPT_VERSION, source_chunk_ids=source_chunk_ids,
         )
         session.add(repaired_revision)
         if repaired_decision.passed:
@@ -681,21 +835,43 @@ def publish_revision(job_id: str, revision_id: str) -> dict[str, str]:
         if bank is None:
             bank = QuestionBankModel(bank_id=bank_id, domain_id=manifest.domain_id, name=f"{manifest.display_name} · Factory 生成题草稿库", description="基于允许使用资料、需人工审核后发布的题目。", version="factory-v1", status="published", question_count=0, question_type_counts={}, modality_counts={}, body_parts=["资料证据"])
             session.add(bank)
+        image_asset_id = str(payload.get("image_asset_id") or "").strip() or None
+        image_url: str | None = None
+        image_alt: str | None = None
+        modality = "text"
+        if image_asset_id:
+            asset = session.get(QuestionImageAssetModel, image_asset_id)
+            if asset is None or asset.kind != "question" or asset.batch_id != f"factory:{job_id}":
+                raise ValueError("题目引用的资料图片不存在或不属于当前生成任务。")
+            image_asset_service.link_question_assets(
+                session,
+                {image_asset_id},
+                batch_id=f"factory:{job_id}",
+                bank_id=bank_id,
+                published=True,
+            )
+            image_url = f"/api/v3/assets/question-images/{image_asset_id}"
+            image_alt = str(payload.get("image_alt") or asset.original_filename)
+            modality = "image"
         question_id = f"factory_question_{revision_id[-12:]}"
         if session.get(QuestionModel, question_id) is None:
             session.add(QuestionModel(
-                question_id=question_id, bank_id=bank_id, domain_id=manifest.domain_id, question_type="single_choice", modality="text",
+                question_id=question_id, bank_id=bank_id, domain_id=manifest.domain_id, question_type="single_choice", modality=modality,
                 title=payload["title"], stem=payload["stem"], case_summary="由允许使用的教学资料生成，已保留 citation lineage。",
-                image_url=None, image_alt=None, difficulty="medium", complexity=1, question_class="资料溯源", task="证据阅读",
+                image_url=image_url, image_alt=image_alt, difficulty="medium", complexity=1,
+                question_class="资料图像观察" if image_url else "资料溯源",
+                task="图像观察" if image_url else "证据阅读",
                 body_part="资料证据", source_type="factory", source_dataset="Factory / allowed document",
-                citation_note=f"chunk={payload['citation']['chunk_id']}", options=payload["options"],
+                citation_note=f"document={job.document_id}; chunks={','.join(str(item) for item in revision.source_chunk_ids)}"
+                + (f"; image_page={payload.get('image_page')}" if image_url else ""),
+                options=payload["options"],
                 grading_payload={"question_type": "single_choice", "correct_option_id": payload["correct_option_id"]},
                 explanation=payload["explanation"], teaching_tags=payload["teaching_tags"], expected_keywords=[], false_premise=False,
                 doctor_review_required=manifest.doctor_review_required, safety_notice=manifest.learner_notice, source_document_id=job.document_id,
             ))
             bank.question_count += 1
             bank.question_type_counts = {**bank.question_type_counts, "single_choice": int(bank.question_type_counts.get("single_choice", 0)) + 1}
-            bank.modality_counts = {**bank.modality_counts, "text": int(bank.modality_counts.get("text", 0)) + 1}
+            bank.modality_counts = {**bank.modality_counts, modality: int(bank.modality_counts.get(modality, 0)) + 1}
         revision.status = "published"
         job.result_ref = revision_id
         job.stage = "published"

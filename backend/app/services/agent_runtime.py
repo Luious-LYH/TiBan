@@ -319,7 +319,7 @@ def _policy_tools(context: AgentContext, available_tools: set[str]) -> list[str]
     explicit_knowledge = any(marker in lowered for marker in (
         '知识库', '我的资料', '上传的资料', '根据资料', '结合资料', '资料中的', '课程资料',
         '根据来源', '资料出处', '引用来源', '结合图像', '根据图像', '相关资料', '文献', '指南',
-        '查资料', '查一下资料',
+        '查资料', '查一下资料', '资料图片', '图片资料', '相关图片', '返回图片', '给我图片', '展示图片', '找图片',
     ))
     history_request = any(marker in lowered for marker in (
         '我最近', '近期', '我的错题', '我老错', '总在这题错', '为什么总', '容易错',

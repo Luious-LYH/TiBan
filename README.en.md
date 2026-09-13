@@ -9,6 +9,8 @@ work together as one learning path that remembers where the learner is.
 
 [中文 README](./README.md) | [Desktop app](https://github.com/Luious-LYH/TiBan/releases/download/v3.3.1/%E9%A2%98%E4%BC%B4%20TiBan-3.3.1-x64-Portable.exe)
 
+Current release: **v3.5.2** · [release notes](./docs/releases/V3.5.2.md)
+
 </div>
 
 <p align="center">
@@ -108,6 +110,12 @@ page provenance, and linked text evidence.
 </p>
 
 <p align="center"><em>Multimodal evidence chain: source images, Figure captions, licensing metadata, and parsed text are visible together.</em></p>
+
+<p align="center">
+  <img src="./docs/v3/evidence/readme/22-knowledge-textbook-detail.png" alt="Multimodal knowledge-library detail for the Medical Imaging textbook" width="100%">
+</p>
+
+<p align="center"><em>V3.5.2 live detail view: a 406-page teaching book is represented by 2,298 chunks and 252 retained searchable images, with image previews, parsed text, page provenance, and cross-modal linkage in one source workspace.</em></p>
 
 ### Evaluation Lab
 
@@ -257,6 +265,7 @@ licensing boundaries.
 
 The reproducible multimodal retrieval fixture and implementation notes are in
 [`docs/architecture/multimodal-evidence-rag-v35.md`](./docs/architecture/multimodal-evidence-rag-v35.md).
+The release record is in [`docs/releases/V3.5.2.md`](./docs/releases/V3.5.2.md).
 
 ## Windows desktop app
 

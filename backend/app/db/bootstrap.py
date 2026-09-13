@@ -30,6 +30,7 @@ from .models import (  # noqa: F401
     QuestionImportBatchModel,
     QuestionImportDraftModel,
     QuestionImageAssetModel,
+    KnowledgeFolderModel,
     KnowledgeMediaAssetModel,
     KnowledgeEntityModel,
     KnowledgeRelationModel,
@@ -186,6 +187,7 @@ def initialize_database() -> int:
     _upgrade_local_sqlite_domain_scope()
     with SessionLocal() as session:
         seeded = seed_database(session)
+    _ensure_knowledge_folders()
     # Seed/import code intentionally leaves new banks at the neutral order
     # value.  Once the catalog rows exist, append any such rows deterministically
     # so a restart never causes a newly imported bank to jump around.
@@ -319,6 +321,8 @@ def _upgrade_local_sqlite_knowledge_sources(connection: object, inspector: objec
         "index_progress": "INTEGER NOT NULL DEFAULT 0",
         "index_error": "TEXT",
         "updated_at": "DATETIME",
+        "folder_id": "VARCHAR(120)",
+        "parse_stats": "JSON NOT NULL DEFAULT '{}'",
     }
     for name, definition in definitions.items():
         if name not in columns:
@@ -330,6 +334,58 @@ def _upgrade_local_sqlite_knowledge_sources(connection: object, inspector: objec
     connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_source_scope ON source_documents (source_scope)"))
     connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_enabled ON source_documents (enabled)"))
     connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_index_job_id ON source_documents (index_job_id)"))
+    connection.execute(text("CREATE INDEX IF NOT EXISTS ix_source_documents_folder_id ON source_documents (folder_id)"))
+
+
+def _ensure_knowledge_folders() -> None:
+    """Create the small default folder set and place legacy sources in it.
+
+    This is intentionally idempotent and metadata-only.  It runs for both the
+    fresh local bootstrap and an existing SQLite database without touching
+    chunks, media assets or vector collections.
+    """
+
+    defaults = (
+        ("folder-clinical-guidelines", "临床诊疗指南", "本机导入的临床诊疗与教学参考资料。", "user", False, 10),
+        ("folder-system", "系统资料", "TiBan 随附的学习资料。", "system", True, 20),
+        ("folder-qbank-explanations", "题库解析", "由已发布题库整理的可检索解析。", "qbank_explanations", True, 30),
+        ("folder-my-materials", "我的资料", "个人上传的学习资料。", "user", False, 40),
+    )
+    with SessionLocal() as session:
+        for folder_id, name, description, scope, is_system, display_order in defaults:
+            row = session.get(KnowledgeFolderModel, folder_id)
+            if row is None:
+                session.add(KnowledgeFolderModel(
+                    folder_id=folder_id,
+                    name=name,
+                    description=description,
+                    scope=scope,
+                    is_system=is_system,
+                    display_order=display_order,
+                ))
+            else:
+                # Folder names are learner-owned organization metadata.  Do
+                # not silently undo a rename every time the API restarts.  The
+                # stable default rows still receive their scope/ordering
+                # contract; their current name and description remain intact.
+                row.scope = scope
+                row.is_system = is_system
+                row.display_order = display_order
+        session.flush()
+        for row in session.scalars(select(SourceDocumentModel).where(SourceDocumentModel.status != "deleted")):
+            if row.source_scope == "qbank_explanations" or row.namespace == "qbank_explanations":
+                row.folder_id = "folder-qbank-explanations"
+                row.source_scope = "qbank_explanations"
+            elif row.folder_id == "folder-clinical-guidelines":
+                row.source_scope = "user"
+                row.namespace = "user"
+            elif row.folder_id == "folder-system" or row.source_scope == "system":
+                row.source_scope = "user"
+                row.namespace = "user"
+                row.folder_id = "folder-my-materials"
+            elif row.source_scope == "user" and row.folder_id is None:
+                row.folder_id = "folder-my-materials"
+        session.commit()
 
 
 def _upgrade_local_sqlite_knowledge_multimodal(connection: object, inspector: object) -> None:
@@ -359,6 +415,12 @@ def _upgrade_local_sqlite_knowledge_multimodal(connection: object, inspector: ob
     chunk_definitions = {
         "modality": "VARCHAR(16) NOT NULL DEFAULT 'text'",
         "media_asset_ids": "JSON NOT NULL DEFAULT '[]'",
+        "parent_chunk_id": "VARCHAR(150)",
+        "element_ids": "JSON NOT NULL DEFAULT '[]'",
+        "element_type": "VARCHAR(24) NOT NULL DEFAULT 'paragraph'",
+        "page_start": "INTEGER NOT NULL DEFAULT 1",
+        "page_end": "INTEGER NOT NULL DEFAULT 1",
+        "provenance": "JSON NOT NULL DEFAULT '{}'",
     }
     for name, definition in chunk_definitions.items():
         if name not in chunk_columns:
@@ -369,6 +431,18 @@ def _upgrade_local_sqlite_knowledge_multimodal(connection: object, inspector: ob
     # created from a partially migrated checkout.
     for table_name in ("knowledge_media_assets", "knowledge_entities", "knowledge_relations"):
         Base.metadata.tables[table_name].create(connection, checkfirst=True)
+    asset_columns = {column["name"] for column in inspect(connection).get_columns("knowledge_media_assets")}
+    asset_definitions = {
+        "asset_type": "VARCHAR(24) NOT NULL DEFAULT 'figure'",
+        "bbox": "JSON",
+        "source_element_id": "VARCHAR(180)",
+        "section_path": "VARCHAR(500)",
+    }
+    for name, definition in asset_definitions.items():
+        if name not in asset_columns:
+            connection.execute(text(f"ALTER TABLE knowledge_media_assets ADD COLUMN {name} {definition}"))
+    connection.execute(text("CREATE INDEX IF NOT EXISTS ix_knowledge_media_assets_asset_type ON knowledge_media_assets (asset_type)"))
+    connection.execute(text("CREATE INDEX IF NOT EXISTS ix_knowledge_media_assets_source_element_id ON knowledge_media_assets (source_element_id)"))
 
 
 def _upgrade_local_sqlite_v32_state(connection: object, inspector: object) -> None:

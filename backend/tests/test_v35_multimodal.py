@@ -163,6 +163,27 @@ def test_visual_provider_uses_glm_fallback_model(monkeypatch) -> None:
     assert captured["effective_model"] == "GLM-4.6V-Flash"
 
 
+def test_visual_provider_uses_one_bounded_attempt_per_fallback(monkeypatch) -> None:
+    provider = LLMProvider()
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(provider, "_image_data_url", lambda _path: "data:image/png;base64,AA==")
+    monkeypatch.setattr(provider, "_vision_provider_attempts", lambda **_kwargs: [
+        {"provider": "openrouter", "base_url": "https://openrouter.example/v1", "api_key": "runtime-only", "model": "openrouter/free"},
+        {"provider": "bigmodel", "base_url": "https://bigmodel.example/v4", "api_key": "runtime-only", "model": "GLM-4.6V-Flash"},
+    ])
+
+    def fake_chat_once(**kwargs):
+        calls.append(kwargs)
+        return LLMResult(False, "", "provider", str(kwargs["effective_provider"]), str(kwargs["effective_model"]), "TimeoutError", image_attached=True)
+
+    monkeypatch.setattr(provider, "_chat_once", fake_chat_once)
+    result = provider.chat(system_prompt="system", user_prompt="请观察图片", image_path="/controlled/image.png")
+
+    assert result.ok is False
+    assert [call["effective_model"] for call in calls] == ["openrouter/free", "GLM-4.6V-Flash"]
+    assert all(float(call["request_timeout_seconds"]) <= 18 for call in calls)
+
+
 def test_mentor_gateway_reads_runtime_provider_and_vision_state(monkeypatch) -> None:
     status = {"configured": False, "vision_configured": False}
     monkeypatch.setattr("app.services.mentor_agent_service.llm_provider.status", lambda: status)
@@ -174,6 +195,41 @@ def test_mentor_gateway_reads_runtime_provider_and_vision_state(monkeypatch) -> 
     status.update(configured=True, vision_configured=True)
     assert gateway.name == "openai-compatible-learning-mentor"
     assert gateway.supports_vision is True
+
+
+def test_mentor_forwards_bounded_retrieved_knowledge_images_to_the_visual_provider(monkeypatch) -> None:
+    """Mentor receives concrete Figure assets, not URLs buried in its prompt."""
+
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        "app.services.mentor_agent_service.llm_provider.status",
+        lambda: {"configured": True, "vision_configured": True},
+    )
+    monkeypatch.setattr(
+        "app.services.mentor_agent_service.llm_provider.chat",
+        lambda **kwargs: captured.update(kwargs) or LLMResult(True, "已结合资料图片说明。", "provider", "test", "vision"),
+    )
+    gateway = MentorGateway()
+    result = gateway.compose(
+        AgentContext(question_id="", learner_id="learner", user_message="请给我相关图片", phase="mentor"),
+        {"search_knowledge": [{
+            "image_urls": [
+                "/api/v3/knowledge/media/figure-1",
+                "/api/v3/knowledge/media/figure-2",
+                "/api/v3/knowledge/media/figure-3",
+                "/api/v3/knowledge/media/figure-4",
+                "/api/v3/knowledge/media/figure-5",
+            ],
+        }]},
+    )
+
+    assert result == "已结合资料图片说明。"
+    assert captured["image_paths"] == [
+        "/api/v3/knowledge/media/figure-1",
+        "/api/v3/knowledge/media/figure-2",
+        "/api/v3/knowledge/media/figure-3",
+        "/api/v3/knowledge/media/figure-4",
+    ]
 
 
 def test_tutor_forwards_current_question_image_to_the_existing_gateway(monkeypatch) -> None:

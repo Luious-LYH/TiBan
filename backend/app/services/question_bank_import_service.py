@@ -12,6 +12,7 @@ import csv
 import hashlib
 import io
 import json
+import logging
 import re
 from collections import Counter
 from datetime import datetime
@@ -56,6 +57,7 @@ QUESTION_TYPES = {"single_choice", "multiple_choice", "true_false", "short_answe
 MAX_IMPORT_CHARS = 10 * 1024 * 1024
 MAX_BANK_NAME_LENGTH = 200
 GRADING_ADAPTER = TypeAdapter(QuestionForGrading)
+logger = logging.getLogger(__name__)
 
 _FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "question": ("question", "stem", "question_text", "prompt", "题干", "题目", "问题"),
@@ -444,6 +446,7 @@ class QuestionBankImportService:
             session.flush()
             self._refresh_bank_inventory(session, bank)
             session.commit()
+            self._sync_explanation_source(bank_id)
             return {
                 "mode": mode,
                 "bank_id": bank_id,
@@ -636,6 +639,7 @@ class QuestionBankImportService:
             self._refresh_bank_inventory(session, bank)
             self._refresh_batch_counts(batch, session)
             session.commit()
+            self._sync_explanation_source(bank_id)
             return {
                 "batch_id": batch_id,
                 "bank_id": bank_id,
@@ -657,6 +661,23 @@ class QuestionBankImportService:
             session.execute(delete(QuestionImportDraftModel).where(QuestionImportDraftModel.batch_id == batch_id))
             session.delete(batch)
             session.commit()
+
+    @staticmethod
+    def _sync_explanation_source(bank_id: str) -> None:
+        """Refresh the qbank text projection without blocking publication.
+
+        Publishing a question bank must remain successful even when optional
+        vector infrastructure is offline. The knowledge service commits a
+        relational text index first and records any derived-vector retry state
+        on the separate explanation source.
+        """
+
+        try:
+            from app.services.knowledge_service import knowledge_service
+
+            knowledge_service.sync_published_question_explanations(bank_id=bank_id)
+        except Exception as exc:
+            logger.warning("question-bank explanation sync deferred: bank=%s error=%s", bank_id, type(exc).__name__)
 
     def delete_question_bank(self, bank_id: str) -> None:
         """Delete a bank and dependent state with a restart-safe tombstone.

@@ -6,7 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 APP_NAME = "TiBan 学习与评测实验室"
-APP_VERSION = "3.5.1"
+APP_VERSION = "3.5.2"
 SAFETY_NOTICE = "仅供教学研修或医生复核前辅助，不作为独立诊断依据。"
 DEMO_LEARNER_ID = "demo_learner"
 DEFAULT_DOMAIN_ID = "endoscopy"
@@ -35,6 +35,26 @@ DEFAULT_MULTIMODAL_KNOWLEDGE_SAMPLE_PATH = Path(
         default=str(PROJECT_DIR / "knowledge" / "samples" / "image-documentation-gastrointestinal-endoscopy.pdf"),
     )
 )
+
+# A local owner may place a larger, non-redistributed reference library here.
+# The directory is intentionally ignored by Git and has no effect on a clean
+# checkout where it is absent.  Startup only registers new files and queues
+# their existing knowledge-index worker; it never blocks API availability.
+KNOWLEDGE_EXTERNAL_GUIDES_DIR = Path(
+    _env_first(
+        "TIBAN_EXTERNAL_KNOWLEDGE_DIR",
+        default=str(PROJECT_DIR / "knowledge" / "external" / "临床诊疗指南"),
+    )
+)
+DEFAULT_LOCAL_MULTIMODAL_TEXTBOOK_PATH = Path(
+    _env_first(
+        "TIBAN_DEFAULT_LOCAL_MULTIMODAL_TEXTBOOK",
+        default=str(PROJECT_DIR / "knowledge" / "external" / "《医学影像学》教材.pdf"),
+    )
+)
+KNOWLEDGE_EXTERNAL_GUIDES_AUTO_SYNC = _env_first(
+    "TIBAN_EXTERNAL_KNOWLEDGE_AUTO_SYNC", default="false"
+).lower() in {"1", "true", "yes", "on"}
 
 
 RUNTIME_ROOT = Path(_env_first("TIBAN_RUNTIME_ROOT", "ENDO_RUNTIME_ROOT", default=str(BACKEND_DIR / "runtime")))
@@ -130,6 +150,11 @@ LLM_VISION_FALLBACK_MODEL = _env_first(
     "LLM_VISION_FALLBACK_MODEL", default="GLM-4.6V-Flash"
 )
 LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "25"))
+# Visual replies can contain several source figures and may traverse a
+# provider fallback chain. Keep each attempt short and apply a total budget so
+# an unavailable first endpoint never leaves the learning workspace spinning.
+LLM_VISION_REQUEST_TIMEOUT_SECONDS = float(os.getenv("LLM_VISION_REQUEST_TIMEOUT_SECONDS", "18"))
+LLM_VISION_TOTAL_TIMEOUT_SECONDS = float(os.getenv("LLM_VISION_TOTAL_TIMEOUT_SECONDS", "36"))
 FACTORY_PROVIDER_ENABLED = _env_first("FACTORY_PROVIDER_ENABLED").lower() == "true"
 
 # Knowledge image retrieval uses a real CLIP-compatible image/text space.  It

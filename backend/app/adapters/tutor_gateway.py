@@ -19,12 +19,16 @@ QUESTION_ASSISTANT_PROMPT = (Path(__file__).resolve().parents[1] / "agents" / "p
 
 
 def _context_image_paths(context: AgentContext, observations: dict[str, Any] | None = None) -> list[str]:
-    paths = [str(path) for path in context.image_paths if str(path).strip()]
+    # Keep direct learner/question imagery ahead of retrieved figures. A small
+    # bounded evidence set protects visual-model latency and request size when
+    # a long document has several nearby Figure references.
+    direct_paths = [str(path) for path in context.image_paths if str(path).strip()]
     if context.metadata.get('_current_question_image'):
-        paths.append(str(context.metadata['_current_question_image']))
+        direct_paths.append(str(context.metadata['_current_question_image']))
     question = (observations or {}).get('current_question', {})
     if isinstance(question, dict) and question.get('image_url'):
-        paths.append(str(question['image_url']))
+        direct_paths.append(str(question['image_url']))
+    evidence_paths: list[str] = []
     for observation in (observations or {}).values():
         if not isinstance(observation, list):
             continue
@@ -33,8 +37,8 @@ def _context_image_paths(context: AgentContext, observations: dict[str, Any] | N
                 continue
             urls = item.get("image_urls", [])
             if isinstance(urls, list):
-                paths.extend(str(url) for url in urls if str(url).strip())
-    return list(dict.fromkeys(paths))
+                evidence_paths.extend(str(url) for url in urls if str(url).strip())
+    return list(dict.fromkeys([*direct_paths, *evidence_paths]))[:4]
 
 
 class OpenAICompatibleTutorGateway:

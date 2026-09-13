@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import mimetypes
+import os
 import posixpath
 import re
 import shutil
@@ -46,7 +47,12 @@ _IMAGE_MIME_BY_EXTENSION = {
     ".webp": "image/webp",
 }
 _IMAGE_EXT_BY_MIME = {value: key.lstrip(".") for key, value in _IMAGE_MIME_BY_EXTENSION.items()}
-_MAX_DOCUMENT_IMAGES = 120
+# Keep a bounded upper limit for pathological uploads while allowing a
+# several-hundred-page teaching textbook to retain all caption-qualified
+# figures.  The limit applies only to knowledge media; page snapshots remain
+# preview-only and never enter the image vector collection.
+_MAX_DOCUMENT_IMAGES = max(1, int(os.getenv("TIBAN_MAX_DOCUMENT_IMAGES", "320")))
+_MAX_SCANNED_PAGES = 12
 
 # These are intentionally small, stable labels rather than an attempted
 # general-purpose NLP model.  Every edge is tied to the chunk that contained
@@ -100,6 +106,31 @@ _CONCEPT_ALIASES = {
 }
 
 
+def pdf_has_usable_text(page_texts: Iterable[str]) -> bool:
+    """Return whether a PDF has enough reliable text for text retrieval.
+
+    Scanned references often expose only page numbers, publisher furniture, or
+    replacement characters through the PDF text layer.  Treating that layer as
+    meaningful text creates empty chunks and prevents the page-render fallback
+    from preserving the document as visual evidence.
+    """
+
+    raw = "\n".join(str(value or "") for value in page_texts)
+    compact = re.sub(r"\s+", "", raw)
+    if len(compact) < 80:
+        return False
+    replacement_count = compact.count("\ufffd")
+    # A bilingual PDF can contain a handful of unextractable glyphs while
+    # still carrying a perfectly usable English/Chinese text layer.  Only
+    # reject a layer when replacement characters dominate it.
+    if replacement_count > max(8, int(len(compact) * 0.2)):
+        return False
+    meaningful = [char for char in compact if char.isalpha() or "\u4e00" <= char <= "\u9fff"]
+    if len(meaningful) < 40:
+        return False
+    return len(set(meaningful)) >= 12
+
+
 @dataclass(frozen=True)
 class ExtractedImage:
     payload: bytes
@@ -110,6 +141,9 @@ class ExtractedImage:
     alt_text: str | None = None
     section: str | None = None
     concepts: tuple[str, ...] = ()
+    asset_type: str = "figure"
+    bbox: tuple[float, float, float, float] | None = None
+    source_element_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -131,6 +165,7 @@ class KnowledgeMultimodalService:
         version_id: str,
         source_path: Path,
         media_type: str,
+        parsed_document: object | None = None,
     ) -> dict[str, Any]:
         """Replace current-version media and rebuild deterministic graph rows.
 
@@ -139,7 +174,16 @@ class KnowledgeMultimodalService:
         vector index; no image bytes are returned from this method.
         """
 
-        extracted, extraction_errors = self._extract_images(source_path, media_type)
+        if parsed_document is not None and isinstance(getattr(parsed_document, "images", None), list):
+            extracted = [ExtractedImage(
+                payload=item.payload, filename=item.filename, mime_type=item.mime_type,
+                page=item.page, ordinal=index, alt_text=item.caption,
+                section=item.section_path, concepts=tuple(item.concepts),
+                asset_type=item.asset_type, bbox=item.bbox, source_element_id=item.element_id,
+            ) for index, item in enumerate(parsed_document.images)]
+            extraction_errors: list[str] = []
+        else:
+            extracted, extraction_errors = self._extract_images(source_path, media_type)
         self._remove_document_media(document_id, keep_version_id=version_id)
         assets: list[KnowledgeMediaAssetModel] = []
         destination_root = (KNOWLEDGE_MEDIA_ROOT / document_id / version_id).resolve()
@@ -177,6 +221,10 @@ class KnowledgeMultimodalService:
                 page=max(1, int(item.page)),
                 ordinal=int(item.ordinal),
                 alt_text=item.alt_text,
+                asset_type=item.asset_type if item.asset_type in {"figure", "page_snapshot"} else "figure",
+                bbox=list(item.bbox) if item.bbox else None,
+                source_element_id=item.source_element_id,
+                section_path=item.section,
                 status="ready",
             ))
 
@@ -187,8 +235,9 @@ class KnowledgeMultimodalService:
             graph_counts = self._rebuild_graph(session, document_id, version_id)
             row = session.get(SourceDocumentModel, document_id)
             if row is not None:
-                row.image_count = len(assets)
-                if not assets:
+                figure_count = sum(asset.asset_type == "figure" for asset in assets)
+                row.image_count = figure_count
+                if not figure_count:
                     row.image_index_status = "empty" if not extraction_errors else "failed"
                 else:
                     # Embedding is a separate step.  The value is set to
@@ -200,7 +249,7 @@ class KnowledgeMultimodalService:
                 row.graph_error = None
             session.commit()
         return {
-            "image_count": len(assets),
+            "image_count": sum(asset.asset_type == "figure" for asset in assets),
             "asset_ids": [asset.asset_id for asset in assets],
             "image_errors": extraction_errors[:8],
             "graph_node_count": graph_counts[0],
@@ -253,6 +302,10 @@ class KnowledgeMultimodalService:
                 "height": row.height,
                 "page": row.page,
                 "alt_text": row.alt_text or "资料中的教学图片",
+                "asset_type": row.asset_type,
+                "bbox": row.bbox,
+                "source_element_id": row.source_element_id,
+                "section_path": row.section_path,
             }
 
     def purge_document(self, document_id: str) -> None:
@@ -302,7 +355,36 @@ class KnowledgeMultimodalService:
         try:
             ordinal = 0
             seen: set[str] = set()
+            page_texts = [page.get_text("text") for page in pdf]
             for page_number, page in enumerate(pdf, start=1):
+                # Route each page independently.  A mixed PDF may contain
+                # ordinary text pages, figure pages and scans in one file.
+                page_text = re.sub(r"\s+", "", page_texts[page_number - 1] or "")
+                # This fallback only distinguishes an image-only page from a
+                # page that has a text layer.  The structured parser performs
+                # the stricter OCR/coverage classification; replacement glyphs
+                # still count as a text layer here so an uncaptioned layout
+                # image is filtered rather than mislabeled as a page preview.
+                page_has_text = bool(page_text)
+                if not page_has_text:
+                    if page_number <= _MAX_SCANNED_PAGES:
+                        try:
+                            pixmap = page.get_pixmap(matrix=fitz.Matrix(1.25, 1.25), alpha=False)
+                            payload = pixmap.tobytes("png")
+                            images.append(ExtractedImage(
+                                payload,
+                                f"第{page_number}页.png",
+                                "image/png",
+                                page_number,
+                                ordinal,
+                                f"{source_path.stem} · 第 {page_number} 页",
+                                f"扫描版资料 · 第 {page_number} 页",
+                                (), "page_snapshot", (0.0, 0.0, float(page.rect.width), float(page.rect.height)), f"p{page_number}-snapshot",
+                            ))
+                            ordinal += 1
+                        except Exception as exc:
+                            errors.append(f"PDF 第 {page_number} 页：扫描页渲染失败：{type(exc).__name__}")
+                    continue
                 captions = self._pdf_figure_captions(page)
                 for image_info in page.get_images(full=True):
                     try:
@@ -325,7 +407,7 @@ class KnowledgeMultimodalService:
                             continue
                         rects = list(page.get_image_rects(xref))
                         caption = self._nearest_caption(rects[0] if rects else None, captions)
-                        if not self._is_evidence_figure(width, height, caption):
+                        if not self._is_evidence_figure(width, height, caption, rects[0] if rects else None, page.rect):
                             # This is expected for logos and layout elements;
                             # keep it out of learner-facing error messages.
                             continue
@@ -340,7 +422,9 @@ class KnowledgeMultimodalService:
                             ordinal,
                             caption_text,
                             f"第 {page_number} 页 · {caption.label}",
-                            concepts,
+                            concepts, "figure",
+                            (float(rects[0].x0), float(rects[0].y0), float(rects[0].x1), float(rects[0].y1)) if rects else None,
+                            f"p{page_number}-figure-{ordinal}",
                         ))
                         ordinal += 1
                     except Exception as exc:
@@ -363,8 +447,8 @@ class KnowledgeMultimodalService:
         # body paragraph that merely mentions "Figure 1"/"图1" from becoming
         # an image caption, while supporting the common punctuation variants.
         patterns = (
-            re.compile(r"^\s*(?P<label>\b(?:fig(?:ure)?\.?\s*\d+[a-z]?\.?))\s*(?:[:：.\-]\s*|\s+)(?P<body>.+)", re.I | re.S),
-            re.compile(r"^\s*(?P<label>图\s*\d+[a-z]?)\s*(?:[:：.、\-]\s*|\s+)(?P<body>.+)", re.I | re.S),
+            re.compile(r"^\s*(?P<label>\b(?:fig(?:ure)?\.?\s*\d+(?:[-–]\d+)?[a-z]?\.?))\s*(?:[:：.\-]\s*|\s+)(?P<body>.+)", re.I | re.S),
+            re.compile(r"^\s*(?P<label>图\s*\d+(?:[-–]\d+)?[a-z]?)\s*(?:[:：.、\-]\s*|\s+)(?P<body>.+)", re.I | re.S),
         )
         for block in page.get_text("blocks"):
             if len(block) < 5:
@@ -410,11 +494,17 @@ class KnowledgeMultimodalService:
         return selected if distance(selected) <= 420 else None
 
     @staticmethod
-    def _is_evidence_figure(width: int, height: int, caption: FigureCaption | None) -> bool:
+    def _is_evidence_figure(width: int, height: int, caption: FigureCaption | None, image_rect: fitz.Rect | None = None, page_rect: fitz.Rect | None = None) -> bool:
         # 76x56 publisher icons and similar assets are not useful visual
         # evidence.  Wide image strips remain valid because endoscopy figures
         # frequently contain a labelled sequence of frames.
-        return caption is not None and width >= 160 and height >= 100 and width * height >= 28_000
+        if caption is None or width < 160 or height < 100 or width * height < 28_000:
+            return False
+        if image_rect is not None and page_rect is not None:
+            page_area = max(float(page_rect.width * page_rect.height), 1.0)
+            if float(image_rect.width * image_rect.height) / page_area >= 0.68:
+                return False
+        return True
 
     def _extract_docx(self, source_path: Path) -> tuple[list[ExtractedImage], list[str]]:
         images: list[ExtractedImage] = []
@@ -474,6 +564,8 @@ class KnowledgeMultimodalService:
             return
         assignments: dict[str, list[str]] = {chunk.chunk_id: [] for chunk in chunks}
         for asset in assets:
+            if asset.asset_type != "figure":
+                continue
             candidates = [chunk for chunk in chunks if chunk.page == asset.page] or chunks
             selected = max(candidates, key=lambda chunk: self._caption_chunk_score(asset.alt_text or "", chunk.content))
             assignments[selected.chunk_id].append(asset.asset_id)
@@ -542,6 +634,7 @@ class KnowledgeMultimodalService:
         assets = list(session.scalars(select(KnowledgeMediaAssetModel).where(
             KnowledgeMediaAssetModel.document_id == document_id,
             KnowledgeMediaAssetModel.version_id == version_id,
+            KnowledgeMediaAssetModel.asset_type == "figure",
             KnowledgeMediaAssetModel.status == "ready",
         )))
         for asset in assets:

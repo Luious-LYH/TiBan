@@ -100,6 +100,9 @@ def test_knowledge_parser_supports_pdf_docx_markdown_and_txt(tmp_path: Path) -> 
     docx_path = tmp_path / "note.docx"
     document = Document()
     document.add_paragraph(content)
+    table = document.add_table(rows=1, cols=2)
+    table.cell(0, 0).text = "表格字段"
+    table.cell(0, 1).text = "表格内容"
     document.save(docx_path)
     samples.append(docx_path)
 
@@ -119,9 +122,10 @@ def test_knowledge_parser_supports_pdf_docx_markdown_and_txt(tmp_path: Path) -> 
         parsers.append(parser)
 
     assert parsers == ["heading-aware-markdown", "utf8-text", "python-docx", "pymupdf-page-aware"]
+    assert "表格字段 | 表格内容" in knowledge_service._parse(docx_path)[0].read_text(encoding="utf-8")
 
 
-def test_system_knowledge_sources_are_not_deletable() -> None:
+def test_system_knowledge_sources_can_be_removed_without_deleting_source_file(monkeypatch) -> None:
     token = uuid4().hex[:10]
     document_id = f"v31-system-delete-{token}"
     with SessionLocal() as session:
@@ -132,13 +136,17 @@ def test_system_knowledge_sources_are_not_deletable() -> None:
             ai_ingestion_allowed=True, namespace="system", source_scope="system", enabled=True,
         ))
         session.commit()
+    monkeypatch.setattr(rag_service, "delete_documents", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(rag_service, "delete_image_documents", lambda *_args, **_kwargs: None)
     try:
-        with pytest.raises(PermissionError):
-            knowledge_service.delete(document_id)
+        knowledge_service.delete(document_id)
         with SessionLocal() as session:
             source = session.get(SourceDocumentModel, document_id)
             assert source is not None
-            assert source.enabled is True
+            assert source.enabled is False
+            assert source.status == "deleted"
+            assert source.business_usage == "knowledge_deleted"
+        assert all(item["id"] != document_id for item in knowledge_service.list_sources())
     finally:
         with SessionLocal() as session:
             source = session.get(SourceDocumentModel, document_id)

@@ -327,7 +327,10 @@ class LLMProvider:
             selected["model"] = model
         return {key: str(value) for key, value in selected.items()}
 
-    def _request_json(self, endpoint: str, body: dict[str, Any], api_key: str) -> tuple[int, bytes]:
+    def _request_json(
+        self, endpoint: str, body: dict[str, Any], api_key: str, *, timeout_seconds: float | None = None,
+    ) -> tuple[int, bytes]:
+        effective_timeout = max(1.0, float(timeout_seconds if timeout_seconds is not None else config.LLM_TIMEOUT_SECONDS))
         parsed = urllib.parse.urlsplit(endpoint)
         self._validate_base_url(parsed)
         hostname = self._parsed_hostname(parsed)
@@ -352,7 +355,7 @@ class LLMProvider:
             )
             opener = urllib.request.build_opener(_NoRedirectHandler)
             try:
-                with opener.open(request, timeout=config.LLM_TIMEOUT_SECONDS) as response:
+                with opener.open(request, timeout=effective_timeout) as response:
                     return response.status, response.read()
             except urllib.error.HTTPError as exc:
                 return exc.code, exc.read()
@@ -366,9 +369,9 @@ class LLMProvider:
         }
         connection: http.client.HTTPConnection
         if scheme == "https":
-            connection = _PinnedHTTPSConnection(hostname, port, connect_host, config.LLM_TIMEOUT_SECONDS)
+            connection = _PinnedHTTPSConnection(hostname, port, connect_host, effective_timeout)
         else:
-            connection = _PinnedHTTPConnection(hostname, port, connect_host, config.LLM_TIMEOUT_SECONDS)
+            connection = _PinnedHTTPConnection(hostname, port, connect_host, effective_timeout)
         try:
             connection.request("POST", path, body=payload, headers=headers)
             response = connection.getresponse()
@@ -437,8 +440,28 @@ class LLMProvider:
             )
 
         last_result: LLMResult | None = None
+        # A text request retains its established retry policy. Visual requests
+        # instead make one bounded attempt per visual provider, preserving the
+        # OpenRouter → BigModel route without multiplying a slow network
+        # timeout into a multi-minute blocked chat composer.
+        retry_limit = 0 if image_attached else self._CHAT_RETRIES
+        vision_deadline = (
+            time.perf_counter() + max(1.0, float(config.LLM_VISION_TOTAL_TIMEOUT_SECONDS))
+            if image_attached else None
+        )
         for attempt in attempts:
-            for retry_index in range(self._CHAT_RETRIES + 1):
+            for retry_index in range(retry_limit + 1):
+                request_timeout_seconds = float(config.LLM_TIMEOUT_SECONDS)
+                if vision_deadline is not None:
+                    remaining = vision_deadline - time.perf_counter()
+                    if remaining <= 0:
+                        return last_result or LLMResult(
+                            False, "", "provider", attempt["provider"], attempt["model"], "provider_timeout", image_attached=True,
+                        )
+                    request_timeout_seconds = min(
+                        max(1.0, float(config.LLM_VISION_REQUEST_TIMEOUT_SECONDS)),
+                        max(1.0, remaining),
+                    )
                 result = self._chat_once(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
@@ -450,11 +473,12 @@ class LLMProvider:
                     effective_base_url=attempt["base_url"],
                     effective_api_key=attempt["api_key"],
                     effective_model=attempt["model"],
+                    request_timeout_seconds=request_timeout_seconds,
                 )
                 if result.ok:
                     return result
                 last_result = result
-                if retry_index < self._CHAT_RETRIES and self._is_transient_provider_error(result.error):
+                if retry_index < retry_limit and self._is_transient_provider_error(result.error):
                     time.sleep(0.5 * (2**retry_index))
                     continue
                 break
@@ -637,6 +661,7 @@ class LLMProvider:
         effective_base_url: str,
         effective_api_key: str,
         effective_model: str,
+        request_timeout_seconds: float | None = None,
     ) -> LLMResult:
 
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
@@ -675,7 +700,9 @@ class LLMProvider:
             last_error = "provider_error"
             endpoints = self._chat_completion_endpoints(effective_base_url)
             for endpoint_index, endpoint in enumerate(endpoints):
-                status, response_body = self._request_json(endpoint, body, effective_api_key)
+                status, response_body = self._request_json(
+                    endpoint, body, effective_api_key, timeout_seconds=request_timeout_seconds,
+                )
                 if 300 <= status < 400:
                     last_error = f"redirect_blocked_{status}"
                     return LLMResult(False, "", "provider", effective_provider, effective_model, last_error, image_attached=image_attached)

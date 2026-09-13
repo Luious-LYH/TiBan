@@ -142,7 +142,7 @@ services:
 
   worker:
     build: ./backend
-    command: ["dramatiq", "app.workers.factory_worker", "app.workers.background_worker"]
+    command: ["dramatiq", "app.workers.factory_worker", "app.workers.background_worker", "--queues", "knowledge", "default"]
     environment:
       ENDO_DATABASE_URL: postgresql+psycopg://endotutor_dev:endotutor_dev_only@postgres:5432/endotutor_stage1
       ENDO_PROJECT_DATA_ROOT: /app/data

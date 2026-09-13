@@ -8,4 +8,9 @@ Only documents whose registry entry passes the License Gate may be indexed. The 
 
 Runtime mapping reuses `SourceDocument`, `DocumentVersion`, `KnowledgeChunk` and the Qdrant collection. The `namespace` field separates the Medical / Endoscopy pack (`medical_general`, `gastroenterology`, `endoscopy`, `qbank_explanations`, `factory_sources`, `user_uploaded`) from the General Science pack (`general_science`).
 
+资料库支持“临床诊疗指南”等目录管理。用户上传的 PDF、DOCX、Markdown 和
+TXT 可以归入个人目录；带图片的资料会在受控资产目录中保存，并建立 Figure
+caption、页码、章节和文字片段的关联。题库图片不进入知识库图片索引，避免学习
+题目与资料证据混用。
+
 `EndoBench` is evaluation-only and is blocked from Tutor RAG, Question Factory and QBank import. ARC Easy is a local-only General QBank importer source and is also blocked from RAG and Factory. Medical output remains `仅供教学研修或医生复核前辅助，不作为独立诊断依据。`

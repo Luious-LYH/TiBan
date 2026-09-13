@@ -22,6 +22,14 @@ from app.db.models import (
     VectorIndexStateModel,
 )
 from app.services.agent_runtime import AgentContext
+from app.services.document_parser import (
+    DocumentElement,
+    DocumentParseStats,
+    ParsedDocument,
+    _dedupe_ocr_items,
+    _looks_like_ocr_heading,
+    _scan_page_figures,
+)
 from app.services.knowledge_multimodal_service import KNOWLEDGE_MEDIA_ROOT, knowledge_multimodal_service
 from app.services.knowledge_service import knowledge_service
 from app.services.rag_service import IMAGE_COLLECTION, IMAGE_INDEX_KEY, Citation, rag_service
@@ -49,6 +57,14 @@ def _pdf_with_uncaptioned_image(path: Path) -> None:
     page = document.new_page()
     page.insert_text((72, 72), "课程页面装饰，不应被识别为可检索的教学图像。")
     page.insert_image(fitz.Rect(72, 100, 240, 220), stream=_png_bytes())
+    document.save(path)
+    document.close()
+
+
+def _scanned_pdf(path: Path) -> None:
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_image(fitz.Rect(72, 72, 360, 260), stream=_png_bytes())
     document.save(path)
     document.close()
 
@@ -88,8 +104,11 @@ def _cleanup(document_id: str) -> None:
 def test_reindex_prefers_original_source_over_parsed_projection(tmp_path: Path) -> None:
     original = tmp_path / "guide.pdf"
     parsed = tmp_path / "guide.parsed.md"
+    parsed_directory = tmp_path / "runtime" / "parsed" / "guide.md"
     original.write_bytes(b"pdf")
     parsed.write_text("normalized text", encoding="utf-8")
+    parsed_directory.parent.mkdir(parents=True)
+    parsed_directory.write_text("normalized text", encoding="utf-8")
     original_version = DocumentVersionModel(
         version_id="original", document_id="doc", source_path=str(original),
         content_hash="original", parser="pdf", status="indexed",
@@ -98,9 +117,13 @@ def test_reindex_prefers_original_source_over_parsed_projection(tmp_path: Path) 
         version_id="parsed", document_id="doc", source_path=str(parsed),
         content_hash="parsed", parser="markdown", status="indexed",
     )
+    parsed_directory_version = DocumentVersionModel(
+        version_id="parsed-directory", document_id="doc", source_path=str(parsed_directory),
+        content_hash="parsed-directory", parser="markdown", status="indexed",
+    )
 
     selected = knowledge_service._select_reindex_source_version([
-        parsed_version, original_version,
+        parsed_directory_version, parsed_version, original_version,
     ])
 
     assert selected is original_version
@@ -178,6 +201,20 @@ def test_pdf_ignores_large_uncaptioned_layout_images(tmp_path: Path) -> None:
     assert errors == []
 
 
+def test_scanned_pdf_uses_page_image_fallback_when_text_layer_is_not_usable(tmp_path: Path) -> None:
+    source_path = tmp_path / "scanned-guide.pdf"
+    _scanned_pdf(source_path)
+
+    parsed, parser = knowledge_service._parse(source_path)
+    images, errors = knowledge_multimodal_service._extract_pdf(source_path)
+
+    assert parser == "pymupdf-scanned-pages"
+    assert "扫描版 PDF" in parsed.read_text(encoding="utf-8")
+    assert len(images) == 1
+    assert images[0].alt_text and "第 1 页" in images[0].alt_text
+    assert errors == []
+
+
 def test_pdf_supports_common_chinese_figure_caption(tmp_path: Path) -> None:
     page = SimpleNamespace(get_text=lambda _kind: [(72, 242, 300, 280, "图 1：结肠镜观察中的回盲瓣与阑尾开口。\n", 0, 0)])
 
@@ -186,6 +223,100 @@ def test_pdf_supports_common_chinese_figure_caption(tmp_path: Path) -> None:
     assert len(captions) == 1
     assert captions[0].text == "图 1：结肠镜观察中的回盲瓣与阑尾开口。"
     assert captions[0].label == "图1"
+
+
+def test_scanned_page_figure_crop_requires_caption_and_is_not_a_full_page_snapshot(tmp_path: Path) -> None:
+    """Scanned textbook figures use a bounded caption-led crop when possible."""
+
+    source_path = tmp_path / "scanned-caption.pdf"
+    _scanned_pdf(source_path)
+    document = fitz.open(source_path)
+    page = document[0]
+    elements = [
+        DocumentElement(
+            element_id="body", element_type="paragraph", page=1,
+            bbox=(72.0, 72.0, 360.0, 100.0), reading_order=0,
+            parent_element_id=None, section_path="影像诊断", text="图像观察教学正文。",
+        ),
+        DocumentElement(
+            element_id="caption", element_type="caption", page=1,
+            bbox=(100.0, 260.0, 260.0, 276.0), reading_order=1,
+            parent_element_id=None, section_path="影像诊断", text="图 1-1：示例影像。",
+        ),
+    ]
+    figures = _scan_page_figures(page, 1, "影像诊断", elements, None)
+    document.close()
+
+    assert len(figures) == 1
+    assert figures[0].asset_type == "figure"
+    assert figures[0].caption == "图 1-1：示例影像。"
+    assert figures[0].bbox is not None
+    assert figures[0].bbox[2] - figures[0].bbox[0] < 594.96
+    assert figures[0].bbox[3] - figures[0].bbox[1] < 841.92
+
+
+def test_ocr_caption_without_separator_is_recognized() -> None:
+    from app.services.document_parser import FIGURE_CAPTION_RE
+
+    match = FIGURE_CAPTION_RE.match("图1-2颈椎侧位传统X线成像与数字化X线成像比较")
+
+    assert match is not None
+    assert match.group("label") == "图1-2"
+
+
+def test_ocr_heading_detection_does_not_promote_body_lines() -> None:
+    assert _looks_like_ocr_heading("第一章影像诊断学总论")
+    assert _looks_like_ocr_heading("1.2 磁共振成像基础")
+    assert not _looks_like_ocr_heading("应用CR或DR设备进行摄片时，均需将透过人体的X线信息进行像素化")
+    assert not _looks_like_ocr_heading("3.数字减影血管造影设备与X线成像性能数字减影血管造影")
+
+
+def test_ocr_dedup_uses_text_and_bbox_without_removing_separate_labels() -> None:
+    items = [
+        {"text": "图像记录", "bbox": [10.02, 20.01, 100.04, 30.02]},
+        {"text": " 图像记录 ", "bbox": [10.04, 20.02, 100.03, 30.01]},
+        {"text": "图像记录", "bbox": [10.0, 60.0, 100.0, 70.0]},
+    ]
+
+    deduped = _dedupe_ocr_items(items)
+
+    assert len(deduped) == 2
+    assert [item["text"] for item in deduped] == ["图像记录", "图像记录"]
+
+
+def test_structured_chunks_keep_only_bounded_overlap_and_no_section_history() -> None:
+    elements = [
+        DocumentElement(
+            element_id=f"body-{index}", element_type="paragraph", page=1,
+            bbox=None, reading_order=index, parent_element_id=None,
+            section_path="第一章", text="影像检查需要结合临床资料进行综合分析。" * 2,
+        )
+        for index in range(12)
+    ]
+    elements.extend([
+        DocumentElement(
+            element_id="heading-2", element_type="heading", page=2,
+            bbox=None, reading_order=12, parent_element_id=None,
+            section_path="第二章", text="第二章",
+        ),
+        DocumentElement(
+            element_id="body-2", element_type="paragraph", page=2,
+            bbox=None, reading_order=13, parent_element_id=None,
+            section_path="第二章", text="第二章内容只应出现在新的章节证据中。" * 2,
+        ),
+    ])
+    document = ParsedDocument(Path("fixture.pdf"), "test", elements, [], DocumentParseStats(page_count=2))
+
+    chunks = document.chunks(max_tokens=120, overlap_tokens=20)
+
+    assert len(chunks) >= 4
+    assert all(len(chunk.element_ids) <= 4 for chunk in chunks)
+    section_two = [chunk for chunk in chunks if chunk.section_path == "第二章"]
+    assert section_two
+    assert all(set(chunk.element_ids) <= {"heading-2", "body-2"} for chunk in section_two)
+    # A later chunk may repeat one small tail item, but it must not contain a
+    # complete accumulated history of all preceding elements.
+    assert max(len(chunk.element_ids) for chunk in chunks) < len(elements) // 2
 
 
 def test_caption_graph_expands_text_evidence_to_its_figure(tmp_path: Path) -> None:
@@ -204,7 +335,7 @@ def test_caption_graph_expands_text_evidence_to_its_figure(tmp_path: Path) -> No
                 section="图像资料", snippet="内镜图像与息肉识别指南", score=0.9,
                 document_id=document_id, namespace="user",
             )
-        ], domain_id="endoscopy", limit=3)
+        ], query="内镜息肉", domain_id="endoscopy", limit=3)
 
         assert len(images) == 1
         assert images[0]["caption"].startswith("Fig. 1.")
@@ -283,6 +414,16 @@ def test_clip_query_is_reduced_to_controlled_concepts() -> None:
     assert len(reduced) < len(query)
 
 
+def test_caption_matching_requires_a_specific_phrase_not_a_shared_ct_abbreviation() -> None:
+    """A generic CT hit must not add unrelated Figure evidence."""
+
+    from app.services.rag_service import _caption_query_match_score
+
+    query = "CT检查窗技术如何影响影像观察？"
+    assert _caption_query_match_score(query, "图1-6 CT检查窗技术的应用") > 0
+    assert _caption_query_match_score(query, "图7-16 肝脏CT三期增强检查") == 0
+
+
 def test_image_fusion_uses_only_explainable_evidence_bonus() -> None:
     """A graph relation can lift an image without being presented as confidence."""
 
@@ -303,9 +444,38 @@ def test_image_fusion_uses_only_explainable_evidence_bonus() -> None:
     ], citations=[citation], limit=2)
 
     assert ranked[0]["asset_id"] == "captioned"
-    assert ranked[0]["evidence_association_bonus"] == 0.27
-    assert "与相关文字证据同页" in ranked[0]["evidence_links"]
+    assert ranked[0]["evidence_association_bonus"] == 0.24
+    assert "与相关文字证据对应" not in ranked[0]["evidence_links"]
     assert "confidence" not in ranked[0]
+
+
+def test_image_results_require_text_caption_or_graph_evidence() -> None:
+    """A bare CLIP neighbour must not become a learner-facing image result."""
+
+    citation = Citation(
+        chunk_id="chunk-supported", document_name="图文资料", page=7, section="第 7 页",
+        snippet="CT 窗技术", score=0.8, document_id="guide", namespace="system",
+    )
+    retained = rag_service._filter_image_results_by_evidence([
+        {
+            "asset_id": "unrelated", "document_id": "other", "page": 3,
+            "linked_chunk_id": "other-chunk", "caption": "无关的仪器照片",
+            "retrieval_channels": ["clip"], "evidence_links": [],
+        },
+        {
+            "asset_id": "same-text", "document_id": "guide", "page": 7,
+            "linked_chunk_id": "chunk-supported", "caption": "图 1 CT 窗技术示意图",
+            "retrieval_channels": ["clip"], "evidence_links": [],
+        },
+        {
+            "asset_id": "caption-match", "document_id": "guide", "page": 8,
+            "linked_chunk_id": "caption-supported", "caption": "图 2 CT 窗技术对比",
+            "retrieval_channels": ["clip"], "evidence_links": [],
+        },
+    ], citations=[citation], query="CT 窗技术怎么理解")
+
+    assert [item["asset_id"] for item in retained] == ["same-text", "caption-match"]
+    assert "图注与查询关键词匹配" in retained[1]["evidence_links"]
 
 
 def test_image_index_uses_fake_clip_provider_and_keeps_failure_truthful(monkeypatch) -> None:
@@ -316,6 +486,11 @@ def test_image_index_uses_fake_clip_provider_and_keeps_failure_truthful(monkeypa
     image_path.write_bytes(_png_bytes())
     _seed_source(document_id, version_id)
     with SessionLocal() as session:
+        source = session.get(SourceDocumentModel, document_id)
+        assert source is not None
+        # A real knowledge job extracts media before its final source commit;
+        # the current source is therefore still in the indexing state here.
+        source.status = "indexing"
         session.add(KnowledgeMediaAssetModel(
             asset_id="kmedia_fake_asset", document_id=document_id, version_id=version_id,
             storage_path=f"{document_id}/manual/asset.png", original_filename="asset.png", sha256="f" * 64,

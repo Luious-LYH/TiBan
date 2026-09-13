@@ -78,6 +78,7 @@ export type InstanceEmbeddingTestResult = components['schemas']['EmbeddingTestRe
 export type IndexRebuildResult = components['schemas']['IndexRebuildResponse']
 export type KnowledgeSource = components['schemas']['KnowledgeSourcePublic']
 export type KnowledgeSourceDetail = components['schemas']['KnowledgeSourceDetailPublic']
+export type KnowledgeFolder = components['schemas']['KnowledgeFolderPublic']
 export type KnowledgeSearchResult = components['schemas']['KnowledgeSearchResponse']
 export type QBankValidation = { format: string; accepted_count: number; rejected_count: number; ready_to_publish: boolean; items: Array<{ title: string; question: string; question_type: string; options?: Array<{ id: string; text: string }>; difficulty?: string; body_part?: string; image_url?: string | null; image_alt?: string | null }>; issues: Array<{ row: number; code: string; message: string }>; summary: { question_type_counts: Record<string, number> } }
 export type QBankImportRequest = { format: 'json' | 'jsonl' | 'csv' | 'markdown'; content: string; mode: 'create_bank' | 'append_questions'; domain_id: string; custom_domain_name?: string; bank_name?: string; bank_description?: string; target_bank_id?: string; source_name?: string; file_name?: string; image_assets?: QuestionImageAssetRef[] }
@@ -187,6 +188,23 @@ export async function getKnowledgeSources(scope?: 'system' | 'user' | 'qbank_exp
   return response.items
 }
 
+export async function getKnowledgeFolders(): Promise<KnowledgeFolder[]> {
+  const response = await unwrap(api.GET('/api/v3/knowledge/folders'))
+  return response.items
+}
+
+export async function createKnowledgeFolder(name: string, description = '', scope: 'user' | 'qbank_explanations' = 'user'): Promise<KnowledgeFolder> {
+  return unwrap(api.POST('/api/v3/knowledge/folders', { body: { name, description, scope } }))
+}
+
+export async function updateKnowledgeFolder(folderId: string, payload: { name?: string; description?: string }): Promise<KnowledgeFolder> {
+  return unwrap(api.PATCH('/api/v3/knowledge/folders/{folder_id}', { params: { path: { folder_id: folderId } }, body: payload }))
+}
+
+export async function deleteKnowledgeFolder(folderId: string): Promise<{ status: string; api_source: string }> {
+  return unwrap(api.DELETE('/api/v3/knowledge/folders/{folder_id}', { params: { path: { folder_id: folderId } } }))
+}
+
 export async function getKnowledgeSource(documentId: string): Promise<KnowledgeSourceDetail> {
   const response = await unwrap(api.GET('/api/v3/knowledge/sources/{document_id}', { params: { path: { document_id: documentId } } }))
   return response.item
@@ -198,8 +216,18 @@ export async function uploadKnowledgeSource(file: File): Promise<KnowledgeSource
   return response.item
 }
 
+export async function processKnowledgeSources(documentIds: string[]): Promise<KnowledgeSource[]> {
+  const response = await unwrap(api.POST('/api/v3/knowledge/sources/process', { body: { document_ids: documentIds } }))
+  return response.items
+}
+
 export async function setKnowledgeSourceEnabled(documentId: string, enabled: boolean): Promise<KnowledgeSourceDetail> {
   const response = await unwrap(api.PATCH('/api/v3/knowledge/sources/{document_id}', { params: { path: { document_id: documentId } }, body: { enabled } }))
+  return response.item
+}
+
+export async function moveKnowledgeSource(documentId: string, folderId: string | null): Promise<KnowledgeSourceDetail> {
+  const response = await unwrap(api.PATCH('/api/v3/knowledge/sources/{document_id}', { params: { path: { document_id: documentId } }, body: { folder_id: folderId } }))
   return response.item
 }
 

@@ -5,7 +5,7 @@ import { resolveApiUrl, streamTutor, uploadChatImage, type TutorStreamEvent } fr
 import { ImageAttachment } from '../shared/ImageAttachment'
 
 type TutorMode = 'study' | 'exam' | 'review'
-type Source = { document_name?: string; page?: string; section?: string; snippet?: string; source_uri?: string; namespace?: string }
+type Source = { document_name?: string; page?: string; section?: string; snippet?: string; source_uri?: string; namespace?: string; image_urls?: string[] }
 type Activity = { activity?: string; status?: string; label?: string; elapsed_ms?: number }
 type Turn = { id: string; role: 'user' | 'assistant'; text: string; imageUrl?: string; imageAssetId?: string; sources?: Source[]; error?: string; reasoning?: string[]; activities?: Activity[]; durationMs?: number }
 
@@ -144,13 +144,13 @@ function CitationList({ sources }: { sources: Source[] }) {
   const unique = useMemo(() => {
     const seen = new Set<string>()
     return sources.filter((source) => {
-      const key = `${source.document_name ?? ''}::${source.section ?? source.page ?? ''}`
+      const key = `${source.document_name ?? ''}::${source.section ?? source.page ?? ''}::${(source.image_urls ?? []).join('|')}`
       if (seen.has(key)) return false
       seen.add(key)
       return true
     })
   }, [sources])
-  return <details className="tutor-citations" data-testid="tutor-sources"><summary className="tutor-citations-title"><ChevronDown size={13} />参考资料 {unique.length} 条</summary><div className="tutor-citation-list">{unique.map((source, index) => <div className="tutor-citation" key={`${source.document_name}-${source.section ?? source.page ?? index}`}><strong>ⓘ {source.document_name ?? '教学资料'}</strong>{(source.page || source.section) && <small>{source.page && source.page !== '题目来源' ? `第 ${source.page} 页` : ''}{source.page && source.section ? ' · ' : ''}{source.section}</small>}{displaySnippet(source.snippet) && <p>{displaySnippet(source.snippet)?.slice(0, 180)}{(displaySnippet(source.snippet)?.length ?? 0) > 180 ? '…' : ''}</p>}{safeSourceUri(source.source_uri) && <a href={safeSourceUri(source.source_uri)} target="_blank" rel="noreferrer">查看来源 <ExternalLink size={11} /></a>}</div>)}</div></details>
+  return <details className="tutor-citations" data-testid="tutor-sources"><summary className="tutor-citations-title"><ChevronDown size={13} />参考资料 {unique.length} 条</summary><div className="tutor-citation-list">{unique.map((source, index) => <div className="tutor-citation" key={`${source.document_name}-${source.section ?? source.page ?? index}`}><strong>ⓘ {source.document_name ?? '教学资料'}</strong>{(source.page || source.section) && <small>{source.page && source.page !== '题目来源' ? `第 ${source.page} 页` : ''}{source.page && source.section ? ' · ' : ''}{source.section}</small>}{displaySnippet(source.snippet) && <p>{displaySnippet(source.snippet)?.slice(0, 180)}{(displaySnippet(source.snippet)?.length ?? 0) > 180 ? '…' : ''}</p>}{source.image_urls && source.image_urls.length > 0 && <div className="tutor-citation-images">{source.image_urls.slice(0, 3).map((url, imageIndex) => <a key={url} href={resolveApiUrl(url)} target="_blank" rel="noreferrer" aria-label={`查看资料图片 ${imageIndex + 1}`}><img src={resolveApiUrl(url)} alt={`${source.document_name ?? '资料图片'} · 第 ${source.page ?? '?'} 页`} loading="lazy" /></a>)}</div>}{safeSourceUri(source.source_uri) && <a href={safeSourceUri(source.source_uri)} target="_blank" rel="noreferrer">查看来源 <ExternalLink size={11} /></a>}</div>)}</div></details>
 }
 
 function safeSourceUri(value?: string) {

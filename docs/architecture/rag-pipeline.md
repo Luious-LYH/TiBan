@@ -26,6 +26,20 @@ claims.
 
 User-facing source cards expose only source name, page and section plus a short snippet. Internal vector IDs and scores do not appear in the UI. Generated questions reuse the same SourceDocument/KnowledgeChunk relation. The product retrieval query applies the same relational eligibility and latest-version gate before dense Qdrant filtering, so stale vector points cannot re-enter through sparse retrieval.
 
+## V3.5.2 多模态性能与质量记录
+
+文字检索和图像检索使用有界 candidate pool；重排只处理候选集。Qdrant 对
+`document_id`、`domain_id`、`namespace`、`version_id` 建立 payload index，
+图片集合额外索引 `concepts`；索引写入采用批量 embedding/upsert。在线查询的
+检索投影使用有界短 TTL 进程缓存，资料启停、重建、删除或索引版本变化会使缓存
+失效，缓存不保存图片字节、API Key 或原始文件路径。
+
+多模态质量由固定 Figure caption 样本评估 Image Recall@3、图注/页码准确率、
+文字到图片和图片到文字关联率、图谱噪声过滤率；性能记录文字检索和完整图文
+证据包的 P50/P95 以及热查询吞吐。可执行脚本为
+`backend/scripts/benchmark_multimodal_rag.py`，它只读当前本机资料和索引，
+不会把本地指南、运行时资产或评测结果写回仓库。
+
 ## Curated corpus boundary
 
 `knowledge/` is an independent curated corpus, not a QBank. The first accepted notes are five project-curated Chinese teaching documents in the `endoscopy` namespace. PostgreSQL remains the canonical source registry, license gate and citation graph; Qdrant contains only approved, non-benchmark chunks. Logical namespaces currently include `medical_general`, `gastroenterology`, `endoscopy`, `qbank_explanations`, `factory_sources` and `user_uploaded`.

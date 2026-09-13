@@ -255,7 +255,7 @@ def test_cloudflare_qwen_answer_only_maps_compat_reasoning_field(monkeypatch) ->
     provider = LLMProvider()
     captured: dict[str, object] = {}
 
-    def fake_request(endpoint, body, api_key):
+    def fake_request(endpoint, body, api_key, *, timeout_seconds=None):
         captured.update(body)
         return 200, b'{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":null,"reasoning_content":"\\u7b54\\u6848\\u6b63\\u6587"}}]}'
 

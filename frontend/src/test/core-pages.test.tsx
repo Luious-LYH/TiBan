@@ -4,7 +4,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearLearningMemory, createEvaluationSuite, createMentorConversation, createModelEvaluation, createPracticeSession, createReviewSession, createRagEvaluation, deleteEvaluationExperiments, deleteKnowledgeSource, deleteMentorConversation, deleteSavedRagProfile, discoverEvaluationModels, getDomains, getEvaluationCatalog, getEvaluationExperiment, getInstanceSettings, getLatestEvaluationExperiment, getKnowledgeSource, getKnowledgeSources, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, getLatestEvaluationSuite, getSavedRagProfiles, leavePracticeSession, listMentorConversations, reorderQuestionBanks, reindexKnowledgeSource, resumePracticeSession, saveRagProfile, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, uploadKnowledgeSource } from '../api/client'
+import { clearLearningMemory, createEvaluationSuite, createKnowledgeFolder, createMentorConversation, createModelEvaluation, createPracticeSession, createReviewSession, createRagEvaluation, deleteEvaluationExperiments, deleteKnowledgeFolder, deleteKnowledgeSource, deleteMentorConversation, deleteSavedRagProfile, discoverEvaluationModels, getDomains, getEvaluationCatalog, getEvaluationExperiment, getInstanceSettings, getLatestEvaluationExperiment, getKnowledgeFolders, getKnowledgeSource, getKnowledgeSources, getLearningMemory, getMentorConversation, getMentorPlan, getOverview, getPracticeSession, getQuestionBanks, getQuestions, getResumablePracticeSession, getReviewItem, getReviewItems, getReviewSummary, getLatestEvaluationSuite, getSavedRagProfiles, leavePracticeSession, listMentorConversations, moveKnowledgeSource, reorderQuestionBanks, reindexKnowledgeSource, resumePracticeSession, saveRagProfile, setKnowledgeSourceEnabled, streamMentorMessage, streamTutor, submitFsrsReview, submitPracticeAnswer, updateKnowledgeFolder, uploadKnowledgeSource } from '../api/client'
 import type { EvaluationExperiment, Overview, Question, QuestionBank, QuestionsResponse, SubmitResult, SavedRagProfile } from '../api/client'
 import { OverviewPage } from '../pages/overview/OverviewPage'
 import { BanksPage } from '../pages/banks/BanksPage'
@@ -16,9 +16,11 @@ import { ReviewPage } from '../pages/review/ReviewPage'
 
 vi.mock('../api/client', () => ({
   createMentorConversation: vi.fn(),
+  createKnowledgeFolder: vi.fn(),
   createPracticeSession: vi.fn(),
   createReviewSession: vi.fn(),
   deleteKnowledgeSource: vi.fn(),
+  deleteKnowledgeFolder: vi.fn(),
   deleteMentorConversation: vi.fn(),
   deleteQuestionBank: vi.fn(),
   getMentorConversation: vi.fn(),
@@ -37,7 +39,9 @@ vi.mock('../api/client', () => ({
   getInstanceSettings: vi.fn(),
   getSavedRagProfiles: vi.fn(),
   getKnowledgeSource: vi.fn(),
+  getKnowledgeFolders: vi.fn(),
   getKnowledgeSources: vi.fn(),
+  processKnowledgeSources: vi.fn(),
   getLearningMemory: vi.fn(),
   getOverview: vi.fn(),
   getPracticeSession: vi.fn(),
@@ -51,6 +55,8 @@ vi.mock('../api/client', () => ({
   listMentorConversations: vi.fn(),
   leavePracticeSession: vi.fn(),
   reindexKnowledgeSource: vi.fn(),
+  moveKnowledgeSource: vi.fn(),
+  updateKnowledgeFolder: vi.fn(),
   resumePracticeSession: vi.fn(),
   saveRagProfile: vi.fn(),
   setKnowledgeSourceEnabled: vi.fn(),
@@ -70,7 +76,9 @@ const mockedGetInstanceSettings = vi.mocked(getInstanceSettings)
 const mockedCreateMentorConversation = vi.mocked(createMentorConversation)
 const mockedGetMentorConversation = vi.mocked(getMentorConversation)
 const mockedGetKnowledgeSources = vi.mocked(getKnowledgeSources)
+const mockedGetKnowledgeFolders = vi.mocked(getKnowledgeFolders)
 const mockedGetKnowledgeSource = vi.mocked(getKnowledgeSource)
+const mockedUpdateKnowledgeFolder = vi.mocked(updateKnowledgeFolder)
 const mockedUploadKnowledgeSource = vi.mocked(uploadKnowledgeSource)
 const mockedSetKnowledgeSourceEnabled = vi.mocked(setKnowledgeSourceEnabled)
 const mockedReindexKnowledgeSource = vi.mocked(reindexKnowledgeSource)
@@ -151,6 +159,13 @@ function LocationProbe() {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mockedGetKnowledgeSources.mockReset()
+  mockedGetKnowledgeSource.mockReset()
+  mockedGetKnowledgeFolders.mockReset()
+  vi.mocked(createKnowledgeFolder).mockReset()
+  vi.mocked(deleteKnowledgeFolder).mockReset()
+  vi.mocked(moveKnowledgeSource).mockReset()
+  vi.mocked(updateKnowledgeFolder).mockReset()
   mockedGetInstanceSettings.mockResolvedValue({
     llm: { provider: 'test-provider', base_url_configured: true, api_key_configured: true, agent_available: true, agent_mode: 'provider', model: 'test-model', reasoning_effort: null, runtime_override: false, restores_default_on_restart: true, private_network_allowed: false },
     embedding: { mode: 'api', provider: 'siliconflow', base_url_configured: true, api_key_configured: true, model: 'BAAI/bge-m3', local_model: 'BAAI/bge-small-zh-v1.5', active_provider: 'siliconflow', active_model: 'BAAI/bge-m3', reranker_mode: 'api', reranker_provider: 'siliconflow', reranker_model: 'BAAI/bge-reranker-v2-m3', batch_size: 32, runtime_override: false, restores_default_on_restart: true, model_switch_supported: true, knowledge_index_status: 'ready', memory_index_status: 'ready' },
@@ -162,6 +177,7 @@ beforeEach(() => {
   vi.mocked(leavePracticeSession).mockResolvedValue(undefined)
   mockedListMentorConversations.mockResolvedValue([])
   mockedGetKnowledgeSources.mockResolvedValue([{ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }])
+  mockedGetKnowledgeFolders.mockResolvedValue([{ id: 'folder-system', name: '系统资料', description: '', scope: 'system', is_system: true, source_count: 1, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }, { id: 'folder-my-materials', name: '我的资料', description: '', scope: 'user', is_system: false, source_count: 0, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }])
   mockedGetKnowledgeSource.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex, preview: [] })
   mockedUploadKnowledgeSource.mockResolvedValue({ id: 'source-user', title: '学习资料', file_name: 'note.md', scope: 'user', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 1, size_bytes: 10, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex, preview: [] })
   mockedSetKnowledgeSourceEnabled.mockResolvedValue({ id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex, preview: [] })
@@ -494,22 +510,104 @@ describe('Stage 1 page contracts', () => {
     expect(screen.getByRole('heading', { name: '知识库' })).toBeInTheDocument()
   })
 
-  it('offers deletion beside learner资料 and never offers it for system sources', async () => {
+  it('organizes sources inside folders and offers deletion from the source detail', async () => {
     const user = userEvent.setup()
-    const learnerSource = { id: 'source-user', title: '我的学习笔记', file_name: 'note.md', scope: 'user', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 2, size_bytes: 1200, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }
-    const systemSource = { id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }
+    const learnerSource = { id: 'source-user', title: '我的学习笔记', file_name: 'note.md', scope: 'user', folder_id: 'folder-my-materials', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 2, size_bytes: 1200, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }
+    const systemSource = { id: 'source-cmexam', title: 'CMExam 官方解析库', file_name: 'cmexam.md', scope: 'qbank_explanations', folder_id: 'folder-system', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 190, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }
     mockedGetKnowledgeSources.mockResolvedValueOnce([learnerSource, systemSource])
     mockedGetKnowledgeSource.mockImplementation(async (id) => ({ ...(id === learnerSource.id ? learnerSource : systemSource), preview: [] }))
+    mockedGetKnowledgeFolders.mockResolvedValueOnce([
+      { id: 'folder-system', name: '系统资料', description: '', scope: 'system', is_system: true, source_count: 1, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' },
+      { id: 'folder-my-materials', name: '我的资料', description: '', scope: 'user', is_system: false, source_count: 1, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' },
+    ])
     vi.spyOn(window, 'confirm').mockReturnValue(true)
 
     renderPage(<KnowledgePage />, ['/knowledge'])
-    expect(screen.getByRole('tab', { name: '系统资料' })).toHaveAttribute('aria-selected', 'true')
-    await user.click(screen.getByRole('tab', { name: '我的资料' }))
-    expect(await screen.findByRole('button', { name: '删除我的学习笔记' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: '删除CMExam 官方解析库' })).not.toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: '删除我的学习笔记' }))
+    expect(screen.getByRole('tab', { name: /^我的资料/ })).toHaveAttribute('aria-selected', 'true')
+    await user.click(await screen.findByRole('button', { name: '打开我的资料' }))
+    await user.click(await screen.findByRole('button', { name: /我的学习笔记/ }))
+    expect(await screen.findByRole('button', { name: '删除资料' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '删除资料' }))
     await waitFor(() => expect(mockedDeleteKnowledgeSource.mock.calls[0]?.[0]).toBe(learnerSource.id))
+  })
+
+  it('opens a root textbook with usable text and image evidence previews', async () => {
+    const user = userEvent.setup()
+    const textbook = { id: 'source-textbook', title: '《医学影像学》教学材料', file_name: 'textbook.pdf', scope: 'user', folder_id: null, status: 'ready', enabled: true, media_type: 'application/pdf', chunk_count: 2298, image_count: 252, size_bytes: 1200, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }
+    mockedGetKnowledgeSources.mockResolvedValueOnce([textbook])
+    mockedGetKnowledgeFolders.mockResolvedValueOnce([{ id: 'folder-my-materials', name: '我的资料', description: '', scope: 'user', is_system: false, source_count: 0, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }])
+    mockedGetKnowledgeSource.mockResolvedValueOnce({ ...textbook, image_index_status: 'ready', graph_status: 'ready', parse_stats: { page_count: 406, pages_with_text: 404, chunk_count: 2298, figure_count: 252, page_snapshot_count: 12, filtered_asset_count: 406, coverage: .9951 }, preview: [{ section: '影像诊断学', page: 26, text: 'CT 检查窗技术的应用。' }], media_preview: [{ asset_id: 'asset-1', url: '/api/v3/knowledge/media/asset-1', page: 26, alt_text: 'CT 检查窗技术的应用' }] })
+
+    renderPage(<KnowledgePage />, ['/knowledge'])
+    await user.click(await screen.findByRole('button', { name: '打开《医学影像学》教学材料' }))
+
+    expect(await screen.findByRole('heading', { name: '《医学影像学》教学材料' })).toBeInTheDocument()
+    expect(screen.getByText('预览 1 / 2298 个片段')).toBeInTheDocument()
+    expect(screen.getByText('预览 1 / 252 张 · 图片可用于资料搜索')).toBeInTheDocument()
+    expect(screen.getByText('切块片段')).toBeInTheDocument()
+    expect(screen.queryByText('正文页')).not.toBeInTheDocument()
+    expect(screen.queryByText('处理覆盖')).not.toBeInTheDocument()
+    expect(screen.queryByText('页面预览')).not.toBeInTheDocument()
+    expect(screen.queryByText('已过滤版式图')).not.toBeInTheDocument()
+    expect(screen.getAllByText('406').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByAltText('CT 检查窗技术的应用')).toHaveAttribute('src', '/api/v3/knowledge/media/asset-1')
+  })
+
+  it('opens the folder rename editor from the sidebar action', async () => {
+    const user = userEvent.setup()
+    const folder = { id: 'folder-my-materials', name: '我的资料', description: '', scope: 'user', is_system: false, source_count: 0, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }
+    mockedGetKnowledgeSources.mockResolvedValueOnce([])
+    mockedGetKnowledgeFolders.mockResolvedValueOnce([folder])
+    mockedUpdateKnowledgeFolder.mockResolvedValueOnce({ ...folder, name: '个人笔记' })
+
+    renderPage(<KnowledgePage />, ['/knowledge'])
+    await user.click(await screen.findByRole('button', { name: '重命名我的资料' }))
+    const input = await screen.findByRole('textbox', { name: '修改我的资料' })
+    await user.clear(input)
+    await user.type(input, '个人笔记')
+    await user.click(screen.getByRole('button', { name: '保存目录名称' }))
+
+    await waitFor(() => expect(mockedUpdateKnowledgeFolder).toHaveBeenCalledWith('folder-my-materials', { name: '个人笔记' }))
+  })
+
+  it('keeps indexed sources above work still waiting to be processed', async () => {
+    const user = userEvent.setup()
+    const source = (id: string, title: string, status: string, enabled: boolean) => ({
+      id, title, file_name: `${id}.pdf`, scope: 'user', folder_id: 'folder-clinical', status, enabled,
+      media_type: 'application/pdf', chunk_count: status === 'ready' ? 12 : 0, size_bytes: 1200,
+      created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex,
+    })
+    mockedGetKnowledgeSources.mockResolvedValueOnce([
+      source('source-queued', '待处理资料', 'queued', false),
+      source('source-ready-b', '已索引 B', 'ready', true),
+      source('source-failed', '索引失败资料', 'failed', false),
+      source('source-indexing', '正在索引资料', 'indexing', false),
+      source('source-ready-a', '已索引 A', 'ready', true),
+    ])
+    mockedGetKnowledgeFolders.mockResolvedValueOnce([{ id: 'folder-clinical', name: '临床诊疗指南', description: '', scope: 'user', is_system: false, source_count: 5, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }])
+
+    renderPage(<KnowledgePage />, ['/knowledge'])
+    await user.click(await screen.findByRole('button', { name: '打开临床诊疗指南' }))
+
+    const rows = await screen.findByRole('list')
+    expect(within(rows).getAllByRole('button').map((row) => row.querySelector('strong')?.textContent)).toEqual([
+      '已索引 A', '已索引 B', '正在索引资料', '索引失败资料', '待处理资料',
+    ])
+  })
+
+  it('uses learner-facing wording for generated question-bank explanation sources', async () => {
+    const user = userEvent.setup()
+    const qbankSource = { id: 'source-qbank', title: 'AI 算法题库 · 题目解析', file_name: 'AI 算法题库 · 题目解析.md', scope: 'qbank_explanations', folder_id: 'folder-qbank-explanations', status: 'ready', enabled: true, media_type: 'text/markdown', chunk_count: 101, size_bytes: 1000, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z', ...v32KnowledgeIndex }
+    mockedGetKnowledgeSources.mockResolvedValueOnce([qbankSource])
+    mockedGetKnowledgeFolders.mockResolvedValueOnce([{ id: 'folder-qbank-explanations', name: '题库解析', description: '', scope: 'qbank_explanations', is_system: true, source_count: 1, created_at: '2026-09-01T00:00:00Z', updated_at: '2026-09-01T00:00:00Z' }])
+    mockedGetKnowledgeSource.mockResolvedValueOnce({ ...qbankSource, preview: [] })
+
+    renderPage(<KnowledgePage />, ['/knowledge'])
+    await user.click(screen.getByRole('tab', { name: '题库解析' }))
+    await user.click(await screen.findByRole('button', { name: '打开题库解析' }))
+
+    expect(await screen.findByRole('button', { name: /AI 算法题库 · 题目解析/ })).toHaveTextContent('题目解析 · 101 个片段')
+    expect(screen.queryByText('Markdown · 101 个片段')).not.toBeInTheDocument()
   })
 
   it('uses the current review tab semantics for item icons', async () => {
@@ -700,6 +798,22 @@ describe('Stage 1 page contracts', () => {
     expect(screen.getByTestId('tutor-sources')).toHaveTextContent('test source')
   })
 
+  it('shows a retrieved knowledge image inside the collapsed Tutor sources', async () => {
+    const user = userEvent.setup()
+    mockedStreamTutor.mockImplementationOnce(async (_request, onEvent) => {
+      onEvent({ event: 'source', data: { document_name: '医学影像学教材', page: '26', section: '影像检查技术', snippet: 'CT 检查窗技术的应用。', image_urls: ['/api/v3/knowledge/media/figure-ct-window'] } })
+      onEvent({ event: 'token', data: { text: '已结合资料中的图像说明。' } })
+    })
+    renderPage(<PracticePage />, [practicePath])
+    await screen.findByTestId('practice-page')
+    await user.type(screen.getByLabelText('向智能辅导提问'), '请结合资料图片解释')
+    await user.click(screen.getByLabelText('发送给智能辅导'))
+    const sources = await screen.findByTestId('tutor-sources') as HTMLDetailsElement
+    expect(sources.open).toBe(false)
+    await user.click(screen.getByText('参考资料 1 条'))
+    expect(screen.getByAltText('医学影像学教材 · 第 26 页')).toHaveAttribute('src', '/api/v3/knowledge/media/figure-ct-window')
+  })
+
   it('creates a persistent Mentor conversation and renders real activity output', async () => {
     const user = userEvent.setup()
     renderPage(<MentorPage />, ['/mentor'])
@@ -712,6 +826,21 @@ describe('Stage 1 page contracts', () => {
     expect(screen.getByText('已读取复习队列')).toBeInTheDocument()
     expect(mockedCreateMentorConversation).toHaveBeenCalledTimes(1)
     expect(mockedStreamMentorMessage).toHaveBeenCalledWith('mentor-test', '我今天应该先复习什么？', expect.any(Function), expect.any(AbortSignal))
+  })
+
+  it('places explicitly requested Mentor evidence images in the reply with their source page', async () => {
+    const user = userEvent.setup()
+    mockedStreamMentorMessage.mockImplementationOnce(async (_id, _message, onEvent) => {
+      onEvent({ event: 'source', data: { document_name: '消化道内镜图像记录建议', page: '5', section: '结肠镜', snippet: '系统图像记录示例。', image_urls: ['/api/v3/knowledge/media/figure-colonoscopy'], show_in_chat: true } })
+      onEvent({ event: 'token', data: { text: '我找到了与问题直接相关的资料图片。' } })
+    })
+    renderPage(<MentorPage />, ['/mentor'])
+    await screen.findByTestId('mentor-page')
+    await user.type(screen.getByLabelText('向带教 Agent 提问'), '请给我相关图片')
+    await user.click(screen.getByLabelText('发送给带教 Agent'))
+    expect(await screen.findByRole('region', { name: '相关资料图片' })).toBeInTheDocument()
+    expect(screen.getByAltText('消化道内镜图像记录建议 · 第 5 页')).toHaveAttribute('src', '/api/v3/knowledge/media/figure-colonoscopy')
+    expect(screen.getByText('消化道内镜图像记录建议 · 第 5 页')).toBeInTheDocument()
   })
 
   it('offers a right-click delete action for a Mentor conversation and refreshes its history', async () => {
