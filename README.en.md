@@ -7,11 +7,11 @@
 Question banks, contextual tutoring, knowledge retrieval, and review scheduling
 work together as one learning path that remembers where the learner is.
 
-[中文 README](./README.md) | [Live Demo](https://tiban.liuaihub.com/) | [Desktop app (v3.3.1)](https://github.com/Luious-LYH/TiBan/releases/download/v3.3.1/%E9%A2%98%E4%BC%B4%20TiBan-3.3.1-x64-Portable.exe)
+[中文 README](./README.md) | [Live Demo](https://tiban.liuaihub.com/) | [Desktop app](https://github.com/Luious-LYH/TiBan/releases/download/v3.5.2/%E9%A2%98%E4%BC%B4%20TiBan-3.5.2-x64-Portable.exe)
 
 Current release: **v3.5.2** · [release notes](./docs/releases/V3.5.2.md)
 
-> Recommended: try the live Demo for the latest V3.5.2 product experience. The Windows desktop package remains v3.3.1 and is kept as a compatibility download.
+> Try the live Demo or download the V3.5.2 Windows desktop app.
 
 </div>
 
@@ -271,9 +271,9 @@ The release record is in [`docs/releases/V3.5.2.md`](./docs/releases/V3.5.2.md).
 
 ## Windows desktop app
 
-The current Windows desktop package is **v3.3.1**. For the latest features and multimodal knowledge-library experience, use the [live Demo](https://tiban.liuaihub.com/).
+The current Windows desktop package is **v3.5.2**. You can also use the [live Demo](https://tiban.liuaihub.com/).
 
-[Download the Windows portable app (v3.3.1)](https://github.com/Luious-LYH/TiBan/releases/download/v3.3.1/%E9%A2%98%E4%BC%B4%20TiBan-3.3.1-x64-Portable.exe)
+[Download the Windows portable app (v3.5.2)](https://github.com/Luious-LYH/TiBan/releases/download/v3.5.2/%E9%A2%98%E4%BC%B4%20TiBan-3.5.2-x64-Portable.exe)
 
 ## Support TiBan
 

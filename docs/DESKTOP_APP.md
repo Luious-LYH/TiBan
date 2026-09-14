@@ -56,11 +56,11 @@ npm run desktop:dist
 code\frontend\release
 ```
 
-V3.5.1 当前会生成：
+V3.5.2 当前会生成：
 
 ```text
-code\frontend\release\题伴 TiBan-3.5.1-x64-Setup.exe
-code\frontend\release\题伴 TiBan-3.5.1-x64-Portable.exe
+code\frontend\release\题伴 TiBan-3.5.2-x64-Setup.exe
+code\frontend\release\题伴 TiBan-3.5.2-x64-Portable.exe
 code\frontend\release\win-unpacked\题伴 TiBan.exe
 ```
 
@@ -92,7 +92,7 @@ npm run electron:dev
 
 Electron 版本是桌面外壳版：它会自动启动本机 FastAPI 后端，并在桌面窗口中加载构建后的前端页面。
 
-V3.5.1 桌面包会把 FastAPI 后端编译为随包携带的 `tiban-backend.exe`，目标电脑无需安装 Python、Node.js 或后端依赖，打开安装版或便携版即可启动本地学习工作台。
+V3.5.2 桌面包会把 FastAPI 后端编译为随包携带的 `tiban-backend.exe`，目标电脑无需安装 Python、Node.js 或后端依赖，打开安装版或便携版即可启动本地学习工作台。
 
 完整 Windows 发布包内置 1,500 道 CMExam 演示题。首次启动时，题库会复制到当前用户的本地数据目录并自动导入；学习记录和上传资料也保存在用户目录，不写入安装目录。CMExam 资料遵循上游 Apache 2.0 许可及其学术/研究用途说明。
 
