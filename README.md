@@ -7,7 +7,7 @@
 让题库、智能辅导、知识检索与复习调度围绕学习者持续协同，
 把每一次作答都沉淀为下一步更合适的学习行动。
 
-中文 | [English](./README.en.md) | [Demo体验](https://tiban.liuaihub.com/) | [桌面版](https://github.com/Luious-LYH/TiBan/releases/download/v3.5.2/%E9%A2%98%E4%BC%B4%20TiBan-3.5.2-x64-Portable.exe) | [赞助](#支持-tiban)🚀
+中文 | [English](./README.en.md) | [Demo体验](https://tiban.liuaihub.com/) | [桌面版](https://github.com/Luious-LYH/TiBan/releases/download/v3.5.2/TiBan-3.5.2-x64-Portable.exe) | [赞助](#支持-tiban)🚀
 
 当前发布版本：**v3.5.2** · [版本记录](./docs/releases/V3.5.2.md)
 
@@ -278,7 +278,7 @@ npm run build
 
 当前 Windows 桌面包为 **v3.5.2**，也可以直接访问[在线 Demo](https://tiban.liuaihub.com/)。
 
-[下载 Windows 便携版（v3.5.2）](https://github.com/Luious-LYH/TiBan/releases/download/v3.5.2/%E9%A2%98%E4%BC%B4%20TiBan-3.5.2-x64-Portable.exe)
+[下载 Windows 便携版（v3.5.2）](https://github.com/Luious-LYH/TiBan/releases/download/v3.5.2/TiBan-3.5.2-x64-Portable.exe)
 
 ## 支持 TiBan
 
